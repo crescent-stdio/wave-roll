@@ -1,0 +1,35 @@
+{
+  "name": "wave-roll",
+  "version": "0.1.0",
+  "description": "",
+  "main": "dist/wave-roll.umd.js",
+  "module": "dist/wave-roll.es.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "watch": "vite build --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crescent-stdio/wave-roll.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/crescent-stdio/wave-roll/issues"
+  },
+  "homepage": "https://github.com/crescent-stdio/wave-roll#readme",
+  "devDependencies": {
+    "@types/node": "^24.0.3",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
+  }
+}
