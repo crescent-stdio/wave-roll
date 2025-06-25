@@ -2,62 +2,62 @@ name: Build and Test
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    # Step 1: Checkout the repository code
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    # Step 2: Setup Node.js with specific version
-    - name: Setup Node.js 24.1.0
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24.1.0'
-        
-    # Step 3: Setup pnpm package manager
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 8
-        
-    # Step 4: Get pnpm store directory for caching
-    - name: Get pnpm store directory
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-        
-    # Step 5: Cache pnpm dependencies
-    - name: Setup pnpm cache
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
-          
-    # Step 6: Install project dependencies
-    - name: Install dependencies
-      run: pnpm install --frozen-lockfile
-      
-    # Step 7: Run TypeScript type checking
-    - name: Type check
-      run: pnpm exec tsc --noEmit
-      
-    # Step 8: Build the project
-    - name: Build project
-      run: pnpm run build
-      
-    # Step 9: Upload build artifacts (optional)
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-files
-        path: dist/
-        retention-days: 7
+      # Step 1: Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Node.js with specific version
+      - name: Setup Node.js 24.1.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.1.0"
+
+      # Step 3: Setup pnpm package manager
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      # Step 4: Get pnpm store directory for caching
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      # Step 5: Cache pnpm dependencies
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # Step 6: Install project dependencies
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Step 7: Run TypeScript type checking
+      - name: Type check
+        run: pnpm exec tsc --noEmit
+
+      # Step 8: Build the project
+      - name: Build project
+        run: pnpm run build
+
+      # Step 9: Upload build artifacts (optional)
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: dist/
+          retention-days: 7
