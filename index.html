@@ -1,121 +1,630 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wave Roll Library - Development</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>WaveRoll - MIDI Parser & Player Demo</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .demo-section {
-            background: white;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .output {
-            background: #f0f0f0;
-            padding: 10px;
-            border-left: 4px solid #007acc;
-            margin: 10px 0;
-            font-family: monospace;
-        }
-        button {
-            background: #007acc;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        button:hover {
-            background: #005999;
-        }
-        input {
-            padding: 8px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .demo-section {
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .output {
+        background: #f8f9fa;
+        padding: 15px;
+        border-left: 4px solid #007acc;
+        margin: 10px 0;
+        font-family: "Courier New", monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .error {
+        background: #fff5f5;
+        border-left-color: #e53e3e;
+        color: #e53e3e;
+      }
+      .success {
+        background: #f0fff4;
+        border-left-color: #38a169;
+        color: #38a169;
+      }
+      button {
+        background: #007acc;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background: #005999;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      input[type="text"],
+      input[type="file"] {
+        padding: 8px;
+        margin: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 300px;
+      }
+      .loading {
+        color: #007acc;
+        font-style: italic;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin: 10px 0;
+      }
+      .stat-item {
+        background: #e8f4f8;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .stat-label {
+        font-weight: bold;
+        color: #005999;
+      }
+      .player-container {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border: 2px dashed #007acc;
+        min-height: 100px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .player-container.has-player {
+        border-style: solid;
+        background: white;
+      }
+      .wave-roll-player {
+        width: 100%;
+        margin-bottom: 10px;
+      }
+      .wave-roll-player-visualizer {
+        width: 100%;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .license-info {
+        background: #f0f8ff;
+        border: 1px solid #b8daff;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 10px 0;
+        font-size: 12px;
+      }
+      .tabs {
+        display: flex;
+        margin-bottom: 20px;
+      }
+      .tab {
+        padding: 10px 20px;
+        background: #e9ecef;
+        border: none;
+        cursor: pointer;
+        margin-right: 5px;
+        border-radius: 4px 4px 0 0;
+      }
+      .tab.active {
+        background: #007acc;
+        color: white;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
     </style>
-</head>
-<body>
-    <h1>🌊 Wave Roll Library - Live Development</h1>
-    <p>This page demonstrates hot module reloading. Changes to your library will appear instantly!</p>
-    
-    <div class="demo-section">
-        <h2>Greeting Function Demo</h2>
-        <input type="text" id="nameInput" placeholder="Enter your name" value="World">
-        <button onclick="updateGreeting()">Update Greeting</button>
-        <div class="output" id="greetingOutput"></div>
+  </head>
+  <body>
+    <h1>🌊 WaveRoll - MIDI Parser & Player Demo</h1>
+    <p>
+      This demo showcases the complete WaveRoll library: MIDI parsing, data
+      extraction, and interactive playback with piano-roll visualization.
+    </p>
+
+    <div class="license-info">
+      <strong>📄 License Information:</strong><br />
+      • <strong>@tonejs/midi</strong> - MIT License<br />
+      • <strong>html-midi-player</strong> - BSD-2-Clause License (Copyright
+      notice retained in distribution)
     </div>
 
     <div class="demo-section">
-        <h2>Add Function Demo</h2>
-        <input type="number" id="num1" placeholder="First number" value="5">
-        <input type="number" id="num2" placeholder="Second number" value="3">
-        <button onclick="updateSum()">Calculate Sum</button>
-        <div class="output" id="sumOutput"></div>
+      <h2>📁 Load MIDI File</h2>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('file')">
+          File Upload
+        </button>
+        <button class="tab" onclick="switchTab('url')">URL</button>
+      </div>
+
+      <div id="file-tab" class="tab-content active">
+        <input type="file" id="fileInput" accept=".mid,.midi" />
+        <button onclick="loadFromFile()" id="fileLoadBtn">
+          Load & Parse MIDI File
+        </button>
+      </div>
+
+      <div id="url-tab" class="tab-content">
+        <input
+          type="text"
+          id="urlInput"
+          placeholder="Enter MIDI file URL"
+          value=""
+        />
+        <button onclick="loadFromUrl()" id="urlLoadBtn">Load from URL</button>
+      </div>
+
+      <div class="output" id="loadOutput">
+        Select a MIDI file or enter a URL to get started...
+      </div>
     </div>
 
     <div class="demo-section">
-        <h2>Library Info</h2>
-        <div class="output" id="libraryInfo"></div>
+      <h2>🎹 Interactive MIDI Player</h2>
+      <p>
+        Piano-roll visualization with playback controls (powered by
+        html-midi-player)
+      </p>
+      <div class="player-container" id="playerContainer">
+        <div>Load a MIDI file above to see the interactive player here</div>
+      </div>
+      <button onclick="createPlayer()" id="createPlayerBtn" disabled>
+        Create Player
+      </button>
+      <button onclick="clearPlayer()" id="clearPlayerBtn" disabled>
+        Clear Player
+      </button>
     </div>
 
-    <script type="module" src="/src/index.ts"></script>
-    <script type="module">
-        import { greet, add } from '/src/index.ts';
+    <div class="demo-section">
+      <h2>📊 Parsed Data Summary</h2>
+      <div class="stats" id="statsContainer">
+        <div class="stat-item">
+          <div class="stat-label">Status</div>
+          <div id="statusValue">No file loaded yet</div>
+        </div>
+      </div>
+    </div>
 
-        // Make functions globally available
-        window.greet = greet;
-        window.add = add;
+    <div class="demo-section">
+      <h2>🎵 Sample Notes Data</h2>
+      <div class="output" id="notesOutput">
+        Load a MIDI file to see note data...
+      </div>
+    </div>
 
-        // Initialize demo
-        function init() {
-            updateGreeting();
-            updateSum();
-            updateLibraryInfo();
-        }
+    <script>
+      // Intercept fetch to track JSON parsing errors
+      (function () {
+        const originalFetch = window.fetch;
+        window.fetch = function (...args) {
+          const url = args[0];
+          // console.log("🔍 Fetch request:", url);
 
-        window.updateGreeting = function() {
-            const name = document.getElementById('nameInput').value;
-            const result = greet(name);
-            document.getElementById('greetingOutput').textContent = result;
-        }
+          return originalFetch
+            .apply(this, args)
+            .then((response) => {
+              // console.log(`📥 Fetch response for ${url}:`, {
+              //   status: response.status,
+              //   statusText: response.statusText,
+              //   headers: Object.fromEntries(response.headers.entries()),
+              //   url: response.url,
+              // });
 
-        window.updateSum = function() {
-            const num1 = parseFloat(document.getElementById('num1').value) || 0;
-            const num2 = parseFloat(document.getElementById('num2').value) || 0;
-            const result = add(num1, num2);
-            document.getElementById('sumOutput').textContent = `${num1} + ${num2} = ${result}`;
-        }
+              // Clone the response to read it without consuming
+              const clonedResponse = response.clone();
 
-        function updateLibraryInfo() {
-            const info = `Available functions: greet, add\nHMR Status: ${import.meta.hot ? '✅ Active' : '❌ Not Available'}`;
-            document.getElementById('libraryInfo').textContent = info;
-        }
+              // Check if it's a JSON response that might fail
+              const contentType = response.headers.get("content-type");
+              if (
+                response.ok &&
+                contentType &&
+                (contentType.includes("json") ||
+                  contentType.includes("javascript"))
+              ) {
+                clonedResponse.text().then((text) => {
+                  try {
+                    JSON.parse(text);
+                  } catch (e) {
+                    console.error(`❌ JSON parse error for ${url}:`, e);
+                    console.error(
+                      "Response text preview:",
+                      text.substring(0, 200)
+                    );
+                  }
+                });
+              }
 
-        // Hot Module Replacement
-        if (import.meta.hot) {
-            import.meta.hot.accept('/src/index.ts', (newModule) => {
-                console.log('🔥 Hot reloaded!');
-                window.greet = newModule.greet;
-                window.add = newModule.add;
-                updateGreeting();
-                updateSum();
-                updateLibraryInfo();
+              return response;
+            })
+            .catch((error) => {
+              console.error(`❌ Fetch error for ${url}:`, error);
+              throw error;
             });
+        };
+      })();
+    </script>
+
+    <script type="module">
+      import {
+        parseMidi,
+        createMidiPlayer,
+        loadPlayerComponents,
+        isPlayerAvailable,
+        arrayBufferToDataUrl,
+        debugPlayerState,
+      } from "/src/index.ts";
+
+      let currentParsedData = null;
+      let currentArrayBuffer = null;
+
+      // Initialize player components
+      async function initializePlayer() {
+        try {
+          console.log("🔄 Loading MIDI player components...");
+          await loadPlayerComponents();
+          console.log("✅ MIDI player components loaded");
+
+          // Add user interaction prompt
+          const playerContainer = document.getElementById("playerContainer");
+          if (
+            playerContainer &&
+            !playerContainer.classList.contains("has-player")
+          ) {
+            playerContainer.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #666;">
+                            <p>📼 Load a MIDI file above to see the interactive player here</p>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          console.error("❌ Failed to load player components:", error);
+          const playerContainer = document.getElementById("playerContainer");
+          if (playerContainer) {
+            playerContainer.innerHTML = `
+                        <div style="text-align: center; padding: 20px; color: #e53e3e;">
+                            ❌ Player components failed to load: ${error.message}
+                        </div>
+                    `;
+          }
+        }
+      }
+
+      // Tab switching
+      window.switchTab = function (tabName) {
+        // Update tab buttons
+        document
+          .querySelectorAll(".tab")
+          .forEach((tab) => tab.classList.remove("active"));
+        document
+          .querySelector(`button[onclick="switchTab('${tabName}')"]`)
+          .classList.add("active");
+
+        // Update tab content
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((content) => content.classList.remove("active"));
+        document.getElementById(`${tabName}-tab`).classList.add("active");
+      };
+
+      // Load MIDI from file
+      window.loadFromFile = async function () {
+        const fileInput = document.getElementById("fileInput");
+        const output = document.getElementById("loadOutput");
+        const btn = document.getElementById("fileLoadBtn");
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+          output.textContent = "Please select a file first.";
+          output.className = "output error";
+          return;
         }
 
-        init();
+        const file = fileInput.files[0];
+        await processFile(file, output, btn);
+      };
+
+      // Load MIDI from URL
+      window.loadFromUrl = async function () {
+        const urlInput = document.getElementById("urlInput");
+        const output = document.getElementById("loadOutput");
+        const btn = document.getElementById("urlLoadBtn");
+
+        const url = urlInput.value.trim();
+        if (!url) {
+          output.textContent = "Please enter a URL first.";
+          output.className = "output error";
+          return;
+        }
+
+        await processFile(url, output, btn);
+      };
+
+      // Process MIDI file (common logic)
+      async function processFile(input, output, btn) {
+        btn.disabled = true;
+        output.textContent = "Loading and parsing MIDI file...";
+        output.className = "output loading";
+
+        try {
+          // Parse the MIDI file (this already loads the data internally)
+          const result = await parseMidi(input);
+          currentParsedData = result;
+
+          // Get the raw ArrayBuffer for the player
+          // We need to reload the data since parseMidi doesn't return the raw ArrayBuffer
+          if (typeof input === "string") {
+            try {
+              const response = await fetch(input);
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to fetch: ${response.status} ${response.statusText}`
+                );
+              }
+              currentArrayBuffer = await response.arrayBuffer();
+            } catch (fetchError) {
+              console.warn("Failed to fetch raw data for player:", fetchError);
+              // If we can't fetch for the player, we can still show the parsed data
+              currentArrayBuffer = null;
+            }
+          } else {
+            // For File objects, read as ArrayBuffer
+            try {
+              currentArrayBuffer = await input.arrayBuffer();
+            } catch (readError) {
+              console.warn(
+                "Failed to read file as ArrayBuffer for player:",
+                readError
+              );
+              currentArrayBuffer = null;
+            }
+          }
+
+          // Update UI
+          output.textContent = "✅ MIDI file loaded and parsed successfully!";
+          output.className = "output success";
+
+          updateStats(result);
+          displaySampleNotes(result);
+
+          // Enable player creation only if we have the raw data
+          const createPlayerBtn = document.getElementById("createPlayerBtn");
+          const container = document.getElementById("playerContainer");
+          const existingPlayer = container.querySelector("midi-player");
+
+          if (currentArrayBuffer) {
+            createPlayerBtn.disabled = false;
+            createPlayerBtn.textContent = existingPlayer
+              ? "🔄 Update Player"
+              : "🎵 Create Interactive Player";
+          } else {
+            createPlayerBtn.disabled = true;
+            createPlayerBtn.textContent = "❌ Player unavailable (no raw data)";
+          }
+        } catch (error) {
+          output.textContent = `❌ Error: ${error.message}`;
+          output.className = "output error";
+          currentParsedData = null;
+          currentArrayBuffer = null;
+          document.getElementById("createPlayerBtn").disabled = true;
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      // Create MIDI player
+      window.createPlayer = async function () {
+        if (!currentArrayBuffer) {
+          alert("Please load a MIDI file first");
+          return;
+        }
+
+        const container = document.getElementById("playerContainer");
+        const btn = document.getElementById("createPlayerBtn");
+
+        btn.disabled = true;
+
+        // Check if player already exists to show appropriate message
+        const existingPlayer = container.querySelector("midi-player");
+        if (existingPlayer) {
+          container.innerHTML =
+            "<div>🔄 Updating player with new MIDI...</div>";
+        } else {
+          container.innerHTML = "<div>🎵 Creating player...</div>";
+        }
+
+        try {
+          await createMidiPlayer(container, currentArrayBuffer, {
+            showVisualizer: true,
+            soundFont: true,
+            height: "300px",
+          });
+
+          container.classList.add("has-player");
+          document.getElementById("clearPlayerBtn").disabled = false;
+
+          // Only add notice and debug button if they don't exist (avoid duplicates)
+          if (!container.querySelector(".user-notice")) {
+            // Add user interaction notice
+            const notice = document.createElement("div");
+            notice.className = "user-notice";
+            notice.style.cssText =
+              "text-align: center; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 10px; font-size: 14px; color: #0369a1;";
+            notice.innerHTML =
+              "🎧 Click the play button to start audio playback";
+            container.insertBefore(notice, container.firstChild);
+          }
+
+          // Add debug information
+          const debugInfo = debugPlayerState(container);
+          console.log("🔍 Player debug info:", debugInfo);
+
+          // Only add debug button if it doesn't exist
+          if (!container.querySelector(".debug-btn")) {
+            const debugBtn = document.createElement("button");
+            debugBtn.className = "debug-btn";
+            debugBtn.textContent = "🔍 Debug Player State";
+            debugBtn.style.cssText =
+              "margin: 5px; background: #6b7280; font-size: 12px; padding: 5px 10px;";
+            debugBtn.onclick = () => {
+              const state = debugPlayerState(container);
+              console.table(state);
+              alert(`Debug Info:\n${JSON.stringify(state, null, 2)}`);
+            };
+            container.appendChild(debugBtn);
+          }
+
+          // Update button text to reflect what happened
+          btn.textContent = existingPlayer
+            ? "🔄 Update Player"
+            : "🎵 Create Interactive Player";
+        } catch (error) {
+          container.innerHTML = `<div style="color: #e53e3e;">❌ Failed to create player: ${error.message}</div>`;
+          console.error("Player creation error:", error);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // Clear player
+      window.clearPlayer = function () {
+        const container = document.getElementById("playerContainer");
+        container.innerHTML =
+          "<div>Load a MIDI file above to see the interactive player here</div>";
+        container.classList.remove("has-player");
+        document.getElementById("clearPlayerBtn").disabled = true;
+        if (currentArrayBuffer) {
+          document.getElementById("createPlayerBtn").disabled = false;
+        }
+      };
+
+      function updateStats(data) {
+        const container = document.getElementById("statsContainer");
+        container.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-label">Status</div>
+                    <div>✅ Successfully loaded</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Song Name</div>
+                    <div>${data.header.name}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Duration</div>
+                    <div>${data.duration.toFixed(2)} seconds</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Track Name</div>
+                    <div>${data.track.name}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">MIDI Channel</div>
+                    <div>${data.track.channel}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Total Notes</div>
+                    <div>${data.notes.length}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">PPQ</div>
+                    <div>${data.header.PPQ}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Tempo Events</div>
+                    <div>${data.header.tempos.length}</div>
+                </div>
+            `;
+      }
+
+      function displaySampleNotes(data) {
+        const output = document.getElementById("notesOutput");
+        const sampleSize = Math.min(10, data.notes.length);
+        const sampleNotes = data.notes.slice(0, sampleSize);
+
+        let noteText = `Showing first ${sampleSize} of ${data.notes.length} notes:\n\n`;
+        sampleNotes.forEach((note, index) => {
+          noteText += `${index + 1}. ${note.name} (MIDI ${note.midi})\n`;
+          noteText += `   Time: ${note.time.toFixed(3)}s, Duration: ${note.duration.toFixed(3)}s\n`;
+          noteText += `   Velocity: ${note.velocity.toFixed(3)}, Pitch: ${note.pitch}, Octave: ${note.octave}\n\n`;
+        });
+
+        output.textContent = noteText;
+        output.className = "output";
+      }
+
+      // Add global error handler to catch JSON parsing errors
+      window.addEventListener("error", function (event) {
+        console.error("🚨 Global error detected:", {
+          message: event.error?.message || event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          stack: event.error?.stack,
+          error: event.error,
+        });
+
+        if (
+          event.error &&
+          event.error.message &&
+          event.error.message.includes("Unexpected token")
+        ) {
+          console.error(
+            "🚨 JSON parsing error detected - this usually means a resource returned HTML instead of expected JSON/JS"
+          );
+        }
+      });
+
+      window.addEventListener("unhandledrejection", function (event) {
+        console.error("🚨 Unhandled promise rejection:", {
+          reason: event.reason,
+          promise: event.promise,
+        });
+
+        if (
+          event.reason &&
+          event.reason.message &&
+          event.reason.message.includes("Unexpected token")
+        ) {
+          console.error(
+            "🚨 JSON parsing error in promise - check network tab for failed requests"
+          );
+        }
+      });
+
+      // Initialize with delay to avoid conflicts
+      setTimeout(() => {
+        console.log("🌊 WaveRoll Demo initialized");
+        console.log("Player components available:", isPlayerAvailable());
+
+        // Load player components
+        initializePlayer();
+      }, 100);
     </script>
-</body>
+  </body>
 </html>

@@ -31,5 +31,10 @@
     "@types/node": "^24.0.3",
     "typescript": "^5.8.3",
     "vite": "^7.0.0"
+  },
+  "dependencies": {
+    "@magenta/music": "^1.23.1",
+    "@tonejs/midi": "^2.0.28",
+    "html-midi-player": "^1.5.0"
   }
 }
