@@ -1,12 +1,93 @@
-export function greet(name: string): string {
-  return `Hello, ${name}!`;
-}
+/**
+ * Wave Roll - A TypeScript library for parsing MIDI files
+ *
+ * This library provides functionality to parse MIDI files from URLs or File objects
+ * and extract musical data in the Tone.js format, focusing on piano tracks.
+ *
+ * @packageDocumentation
+ */
 
-export function add(a: number, b: number): number {
-  return a + b;
-}
+// Import and export the main parsing function
+import { parseMidi } from "./midi-parser";
+export { parseMidi };
 
-export default {
-  greet,
-  add
-};
+// Export all type definitions
+export type {
+  ParsedMidi,
+  MidiInput,
+  NoteData,
+  TrackData,
+  MidiHeader,
+  TempoEvent,
+  TimeSignatureEvent,
+} from "./types";
+
+// Export utility functions that might be useful
+export {
+  /**
+   * Converts MIDI note number to scientific pitch notation
+   * @param midi - MIDI note number (0-127)
+   * @returns Scientific pitch notation (e.g., "C4", "A#3")
+   */
+  midiToNoteName,
+
+  /**
+   * Extracts the pitch class from a MIDI note number
+   * @param midi - MIDI note number (0-127)
+   * @returns Pitch class (e.g., "C", "A#")
+   */
+  midiToPitchClass,
+
+  /**
+   * Extracts the octave number from a MIDI note number
+   * @param midi - MIDI note number (0-127)
+   * @returns Octave number
+   */
+  midiToOctave,
+} from "./utils";
+
+// Export MIDI player functionality
+export {
+  /**
+   * Creates a MIDI player with piano-roll visualization
+   */
+  createMidiPlayer,
+  
+  /**
+   * Converts ArrayBuffer to base64 data URL for MIDI data
+   */
+  arrayBufferToDataUrl,
+  
+  /**
+   * Converts ArrayBuffer to Blob URL for MIDI data (more efficient)
+   */
+  arrayBufferToBlobUrl,
+  
+  /**
+   * Cleans up cached blob URLs to prevent memory leaks
+   */
+  cleanupBlobUrls,
+  
+  /**
+   * Loads html-midi-player Web Components
+   */
+  loadPlayerComponents,
+  
+  /**
+   * Checks if player components are available
+   */
+  isPlayerAvailable,
+  
+  /**
+   * Debug function to check player state
+   */
+  debugPlayerState
+} from "./player";
+
+// Export player types
+export type { MidiPlayerOptions } from "./player";
+
+/**
+ * Default export of the main parsing function for convenience
+ */
+export default { parseMidi };
