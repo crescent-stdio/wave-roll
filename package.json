@@ -35,6 +35,8 @@
   "dependencies": {
     "@magenta/music": "^1.23.1",
     "@tonejs/midi": "^2.0.28",
-    "html-midi-player": "^1.5.0"
+    "d3-scale": "^4.0.2",
+    "html-midi-player": "^1.5.0",
+    "pixi.js": "^8.10.2"
   }
 }

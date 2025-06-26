@@ -87,6 +87,22 @@ export {
 // Export player types
 export type { MidiPlayerOptions } from "./player";
 
+// Export piano roll visualizer
+export {
+  /**
+   * Creates a PixiJS-based piano roll visualizer
+   */
+  createPianoRoll,
+  
+  /**
+   * Piano roll class for advanced usage
+   */
+  PianoRoll
+} from "./piano-roll";
+
+// Export piano roll types
+export type { PianoRollOptions } from "./piano-roll";
+
 /**
  * Default export of the main parsing function for convenience
  */

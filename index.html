@@ -152,7 +152,9 @@
       <strong>📄 License Information:</strong><br />
       • <strong>@tonejs/midi</strong> - MIT License<br />
       • <strong>html-midi-player</strong> - BSD-2-Clause License (Copyright
-      notice retained in distribution)
+      notice retained in distribution)<br />
+      • <strong>pixi.js</strong> - MIT License<br />
+      • <strong>d3-scale</strong> - ISC License
     </div>
 
     <div class="demo-section">
@@ -201,6 +203,30 @@
       <button onclick="clearPlayer()" id="clearPlayerBtn" disabled>
         Clear Player
       </button>
+    </div>
+
+    <div class="demo-section">
+      <h2>🎨 PixiJS Piano Roll Visualizer</h2>
+      <p>
+        High-performance canvas-based piano roll with zoom, pan, and playback synchronization
+      </p>
+      <div class="player-container" id="pianoRollContainer" style="height: 400px;">
+        <div>Load a MIDI file above to see the PixiJS piano roll here</div>
+      </div>
+      <div style="margin: 10px 0;">
+        <button onclick="createPianoRollPlayer()" id="createPianoRollBtn" disabled>
+          Create PixiJS Piano Roll
+        </button>
+        <button onclick="clearPianoRoll()" id="clearPianoRollBtn" disabled>
+          Clear Piano Roll
+        </button>
+        <button onclick="resetPianoRollView()" id="resetViewBtn" disabled>
+          Reset View
+        </button>
+      </div>
+      <div style="margin: 10px 0; font-size: 12px; color: #666;">
+        <strong>Controls:</strong> Mouse wheel = zoom time, Ctrl+wheel = zoom pitch, Drag = pan
+      </div>
     </div>
 
     <div class="demo-section">
@@ -280,10 +306,12 @@
         isPlayerAvailable,
         arrayBufferToDataUrl,
         debugPlayerState,
+        createPianoRoll,
       } from "/src/index.ts";
 
       let currentParsedData = null;
       let currentArrayBuffer = null;
+      let pianoRollInstance = null;
 
       // Initialize player components
       async function initializePlayer() {
@@ -427,6 +455,18 @@
             createPlayerBtn.disabled = true;
             createPlayerBtn.textContent = "❌ Player unavailable (no raw data)";
           }
+
+          // Enable piano roll creation if we have parsed data
+          const createPianoRollBtn = document.getElementById("createPianoRollBtn");
+          if (currentParsedData) {
+            createPianoRollBtn.disabled = false;
+            createPianoRollBtn.textContent = pianoRollInstance
+              ? "🔄 Update Piano Roll"
+              : "🎨 Create PixiJS Piano Roll";
+          } else {
+            createPianoRollBtn.disabled = true;
+            createPianoRollBtn.textContent = "❌ Piano Roll unavailable";
+          }
         } catch (error) {
           output.textContent = `❌ Error: ${error.message}`;
           output.className = "output error";
@@ -521,6 +561,76 @@
         document.getElementById("clearPlayerBtn").disabled = true;
         if (currentArrayBuffer) {
           document.getElementById("createPlayerBtn").disabled = false;
+        }
+      };
+
+      // Create PixiJS Piano Roll
+      window.createPianoRollPlayer = async function () {
+        if (!currentParsedData) {
+          alert("Please load a MIDI file first");
+          return;
+        }
+
+        const container = document.getElementById("pianoRollContainer");
+        const btn = document.getElementById("createPianoRollBtn");
+
+        btn.disabled = true;
+
+        try {
+          if (pianoRollInstance) {
+            console.log("🔄 Updating existing piano roll with new data");
+            pianoRollInstance.setNotes(currentParsedData.notes);
+          } else {
+            console.log("🎨 Creating new PixiJS piano roll");
+            
+            pianoRollInstance = await createPianoRoll(container, currentParsedData.notes, {
+              width: container.clientWidth || 800,
+              height: 350,
+              backgroundColor: 0xffffff,
+              noteColor: 0x4285f4,
+              playheadColor: 0xff4444,
+              showPianoKeys: true,
+              noteRange: { min: 21, max: 108 }
+            });
+          }
+
+          container.classList.add("has-player");
+          document.getElementById("clearPianoRollBtn").disabled = false;
+          document.getElementById("resetViewBtn").disabled = false;
+
+          btn.textContent = "🔄 Update Piano Roll";
+        } catch (error) {
+          container.innerHTML = `<div style="color: #e53e3e;">❌ Failed to create piano roll: ${error.message}</div>`;
+          console.error("Piano roll creation error:", error);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // Clear piano roll
+      window.clearPianoRoll = function () {
+        if (pianoRollInstance) {
+          pianoRollInstance.destroy();
+          pianoRollInstance = null;
+        }
+        
+        const container = document.getElementById("pianoRollContainer");
+        container.innerHTML =
+          "<div>Load a MIDI file above to see the PixiJS piano roll here</div>";
+        container.classList.remove("has-player");
+        document.getElementById("clearPianoRollBtn").disabled = true;
+        document.getElementById("resetViewBtn").disabled = true;
+        
+        if (currentParsedData) {
+          document.getElementById("createPianoRollBtn").disabled = false;
+          document.getElementById("createPianoRollBtn").textContent = "🎨 Create PixiJS Piano Roll";
+        }
+      };
+
+      // Reset piano roll view
+      window.resetPianoRollView = function () {
+        if (pianoRollInstance) {
+          pianoRollInstance.resetView();
         }
       };
 
