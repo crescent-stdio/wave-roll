@@ -37,6 +37,7 @@
     "@tonejs/midi": "^2.0.28",
     "d3-scale": "^4.0.2",
     "html-midi-player": "^1.5.0",
-    "pixi.js": "^8.10.2"
+    "pixi.js": "^8.10.2",
+    "tone": "^15.1.22"
   }
 }

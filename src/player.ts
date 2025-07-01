@@ -88,23 +88,23 @@ export function arrayBufferToBlobUrl(arrayBuffer: ArrayBuffer): string {
 
   // Create a hash key from the ArrayBuffer for caching
   const uint8Array = new Uint8Array(arrayBuffer);
-  const hashKey = Array.from(uint8Array.slice(0, 32)).join(','); // Use first 32 bytes as hash
-  
+  const hashKey = Array.from(uint8Array.slice(0, 32)).join(","); // Use first 32 bytes as hash
+
   // Check cache first
   if (blobUrlCache.has(hashKey)) {
-    console.log("♻️ Reusing cached blob URL for MIDI data");
+    console.log("Reusing cached blob URL for MIDI data");
     return blobUrlCache.get(hashKey)!;
   }
 
   // Create new blob URL
-  const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
+  const blob = new Blob([arrayBuffer], { type: "audio/midi" });
   const blobUrl = URL.createObjectURL(blob);
-  
+
   // Cache the blob URL
   blobUrlCache.set(hashKey, blobUrl);
   createdBlobUrls.add(blobUrl);
-  
-  console.log("🆕 Created new blob URL for MIDI data");
+
+  console.log("Created new blob URL for MIDI data");
   return blobUrl;
 }
 
@@ -231,36 +231,33 @@ export async function createMidiPlayer(
 
     // Convert to Blob URL (more efficient than data URL)
     const blobUrl = arrayBufferToBlobUrl(arrayBuffer);
-    console.log(
-      "Using Blob URL for MIDI player:",
-      blobUrl
-    );
+    console.log("Using Blob URL for MIDI player:", blobUrl);
 
     // Check if player already exists - REUSE instead of recreating
     let player = container.querySelector("midi-player") as any;
     let visualizer = container.querySelector("midi-visualizer") as any;
-    
+
     if (player && visualizer) {
-      console.log("♻️ Reusing existing player and visualizer elements");
-      
+      console.log("Reusing existing player and visualizer elements");
+
       // Stop current playback before updating
-      if (player.stop && typeof player.stop === 'function') {
+      if (player.stop && typeof player.stop === "function") {
         player.stop();
       }
-      
+
       // Update src attributes on existing elements (no soundfont re-download)
       player.setAttribute("src", blobUrl);
       visualizer.setAttribute("src", blobUrl);
-      
+
       // Brief delay for data update
       await new Promise((resolve) => setTimeout(resolve, 200));
-      
-      console.log("✅ Player and visualizer updated with new MIDI data");
+
+      console.log("Player and visualizer updated with new MIDI data");
       return;
     }
 
     // Only create new elements if they don't exist
-    console.log("🆕 Creating new player and visualizer elements");
+    console.log("Creating new player and visualizer elements");
 
     // Clear container only if creating new elements
     container.innerHTML = "";
@@ -348,9 +345,9 @@ export async function createMidiPlayer(
       );
 
       if (playerElement && visualizerElement) {
-        console.log("✅ Player and visualizer successfully created and linked");
+        console.log("Player and visualizer successfully created and linked");
       } else {
-        console.warn("❌ Player or visualizer element not found in DOM");
+        console.warn("Player or visualizer element not found in DOM");
       }
     }
   } catch (error) {
@@ -406,7 +403,7 @@ export function cleanupBlobUrls(): void {
   }
   createdBlobUrls.clear();
   blobUrlCache.clear();
-  console.log("🧹 Cleaned up cached blob URLs");
+  console.log("Cleaned up cached blob URLs");
 }
 
 /**

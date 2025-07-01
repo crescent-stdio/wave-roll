@@ -142,23 +142,24 @@
     </style>
   </head>
   <body>
-    <h1>🌊 WaveRoll - MIDI Parser & Player Demo</h1>
+    <h1>WaveRoll - MIDI Parser & Player Demo</h1>
     <p>
       This demo showcases the complete WaveRoll library: MIDI parsing, data
       extraction, and interactive playback with piano-roll visualization.
     </p>
 
     <div class="license-info">
-      <strong>📄 License Information:</strong><br />
+      <strong>License Information:</strong><br />
       • <strong>@tonejs/midi</strong> - MIT License<br />
       • <strong>html-midi-player</strong> - BSD-2-Clause License (Copyright
       notice retained in distribution)<br />
       • <strong>pixi.js</strong> - MIT License<br />
-      • <strong>d3-scale</strong> - ISC License
+      • <strong>d3-scale</strong> - ISC License<br />
+      • <strong>tone</strong> - MIT License
     </div>
 
     <div class="demo-section">
-      <h2>📁 Load MIDI File</h2>
+      <h2>Load MIDI File</h2>
       <div class="tabs">
         <button class="tab active" onclick="switchTab('file')">
           File Upload
@@ -189,7 +190,34 @@
     </div>
 
     <div class="demo-section">
-      <h2>🎹 Interactive MIDI Player</h2>
+      <h2>Synchronized Audio Player + Piano Roll</h2>
+      <p>
+        Complete audio playback with synchronized PixiJS piano roll visualizer
+        (powered by Tone.js)
+      </p>
+      <div
+        class="player-container"
+        id="syncPlayerContainer"
+        style="height: 500px"
+      >
+        <div>Load a MIDI file above to see the synchronized player here</div>
+      </div>
+      <div style="margin: 10px 0">
+        <button onclick="createSyncPlayer()" id="createSyncPlayerBtn" disabled>
+          Create Synchronized Player
+        </button>
+        <button onclick="clearSyncPlayer()" id="clearSyncPlayerBtn" disabled>
+          Clear Synchronized Player
+        </button>
+      </div>
+      <div style="margin: 10px 0; font-size: 12px; color: #666">
+        <strong>Features:</strong> Audio playback, visual sync ≤16ms drift,
+        play/pause/restart/repeat, volume/tempo controls
+      </div>
+    </div>
+
+    <div class="demo-section">
+      <h2>Interactive MIDI Player</h2>
       <p>
         Piano-roll visualization with playback controls (powered by
         html-midi-player)
@@ -206,15 +234,24 @@
     </div>
 
     <div class="demo-section">
-      <h2>🎨 PixiJS Piano Roll Visualizer</h2>
+      <h2>PixiJS Piano Roll Visualizer</h2>
       <p>
-        High-performance canvas-based piano roll with zoom, pan, and playback synchronization
+        High-performance canvas-based piano roll with zoom, pan, and playback
+        synchronization
       </p>
-      <div class="player-container" id="pianoRollContainer" style="height: 400px;">
+      <div
+        class="player-container"
+        id="pianoRollContainer"
+        style="height: 400px"
+      >
         <div>Load a MIDI file above to see the PixiJS piano roll here</div>
       </div>
-      <div style="margin: 10px 0;">
-        <button onclick="createPianoRollPlayer()" id="createPianoRollBtn" disabled>
+      <div style="margin: 10px 0">
+        <button
+          onclick="createPianoRollPlayer()"
+          id="createPianoRollBtn"
+          disabled
+        >
           Create PixiJS Piano Roll
         </button>
         <button onclick="clearPianoRoll()" id="clearPianoRollBtn" disabled>
@@ -224,13 +261,14 @@
           Reset View
         </button>
       </div>
-      <div style="margin: 10px 0; font-size: 12px; color: #666;">
-        <strong>Controls:</strong> Mouse wheel = zoom time, Ctrl+wheel = zoom pitch, Drag = pan
+      <div style="margin: 10px 0; font-size: 12px; color: #666">
+        <strong>Controls:</strong> Mouse wheel = zoom time, Ctrl+wheel = zoom
+        pitch, Drag = pan
       </div>
     </div>
 
     <div class="demo-section">
-      <h2>📊 Parsed Data Summary</h2>
+      <h2>Parsed Data Summary</h2>
       <div class="stats" id="statsContainer">
         <div class="stat-item">
           <div class="stat-label">Status</div>
@@ -240,7 +278,7 @@
     </div>
 
     <div class="demo-section">
-      <h2>🎵 Sample Notes Data</h2>
+      <h2>Sample Notes Data</h2>
       <div class="output" id="notesOutput">
         Load a MIDI file to see note data...
       </div>
@@ -252,12 +290,12 @@
         const originalFetch = window.fetch;
         window.fetch = function (...args) {
           const url = args[0];
-          // console.log("🔍 Fetch request:", url);
+          // console.log("Fetch request:", url);
 
           return originalFetch
             .apply(this, args)
             .then((response) => {
-              // console.log(`📥 Fetch response for ${url}:`, {
+              // console.log(`Fetch response for ${url}:`, {
               //   status: response.status,
               //   statusText: response.statusText,
               //   headers: Object.fromEntries(response.headers.entries()),
@@ -279,7 +317,7 @@
                   try {
                     JSON.parse(text);
                   } catch (e) {
-                    console.error(`❌ JSON parse error for ${url}:`, e);
+                    console.error(`JSON parse error for ${url}:`, e);
                     console.error(
                       "Response text preview:",
                       text.substring(0, 200)
@@ -291,7 +329,7 @@
               return response;
             })
             .catch((error) => {
-              console.error(`❌ Fetch error for ${url}:`, error);
+              console.error(`Fetch error for ${url}:`, error);
               throw error;
             });
         };
@@ -307,18 +345,20 @@
         arrayBufferToDataUrl,
         debugPlayerState,
         createPianoRoll,
+        createPlayerDemo,
       } from "/src/index.ts";
 
       let currentParsedData = null;
       let currentArrayBuffer = null;
       let pianoRollInstance = null;
+      let syncPlayerInstance = null;
 
       // Initialize player components
       async function initializePlayer() {
         try {
-          console.log("🔄 Loading MIDI player components...");
+          console.log("Loading MIDI player components...");
           await loadPlayerComponents();
-          console.log("✅ MIDI player components loaded");
+          console.log("MIDI player components loaded");
 
           // Add user interaction prompt
           const playerContainer = document.getElementById("playerContainer");
@@ -328,17 +368,17 @@
           ) {
             playerContainer.innerHTML = `
                         <div style="text-align: center; padding: 20px; color: #666;">
-                            <p>📼 Load a MIDI file above to see the interactive player here</p>
+                            <p>Load a MIDI file above to see the interactive player here</p>
                         </div>
                     `;
           }
         } catch (error) {
-          console.error("❌ Failed to load player components:", error);
+          console.error("Failed to load player components:", error);
           const playerContainer = document.getElementById("playerContainer");
           if (playerContainer) {
             playerContainer.innerHTML = `
                         <div style="text-align: center; padding: 20px; color: #e53e3e;">
-                            ❌ Player components failed to load: ${error.message}
+                            Player components failed to load: ${error.message}
                         </div>
                     `;
           }
@@ -435,7 +475,7 @@
           }
 
           // Update UI
-          output.textContent = "✅ MIDI file loaded and parsed successfully!";
+          output.textContent = "MIDI file loaded and parsed successfully!";
           output.className = "output success";
 
           updateStats(result);
@@ -449,26 +489,41 @@
           if (currentArrayBuffer) {
             createPlayerBtn.disabled = false;
             createPlayerBtn.textContent = existingPlayer
-              ? "🔄 Update Player"
-              : "🎵 Create Interactive Player";
+              ? "Update Player"
+              : "Create Interactive Player";
           } else {
             createPlayerBtn.disabled = true;
-            createPlayerBtn.textContent = "❌ Player unavailable (no raw data)";
+            createPlayerBtn.textContent = "Player unavailable (no raw data)";
           }
 
           // Enable piano roll creation if we have parsed data
-          const createPianoRollBtn = document.getElementById("createPianoRollBtn");
+          const createPianoRollBtn =
+            document.getElementById("createPianoRollBtn");
           if (currentParsedData) {
             createPianoRollBtn.disabled = false;
             createPianoRollBtn.textContent = pianoRollInstance
-              ? "🔄 Update Piano Roll"
-              : "🎨 Create PixiJS Piano Roll";
+              ? "Update Piano Roll"
+              : "Create PixiJS Piano Roll";
           } else {
             createPianoRollBtn.disabled = true;
-            createPianoRollBtn.textContent = "❌ Piano Roll unavailable";
+            createPianoRollBtn.textContent = "Piano Roll unavailable";
+          }
+
+          // Enable synchronized player creation if we have parsed data
+          const createSyncPlayerBtn = document.getElementById(
+            "createSyncPlayerBtn"
+          );
+          if (currentParsedData) {
+            createSyncPlayerBtn.disabled = false;
+            createSyncPlayerBtn.textContent = syncPlayerInstance
+              ? "Update Synchronized Player"
+              : "Create Synchronized Player";
+          } else {
+            createSyncPlayerBtn.disabled = true;
+            createSyncPlayerBtn.textContent = "Synchronized Player unavailable";
           }
         } catch (error) {
-          output.textContent = `❌ Error: ${error.message}`;
+          output.textContent = `Error: ${error.message}`;
           output.className = "output error";
           currentParsedData = null;
           currentArrayBuffer = null;
@@ -493,10 +548,9 @@
         // Check if player already exists to show appropriate message
         const existingPlayer = container.querySelector("midi-player");
         if (existingPlayer) {
-          container.innerHTML =
-            "<div>🔄 Updating player with new MIDI...</div>";
+          container.innerHTML = "<div>Updating player with new MIDI...</div>";
         } else {
-          container.innerHTML = "<div>🎵 Creating player...</div>";
+          container.innerHTML = "<div>Creating player...</div>";
         }
 
         try {
@@ -516,20 +570,19 @@
             notice.className = "user-notice";
             notice.style.cssText =
               "text-align: center; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 10px; font-size: 14px; color: #0369a1;";
-            notice.innerHTML =
-              "🎧 Click the play button to start audio playback";
+            notice.innerHTML = "Click the play button to start audio playback";
             container.insertBefore(notice, container.firstChild);
           }
 
           // Add debug information
           const debugInfo = debugPlayerState(container);
-          console.log("🔍 Player debug info:", debugInfo);
+          console.log("Player debug info:", debugInfo);
 
           // Only add debug button if it doesn't exist
           if (!container.querySelector(".debug-btn")) {
             const debugBtn = document.createElement("button");
             debugBtn.className = "debug-btn";
-            debugBtn.textContent = "🔍 Debug Player State";
+            debugBtn.textContent = "Debug Player State";
             debugBtn.style.cssText =
               "margin: 5px; background: #6b7280; font-size: 12px; padding: 5px 10px;";
             debugBtn.onclick = () => {
@@ -542,10 +595,10 @@
 
           // Update button text to reflect what happened
           btn.textContent = existingPlayer
-            ? "🔄 Update Player"
-            : "🎵 Create Interactive Player";
+            ? "Update Player"
+            : "Create Interactive Player";
         } catch (error) {
-          container.innerHTML = `<div style="color: #e53e3e;">❌ Failed to create player: ${error.message}</div>`;
+          container.innerHTML = `<div style="color: #e53e3e;">Failed to create player: ${error.message}</div>`;
           console.error("Player creation error:", error);
         } finally {
           btn.disabled = false;
@@ -578,29 +631,33 @@
 
         try {
           if (pianoRollInstance) {
-            console.log("🔄 Updating existing piano roll with new data");
+            console.log("Updating existing piano roll with new data");
             pianoRollInstance.setNotes(currentParsedData.notes);
           } else {
-            console.log("🎨 Creating new PixiJS piano roll");
-            
-            pianoRollInstance = await createPianoRoll(container, currentParsedData.notes, {
-              width: container.clientWidth || 800,
-              height: 350,
-              backgroundColor: 0xffffff,
-              noteColor: 0x4285f4,
-              playheadColor: 0xff4444,
-              showPianoKeys: true,
-              noteRange: { min: 21, max: 108 }
-            });
+            console.log("Creating new PixiJS piano roll");
+
+            pianoRollInstance = await createPianoRoll(
+              container,
+              currentParsedData.notes,
+              {
+                width: container.clientWidth || 800,
+                height: 350,
+                backgroundColor: 0xffffff,
+                noteColor: 0x4285f4,
+                playheadColor: 0xff4444,
+                showPianoKeys: true,
+                noteRange: { min: 21, max: 108 },
+              }
+            );
           }
 
           container.classList.add("has-player");
           document.getElementById("clearPianoRollBtn").disabled = false;
           document.getElementById("resetViewBtn").disabled = false;
 
-          btn.textContent = "🔄 Update Piano Roll";
+          btn.textContent = "Update Piano Roll";
         } catch (error) {
-          container.innerHTML = `<div style="color: #e53e3e;">❌ Failed to create piano roll: ${error.message}</div>`;
+          container.innerHTML = `<div style="color: #e53e3e;">Failed to create piano roll: ${error.message}</div>`;
           console.error("Piano roll creation error:", error);
         } finally {
           btn.disabled = false;
@@ -613,17 +670,18 @@
           pianoRollInstance.destroy();
           pianoRollInstance = null;
         }
-        
+
         const container = document.getElementById("pianoRollContainer");
         container.innerHTML =
           "<div>Load a MIDI file above to see the PixiJS piano roll here</div>";
         container.classList.remove("has-player");
         document.getElementById("clearPianoRollBtn").disabled = true;
         document.getElementById("resetViewBtn").disabled = true;
-        
+
         if (currentParsedData) {
           document.getElementById("createPianoRollBtn").disabled = false;
-          document.getElementById("createPianoRollBtn").textContent = "🎨 Create PixiJS Piano Roll";
+          document.getElementById("createPianoRollBtn").textContent =
+            "Create PixiJS Piano Roll";
         }
       };
 
@@ -634,12 +692,97 @@
         }
       };
 
+      // Create Synchronized Player
+      window.createSyncPlayer = async function () {
+        if (!currentParsedData) {
+          alert("Please load a MIDI file first");
+          return;
+        }
+
+        const container = document.getElementById("syncPlayerContainer");
+        const btn = document.getElementById("createSyncPlayerBtn");
+
+        btn.disabled = true;
+
+        try {
+          if (syncPlayerInstance) {
+            console.log("Cleaning up existing synchronized player");
+            syncPlayerInstance.destroy();
+          }
+
+          console.log("Creating new synchronized audio player + piano roll");
+
+          // Extract initial tempo from MIDI data
+          const initialTempo =
+            currentParsedData.header.tempos &&
+            currentParsedData.header.tempos.length > 0
+              ? currentParsedData.header.tempos[0].bpm
+              : 120; // fallback to 120 if no tempo events
+
+          console.log(`Using initial tempo from MIDI: ${initialTempo} BPM`);
+
+          syncPlayerInstance = await createPlayerDemo(
+            container,
+            currentParsedData.notes,
+            {
+              player: {
+                tempo: initialTempo,
+                volume: 0.7,
+                repeat: false,
+              },
+              pianoRoll: {
+                width: container.clientWidth || 800,
+                height: 380,
+                backgroundColor: 0xffffff,
+                noteColor: 0x4285f4,
+                playheadColor: 0xff4444,
+                showPianoKeys: true,
+                noteRange: { min: 21, max: 108 },
+              },
+              showTimeDisplay: true,
+              showVolumeControl: true,
+              showTempoControl: true,
+            }
+          );
+
+          container.classList.add("has-player");
+          document.getElementById("clearSyncPlayerBtn").disabled = false;
+
+          btn.textContent = "Update Synchronized Player";
+        } catch (error) {
+          container.innerHTML = `<div style="color: #e53e3e;">Failed to create synchronized player: ${error.message}</div>`;
+          console.error("Synchronized player creation error:", error);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      // Clear synchronized player
+      window.clearSyncPlayer = function () {
+        if (syncPlayerInstance) {
+          syncPlayerInstance.destroy();
+          syncPlayerInstance = null;
+        }
+
+        const container = document.getElementById("syncPlayerContainer");
+        container.innerHTML =
+          "<div>Load a MIDI file above to see the synchronized player here</div>";
+        container.classList.remove("has-player");
+        document.getElementById("clearSyncPlayerBtn").disabled = true;
+
+        if (currentParsedData) {
+          document.getElementById("createSyncPlayerBtn").disabled = false;
+          document.getElementById("createSyncPlayerBtn").textContent =
+            "Create Synchronized Player";
+        }
+      };
+
       function updateStats(data) {
         const container = document.getElementById("statsContainer");
         container.innerHTML = `
                 <div class="stat-item">
                     <div class="stat-label">Status</div>
-                    <div>✅ Successfully loaded</div>
+                    <div>Successfully loaded</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-label">Song Name</div>
@@ -690,7 +833,7 @@
 
       // Add global error handler to catch JSON parsing errors
       window.addEventListener("error", function (event) {
-        console.error("🚨 Global error detected:", {
+        console.error("Global error detected:", {
           message: event.error?.message || event.message,
           filename: event.filename,
           lineno: event.lineno,
@@ -705,13 +848,13 @@
           event.error.message.includes("Unexpected token")
         ) {
           console.error(
-            "🚨 JSON parsing error detected - this usually means a resource returned HTML instead of expected JSON/JS"
+            "JSON parsing error detected - this usually means a resource returned HTML instead of expected JSON/JS"
           );
         }
       });
 
       window.addEventListener("unhandledrejection", function (event) {
-        console.error("🚨 Unhandled promise rejection:", {
+        console.error("Unhandled promise rejection:", {
           reason: event.reason,
           promise: event.promise,
         });
@@ -722,19 +865,47 @@
           event.reason.message.includes("Unexpected token")
         ) {
           console.error(
-            "🚨 JSON parsing error in promise - check network tab for failed requests"
+            "JSON parsing error in promise - check network tab for failed requests"
           );
         }
       });
 
       // Initialize with delay to avoid conflicts
       setTimeout(() => {
-        console.log("🌊 WaveRoll Demo initialized");
+        console.log("WaveRoll Demo initialized");
         console.log("Player components available:", isPlayerAvailable());
 
         // Load player components
         initializePlayer();
       }, 100);
+    </script>
+
+    <!-- Strip emojis from all text nodes dynamically -->
+    <script>
+      (function () {
+        const removeEmoji = (str) =>
+          str.replace(/\p{Extended_Pictographic}/gu, "");
+
+        const stripNode = (node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            node.textContent = removeEmoji(node.textContent);
+          } else {
+            node.childNodes.forEach(stripNode);
+          }
+        };
+
+        // Initial pass
+        stripNode(document.body);
+
+        // Observe future changes
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach(stripNode);
+          });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+      })();
     </script>
   </body>
 </html>

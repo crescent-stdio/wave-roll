@@ -103,6 +103,48 @@ export {
 // Export piano roll types
 export type { PianoRollOptions } from "./piano-roll";
 
+// Export audio player functionality
+export {
+  /**
+   * Creates a synchronized audio player for piano roll
+   */
+  createAudioPlayer,
+  
+  /**
+   * Check if audio context is supported
+   */
+  isAudioSupported,
+  
+  /**
+   * Get audio context state for debugging
+   */
+  getAudioContextState
+} from "./AudioPlayer";
+
+// Export audio player types
+export type { 
+  AudioPlayerControls, 
+  PlayerOptions, 
+  PlayerState, 
+  PianoRollSync 
+} from "./AudioPlayer";
+
+// Export player demo functionality
+export {
+  /**
+   * Creates a complete player demo with controls
+   */
+  createPlayerDemo,
+  
+  /**
+   * Player demo class for advanced usage
+   */
+  PlayerDemo
+} from "./PlayerDemo";
+
+// Export player demo types
+export type { PlayerDemoOptions } from "./PlayerDemo";
+
 /**
  * Default export of the main parsing function for convenience
  */
