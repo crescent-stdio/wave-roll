@@ -27,6 +27,8 @@ export interface PianoRollOptions {
   showPianoKeys?: boolean;
   /** MIDI note range to display */
   noteRange?: { min: number; max: number };
+  /** Time step for grid lines */
+  timeStep?: number;
 }
 
 /**
@@ -47,8 +49,6 @@ interface PianoRollState {
   isPanning: boolean;
   /** Last mouse/touch position for panning */
   lastPointerPos: { x: number; y: number };
-  /** Maximum pan offset on X axis (time) */
-  maxPanX: number;
 }
 
 /**
@@ -88,6 +88,7 @@ export class PianoRoll {
       playheadColor: 0xff4444,
       showPianoKeys: true,
       noteRange: { min: 21, max: 108 }, // A0 to C8
+      timeStep: 1,
       ...options,
     };
 
@@ -100,7 +101,6 @@ export class PianoRoll {
       currentTime: 0,
       isPanning: false,
       lastPointerPos: { x: 0, y: 0 },
-      maxPanX: 0,
     };
 
     // Initialize PixiJS application
@@ -179,8 +179,6 @@ export class PianoRoll {
     this.pitchScale = scaleLinear()
       .domain([this.options.noteRange.min, this.options.noteRange.max])
       .range([this.options.height - 20, 20]); // Leave margin at top/bottom
-
-    this.state.maxPanX = this.timeScale.range()[1] - this.options.width;
   }
 
   /**
@@ -252,27 +250,16 @@ export class PianoRoll {
     const zoomFactor = 1.1;
     const deltaY = event.deltaY;
 
-    // if (event.ctrlKey || event.metaKey) {
-    //   // Zoom Y (pitch) when holding Ctrl/Cmd - DISABLED
-    //   if (deltaY < 0) {
-    //     this.state.zoomY *= zoomFactor;
-    //   } else {
-    //     this.state.zoomY /= zoomFactor;
-    //   }
-    // } else {
-    // Zoom X (time) by default
+    // Use cursor position as anchor only when user holds Ctrl/Cmd (precision zoom).
+    // Otherwise anchor to playhead so that the current playback point stays fixed.
+    const usePointerAnchor = event.ctrlKey || event.metaKey;
+    const anchorX = usePointerAnchor ? event.offsetX : undefined;
+
     if (deltaY < 0) {
-      this.state.zoomX *= zoomFactor;
+      this.zoomX(zoomFactor, anchorX);
     } else {
-      this.state.zoomX /= zoomFactor;
+      this.zoomX(1 / zoomFactor, anchorX);
     }
-    // }
-
-    // Clamp zoom levels
-    this.state.zoomX = Math.max(0.1, Math.min(10, this.state.zoomX));
-    // this.state.zoomY = Math.max(0.1, Math.min(5, this.state.zoomY)); // Y zoom disabled
-
-    this.requestRender();
   }
 
   /**
@@ -307,7 +294,8 @@ export class PianoRoll {
    * Render background grid and piano keys
    */
   private renderBackground(): void {
-    // TODO:I Think it could be dependent on the zoom level
+    // Remove any previously added children (e.g., text labels) and clear drawings
+    this.backgroundGrid.removeChildren();
     this.backgroundGrid.clear();
 
     // Piano key background (if enabled)
@@ -338,7 +326,7 @@ export class PianoRoll {
     }
 
     // Time grid lines
-    const timeStep = 1; // 1 second intervals
+    const timeStep = this.options.timeStep;
     const maxTime = this.timeScale.domain()[1];
 
     for (let t = 0; t <= maxTime; t += timeStep) {
@@ -349,6 +337,19 @@ export class PianoRoll {
       this.backgroundGrid.moveTo(x, 0);
       this.backgroundGrid.lineTo(x, this.options.height);
       this.backgroundGrid.stroke({ width: 1, color: 0xe0e0e0, alpha: 0.5 });
+
+      // Add time label beneath the grid line
+      const label = new PIXI.Text({
+        text: t.toFixed(1) + "s",
+        style: {
+          fontSize: 10,
+          fill: 0x555555,
+          align: "center",
+        },
+      });
+      label.x = x + 2;
+      label.y = this.options.height - 14;
+      this.backgroundGrid.addChild(label);
     }
   }
 
@@ -521,10 +522,37 @@ export class PianoRoll {
   /**
    * Zoom in/out on X axis (time)
    */
-  public zoomX(factor: number): void {
-    this.state.zoomX *= factor;
-    this.state.zoomX = Math.max(0.1, Math.min(10, this.state.zoomX));
+  public zoomX(factor: number, anchorX?: number): void {
+    if (factor === 1) return;
+
+    const oldZoom = this.state.zoomX;
+    const newZoom = Math.max(0.1, Math.min(10, oldZoom * factor));
+
+    // Determine anchor: provided pixel position or playhead position by default
+    const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
+    const anchorPx = anchorX !== undefined ? anchorX : pianoKeysOffset;
+
+    // Compute the timeline time located at anchor before zoom change
+    const timeAtAnchor = this.timeScale.invert(
+      (anchorPx - pianoKeysOffset - this.state.panX) / oldZoom
+    );
+
+    // Update zoom level
+    this.state.zoomX = newZoom;
+
+    // Recalculate panX so that the same time remains under the anchor pixel
+    this.state.panX =
+      anchorPx - pianoKeysOffset - this.timeScale(timeAtAnchor) * newZoom;
+
+    console.log("[zoomX]", {
+      anchorPx,
+      timeAtAnchor,
+      newZoom,
+      panX: this.state.panX,
+    });
+    // Clamp pan within valid bounds
     this.clampPanX();
+
     this.requestRender();
   }
 
@@ -549,9 +577,8 @@ export class PianoRoll {
    * Pan the view by specified pixels
    */
   public pan(deltaX: number, deltaY: number): void {
-    // this.state.panX += deltaX;
-    const nextPanX = this.state.panX + deltaX;
-    this.state.panX = Math.max(0, Math.min(nextPanX, this.state.maxPanX));
+    this.state.panX = this.state.panX + deltaX;
+    this.clampPanX();
     // this.state.panY += deltaY; // Y-axis panning disabled
     this.requestRender();
   }
@@ -565,6 +592,20 @@ export class PianoRoll {
     this.state.panX = 0;
     this.clampPanX();
     this.requestRender();
+  }
+
+  /**
+   * Update timeStep (grid spacing in seconds) and re-render background
+   */
+  public setTimeStep(step: number): void {
+    if (step <= 0) return;
+    this.options.timeStep = step;
+    this.requestRender();
+  }
+
+  /** Get current timeStep */
+  public getTimeStep(): number {
+    return this.options.timeStep;
   }
 
   /**
@@ -677,5 +718,15 @@ export async function createPianoRoll(
      * Clean up resources
      */
     destroy: () => pianoRoll.destroy(),
+
+    /**
+     * Update timeStep (grid spacing in seconds)
+     */
+    setTimeStep: (step: number) => pianoRoll.setTimeStep(step),
+
+    /**
+     * Get current timeStep
+     */
+    getTimeStep: () => pianoRoll.getTimeStep(),
   };
 }

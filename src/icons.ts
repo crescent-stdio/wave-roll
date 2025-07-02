@@ -12,8 +12,8 @@ export const PLAYER_ICONS = {
   </svg>`,
 
   restart: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
-    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+    <path d="M7.5 4.5 2 8l5.5 3.5V4.5z"/>
+    <path d="M14 4.5 8.5 8l5.5 3.5V4.5z"/>
   </svg>`,
 
   repeat: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
@@ -51,5 +51,17 @@ export const PLAYER_ICONS = {
 
   midi: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
     <path d="M8 2a2 2 0 0 0-2 2v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 0-.5.5V8a.5.5 0 0 0 .5.5h2a.5.5 0 0 1 .5.5V10a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 0 .5-.5V7a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1-.5-.5V4a2 2 0 0 0-2-2H8z"/>
+  </svg>`,
+
+  // New icon: zoom reset (magnifying glass with counterclockwise arrow)
+  zoom_reset: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <!-- Lens -->
+    <circle cx="7" cy="7" r="3.25" />
+    <!-- Handle -->
+    <line x1="9.5" y1="9.5" x2="13" y2="13" />
+    <!-- Counter-clockwise arrow curve -->
+    <path d="M12 4 A6 6 0 1 0 4 12" />
+    <!-- Arrow head -->
+    <polyline points="12 2 12 4 10 4" />
   </svg>`,
 };

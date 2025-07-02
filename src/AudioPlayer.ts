@@ -365,6 +365,27 @@ class AudioPlayer implements AudioPlayerControls {
       await this.initializeAudio();
     }
 
+    // ----------------------------------------------------------------------------------
+    // If playback previously reached the end (no-repeat mode) we need to reset the
+    // transport position so that a subsequent play() starts from the beginning.
+    // Detect this by checking whether `pausedTime` is at/after the logical end of the
+    // piece in *transport seconds* (which depends on the original tempo).
+    // ----------------------------------------------------------------------------------
+    const transportEnd =
+      (this.state.duration * this.originalTempo) / this.state.tempo;
+
+    // Small epsilon to account for floating-point rounding
+    if (this.pausedTime >= transportEnd - 1e-3) {
+      this.pausedTime = 0;
+      // Also reset the underlying Tone.Transport position so that visuals/audio sync.
+      Tone.getTransport().seconds = 0;
+
+      // Cancel any lingering scheduled events to avoid double-triggers.
+      if (this.part) {
+        this.part.cancel();
+      }
+    }
+
     if (this.state.isPlaying) return;
 
     try {

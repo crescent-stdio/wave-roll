@@ -173,6 +173,10 @@ export class PlayerDemo {
     const tempoControl = this.createTempoControl();
     controlsRow.appendChild(tempoControl);
 
+    // Group 5: Zoom Reset Control (new)
+    const zoomResetControl = this.createZoomControls();
+    controlsRow.appendChild(zoomResetControl);
+
     // Add to container
     this.controlsContainer.appendChild(controlsRow);
 
@@ -1193,6 +1197,150 @@ export class PlayerDemo {
     });
 
     return button;
+  }
+
+  /**
+   * Create zoom reset control
+   */
+  private createZoomControls(): HTMLElement {
+    const container = document.createElement("div");
+    container.style.cssText = `
+      display: flex;
+      align-items: center;
+      height: 48px;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 4px;
+      border-radius: 8px;
+      gap: 4px;
+    `;
+
+    // Numeric input for time step (grid spacing)
+    const stepInput = document.createElement("input");
+    const currentStep = this.pianoRollInstance?.getTimeStep?.() ?? 1.0;
+    stepInput.type = "number";
+    stepInput.min = "0.1";
+    stepInput.step = "0.1";
+    stepInput.value = currentStep.toString();
+    stepInput.style.cssText = `
+      width: 64px;
+      padding: 4px 6px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      color: #007bff;
+      background: #ffffff;
+    `;
+
+    // Apply new timeStep on change/blur
+    const applyStep = () => {
+      const val = parseFloat(stepInput.value);
+      if (!isNaN(val) && val > 0) {
+        this.pianoRollInstance?.setTimeStep?.(val);
+      }
+    };
+    stepInput.addEventListener("change", applyStep);
+    stepInput.addEventListener("blur", applyStep);
+
+    const stepSuffix = document.createElement("span");
+    stepSuffix.textContent = "s time step";
+    stepSuffix.style.cssText = `
+      font-size: 12px;
+      font-weight: 600;
+      color: #6c757d;
+    `;
+    /* ------------------------------------------------------------------
+     * Zoom-X input (numeric with native steppers)
+     * ------------------------------------------------------------------ */
+    const zoomInput = document.createElement("input");
+    zoomInput.type = "number";
+    zoomInput.min = "0.1";
+    zoomInput.max = "10";
+    zoomInput.step = "0.1";
+    const currentZoom =
+      this.pianoRollInstance?.getState?.().zoomX !== undefined
+        ? (this.pianoRollInstance.getState() as any).zoomX
+        : 1;
+    zoomInput.value = currentZoom.toFixed(1);
+    zoomInput.style.cssText = `
+      width: 56px;
+      padding: 4px 6px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      color: #20c997; /* teal */
+      background: #ffffff;
+    `;
+
+    const clampZoom = (v: number) => Math.max(0.1, Math.min(10, v));
+
+    const applyZoom = () => {
+      const numericVal = parseFloat(zoomInput.value);
+      if (isNaN(numericVal)) {
+        // Revert to current zoom if invalid input
+        const current = (this.pianoRollInstance?.getState?.().zoomX ??
+          1) as number;
+        zoomInput.value = current.toFixed(1);
+        return;
+      }
+      const newZoom = clampZoom(numericVal);
+      const prevZoom = (this.pianoRollInstance?.getState?.().zoomX ??
+        1) as number;
+      const factor = newZoom / prevZoom;
+      this.pianoRollInstance?.zoomX?.(factor);
+      zoomInput.value = newZoom.toFixed(1);
+    };
+
+    zoomInput.addEventListener("change", applyZoom);
+    zoomInput.addEventListener("blur", applyZoom);
+
+    // Keyboard: Enter key applies immediately
+    zoomInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        applyZoom();
+        zoomInput.blur();
+      }
+    });
+
+    // Wheel over zoomInput → adjust ±0.1 steps
+    zoomInput.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const delta = e.deltaY < 0 ? 0.1 : -0.1;
+      const numeric = parseFloat(zoomInput.value) || currentZoom;
+      zoomInput.value = (numeric + delta).toFixed(1);
+      applyZoom();
+    });
+
+    // Static 'x' suffix label
+    const zoomSuffix = document.createElement("span");
+    zoomSuffix.textContent = "x";
+    zoomSuffix.style.cssText = `
+      font-size: 12px;
+      font-weight: 600;
+      color: #6c757d;
+    `;
+
+    // Reset view button using existing helper for consistent style
+    const resetBtn = this.createIconButton(PLAYER_ICONS.zoom_reset, () => {
+      this.pianoRollInstance?.resetView();
+      // Sync inputs after reset
+      stepInput.value = (
+        this.pianoRollInstance?.getTimeStep?.() || 1
+      ).toString();
+      zoomInput.value = "1.0";
+    });
+
+    resetBtn.title = "Reset Zoom/Pan";
+
+    // Arrange: timeStep input, zoomX input, then reset button
+    container.appendChild(stepInput);
+    container.appendChild(stepSuffix);
+    container.appendChild(zoomInput);
+    container.appendChild(zoomSuffix);
+    container.appendChild(resetBtn);
+
+    return container;
   }
 
   /**
