@@ -70,7 +70,7 @@ export interface AudioPlayerControls {
   toggleRepeat(enabled: boolean): void;
 
   /** Seek to specific time position */
-  seek(seconds: number): void;
+  seek(seconds: number, updateVisual?: boolean): void;
 
   /** Set playback volume */
   setVolume(volume: number): void;
@@ -342,24 +342,37 @@ class AudioPlayer implements AudioPlayerControls {
           loopStartVisual !== null &&
           loopEndVisual !== null
         ) {
-          // Exclude notes whose *start* or *end* lie outside the loop window.
-          // A note is kept only if it *fully* fits within [loopStartVisual, loopEndVisual).
-          // This prevents tails that ring past the visual loop end from being scheduled.
+          // Keep any note whose *onset* occurs inside the loop window.
+          // This allows very short A–B regions (\<= 한 음 길이) to still trigger sound.
           const noteStart = note.time;
-          const noteEnd = note.time + note.duration;
-          return noteStart >= loopStartVisual && noteEnd <= loopEndVisual;
+          return noteStart >= loopStartVisual && noteStart < loopEndVisual;
         }
         return true;
       })
       .map((note) => {
+        // Clamp duration so sustained notes don\'t bleed into the next cycle.
+        let duration = note.duration;
+        let onset = note.time;
+
+        if (
+          loopStartVisual !== undefined &&
+          loopEndVisual !== undefined &&
+          loopStartVisual !== null &&
+          loopEndVisual !== null
+        ) {
+          const maxTail = loopEndVisual - onset;
+          duration = Math.min(duration, maxTail);
+        }
+
         const relativeTime =
           loopStartVisual !== undefined && loopStartVisual !== null
-            ? note.time - loopStartVisual
-            : note.time;
+            ? onset - loopStartVisual
+            : onset;
+
         return {
           time: relativeTime,
           note: note.name,
-          duration: note.duration,
+          duration,
           velocity: note.velocity,
         };
       });
@@ -467,7 +480,14 @@ class AudioPlayer implements AudioPlayerControls {
    * Schedule a callback using Tone.js Draw API for visual updates
    */
   private scheduleVisualUpdate(callback: () => void): void {
-    // Use Tone.Draw for visual updates synchronized with audio context
+    // If Tone.js hasn't been started yet, execute immediately so UI updates
+    // when user interacts with seek bar before first playback.
+    if (!this.isInitialized) {
+      callback();
+      return;
+    }
+
+    // Otherwise use Tone.Draw for audio-synced visual updates.
     Tone.Draw.schedule(callback, Tone.now());
   }
 
@@ -507,12 +527,25 @@ class AudioPlayer implements AudioPlayerControls {
       // Resume from paused position or start from beginning
       if (this.pausedTime > 0) {
         Tone.getTransport().seconds = this.pausedTime;
-        // Part offset should be in transport time, which is pausedTime itself
+        // When a custom A–B loop is active the Part's events are stored *relative* to
+        // the loop's visual `start` (i.e. the first note in the loop has time = 0).
+        // Therefore we must convert the absolute `pausedTime` (in transport seconds)
+        // into an *offset inside the loop window* before starting the Part; otherwise
+        // we end up starting the Part midway through its event list which causes the
+        // very first loop iteration to play silently.
+
         if (this.part && Tone.getTransport().state !== "started") {
-          // Ensure part is stopped before starting
+          // Ensure Part is stopped before starting to avoid duplicate scheduling
           this.part.stop();
-          // Schedule the Part to start immediately ("+0") aligned to current transport position
-          this.part.start("+0", this.pausedTime);
+
+          const offsetForPart =
+            this._loopStartVisual !== null && this._loopEndVisual !== null
+              ? // Offset is the visual distance from loop start
+                Math.max(0, this.state.currentTime - this._loopStartVisual)
+              : // No custom loop – use pausedTime (transport seconds)
+                this.pausedTime;
+
+          this.part.start("+0", offsetForPart);
         }
       } else {
         // Start from the beginning
@@ -692,7 +725,7 @@ class AudioPlayer implements AudioPlayerControls {
   /**
    * Seek to specific time position
    */
-  public seek(seconds: number): void {
+  public seek(seconds: number, updateVisual: boolean = true): void {
     // If a seek is already in progress, queue this request to run afterwards.
     if (this.operationState.isSeeking) {
       this.operationState.pendingSeek = seconds;
@@ -762,10 +795,12 @@ class AudioPlayer implements AudioPlayerControls {
       this.operationState.isSeeking = false;
     }
 
-    // Update visual playhead immediately
-    this.scheduleVisualUpdate(() => {
-      this.pianoRoll.setTime(clampedVisual);
-    });
+    // Update visual playhead immediately (unless caller opts out)
+    if (updateVisual) {
+      this.scheduleVisualUpdate(() => {
+        this.pianoRoll.setTime(clampedVisual);
+      });
+    }
 
     // Ensure any lingering voices are released to prevent polyphony limits
     if (this.sampler && (this.sampler as any).releaseAll) {

@@ -68,4 +68,15 @@ export const PLAYER_ICONS = {
   settings: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
     <path d="M9.667.667 9 2.333A5.978 5.978 0 0 0 8 2c-.355 0-.702.033-1.037.095L6.333.667H4.667l-.63 1.728a6.095 6.095 0 0 0-1.793 1.037L.667 3.333v1.666l1.728.63c-.062.334-.095.682-.095 1.037 0 .356.033.703.095 1.037l-1.728.63v1.666l1.577.333c.487.764 1.076 1.453 1.793 1.97L4.667 15.333h1.666l.63-1.728c.335.062.682.095 1.037.095.356 0 .703-.033 1.037-.095l.63 1.728h1.666l.63-1.728a6.095 6.095 0 0 0 1.793-1.037l1.577-.333V10.667l-1.728-.63c.062-.334.095-.681.095-1.037 0-.355-.033-.702-.095-1.037l1.728-.63V4.667l-1.577-.333a6.095 6.095 0 0 0-1.793-1.037L11.333.667H9.667zM8 10.333A2.333 2.333 0 1 1 8 5.667a2.333 2.333 0 0 1 0 4.666z"/>
   </svg>`,
+
+  loop_restart: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
+    <!-- Triangle (play symbol) pointing to vertical line -->
+    <path d="M3 4.5v7l5-3.5z"/>
+    <!-- Vertical line (start marker) -->
+    <rect x="1" y="3" width="2" height="10"/>
+    <!-- A-B markers with connecting line -->
+    <rect x="9" y="6" width="6" height="1" fill="currentColor" opacity="0.6"/>
+    <text x="9.5" y="5.5" font-size="5" font-weight="bold" fill="currentColor">A</text>
+    <text x="13" y="5.5" font-size="5" font-weight="bold" fill="currentColor">B</text>
+  </svg>`,
 };

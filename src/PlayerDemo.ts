@@ -117,6 +117,14 @@ export class PlayerDemo {
         ...this.options.player,
       });
 
+      // -------------------------------------------------------------
+      // Keep UI & audio in sync when the user pans/zooms the piano roll
+      // -------------------------------------------------------------
+      this.pianoRollInstance?.onTimeChange?.((t: number) => {
+        // Update audio position but keep the current manual pan intact
+        this.audioPlayer?.seek(t, false);
+      });
+
       // Set up UI
       this.setupUI();
 
@@ -313,7 +321,11 @@ export class PlayerDemo {
 
     // Restart button
     const restartBtn = createSecondaryButton(PLAYER_ICONS.restart, () => {
-      this.audioPlayer?.restart();
+      // Always restart from 0s, regardless of A-B loop settings
+      this.audioPlayer?.seek(0);
+      if (!this.audioPlayer?.getState().isPlaying) {
+        this.audioPlayer?.play();
+      }
       updatePlayButton();
     });
 
@@ -364,6 +376,7 @@ export class PlayerDemo {
     let pointA: number | null = null;
     let pointB: number | null = null;
     let isLooping = false;
+    let isLoopRestartActive = false; // Track loop restart button state
 
     // Create button helper
     const createLoopButton = (
@@ -409,6 +422,70 @@ export class PlayerDemo {
 
       return btn;
     };
+
+    // Loop restart button - placed before A button
+    const btnLoopRestart = document.createElement("button");
+    btnLoopRestart.innerHTML = PLAYER_ICONS.loop_restart;
+    btnLoopRestart.onclick = () => {
+      // Toggle loop restart state
+      isLoopRestartActive = !isLoopRestartActive;
+
+      if (isLoopRestartActive) {
+        // Activate loop restart mode
+        btnLoopRestart.dataset.active = "true";
+        btnLoopRestart.style.background = "rgba(0, 123, 255, 0.1)";
+        btnLoopRestart.style.color = COLOR_PRIMARY;
+
+        // If A and B points are set, apply the loop
+        if (pointA !== null && pointB !== null) {
+          this.audioPlayer?.setLoopPoints(pointA, pointB);
+        } else if (pointA !== null) {
+          // Only A is set, loop from A to end
+          this.audioPlayer?.setLoopPoints(pointA, null);
+        }
+
+        // Start playing from A (or beginning if A not set)
+        const startPoint = pointA !== null ? pointA : 0;
+        this.audioPlayer?.seek(startPoint);
+        if (!this.audioPlayer?.getState().isPlaying) {
+          this.audioPlayer?.play();
+        }
+      } else {
+        // Deactivate loop restart mode
+        delete btnLoopRestart.dataset.active;
+        btnLoopRestart.style.background = "transparent";
+        btnLoopRestart.style.color = "#495057";
+
+        // Clear loop points to play full track
+        this.audioPlayer?.setLoopPoints(null, null);
+      }
+    };
+    btnLoopRestart.style.cssText = `
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #495057;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    `;
+    btnLoopRestart.title = "Toggle A-B Loop Mode";
+
+    btnLoopRestart.addEventListener("mouseenter", () => {
+      if (!btnLoopRestart.dataset.active) {
+        btnLoopRestart.style.background = "rgba(0, 0, 0, 0.05)";
+      }
+    });
+    btnLoopRestart.addEventListener("mouseleave", () => {
+      if (!btnLoopRestart.dataset.active) {
+        btnLoopRestart.style.background = "transparent";
+      }
+    });
 
     // A button
     const btnA = createLoopButton(
@@ -500,6 +577,9 @@ export class PlayerDemo {
 
     // Clear button
     const btnClear = createLoopButton("✕", () => {
+      const wasPlaying = this.audioPlayer?.getState().isPlaying;
+      const currentTime = this.audioPlayer?.getState().currentTime || 0;
+
       pointA = null;
       pointB = null;
       isLooping = false;
@@ -514,6 +594,20 @@ export class PlayerDemo {
       btnB.style.boxShadow = "none";
       delete btnB.dataset.active;
       updateSeekBar();
+
+      // If loop restart is active, clear the loop points
+      if (isLoopRestartActive) {
+        this.audioPlayer?.setLoopPoints(null, null);
+
+        // If was playing, continue playing from current position
+        if (wasPlaying) {
+          // Small delay to ensure the audio system is ready after clearing loop
+          setTimeout(() => {
+            this.audioPlayer?.seek(currentTime);
+            this.audioPlayer?.play();
+          }, 100);
+        }
+      }
     });
     btnClear.style.fontSize = "16px";
     btnClear.title = "Clear A-B Loop";
@@ -542,28 +636,17 @@ export class PlayerDemo {
               clampedEnd !== null ? (clampedEnd / state.duration) * 100 : null;
             (this as any).loopPoints = { a: aPercent, b: bPercent };
 
-            // Apply to audio player
-            this.audioPlayer?.setLoopPoints?.(start, clampedEnd);
-
-            /* -----------------------------------------------------------------
-             * Update piano-roll overlay for the current A–B window
-             * -----------------------------------------------------------------
-             * AudioPlayer expects loop points in the *visual* time domain (the
-             * same coordinate system used to lay out the piano-roll). It
-             * applies its own conversion to Tone.Transport seconds based on
-             * the current tempo. Therefore we must **not** apply any extra
-             * scaling here—simply forward the raw A and B seconds to the
-             * visual component.
-             * ----------------------------------------------------------------- */
-            if (clampedEnd !== null) {
-              // Update piano-roll overlay using the **raw** visual seconds.
-              // AudioPlayer internally converts these times to transport
-              // seconds, so no additional tempo scaling is required here.
-              this.pianoRollInstance?.setLoopWindow?.(start, clampedEnd);
-
-              // Keep playhead anchored at A for a consistent reference point
-              this.pianoRollInstance?.setTime?.(start);
+            // Sync audio loop points only when restart mode is on
+            if (isLoopRestartActive) {
+              this.audioPlayer?.setLoopPoints?.(start, clampedEnd);
             }
+
+            /* -------------------------------------------------------------
+             * Always forward loop markers to piano roll:
+             *   • Both A,B   → (start,end)
+             *   • Only   A   → (start,null)
+             * ------------------------------------------------------------- */
+            this.pianoRollInstance?.setLoopWindow?.(start, clampedEnd);
             return;
           }
 
@@ -573,11 +656,13 @@ export class PlayerDemo {
             const bPercent = (clampedB / state.duration) * 100;
             (this as any).loopPoints = { a: null, b: bPercent };
 
-            // Apply loop from start to B if desired
-            this.audioPlayer?.setLoopPoints?.(null, clampedB);
+            // Only apply loop from start to B if loop restart is active
+            if (isLoopRestartActive) {
+              this.audioPlayer?.setLoopPoints?.(null, clampedB);
+            }
 
-            // Clear overlay (needs both start & end)
-            this.pianoRollInstance?.setLoopWindow?.(null, null);
+            // Forward single B marker to piano roll
+            this.pianoRollInstance?.setLoopWindow?.(null, clampedB);
             return;
           }
         }
@@ -588,25 +673,24 @@ export class PlayerDemo {
       // Clear overlay on piano roll
       this.pianoRollInstance?.setLoopWindow?.(null, null);
 
-      // Clear loop range on audio player
-      this.audioPlayer?.setLoopPoints?.(null, null);
+      // Clear loop range on audio player only if loop restart is active
+      if (isLoopRestartActive) {
+        this.audioPlayer?.setLoopPoints?.(null, null);
+      }
     };
 
     // Store references
     (this as any).updateSeekBar = updateSeekBar;
 
+    container.appendChild(btnLoopRestart);
     container.appendChild(btnA);
     container.appendChild(btnB);
     container.appendChild(btnClear);
 
     // Initialize with virtual points
     setTimeout(() => {
+      // Don't apply loops on initialization
       updateSeekBar();
-      // Trigger initial display
-      const updateSeekBarFunc = (this as any).updateSeekBar;
-      if (updateSeekBarFunc) {
-        updateSeekBarFunc();
-      }
     }, 100); // Small delay to ensure seek bar is initialized
 
     return container;

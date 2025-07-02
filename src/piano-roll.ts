@@ -81,6 +81,8 @@ export class PianoRoll {
   private loopStart: number | null = null;
   private loopEnd: number | null = null;
 
+  private onTimeChangeCallback: ((time: number) => void) | null = null;
+
   private constructor(
     canvas: HTMLCanvasElement,
     options: PianoRollOptions = {}
@@ -251,6 +253,12 @@ export class PianoRoll {
     this.clampPanX();
     this.state.lastPointerPos = pos;
 
+    // Update currentTime based on new panX so external UI can stay in sync.
+    this.state.currentTime = this.computeTimeAtPlayhead();
+    if (this.onTimeChangeCallback) {
+      this.onTimeChangeCallback(this.state.currentTime);
+    }
+
     this.requestRender();
   }
 
@@ -386,76 +394,76 @@ export class PianoRoll {
     }
 
     // -------------------------------------------------------------
-    // Draw loop window highlight & marker lines if both set
+    // Draw loop window highlight & marker lines
+    //   • Individual A/B lines are shown if each point is set.
+    //   • Shaded overlay is shown only when BOTH points exist.
     // -------------------------------------------------------------
-    if (this.loopStart !== null && this.loopEnd !== null) {
+
+    if (this.loopLines) {
       const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
-      const startX =
-        this.timeScale(this.loopStart) * this.state.zoomX +
-        this.state.panX +
-        pianoKeysOffset;
-      const endX =
-        this.timeScale(this.loopEnd) * this.state.zoomX +
-        this.state.panX +
-        pianoKeysOffset;
-      console.log("[renderBackground] loopStart", this.loopStart);
-      console.log("[renderBackground] loopEnd", this.loopEnd);
+      const lineWidth = 2;
 
-      const overlayColor = 0xfff3cd; // light yellow (bootstrap warning bg)
+      // Helper to draw a single vertical line + label
+      const drawLine = (
+        g: PIXI.Graphics,
+        x: number,
+        color: number,
+        label: string
+      ) => {
+        g.moveTo(x, 0);
+        g.lineTo(x, this.options.height);
+        g.stroke({ width: lineWidth, color, alpha: 0.9 });
 
-      // Draw translucent rectangle over loop region
-      this.loopOverlay.rect(
-        startX,
-        0,
-        Math.max(0, endX - startX),
-        this.options.height
-      );
-      this.loopOverlay.fill({ color: overlayColor, alpha: 0.35 });
-
-      // Draw vertical lines
-      if (this.loopLines) {
-        const lineWidth = 2;
-        // Start line (red)
-        this.loopLines.start.moveTo(startX, 0);
-        this.loopLines.start.lineTo(startX, this.options.height);
-        this.loopLines.start.stroke({
-          width: lineWidth,
-          color: 0xff7f00,
-          alpha: 0.9,
+        const text = new PIXI.Text({
+          text: label,
+          style: { fontSize: 10, fill: color, align: "center" },
         });
+        text.x = x + 2;
+        text.y = 0;
+        this.loopOverlay.addChild(text);
+      };
 
-        const loopLineStartText = new PIXI.Text({
-          text: this.loopStart?.toFixed(1) + "s",
-          style: {
-            fontSize: 10,
-            fill: 0xff7f00,
-            align: "center",
-          },
-        });
-        loopLineStartText.x = startX + 2;
-        loopLineStartText.y = 0;
-        this.loopOverlay.addChild(loopLineStartText);
+      let startX: number | null = null;
+      let endX: number | null = null;
 
-        // End line (teal)
-        this.loopLines.end.moveTo(endX, 0);
-        this.loopLines.end.lineTo(endX, this.options.height);
-        this.loopLines.end.stroke({
-          width: lineWidth,
-          color: 0x00b894,
-          alpha: 0.9,
-        });
+      if (this.loopStart !== null) {
+        startX =
+          this.timeScale(this.loopStart) * this.state.zoomX +
+          this.state.panX +
+          pianoKeysOffset;
 
-        const loopLineEndText = new PIXI.Text({
-          text: this.loopEnd?.toFixed(1) + "s",
-          style: {
-            fontSize: 10,
-            fill: 0x00b894,
-            align: "center",
-          },
-        });
-        loopLineEndText.x = endX + 2;
-        loopLineEndText.y = 0;
-        this.loopOverlay.addChild(loopLineEndText);
+        drawLine(
+          this.loopLines.start,
+          startX,
+          0x00b894,
+          this.loopStart.toFixed(1) + "s"
+        );
+      }
+
+      if (this.loopEnd !== null) {
+        endX =
+          this.timeScale(this.loopEnd) * this.state.zoomX +
+          this.state.panX +
+          pianoKeysOffset;
+
+        drawLine(
+          this.loopLines.end,
+          endX,
+          0xff7f00,
+          this.loopEnd.toFixed(1) + "s"
+        );
+      }
+
+      // Draw translucent overlay only when both points are defined
+      if (startX !== null && endX !== null) {
+        const overlayColor = 0xfff3cd; // light yellow
+        this.loopOverlay.rect(
+          startX,
+          0,
+          Math.max(0, endX - startX),
+          this.options.height
+        );
+        this.loopOverlay.fill({ color: overlayColor, alpha: 0.35 });
       }
     }
   }
@@ -763,6 +771,20 @@ export class PianoRoll {
     this.loopEnd = end;
     this.requestRender();
   }
+
+  /**
+   * Register a callback that fires whenever the time under the fixed playhead changes.
+   * This happens when the visual timeline is panned or zoomed.
+   */
+  public onTimeChange(callback: (time: number) => void): void {
+    this.onTimeChangeCallback = callback;
+  }
+
+  private computeTimeAtPlayhead(): number {
+    const time = this.timeScale.invert(-this.state.panX / this.state.zoomX);
+    // Clamp within timeline bounds
+    return Math.max(0, Math.min(time, this.timeScale.domain()[1]));
+  }
 }
 
 /**
@@ -852,5 +874,11 @@ export async function createPianoRoll(
      */
     setLoopWindow: (start: number | null, end: number | null) =>
       pianoRoll.setLoopWindow(start, end),
+
+    /**
+     * Register callback for time changes due to panning/zooming
+     */
+    onTimeChange: (callback: (time: number) => void) =>
+      pianoRoll.onTimeChange(callback),
   };
 }
