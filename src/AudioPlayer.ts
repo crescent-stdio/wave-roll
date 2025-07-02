@@ -49,6 +49,8 @@ export interface PlayerState {
   volume: number;
   /** Current tempo in BPM */
   tempo: number;
+  /** Reference tempo used when MIDI was decoded (immutable baseline) */
+  originalTempo: number;
 }
 
 /**
@@ -258,6 +260,7 @@ class AudioPlayer implements AudioPlayerControls {
       duration,
       volume: this.options.volume,
       tempo: this.options.tempo,
+      originalTempo: this.options.tempo,
     };
 
     // Store the original tempo used when converting MIDI ticks to seconds.
@@ -861,8 +864,13 @@ class AudioPlayer implements AudioPlayerControls {
     }
 
     // Normalize end --------------------------------------------------------
+    // Ensure end is within the bounds of the piece. If omitted or invalid,
+    // fall back to the total duration. Also clamp any oversized value to the
+    // piece length so that visual and audio loop windows remain aligned.
     if (end === null || end <= start) {
       end = this.state.duration;
+    } else {
+      end = Math.min(end, this.state.duration);
     }
 
     this._loopStartVisual = start;

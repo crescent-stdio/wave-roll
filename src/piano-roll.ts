@@ -60,6 +60,8 @@ export class PianoRoll {
   private notesContainer!: PIXI.Container;
   private playheadLine!: PIXI.Graphics;
   private backgroundGrid!: PIXI.Graphics;
+  private loopOverlay!: PIXI.Graphics;
+  private loopLines: { start: PIXI.Graphics; end: PIXI.Graphics } | null = null;
 
   private playheadX: number = 0;
   private notes: NoteData[] = [];
@@ -74,6 +76,10 @@ export class PianoRoll {
   // Performance optimization
   private lastRenderTime = 0;
   private renderThrottleMs = 16; // ~60fps
+
+  // Loop window (A–B) state
+  private loopStart: number | null = null;
+  private loopEnd: number | null = null;
 
   private constructor(
     canvas: HTMLCanvasElement,
@@ -161,6 +167,20 @@ export class PianoRoll {
     this.playheadLine = new PIXI.Graphics();
     this.playheadLine.zIndex = 1000;
     this.container.addChild(this.playheadLine);
+
+    // Overlay for loop window
+    this.loopOverlay = new PIXI.Graphics();
+    this.loopOverlay.zIndex = 500; // below playhead but above notes
+    this.container.addChild(this.loopOverlay);
+
+    // Vertical lines for A (start) and B (end)
+    const startLine = new PIXI.Graphics();
+    const endLine = new PIXI.Graphics();
+    startLine.zIndex = 600;
+    endLine.zIndex = 600;
+    this.container.addChild(startLine);
+    this.container.addChild(endLine);
+    this.loopLines = { start: startLine, end: endLine };
   }
 
   /**
@@ -298,6 +318,19 @@ export class PianoRoll {
     this.backgroundGrid.removeChildren();
     this.backgroundGrid.clear();
 
+    // Clear loop overlay & lines before redrawing
+    this.loopOverlay.clear();
+    this.loopOverlay.removeChildren();
+
+    if (this.loopLines) {
+      // Reset geometry and children for the vertical A/B marker lines.
+      this.loopLines.start.clear();
+      this.loopLines.start.removeChildren();
+
+      this.loopLines.end.clear();
+      this.loopLines.end.removeChildren();
+    }
+
     // Piano key background (if enabled)
     if (this.options.showPianoKeys) {
       // const pianoKeysWidth = this.timeScale(1) * this.state.zoomX;
@@ -350,6 +383,80 @@ export class PianoRoll {
       label.x = x + 2;
       label.y = this.options.height - 14;
       this.backgroundGrid.addChild(label);
+    }
+
+    // -------------------------------------------------------------
+    // Draw loop window highlight & marker lines if both set
+    // -------------------------------------------------------------
+    if (this.loopStart !== null && this.loopEnd !== null) {
+      const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
+      const startX =
+        this.timeScale(this.loopStart) * this.state.zoomX +
+        this.state.panX +
+        pianoKeysOffset;
+      const endX =
+        this.timeScale(this.loopEnd) * this.state.zoomX +
+        this.state.panX +
+        pianoKeysOffset;
+      console.log("[renderBackground] loopStart", this.loopStart);
+      console.log("[renderBackground] loopEnd", this.loopEnd);
+
+      const overlayColor = 0xfff3cd; // light yellow (bootstrap warning bg)
+
+      // Draw translucent rectangle over loop region
+      this.loopOverlay.rect(
+        startX,
+        0,
+        Math.max(0, endX - startX),
+        this.options.height
+      );
+      this.loopOverlay.fill({ color: overlayColor, alpha: 0.35 });
+
+      // Draw vertical lines
+      if (this.loopLines) {
+        const lineWidth = 2;
+        // Start line (red)
+        this.loopLines.start.moveTo(startX, 0);
+        this.loopLines.start.lineTo(startX, this.options.height);
+        this.loopLines.start.stroke({
+          width: lineWidth,
+          color: 0xff7f00,
+          alpha: 0.9,
+        });
+
+        const loopLineStartText = new PIXI.Text({
+          text: this.loopStart?.toFixed(1) + "s",
+          style: {
+            fontSize: 10,
+            fill: 0xff7f00,
+            align: "center",
+          },
+        });
+        loopLineStartText.x = startX + 2;
+        loopLineStartText.y = 0;
+        this.loopOverlay.addChild(loopLineStartText);
+
+        // End line (teal)
+        this.loopLines.end.moveTo(endX, 0);
+        this.loopLines.end.lineTo(endX, this.options.height);
+        this.loopLines.end.stroke({
+          width: lineWidth,
+          color: 0x00b894,
+          alpha: 0.9,
+        });
+
+        const loopLineEndText = new PIXI.Text({
+          text: this.loopEnd?.toFixed(1) + "s",
+          style: {
+            fontSize: 10,
+            fill: 0x00b894,
+            align: "center",
+          },
+        });
+        loopLineEndText.x = endX + 2;
+        loopLineEndText.y = 0;
+        this.loopOverlay.addChild(loopLineEndText);
+      }
     }
   }
 
@@ -479,9 +586,11 @@ export class PianoRoll {
    * Full render of all components
    */
   private render(): void {
+    // Update playhead first so that its computed X position is available
+    // to background and note layers (e.g., pianoKeys shading uses playheadX).
+    this.renderPlayhead();
     this.renderBackground();
     this.renderNotes();
-    this.renderPlayhead();
 
     // Ensure proper rendering order
     this.container.sortChildren();
@@ -645,6 +754,15 @@ export class PianoRoll {
 
     this.state.panX = Math.max(minPanX, Math.min(this.state.panX, maxPanX));
   }
+
+  /**
+   * Update loop window markers (A–B). Pass nulls to clear.
+   */
+  public setLoopWindow(start: number | null, end: number | null): void {
+    this.loopStart = start;
+    this.loopEnd = end;
+    this.requestRender();
+  }
 }
 
 /**
@@ -728,5 +846,11 @@ export async function createPianoRoll(
      * Get current timeStep
      */
     getTimeStep: () => pianoRoll.getTimeStep(),
+
+    /**
+     * Update loop window markers (A–B)
+     */
+    setLoopWindow: (start: number | null, end: number | null) =>
+      pianoRoll.setLoopWindow(start, end),
   };
 }

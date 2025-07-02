@@ -474,10 +474,10 @@ export class PlayerDemo {
             btnA.style.boxShadow = "none";
             delete btnA.dataset.active;
           } else {
-            // Normal behaviour – set B point when A already exists
+            // Record B point at current playback time
             pointB = state.currentTime;
 
-            // Ensure chronological order A < B (requirement 4)
+            // Ensure chronological order A < B. If out of order swap.
             if (pointB < pointA) {
               [pointA, pointB] = [pointB, pointA];
             }
@@ -488,9 +488,6 @@ export class PlayerDemo {
             btnB.style.fontWeight = "800";
             btnB.style.boxShadow = "inset 0 0 0 2px #ff7f00";
             btnB.dataset.active = "true";
-
-            // Move piano roll playhead to A immediately (even when paused)
-            this.pianoRollInstance?.setTime?.(pointA);
           }
 
           // Re-render seek bar
@@ -537,26 +534,50 @@ export class PlayerDemo {
               [start, end] = [end, start];
             }
 
+            // Clamp end within piece length in case user picked beyond audio.
+            const clampedEnd =
+              end !== null ? Math.min(end, state.duration) : null;
             const aPercent = (start / state.duration) * 100;
-            const bPercent = end !== null ? (end / state.duration) * 100 : null;
+            const bPercent =
+              clampedEnd !== null ? (clampedEnd / state.duration) * 100 : null;
             (this as any).loopPoints = { a: aPercent, b: bPercent };
 
             // Apply to audio player
-            if (this.audioPlayer?.setLoopPoints) {
-              this.audioPlayer.setLoopPoints(start, end);
+            this.audioPlayer?.setLoopPoints?.(start, clampedEnd);
+
+            /* -----------------------------------------------------------------
+             * Update piano-roll overlay for the current A–B window
+             * -----------------------------------------------------------------
+             * AudioPlayer expects loop points in the *visual* time domain (the
+             * same coordinate system used to lay out the piano-roll). It
+             * applies its own conversion to Tone.Transport seconds based on
+             * the current tempo. Therefore we must **not** apply any extra
+             * scaling here—simply forward the raw A and B seconds to the
+             * visual component.
+             * ----------------------------------------------------------------- */
+            if (clampedEnd !== null) {
+              // Update piano-roll overlay using the **raw** visual seconds.
+              // AudioPlayer internally converts these times to transport
+              // seconds, so no additional tempo scaling is required here.
+              this.pianoRollInstance?.setLoopWindow?.(start, clampedEnd);
+
+              // Keep playhead anchored at A for a consistent reference point
+              this.pianoRollInstance?.setTime?.(start);
             }
             return;
           }
 
           // Case 2: only B is defined
           if (pointA === null && pointB !== null) {
-            const bPercent = (pointB / state.duration) * 100;
+            const clampedB = Math.min(pointB, state.duration);
+            const bPercent = (clampedB / state.duration) * 100;
             (this as any).loopPoints = { a: null, b: bPercent };
 
             // Apply loop from start to B if desired
-            if (this.audioPlayer?.setLoopPoints) {
-              this.audioPlayer.setLoopPoints(null, pointB);
-            }
+            this.audioPlayer?.setLoopPoints?.(null, clampedB);
+
+            // Clear overlay (needs both start & end)
+            this.pianoRollInstance?.setLoopWindow?.(null, null);
             return;
           }
         }
@@ -564,10 +585,11 @@ export class PlayerDemo {
       // No valid loop data – reset
       (this as any).loopPoints = null;
 
+      // Clear overlay on piano roll
+      this.pianoRollInstance?.setLoopWindow?.(null, null);
+
       // Clear loop range on audio player
-      if (this.audioPlayer?.setLoopPoints) {
-        this.audioPlayer.setLoopPoints(null, null);
-      }
+      this.audioPlayer?.setLoopPoints?.(null, null);
     };
 
     // Store references
