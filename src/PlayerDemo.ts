@@ -636,6 +636,20 @@ export class PlayerDemo {
               clampedEnd !== null ? (clampedEnd / state.duration) * 100 : null;
             (this as any).loopPoints = { a: aPercent, b: bPercent };
 
+            // Update time labels when A (and optionally B) exist
+            {
+              const labelA = (this as any).markerATimeLabel as
+                | HTMLElement
+                | undefined;
+              if (labelA) labelA.textContent = this.formatTime(start);
+              const labelB = (this as any).markerBTimeLabel as
+                | HTMLElement
+                | undefined;
+              if (labelB && clampedEnd !== null) {
+                labelB.textContent = this.formatTime(clampedEnd);
+              }
+            }
+
             // Sync audio loop points only when restart mode is on
             if (isLoopRestartActive) {
               this.audioPlayer?.setLoopPoints?.(start, clampedEnd);
@@ -655,6 +669,14 @@ export class PlayerDemo {
             const clampedB = Math.min(pointB, state.duration);
             const bPercent = (clampedB / state.duration) * 100;
             (this as any).loopPoints = { a: null, b: bPercent };
+
+            // Update time label when only B exists
+            {
+              const labelB = (this as any).markerBTimeLabel as
+                | HTMLElement
+                | undefined;
+              if (labelB) labelB.textContent = this.formatTime(clampedB);
+            }
 
             // Only apply loop from start to B if loop restart is active
             if (isLoopRestartActive) {
@@ -818,6 +840,26 @@ export class PlayerDemo {
     `;
     markerA.title = "Loop Start (A)";
 
+    // ADD_START: time label for marker A
+    {
+      const labelATime = document.createElement("div");
+      labelATime.style.cssText = `
+        position: absolute;
+        top: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+        font-weight: 600;
+        color: ${COLOR_A};
+        pointer-events: none;
+      `;
+      labelATime.textContent = "00:00";
+      markerA.appendChild(labelATime);
+      (this as any).markerATimeLabel = labelATime;
+    }
+    // ADD_END
+
     // B marker with label
     const markerB = document.createElement("div");
     markerB.id = "marker-b";
@@ -860,6 +902,25 @@ export class PlayerDemo {
         "></div>
       </div>
     `;
+    // ADD_START: time label for marker B
+    {
+      const labelBTime = document.createElement("div");
+      labelBTime.style.cssText = `
+        position: absolute;
+        top: 22px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 10px;
+        font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+        font-weight: 600;
+        color: ${COLOR_B};
+        pointer-events: none;
+      `;
+      labelBTime.textContent = "00:00";
+      markerB.appendChild(labelBTime);
+      (this as any).markerBTimeLabel = labelBTime;
+    }
+    // ADD_END
     markerB.title = "Loop End (B)";
 
     // Seek handle
@@ -883,7 +944,7 @@ export class PlayerDemo {
     const progressIndicator = document.createElement("div");
     progressIndicator.style.cssText = `
       position: absolute;
-      top: -10px;
+      top: -14px;
       left: 0%;
       transform: translateX(-50%);
       width: 0;
@@ -893,7 +954,7 @@ export class PlayerDemo {
       border-top: 14px solid ${COLOR_PRIMARY};
       pointer-events: none;
       transition: left 0.1s linear;
-      z-index: 1; /* TODO: ensure above progress bar */
+      z-index: 1; /* TODO: ensure above markers */
     `;
     (this as any).progressIndicator = progressIndicator;
 
