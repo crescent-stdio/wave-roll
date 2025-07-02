@@ -173,9 +173,13 @@ export class PlayerDemo {
     const tempoControl = this.createTempoControl();
     controlsRow.appendChild(tempoControl);
 
-    // Group 5: Zoom Reset Control (new)
+    // Group 5: Zoom Reset Control
     const zoomResetControl = this.createZoomControls();
     controlsRow.appendChild(zoomResetControl);
+
+    // Group 6: Settings Control
+    const settingsControl = this.createSettingsControl();
+    controlsRow.appendChild(settingsControl);
 
     // Add to container
     this.controlsContainer.appendChild(controlsRow);
@@ -1214,41 +1218,6 @@ export class PlayerDemo {
       gap: 4px;
     `;
 
-    // Numeric input for time step (grid spacing)
-    const stepInput = document.createElement("input");
-    const currentStep = this.pianoRollInstance?.getTimeStep?.() ?? 1.0;
-    stepInput.type = "number";
-    stepInput.min = "0.1";
-    stepInput.step = "0.1";
-    stepInput.value = currentStep.toString();
-    stepInput.style.cssText = `
-      width: 64px;
-      padding: 4px 6px;
-      border: 1px solid #ced4da;
-      border-radius: 6px;
-      font-size: 12px;
-      text-align: center;
-      color: #007bff;
-      background: #ffffff;
-    `;
-
-    // Apply new timeStep on change/blur
-    const applyStep = () => {
-      const val = parseFloat(stepInput.value);
-      if (!isNaN(val) && val > 0) {
-        this.pianoRollInstance?.setTimeStep?.(val);
-      }
-    };
-    stepInput.addEventListener("change", applyStep);
-    stepInput.addEventListener("blur", applyStep);
-
-    const stepSuffix = document.createElement("span");
-    stepSuffix.textContent = "s time step";
-    stepSuffix.style.cssText = `
-      font-size: 12px;
-      font-weight: 600;
-      color: #6c757d;
-    `;
     /* ------------------------------------------------------------------
      * Zoom-X input (numeric with native steppers)
      * ------------------------------------------------------------------ */
@@ -1325,20 +1294,170 @@ export class PlayerDemo {
     const resetBtn = this.createIconButton(PLAYER_ICONS.zoom_reset, () => {
       this.pianoRollInstance?.resetView();
       // Sync inputs after reset
-      stepInput.value = (
-        this.pianoRollInstance?.getTimeStep?.() || 1
-      ).toString();
+      // stepInput.value = (
+      //   this.pianoRollInstance?.getTimeStep?.() || 1
+      // ).toString();
       zoomInput.value = "1.0";
     });
 
     resetBtn.title = "Reset Zoom/Pan";
 
-    // Arrange: timeStep input, zoomX input, then reset button
-    container.appendChild(stepInput);
-    container.appendChild(stepSuffix);
+    // Append in order: zoom input, suffix, reset, settings (gear)
+    // stepInputGroup is displayed in modal, not inline
     container.appendChild(zoomInput);
     container.appendChild(zoomSuffix);
     container.appendChild(resetBtn);
+
+    return container;
+  }
+
+  private createSettingsControl(): HTMLElement {
+    const container = document.createElement("div");
+    container.style.cssText = `
+      display: flex;
+      align-items: center;
+    `;
+
+    /* ------------------------------------------------------------------
+     * Settings (gear) button – opens modal dialog with settings
+     * ------------------------------------------------------------------ */
+    const settingsBtn = this.createIconButton(PLAYER_ICONS.settings, () => {
+      // Prevent multiple overlays
+      if (document.getElementById("zoom-settings-overlay")) return;
+
+      // Dark overlay
+      const overlay = document.createElement("div");
+      overlay.id = "zoom-settings-overlay";
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      `;
+
+      // Modal container
+      const modal = document.createElement("div");
+      modal.style.cssText = `
+        background: #ffffff;
+        padding: 24px 20px;
+        border-radius: 10px;
+        width: 320px;
+        max-width: 90%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      `;
+
+      // Header with title + close button
+      const header = document.createElement("div");
+      header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      `;
+
+      const title = document.createElement("h3");
+      title.textContent = "Zoom Settings";
+      title.style.cssText = `
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: #343a40;
+      `;
+
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "✕";
+      closeBtn.style.cssText = `
+        border: none;
+        background: transparent;
+        font-size: 18px;
+        cursor: pointer;
+        color: #6c757d;
+      `;
+      closeBtn.onclick = () => overlay.remove();
+
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+
+      /* ------------------------------------------------------------------
+       * Time-step input group (hidden by default, toggled via ⚙︎ button)
+       * ------------------------------------------------------------------ */
+      const stepInputGroup = document.createElement("div");
+      stepInputGroup.style.cssText = `
+      display: none; /* toggled visible via settings button */
+      align-items: center;
+      gap: 4px;
+    `;
+
+      // Numeric input for time-step (grid spacing)
+      const stepInput = document.createElement("input");
+      const currentStep = this.pianoRollInstance?.getTimeStep?.() ?? 1.0;
+      stepInput.type = "number";
+      stepInput.min = "0.1";
+      stepInput.step = "0.1";
+      stepInput.value = currentStep.toString();
+      stepInput.style.cssText = `
+      width: 64px;
+      padding: 4px 6px;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      font-size: 12px;
+      text-align: center;
+      color: #007bff;
+      background: #ffffff;
+    `;
+
+      const applyStep = () => {
+        const val = parseFloat(stepInput.value);
+        if (!isNaN(val) && val > 0) {
+          this.pianoRollInstance?.setTimeStep?.(val);
+        }
+      };
+      stepInput.addEventListener("change", applyStep);
+      stepInput.addEventListener("blur", applyStep);
+
+      const stepLabel = document.createElement("label");
+      stepLabel.textContent = "Time step:";
+      stepLabel.style.cssText = `
+        font-size: 12px;
+        font-weight: 600;
+        color: #6c757d;
+      `;
+      stepInputGroup.appendChild(stepLabel);
+      const stepSuffix = document.createElement("span");
+      stepSuffix.textContent = "s";
+      stepSuffix.style.cssText = `
+      font-size: 12px;
+      font-weight: 600;
+      color: #6c757d;
+    `;
+
+      stepInputGroup.appendChild(stepInput);
+      stepInputGroup.appendChild(stepSuffix);
+      // Settings content (currently only time-step group)
+      stepInputGroup.style.display = "flex"; // ensure visible inside modal
+
+      modal.appendChild(header);
+      modal.appendChild(stepInputGroup);
+
+      overlay.appendChild(modal);
+
+      // Clicking outside modal closes overlay
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) overlay.remove();
+      });
+
+      document.body.appendChild(overlay);
+    });
+    settingsBtn.title = "Zoom Settings";
+    container.appendChild(settingsBtn);
 
     return container;
   }
