@@ -442,6 +442,9 @@ export class PlayerDemo {
 
           // Re-render seek bar
           updateSeekBar();
+
+          // Move piano roll playhead to A immediately (even when paused)
+          this.pianoRollInstance?.setTime?.(pointA);
         }
       },
       false
@@ -485,6 +488,9 @@ export class PlayerDemo {
             btnB.style.fontWeight = "800";
             btnB.style.boxShadow = "inset 0 0 0 2px #ff7f00";
             btnB.dataset.active = "true";
+
+            // Move piano roll playhead to A immediately (even when paused)
+            this.pianoRollInstance?.setTime?.(pointA);
           }
 
           // Re-render seek bar
