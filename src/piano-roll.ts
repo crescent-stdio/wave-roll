@@ -47,6 +47,8 @@ interface PianoRollState {
   isPanning: boolean;
   /** Last mouse/touch position for panning */
   lastPointerPos: { x: number; y: number };
+  /** Maximum pan offset on X axis (time) */
+  maxPanX: number;
 }
 
 /**
@@ -98,6 +100,7 @@ export class PianoRoll {
       currentTime: 0,
       isPanning: false,
       lastPointerPos: { x: 0, y: 0 },
+      maxPanX: 0,
     };
 
     // Initialize PixiJS application
@@ -176,6 +179,8 @@ export class PianoRoll {
     this.pitchScale = scaleLinear()
       .domain([this.options.noteRange.min, this.options.noteRange.max])
       .range([this.options.height - 20, 20]); // Leave margin at top/bottom
+
+    this.state.maxPanX = this.timeScale.range()[1] - this.options.width;
   }
 
   /**
@@ -225,7 +230,7 @@ export class PianoRoll {
     // const deltaY = pos.y - this.state.lastPointerPos.y; // Remove Y-axis panning
 
     this.state.panX += deltaX;
-    // this.state.panY += deltaY; // Remove Y-axis panning
+    this.clampPanX();
     this.state.lastPointerPos = pos;
 
     this.requestRender();
@@ -504,6 +509,7 @@ export class PianoRoll {
       // Keep playhead fixed (just after piano keys) by offsetting the roll
       // so that the note at the current time is always under the playhead.
       this.state.panX = -timeOffsetPx;
+      this.clampPanX();
     }
 
     // Force immediate render without throttling for seek operations
@@ -518,6 +524,7 @@ export class PianoRoll {
   public zoomX(factor: number): void {
     this.state.zoomX *= factor;
     this.state.zoomX = Math.max(0.1, Math.min(10, this.state.zoomX));
+    this.clampPanX();
     this.requestRender();
   }
 
@@ -542,7 +549,9 @@ export class PianoRoll {
    * Pan the view by specified pixels
    */
   public pan(deltaX: number, deltaY: number): void {
-    this.state.panX += deltaX;
+    // this.state.panX += deltaX;
+    const nextPanX = this.state.panX + deltaX;
+    this.state.panX = Math.max(0, Math.min(nextPanX, this.state.maxPanX));
     // this.state.panY += deltaY; // Y-axis panning disabled
     this.requestRender();
   }
@@ -554,7 +563,7 @@ export class PianoRoll {
     this.state.zoomX = 1;
     // this.state.zoomY = 1; // Y zoom stays at 1
     this.state.panX = 0;
-    // this.state.panY = 0; // Y pan stays at 0
+    this.clampPanX();
     this.requestRender();
   }
 
@@ -571,6 +580,29 @@ export class PianoRoll {
    */
   public getState(): PianoRollState {
     return { ...this.state };
+  }
+
+  /**
+   * Clamp panX so that the playhead (fixed at pianoKeysOffset) always lies within
+   * the timeline content. Prevents scrolling past the beginning or end.
+   */
+  private clampPanX(): void {
+    const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
+
+    // Width of timeline content (without piano keys) after zoom is applied
+    const contentWidth = this.timeScale.range()[1] * this.state.zoomX;
+
+    // Visible viewport width that can show notes (excluding piano keys area)
+    const viewportWidth = this.options.width - pianoKeysOffset;
+
+    // Minimum panX so that the *last* timeline pixel can cross the playhead.
+    // This equals -contentWidth (entire timeline shifted left up to playhead).
+    const minPanX = -contentWidth;
+
+    // panX should never be positive – that would push notes to the right of playhead
+    const maxPanX = 0;
+
+    this.state.panX = Math.max(minPanX, Math.min(this.state.panX, maxPanX));
   }
 }
 

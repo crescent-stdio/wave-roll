@@ -99,10 +99,59 @@ class AudioPlayer implements AudioPlayerControls {
   // Player state
   private state: PlayerState;
   /** Tempo at which the notes' "time" values were originally calculated (used for sync scaling) */
-  private readonly originalTempo: number;
+  private originalTempo: number;
   private isInitialized = false;
   private pausedTime = 0;
   private isSeeking = false;
+  private isRestarting = false;
+  private _lastLogged = 0;
+
+  // Transport event handlers
+  private handleTransportStop = (): void => {
+    // Don't process stop events during seek operations or restart
+    if (this.isSeeking || this.isRestarting) {
+      console.log(
+        "[Transport.stop] Ignored - isSeeking:",
+        this.isSeeking,
+        "isRestarting:",
+        this.isRestarting
+      );
+      return;
+    }
+
+    console.log(
+      "[Transport.stop] Processing - isRepeating:",
+      this.state.isRepeating,
+      "isPlaying:",
+      this.state.isPlaying
+    );
+
+    // Only update state if we're not in the middle of another operation
+    if (!this.isSeeking && !this.isRestarting) {
+      this.state.isPlaying = false;
+      this.stopSyncScheduler();
+
+      if (this.state.isRepeating) {
+        // In repeat mode, restart automatically
+        this.restart();
+      } else {
+        // Otherwise, reset to beginning
+        this.state.currentTime = 0;
+        this.pianoRoll.setTime(0);
+      }
+    }
+  };
+
+  private handleTransportPause = (): void => {
+    // Don't process pause events during seek operations
+    if (this.isSeeking) {
+      return;
+    }
+
+    this.state.isPlaying = false;
+    this.stopSyncScheduler();
+    this.pausedTime = Tone.getTransport().seconds;
+  };
 
   constructor(
     notes: NoteData[],
@@ -142,7 +191,7 @@ class AudioPlayer implements AudioPlayerControls {
     // This is required so that we can map the current Tone.Transport time
     // (which changes when BPM changes) back onto the original seconds-based
     // coordinate system that the PianoRoll was rendered with.
-    this.originalTempo = this.options.tempo;
+    this.originalTempo = this.state.tempo;
   }
 
   /**
@@ -234,37 +283,17 @@ class AudioPlayer implements AudioPlayerControls {
    * Set up transport event callbacks
    */
   private setupTransportCallbacks(): void {
-    // Handle transport stop (end of piece or manual stop)
-    Tone.getTransport().on("stop", () => {
-      // Don't process stop events during seek operations
-      if (this.isSeeking) {
-        return;
-      }
+    // Add event listeners
+    Tone.getTransport().on("stop", this.handleTransportStop);
+    Tone.getTransport().on("pause", this.handleTransportPause);
+  }
 
-      this.state.isPlaying = false;
-      this.stopSyncScheduler();
-
-      if (this.state.isRepeating) {
-        // In repeat mode, restart automatically
-        this.restart();
-      } else {
-        // Otherwise, reset to beginning
-        this.state.currentTime = 0;
-        this.pianoRoll.setTime(0);
-      }
-    });
-
-    // Handle transport pause
-    Tone.getTransport().on("pause", () => {
-      // Don't process pause events during seek operations
-      if (this.isSeeking) {
-        return;
-      }
-
-      this.state.isPlaying = false;
-      this.stopSyncScheduler();
-      this.pausedTime = Tone.getTransport().seconds;
-    });
+  /**
+   * Remove transport event callbacks
+   */
+  private removeTransportCallbacks(): void {
+    Tone.getTransport().off("stop", this.handleTransportStop);
+    Tone.getTransport().off("pause", this.handleTransportPause);
   }
 
   /**
@@ -273,7 +302,8 @@ class AudioPlayer implements AudioPlayerControls {
   private startSyncScheduler(): void {
     if (this.syncScheduler !== null) return;
 
-    this.syncScheduler = window.setInterval(() => {
+    // Perform immediate update when starting scheduler
+    const performUpdate = () => {
       if (this.state.isPlaying && !this.isSeeking) {
         // Get current transport time
         const transportTime = Tone.getTransport().seconds;
@@ -284,17 +314,36 @@ class AudioPlayer implements AudioPlayerControls {
         const visualTime =
           (transportTime * this.state.tempo) / this.originalTempo;
 
-        this.state.currentTime = visualTime;
+        // Wrap around in repeat mode so time stays within [0, duration)
+        const wrappedTime = this.state.isRepeating
+          ? visualTime % this.state.duration
+          : visualTime;
+
+        this.state.currentTime = wrappedTime;
 
         // Update piano roll playhead
-        this.pianoRoll.setTime(visualTime);
+        this.pianoRoll.setTime(wrappedTime);
 
         // Check if we've reached the end (non-repeating mode)
-        if (!this.state.isRepeating && visualTime >= this.state.duration) {
+        if (!this.state.isRepeating && wrappedTime >= this.state.duration) {
           this.pause();
         }
+
+        if (Math.floor(visualTime) !== this._lastLogged) {
+          console.log("[Sync]", { visualTime, transportTime });
+          this._lastLogged = Math.floor(visualTime);
+        }
       }
-    }, this.options.syncInterval);
+    };
+
+    // Perform immediate update
+    performUpdate();
+
+    // Then set up interval for regular updates
+    this.syncScheduler = window.setInterval(
+      performUpdate,
+      this.options.syncInterval
+    );
   }
 
   /**
@@ -323,7 +372,7 @@ class AudioPlayer implements AudioPlayerControls {
       if (this.pausedTime > 0) {
         Tone.getTransport().seconds = this.pausedTime;
         // Part offset should be in transport time, which is pausedTime itself
-        if (this.part) {
+        if (this.part && Tone.getTransport().state !== "started") {
           this.part.start(0, this.pausedTime);
         }
       } else {
@@ -366,17 +415,87 @@ class AudioPlayer implements AudioPlayerControls {
    * Stop and restart from beginning
    */
   public restart(): void {
-    // Stop transport and reset position
+    console.log("[AudioPlayer.restart:in]", {
+      wasPlaying: this.state.isPlaying,
+      currentState: { ...this.state },
+      syncScheduler: this.syncScheduler,
+      isSeeking: this.isSeeking,
+    });
+
+    const wasPlaying = this.state.isPlaying;
+
+    // Set restart flag FIRST before any operations
+    this.isRestarting = true;
+
+    // Clear seek flag to prevent conflicts
+    this.isSeeking = false;
+
+    // Stop sync scheduler first
+    this.stopSyncScheduler();
+
+    // Cancel and stop part BEFORE transport operations
+    if (this.part) {
+      this.part.cancel();
+      this.part.stop();
+    }
+
+    // Stop transport - this may trigger events but isRestarting flag will ignore them
     Tone.getTransport().stop();
     Tone.getTransport().seconds = 0;
 
-    this.state.isPlaying = false;
+    // Reset state
     this.state.currentTime = 0;
     this.pausedTime = 0;
 
-    // Update piano roll
+    // Update visual immediately
     this.pianoRoll.setTime(0);
-    this.stopSyncScheduler();
+
+    // Now handle restart based on previous state
+    if (wasPlaying) {
+      // Was playing, so restart playback after a brief delay
+      setTimeout(() => {
+        // Only proceed if we're still in restart mode (not interrupted)
+        if (this.isRestarting) {
+          // Clear restart flag now that we're about to start
+          this.isRestarting = false;
+
+          // Start from beginning
+          if (this.part) {
+            this.part.start(0);
+          }
+          Tone.getTransport().start();
+
+          // Update state AFTER transport is started
+          this.state.isPlaying = true;
+
+          // Start sync scheduler
+          this.startSyncScheduler();
+
+          // Force immediate visual update
+          this.pianoRoll.setTime(0);
+        }
+
+        console.log("[AudioPlayer.restart:out]", {
+          wasPlaying,
+          currentState: { ...this.state },
+          transportState: Tone.getTransport().state,
+          transportSeconds: Tone.getTransport().seconds,
+          syncScheduler: this.syncScheduler,
+        });
+      }, 50); // Small delay to ensure transport events are processed
+    } else {
+      // Was paused, just reset position without starting
+      this.isRestarting = false;
+      this.state.isPlaying = false;
+
+      console.log("[AudioPlayer.restart:out]", {
+        wasPlaying,
+        currentState: { ...this.state },
+        transportState: Tone.getTransport().state,
+        transportSeconds: Tone.getTransport().seconds,
+        syncScheduler: this.syncScheduler,
+      });
+    }
   }
 
   /**
@@ -385,18 +504,36 @@ class AudioPlayer implements AudioPlayerControls {
   public toggleRepeat(enabled: boolean): void {
     this.state.isRepeating = enabled;
 
+    // Configure part looping so notes repeat
     if (this.part) {
       this.part.loop = enabled;
-      // loopEnd should be in transport time
       this.part.loopEnd =
         (this.state.duration * this.originalTempo) / this.state.tempo;
     }
+
+    // Configure global transport looping so timeline resets
+    const transportLoopEnd =
+      (this.state.duration * this.originalTempo) / this.state.tempo;
+    const transport = Tone.getTransport();
+    transport.loop = enabled;
+    transport.loopStart = 0;
+    transport.loopEnd = transportLoopEnd;
   }
 
   /**
    * Seek to specific time position
    */
   public seek(seconds: number): void {
+    console.log("[AudioPlayer.seek:in]", {
+      seconds,
+      wasPlaying: this.state.isPlaying,
+      currentState: this.state,
+      transportState: Tone.getTransport().state,
+    });
+
+    // Set seeking flag FIRST to prevent transport event handlers from interfering
+    this.isSeeking = true;
+
     // Remember if we were playing before seek
     const wasPlaying = this.state.isPlaying;
 
@@ -411,63 +548,54 @@ class AudioPlayer implements AudioPlayerControls {
     this.state.currentTime = clampedVisual;
     this.pausedTime = transportSeconds;
 
-    // If we were playing, keep playing smoothly
-    if (wasPlaying) {
-      // Set seeking flag to prevent sync scheduler and callback conflicts
-      this.isSeeking = true;
-
-      // Store current transport state
-      const transportState = Tone.getTransport().state;
-
-      // Cancel current part events
-      if (this.part) {
-        this.part.cancel();
-      }
-
-      // If transport is actually playing, we need to handle seek carefully
-      if (transportState === "started") {
-        // Update transport position first
-        Tone.getTransport().seconds = transportSeconds;
-
-        // Then immediately reschedule the part
-        if (this.part) {
-          const now = Tone.now();
-          // Part offset should also be in transport time, not visual time
-          const transportOffset =
-            (clampedVisual * this.originalTempo) / this.state.tempo;
-          this.part.start(now, transportOffset);
-        }
-      } else {
-        // Transport might have stopped, restart everything
-        Tone.getTransport().seconds = transportSeconds;
-        if (this.part) {
-          // Part offset should also be in transport time, not visual time
-          const transportOffset =
-            (clampedVisual * this.originalTempo) / this.state.tempo;
-          this.part.start(0, transportOffset);
-        }
-        Tone.getTransport().start();
-        this.state.isPlaying = true;
-      }
-
-      // Update piano roll immediately
-      this.pianoRoll.setTime(clampedVisual);
-
-      // Clear seeking flag and ensure sync scheduler is running
-      setTimeout(() => {
-        this.isSeeking = false;
-        // Ensure sync scheduler is running after seek
-        if (this.state.isPlaying && this.syncScheduler === null) {
-          this.startSyncScheduler();
-        }
-      }, 20); // Slightly longer delay for stability
-    } else {
-      // Not playing, just update position
-      Tone.getTransport().seconds = transportSeconds;
-
-      // Update piano roll
-      this.pianoRoll.setTime(clampedVisual);
+    // Cancel current part events before any transport manipulation
+    if (this.part) {
+      this.part.cancel();
     }
+
+    // Update transport position
+    Tone.getTransport().seconds = transportSeconds;
+
+    // If we were playing, keep playing smoothly
+    if (wasPlaying && Tone.getTransport().state === "started") {
+      // Reschedule the part
+      if (this.part) {
+        const now = Tone.now();
+        const transportOffset =
+          (clampedVisual * this.originalTempo) / this.state.tempo;
+        this.part.start(now, transportOffset);
+      }
+    } else if (wasPlaying && Tone.getTransport().state !== "started") {
+      // Transport stopped unexpectedly, need to restart it
+      if (this.part) {
+        const transportOffset =
+          (clampedVisual * this.originalTempo) / this.state.tempo;
+        this.part.start(0, transportOffset);
+      }
+      Tone.getTransport().start();
+    } else {
+      // Not playing, just position update
+      // No need to start transport
+    }
+
+    // Update piano roll immediately
+    this.pianoRoll.setTime(clampedVisual);
+
+    // Clear seeking flag after a delay to ensure all events have processed
+    setTimeout(() => {
+      this.isSeeking = false;
+      // Ensure sync scheduler is running if we're playing
+      if (this.state.isPlaying && this.syncScheduler === null) {
+        this.startSyncScheduler();
+      }
+    }, 50); // Increased delay for better stability
+
+    console.log("[AudioPlayer.seek:out]", {
+      currentTime: this.state.currentTime,
+      isPlaying: this.state.isPlaying,
+      transportState: Tone.getTransport().state,
+      isSeeking: this.isSeeking,
+    });
   }
 
   /**
@@ -566,6 +694,9 @@ class AudioPlayer implements AudioPlayerControls {
     }
 
     this.isInitialized = false;
+
+    // Remove transport event callbacks
+    this.removeTransportCallbacks();
   }
 }
 
