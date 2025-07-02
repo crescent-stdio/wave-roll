@@ -76,11 +76,28 @@ export interface AudioPlayerControls {
   /** Set playback tempo */
   setTempo(bpm: number): void;
 
+  /**
+   * Set custom A–B loop points (in seconds).
+   * Passing `null` for both parameters clears the loop.
+   * If only `start` is provided, the loop will extend to the end of the piece.
+   */
+  setLoopPoints(start: number | null, end: number | null): void;
+
   /** Get current player state */
   getState(): PlayerState;
 
   /** Clean up resources */
   destroy(): void;
+}
+
+/**
+ * Internal state for managing async operations
+ */
+interface OperationState {
+  isSeeking: boolean;
+  isRestarting: boolean;
+  pendingSeek: number | null;
+  lastLoopJumpTime: number;
 }
 
 /**
@@ -102,20 +119,34 @@ class AudioPlayer implements AudioPlayerControls {
   private originalTempo: number;
   private isInitialized = false;
   private pausedTime = 0;
-  private isSeeking = false;
-  private isRestarting = false;
   private _lastLogged = 0;
+  private _loopStartVisual: number | null = null;
+  private _loopEndVisual: number | null = null;
+
+  // Refactored operation state management
+  private operationState: OperationState = {
+    isSeeking: false,
+    isRestarting: false,
+    pendingSeek: null,
+    lastLoopJumpTime: 0,
+  };
+
+  /** Counts how many Transport loop iterations have occurred (debug only) */
+  private _loopCounter = 0;
 
   // Transport event handlers
   private handleTransportStop = (): void => {
-    // Don't process stop events during seek operations or restart
-    if (this.isSeeking || this.isRestarting) {
-      console.log(
-        "[Transport.stop] Ignored - isSeeking:",
-        this.isSeeking,
-        "isRestarting:",
-        this.isRestarting
-      );
+    // Ignore stop when seeking or restarting
+    if (this.operationState.isSeeking || this.operationState.isRestarting) {
+      console.log("[Transport.stop] Ignored - operation in progress", {
+        isSeeking: this.operationState.isSeeking,
+        isRestarting: this.operationState.isRestarting,
+      });
+      return;
+    }
+
+    // If a custom A–B loop is active, we manage looping manually via seek()
+    if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
       return;
     }
 
@@ -127,15 +158,16 @@ class AudioPlayer implements AudioPlayerControls {
     );
 
     // Only update state if we're not in the middle of another operation
-    if (!this.isSeeking && !this.isRestarting) {
+    if (!this.operationState.isSeeking && !this.operationState.isRestarting) {
       this.state.isPlaying = false;
       this.stopSyncScheduler();
 
-      if (this.state.isRepeating) {
-        // In repeat mode, restart automatically
-        this.restart();
-      } else {
-        // Otherwise, reset to beginning
+      // When repeat mode (global or A–B) is active we now rely exclusively on
+      // Transport.loop to wrap the timeline. Therefore we should NOT trigger
+      // a full `restart()` here. Simply keep the transport stopped; if the
+      // user presses play again it will resume from the beginning of the loop
+      // window. For non-repeat mode, reset the playhead visually.
+      if (!this.state.isRepeating) {
         this.state.currentTime = 0;
         this.pianoRoll.setTime(0);
       }
@@ -144,13 +176,54 @@ class AudioPlayer implements AudioPlayerControls {
 
   private handleTransportPause = (): void => {
     // Don't process pause events during seek operations
-    if (this.isSeeking) {
+    if (this.operationState.isSeeking) {
       return;
     }
 
     this.state.isPlaying = false;
     this.stopSyncScheduler();
     this.pausedTime = Tone.getTransport().seconds;
+  };
+
+  /**
+   * When Transport.loop=true (global repeat or A–B repeat)
+   * Tone.Transport emits a "loop" event at the moment the playhead
+   * wraps from loopEnd back to loopStart. Since we disabled Part.loop
+   * to prevent double-scheduling, we have to *manually* retrigger the
+   * Part so that notes are heard on each pass.
+   */
+  private handleTransportLoop = (): void => {
+    if (!this.part) {
+      return;
+    }
+
+    this._loopCounter += 1;
+    const transport = Tone.getTransport();
+
+    console.log("[Loop]", {
+      iteration: this._loopCounter,
+      transportSeconds: transport.seconds.toFixed(3),
+      loopStart: transport.loopStart,
+      loopEnd: transport.loopEnd,
+    });
+
+    // Cancel any notes which were scheduled for the previous cycle.
+    // Using a very small delay prevents race conditions where cancel/stop
+    // occurs at the exact same AudioContext time as the new scheduling.
+    const NOW = "+0";
+    this.part.stop(NOW);
+    this.part.cancel(NOW);
+
+    // Restart the Part at the very beginning of its window (offset 0).
+    this.part.start(NOW, 0);
+
+    // Also synchronise the visual playhead immediately.
+    const visualStart =
+      this._loopStartVisual !== null ? this._loopStartVisual : 0;
+    this.scheduleVisualUpdate(() => this.pianoRoll.setTime(visualStart));
+
+    // Keep internal state aligned.
+    this.state.currentTime = visualStart;
   };
 
   constructor(
@@ -246,34 +319,70 @@ class AudioPlayer implements AudioPlayerControls {
   /**
    * Set up Tone.Part for note scheduling
    */
-  private setupNotePart(): void {
+  private setupNotePart(
+    loopStartVisual?: number,
+    loopEndVisual?: number
+  ): void {
     if (!this.sampler) return;
 
-    // Convert NoteData to Tone.js events
-    const events = this.notes.map((note) => ({
-      time: note.time,
-      note: note.name,
-      duration: note.duration,
-      velocity: note.velocity,
-    }));
+    // Dispose of existing part if it exists
+    if (this.part) {
+      this.part.dispose();
+    }
 
-    // Create scheduled part
+    // Create events, optionally windowed for A–B looping
+    const events = this.notes
+      .filter((note) => {
+        if (
+          loopStartVisual !== undefined &&
+          loopEndVisual !== undefined &&
+          loopStartVisual !== null &&
+          loopEndVisual !== null
+        ) {
+          // Exclude notes whose *start* or *end* lie outside the loop window.
+          // A note is kept only if it *fully* fits within [loopStartVisual, loopEndVisual).
+          // This prevents tails that ring past the visual loop end from being scheduled.
+          const noteStart = note.time;
+          const noteEnd = note.time + note.duration;
+          return noteStart >= loopStartVisual && noteEnd <= loopEndVisual;
+        }
+        return true;
+      })
+      .map((note) => {
+        const relativeTime =
+          loopStartVisual !== undefined && loopStartVisual !== null
+            ? note.time - loopStartVisual
+            : note.time;
+        return {
+          time: relativeTime,
+          note: note.name,
+          duration: note.duration,
+          velocity: note.velocity,
+        };
+      });
+
     this.part = new Tone.Part((time: number, event: any) => {
-      if (this.sampler) {
-        this.sampler.triggerAttackRelease(
-          event.note,
-          event.duration,
-          time,
-          event.velocity
-        );
+      if (!this.sampler) {
+        return;
       }
+      this.sampler.triggerAttackRelease(
+        event.note,
+        event.duration,
+        time,
+        event.velocity
+      );
+      // Debug: log every note that is actually triggered so we can verify
+      // that audio playback is occurring even if speakers are muted.
+      console.log("[Note]", {
+        note: event.note,
+        velocity: event.velocity,
+        duration: event.duration,
+        time: time.toFixed(3),
+      });
     }, events);
 
-    // Configure loop behavior
-    this.part.loop = this.state.isRepeating;
-    // loopEnd should be in transport time
-    this.part.loopEnd =
-      (this.state.duration * this.originalTempo) / this.state.tempo;
+    this.part.humanize = false;
+    this.part.loop = false;
 
     // Set up transport callbacks
     this.setupTransportCallbacks();
@@ -283,9 +392,13 @@ class AudioPlayer implements AudioPlayerControls {
    * Set up transport event callbacks
    */
   private setupTransportCallbacks(): void {
+    // Remove existing listeners first to prevent duplicates
+    this.removeTransportCallbacks();
+
     // Add event listeners
     Tone.getTransport().on("stop", this.handleTransportStop);
     Tone.getTransport().on("pause", this.handleTransportPause);
+    Tone.getTransport().on("loop", this.handleTransportLoop);
   }
 
   /**
@@ -294,52 +407,43 @@ class AudioPlayer implements AudioPlayerControls {
   private removeTransportCallbacks(): void {
     Tone.getTransport().off("stop", this.handleTransportStop);
     Tone.getTransport().off("pause", this.handleTransportPause);
+    Tone.getTransport().off("loop", this.handleTransportLoop);
   }
 
   /**
    * Start playhead synchronization scheduler
    */
   private startSyncScheduler(): void {
+    // Prevent duplicate schedulers
     if (this.syncScheduler !== null) return;
 
-    // Perform immediate update when starting scheduler
     const performUpdate = () => {
-      if (this.state.isPlaying && !this.isSeeking) {
-        // Get current transport time
-        const transportTime = Tone.getTransport().seconds;
+      if (!this.state.isPlaying || this.operationState.isSeeking) {
+        return;
+      }
 
-        // Map the transport time (which stretches/shrinks when BPM changes)
-        // back to the original seconds timeline so that the piano roll stays
-        // in sync regardless of tempo changes.
-        const visualTime =
-          (transportTime * this.state.tempo) / this.originalTempo;
+      const transportTime = Tone.getTransport().seconds;
+      const visualTime =
+        (transportTime * this.state.tempo) / this.originalTempo;
 
-        // Wrap around in repeat mode so time stays within [0, duration)
-        const wrappedTime = this.state.isRepeating
-          ? visualTime % this.state.duration
-          : visualTime;
+      // Sync internal state and visual playhead
+      this.state.currentTime = visualTime;
+      this.pianoRoll.setTime(visualTime);
 
-        this.state.currentTime = wrappedTime;
+      // Auto-pause when playback ends and repeat is off
+      if (!this.state.isRepeating && visualTime >= this.state.duration) {
+        this.pause();
+      }
 
-        // Update piano roll playhead
-        this.pianoRoll.setTime(wrappedTime);
-
-        // Check if we've reached the end (non-repeating mode)
-        if (!this.state.isRepeating && wrappedTime >= this.state.duration) {
-          this.pause();
-        }
-
-        if (Math.floor(visualTime) !== this._lastLogged) {
-          console.log("[Sync]", { visualTime, transportTime });
-          this._lastLogged = Math.floor(visualTime);
-        }
+      // Throttled debug log (1 Hz)
+      if (Math.floor(visualTime) !== this._lastLogged) {
+        console.log("[Sync]", { visualTime, transportTime });
+        this._lastLogged = Math.floor(visualTime);
       }
     };
 
-    // Perform immediate update
+    // Kick-off immediately and then at a fixed interval (~60 FPS by default)
     performUpdate();
-
-    // Then set up interval for regular updates
     this.syncScheduler = window.setInterval(
       performUpdate,
       this.options.syncInterval
@@ -354,6 +458,14 @@ class AudioPlayer implements AudioPlayerControls {
       clearInterval(this.syncScheduler);
       this.syncScheduler = null;
     }
+  }
+
+  /**
+   * Schedule a callback using Tone.js Draw API for visual updates
+   */
+  private scheduleVisualUpdate(callback: () => void): void {
+    // Use Tone.Draw for visual updates synchronized with audio context
+    Tone.Draw.schedule(callback, Tone.now());
   }
 
   /**
@@ -394,12 +506,18 @@ class AudioPlayer implements AudioPlayerControls {
         Tone.getTransport().seconds = this.pausedTime;
         // Part offset should be in transport time, which is pausedTime itself
         if (this.part && Tone.getTransport().state !== "started") {
-          this.part.start(0, this.pausedTime);
+          // Ensure part is stopped before starting
+          this.part.stop();
+          // Schedule the Part to start immediately ("+0") aligned to current transport position
+          this.part.start("+0", this.pausedTime);
         }
       } else {
         // Start from the beginning
         if (this.part) {
-          this.part.start(0);
+          // Ensure part is stopped before starting
+          this.part.stop();
+          // Using non-null assertion to satisfy TS and schedule immediately at audio context time
+          (this.part as Tone.Part).start("+0", 0);
         }
       }
 
@@ -440,83 +558,102 @@ class AudioPlayer implements AudioPlayerControls {
       wasPlaying: this.state.isPlaying,
       currentState: { ...this.state },
       syncScheduler: this.syncScheduler,
-      isSeeking: this.isSeeking,
+      isSeeking: this.operationState.isSeeking,
     });
 
     const wasPlaying = this.state.isPlaying;
 
-    // Set restart flag FIRST before any operations
-    this.isRestarting = true;
+    // Prevent concurrent restarts
+    if (this.operationState.isRestarting) return;
+    this.operationState.isRestarting = true;
 
-    // Clear seek flag to prevent conflicts
-    this.isSeeking = false;
-
-    // Stop sync scheduler first
+    // Stop synchronization immediately
     this.stopSyncScheduler();
 
-    // Cancel and stop part BEFORE transport operations
+    // Immediately stop and cancel existing notes
     if (this.part) {
+      this.part.stop("+0");
       this.part.cancel();
-      this.part.stop();
+      this.part.dispose();
     }
 
-    // Stop transport - this may trigger events but isRestarting flag will ignore them
-    Tone.getTransport().stop();
-    Tone.getTransport().seconds = 0;
+    // Remove any lingering events that the previous Part may have left in the
+    // Tone.Transport schedule. This prevents notes beyond the new loop window
+    // from firing after A–B boundaries are updated.
+    Tone.getTransport().cancel();
 
-    // Reset state
-    this.state.currentTime = 0;
-    this.pausedTime = 0;
+    const transport = Tone.getTransport();
 
-    // Update visual immediately
-    this.pianoRoll.setTime(0);
+    // Determine where the restart should jump to. If an A–B loop is active,
+    // restart from the loop's start (point A). Otherwise from the very
+    // beginning of the piece.
+    const visualStart =
+      this._loopStartVisual !== null ? this._loopStartVisual : 0;
+    const transportStart =
+      (visualStart * this.originalTempo) / this.state.tempo;
 
-    // Now handle restart based on previous state
+    // Fully reset transport state immediately
+    transport.stop();
+    transport.cancel();
+    transport.seconds = transportStart;
+    transport.position = transportStart; // ensure Bars:Beats also updated
+
+    // Reset internal states immediately
+    this.state.currentTime = visualStart;
+    this.pausedTime = transportStart;
+    // Avoid premature visual jump: update playhead immediately only when playback will remain stopped
+    if (!wasPlaying) {
+      this.pianoRoll.setTime(visualStart);
+    }
+
     if (wasPlaying) {
-      // Was playing, so restart playback after a brief delay
+      // A–B 창이 있으면 그 범위로, 없으면 전체로
+      if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
+        this.setupNotePart(this._loopStartVisual, this._loopEndVisual);
+      } else {
+        this.setupNotePart();
+      }
+
+      // Start the transport a few milliseconds in the future to guarantee scheduling
+      const RESTART_DELAY = 0.05; // 50 ms buffer improves reliability across browsers
+      const startTime = Tone.now() + RESTART_DELAY;
+
+      // Queue Part to begin exactly when the transport resumes.
+      // If loop active, Part events are relative to loopStart (offset 0).
+      if (this.part) {
+        // Align Part start with the exact Transport `startTime` so that the
+        // first note is rendered in the same audio frame in which the
+        // Transport begins playback. This prevents the ~50 ms latency that
+        // was noticeable right after invoking `restart()`.
+        this.part.start(startTime, 0);
+      }
+
+      // Start the global transport at the calculated AudioContext `startTime`.
+      transport.start(startTime, transportStart);
+
+      // Immediately resume sync tracking once transport actually starts
       setTimeout(() => {
-        // Only proceed if we're still in restart mode (not interrupted)
-        if (this.isRestarting) {
-          // Clear restart flag now that we're about to start
-          this.isRestarting = false;
-
-          // Start from beginning
-          if (this.part) {
-            this.part.start(0);
-          }
-          Tone.getTransport().start();
-
-          // Update state AFTER transport is started
-          this.state.isPlaying = true;
-
-          // Start sync scheduler
-          this.startSyncScheduler();
-
-          // Force immediate visual update
-          this.pianoRoll.setTime(0);
-        }
-
-        console.log("[AudioPlayer.restart:out]", {
-          wasPlaying,
-          currentState: { ...this.state },
-          transportState: Tone.getTransport().state,
-          transportSeconds: Tone.getTransport().seconds,
-          syncScheduler: this.syncScheduler,
+        this.startSyncScheduler();
+        this.state.isPlaying = true;
+        this.operationState.isRestarting = false;
+        console.log("[AudioPlayer.restart:scheduled]", {
+          startTime,
+          transportSeconds: transport.seconds,
         });
-      }, 50); // Small delay to ensure transport events are processed
+        // Sync visual playhead immediately after transport starts
+        this.scheduleVisualUpdate(() => this.pianoRoll.setTime(visualStart));
+      }, RESTART_DELAY * 1000);
     } else {
-      // Was paused, just reset position without starting
-      this.isRestarting = false;
       this.state.isPlaying = false;
-
-      console.log("[AudioPlayer.restart:out]", {
-        wasPlaying,
-        currentState: { ...this.state },
-        transportState: Tone.getTransport().state,
-        transportSeconds: Tone.getTransport().seconds,
-        syncScheduler: this.syncScheduler,
-      });
+      this.operationState.isRestarting = false;
     }
+
+    console.log("[AudioPlayer.restart:out]", {
+      wasPlaying,
+      currentState: { ...this.state },
+      transportState: transport.state,
+      transportSeconds: transport.seconds,
+    });
   }
 
   /**
@@ -525,11 +662,19 @@ class AudioPlayer implements AudioPlayerControls {
   public toggleRepeat(enabled: boolean): void {
     this.state.isRepeating = enabled;
 
-    // Configure part looping so notes repeat
+    if (!enabled) {
+      // Clear custom loop window when global repeat is turned off
+      this._loopStartVisual = null;
+      this._loopEndVisual = null;
+    }
+
+    // We rely exclusively on Tone.Transport looping to repeat playback. Using
+    // both Part.loop **and** Transport.loop can cause notes to be scheduled
+    // twice (once for each mechanism) which results in either phasing artefacts
+    // or missing notes after the first pass of an A–B loop. Therefore, keep
+    // the Part non-looping here and let the Transport handle the repetition.
     if (this.part) {
-      this.part.loop = enabled;
-      this.part.loopEnd =
-        (this.state.duration * this.originalTempo) / this.state.tempo;
+      this.part.loop = false;
     }
 
     // Configure global transport looping so timeline resets
@@ -545,78 +690,84 @@ class AudioPlayer implements AudioPlayerControls {
    * Seek to specific time position
    */
   public seek(seconds: number): void {
-    console.log("[AudioPlayer.seek:in]", {
-      seconds,
-      wasPlaying: this.state.isPlaying,
-      currentState: this.state,
-      transportState: Tone.getTransport().state,
-    });
+    // If a seek is already in progress, queue this request to run afterwards.
+    if (this.operationState.isSeeking) {
+      this.operationState.pendingSeek = seconds;
+      return;
+    }
 
-    // Set seeking flag FIRST to prevent transport event handlers from interfering
-    this.isSeeking = true;
+    this.operationState.isSeeking = true;
 
-    // Remember if we were playing before seek
     const wasPlaying = this.state.isPlaying;
 
-    // Clamp to valid range in visual seconds
+    // Clamp visual position within valid bounds
     const clampedVisual = Math.max(0, Math.min(seconds, this.state.duration));
-
-    // Convert visual timeline seconds -> transport seconds
     const transportSeconds =
       (clampedVisual * this.originalTempo) / this.state.tempo;
 
-    // Update state immediately
+    // Immediately update internal state and paused position
     this.state.currentTime = clampedVisual;
     this.pausedTime = transportSeconds;
 
-    // Cancel current part events before any transport manipulation
-    if (this.part) {
-      this.part.cancel();
-    }
+    if (wasPlaying) {
+      this.stopSyncScheduler();
 
-    // Update transport position
-    Tone.getTransport().seconds = transportSeconds;
+      if (this.part) {
+        this.part.stop();
+        this.part.cancel();
+      }
 
-    // If we were playing, keep playing smoothly
-    if (wasPlaying && Tone.getTransport().state === "started") {
-      // Reschedule the part
-      if (this.part) {
-        const now = Tone.now();
-        const transportOffset =
-          (clampedVisual * this.originalTempo) / this.state.tempo;
-        this.part.start(now, transportOffset);
+      Tone.getTransport().seconds = transportSeconds;
+
+      // Re-create the Part. If A–B loop is active, schedule only notes inside the window.
+      if (this.sampler) {
+        if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
+          this.setupNotePart(this._loopStartVisual, this._loopEndVisual);
+        } else {
+          this.setupNotePart();
+        }
       }
-    } else if (wasPlaying && Tone.getTransport().state !== "started") {
-      // Transport stopped unexpectedly, need to restart it
+
       if (this.part) {
-        const transportOffset =
-          (clampedVisual * this.originalTempo) / this.state.tempo;
-        this.part.start(0, transportOffset);
+        const offsetForPart =
+          this._loopStartVisual !== null ? 0 : transportSeconds;
+        this.part.start("+0", offsetForPart);
       }
-      Tone.getTransport().start();
+
+      if (Tone.getTransport().state !== "started") {
+        Tone.getTransport().start();
+      }
+
+      // Clear seeking flag after a short delay (50 ms). Then process any queued seek.
+      setTimeout(() => {
+        this.operationState.isSeeking = false;
+
+        // If another seek was queued while this one was executing, perform it now.
+        if (this.operationState.pendingSeek !== null) {
+          const next = this.operationState.pendingSeek;
+          this.operationState.pendingSeek = null;
+          this.seek(next);
+          return; // early exit; nested seek will handle scheduler
+        }
+
+        if (this.state.isPlaying) {
+          this.startSyncScheduler();
+        }
+      }, 50);
     } else {
-      // Not playing, just position update
-      // No need to start transport
+      Tone.getTransport().seconds = transportSeconds;
+      this.operationState.isSeeking = false;
     }
 
-    // Update piano roll immediately
-    this.pianoRoll.setTime(clampedVisual);
-
-    // Clear seeking flag after a delay to ensure all events have processed
-    setTimeout(() => {
-      this.isSeeking = false;
-      // Ensure sync scheduler is running if we're playing
-      if (this.state.isPlaying && this.syncScheduler === null) {
-        this.startSyncScheduler();
-      }
-    }, 50); // Increased delay for better stability
-
-    console.log("[AudioPlayer.seek:out]", {
-      currentTime: this.state.currentTime,
-      isPlaying: this.state.isPlaying,
-      transportState: Tone.getTransport().state,
-      isSeeking: this.isSeeking,
+    // Update visual playhead immediately
+    this.scheduleVisualUpdate(() => {
+      this.pianoRoll.setTime(clampedVisual);
     });
+
+    // Ensure any lingering voices are released to prevent polyphony limits
+    if (this.sampler && (this.sampler as any).releaseAll) {
+      (this.sampler as any).releaseAll();
+    }
   }
 
   /**
@@ -642,7 +793,7 @@ class AudioPlayer implements AudioPlayerControls {
     // If currently playing, we need to handle the tempo change carefully
     if (this.state.isPlaying) {
       // Set seeking flag temporarily to prevent sync conflicts
-      this.isSeeking = true;
+      this.operationState.isSeeking = true;
 
       // Get the current visual position before tempo change
       const currentVisualTime = this.state.currentTime;
@@ -658,18 +809,19 @@ class AudioPlayer implements AudioPlayerControls {
       // Cancel and reschedule part at the adjusted position
       if (this.part) {
         this.part.cancel();
-        const now = Tone.now();
-        // Use the new transport seconds as offset
-        this.part.start(now, newTransportSeconds);
+
+        // Use Tone.js scheduling for immediate reschedule
+        Tone.getTransport().schedule((time) => {
+          if (this.part) {
+            this.part.start(time, newTransportSeconds);
+          }
+          // Clear seeking flag after rescheduling
+          this.operationState.isSeeking = false;
+        }, Tone.now());
       }
 
       // Update transport position to match
       Tone.getTransport().seconds = newTransportSeconds;
-
-      // Clear seeking flag after a brief moment
-      setTimeout(() => {
-        this.isSeeking = false;
-      }, 10);
     } else {
       // Not playing, just update the tempo
       Tone.getTransport().bpm.value = clampedTempo;
@@ -681,6 +833,79 @@ class AudioPlayer implements AudioPlayerControls {
         this.pausedTime =
           (currentVisualTime * this.originalTempo) / clampedTempo;
       }
+    }
+  }
+
+  /**
+   * Set custom A–B loop points (in seconds).
+   * Passing `null` for both parameters clears the loop.
+   * If only `start` is provided, the loop will extend to the end of the piece.
+   */
+  public setLoopPoints(start: number | null, end: number | null): void {
+    // Clear looping if start is null ---------------------------------------
+    if (start === null) {
+      this._loopStartVisual = null;
+      this._loopEndVisual = null;
+      this.toggleRepeat(false);
+
+      // Rebuild full Part so that future playback uses all notes
+      if (this.sampler) {
+        if (this.part) {
+          this.part.stop();
+          this.part.cancel();
+          this.part.dispose();
+        }
+        this.setupNotePart();
+      }
+      return;
+    }
+
+    // Normalize end --------------------------------------------------------
+    if (end === null || end <= start) {
+      end = this.state.duration;
+    }
+
+    this._loopStartVisual = start;
+    this._loopEndVisual = end;
+    this.state.isRepeating = true;
+
+    console.log("[AudioPlayer.setLoopPoints]", { start, end });
+
+    const transportStart = (start * this.originalTempo) / this.state.tempo;
+    const transportEnd = (end * this.originalTempo) / this.state.tempo;
+    const transport = Tone.getTransport();
+
+    // --- Rebuild Part relative to loop window ----------------------------
+    if (this.sampler) {
+      if (this.part) {
+        this.part.stop();
+        this.part.cancel();
+        this.part.dispose();
+      }
+      this.setupNotePart(start, end);
+      // Only the Transport is set to loop. Leaving the Part non-looping avoids
+      // duplicate scheduling (Part + Transport) that caused silent or mangled
+      // playback after the first iteration of an A–B loop.
+      if (this.part) {
+        this.part.loop = false;
+      }
+    }
+
+    // --- Configure Transport looping -------------------------------------
+    transport.loop = true;
+    transport.loopStart = transportStart;
+    transport.loopEnd = transportEnd;
+
+    // Jump transport to start of loop window and sync state ------------
+    transport.seconds = transportStart;
+    this.state.currentTime = start;
+    this.pausedTime = transportStart;
+
+    // (Re)start Part from beginning of its window when playing ----------
+    if (this.state.isPlaying && this.part) {
+      // Ensure any previous scheduling is cleared
+      this.part.stop();
+      this.part.start("+0", 0);
     }
   }
 

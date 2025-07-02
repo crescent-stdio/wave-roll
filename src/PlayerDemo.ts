@@ -298,7 +298,9 @@ export class PlayerDemo {
       `;
 
       btn.addEventListener("mouseenter", () => {
-        btn.style.background = "rgba(0, 0, 0, 0.05)";
+        if (!btn.dataset.active) {
+          btn.style.background = "rgba(0, 0, 0, 0.05)";
+        }
       });
       btn.addEventListener("mouseleave", () => {
         if (!btn.dataset.active) {
@@ -390,15 +392,20 @@ export class PlayerDemo {
       `;
 
       btn.addEventListener("mouseenter", () => {
-        if (!isActive) {
+        if (!btn.dataset.active) {
           btn.style.background = "rgba(0, 0, 0, 0.05)";
         }
       });
       btn.addEventListener("mouseleave", () => {
-        if (!isActive) {
+        if (!btn.dataset.active) {
           btn.style.background = "transparent";
         }
       });
+
+      // Mark initial active status via data attribute
+      if (isActive) {
+        btn.dataset.active = "true";
+      }
 
       return btn;
     };
@@ -422,23 +429,23 @@ export class PlayerDemo {
           btnA.style.color = "white";
           btnA.style.fontWeight = "800";
           btnA.style.boxShadow = `inset 0 0 0 2px ${COLOR_A}`;
+          btnA.dataset.active = "true";
 
-          // Reset B since we only have one point defined
-          pointB = null;
-          btnB.style.background = "transparent";
-          btnB.style.color = "#495057";
-          btnB.style.fontWeight = "600";
-          btnB.style.boxShadow = "none";
+          // Preserve existing B marker if already set; otherwise keep B inactive
+          if (pointB === null) {
+            btnB.style.background = "transparent";
+            btnB.style.color = "#495057";
+            btnB.style.fontWeight = "600";
+            btnB.style.boxShadow = "none";
+            delete btnB.dataset.active;
+          }
 
           // Re-render seek bar
           updateSeekBar();
         }
       },
-      true
-    ); // Active by default with virtual point
-    btnA.style.background = COLOR_A;
-    btnA.style.color = "white";
-    btnA.style.fontWeight = "800";
+      false
+    ); // Initially inactive – styled upon user action
 
     // B button
     const btnB = createLoopButton(
@@ -446,24 +453,25 @@ export class PlayerDemo {
       () => {
         const state = this.audioPlayer?.getState();
         if (state) {
-          // If A is not yet set, treat this click as setting A first (requirement 3)
           if (pointA === null) {
-            pointA = state.currentTime;
+            // First point is being set via B button
+            pointB = state.currentTime;
 
-            // Visual style for what is now the A marker
-            btnA.style.background = COLOR_A;
-            btnA.style.color = "white";
-            btnA.style.fontWeight = "800";
-            btnA.style.boxShadow = `inset 0 0 0 2px ${COLOR_A}`;
+            // Style B as active
+            btnB.style.background = `${COLOR_B}`;
+            btnB.style.color = "white";
+            btnB.style.fontWeight = "800";
+            btnB.style.boxShadow = "inset 0 0 0 2px #ff7f00";
+            btnB.dataset.active = "true";
 
-            // Reset B since we only have one point defined
-            pointB = null;
-            btnB.style.background = "transparent";
-            btnB.style.color = "#495057";
-            btnB.style.fontWeight = "600";
-            btnB.style.boxShadow = "none";
+            // Ensure A is inactive
+            btnA.style.background = "transparent";
+            btnA.style.color = "#495057";
+            btnA.style.fontWeight = "600";
+            btnA.style.boxShadow = "none";
+            delete btnA.dataset.active;
           } else {
-            // Normal behaviour – set B point
+            // Normal behaviour – set B point when A already exists
             pointB = state.currentTime;
 
             // Ensure chronological order A < B (requirement 4)
@@ -476,17 +484,16 @@ export class PlayerDemo {
             btnB.style.color = "white";
             btnB.style.fontWeight = "800";
             btnB.style.boxShadow = "inset 0 0 0 2px #ff7f00";
+            btnB.dataset.active = "true";
           }
 
           // Re-render seek bar
           updateSeekBar();
         }
+        console.log("[UI:B click] before swap", { pointA, pointB });
       },
-      true
-    ); // Active by default with virtual point
-    btnB.style.background = `${COLOR_B}`;
-    btnB.style.color = "white";
-    btnB.style.fontWeight = "800";
+      false
+    ); // Initially inactive – styled upon user action
 
     // Clear button
     const btnClear = createLoopButton("✕", () => {
@@ -497,10 +504,12 @@ export class PlayerDemo {
       btnA.style.color = "#495057";
       btnA.style.fontWeight = "600";
       btnA.style.boxShadow = "none";
+      delete btnA.dataset.active;
       btnB.style.background = "transparent";
       btnB.style.color = "#495057";
       btnB.style.fontWeight = "600";
       btnB.style.boxShadow = "none";
+      delete btnB.dataset.active;
       updateSeekBar();
     });
     btnClear.style.fontSize = "16px";
@@ -512,27 +521,47 @@ export class PlayerDemo {
       const seekBarContainer = (this as any).seekBarContainer;
       if (progressBar && seekBarContainer) {
         const state = this.audioPlayer?.getState();
-        if (state && state.duration > 0 && pointA !== null) {
-          // Always compute A percent if pointA is defined
-          let start = pointA;
-          let end: number | null = pointB;
+        if (state && state.duration > 0) {
+          // Case 1: we have A (and maybe B)
+          if (pointA !== null) {
+            let start = pointA;
+            let end: number | null = pointB;
 
-          // Maintain chronological order if both points exist
-          if (end !== null && start > end) {
-            [start, end] = [end, start];
-            pointA = start;
-            pointB = end;
+            if (end !== null && start > end) {
+              [start, end] = [end, start];
+            }
+
+            const aPercent = (start / state.duration) * 100;
+            const bPercent = end !== null ? (end / state.duration) * 100 : null;
+            (this as any).loopPoints = { a: aPercent, b: bPercent };
+
+            // Apply to audio player
+            if (this.audioPlayer?.setLoopPoints) {
+              this.audioPlayer.setLoopPoints(start, end);
+            }
+            return;
           }
 
-          const aPercent = (start / state.duration) * 100;
-          const bPercent = end !== null ? (end / state.duration) * 100 : null;
-          // Store loop points for seek bar rendering (b can be null)
-          (this as any).loopPoints = { a: aPercent, b: bPercent };
-          return;
+          // Case 2: only B is defined
+          if (pointA === null && pointB !== null) {
+            const bPercent = (pointB / state.duration) * 100;
+            (this as any).loopPoints = { a: null, b: bPercent };
+
+            // Apply loop from start to B if desired
+            if (this.audioPlayer?.setLoopPoints) {
+              this.audioPlayer.setLoopPoints(null, pointB);
+            }
+            return;
+          }
         }
       }
       // No valid loop data – reset
       (this as any).loopPoints = null;
+
+      // Clear loop range on audio player
+      if (this.audioPlayer?.setLoopPoints) {
+        this.audioPlayer.setLoopPoints(null, null);
+      }
     };
 
     // Store references
@@ -752,7 +781,7 @@ export class PlayerDemo {
       border-top: 14px solid ${COLOR_PRIMARY};
       pointer-events: none;
       transition: left 0.1s linear;
-      z-index: 1;
+      z-index: 1; /* TODO: ensure above progress bar */
     `;
     (this as any).progressIndicator = progressIndicator;
 
@@ -1308,6 +1337,9 @@ export class PlayerDemo {
     container.appendChild(zoomSuffix);
     container.appendChild(resetBtn);
 
+    // Expose zoom input for external sync (e.g., mouse-wheel zoom on canvas)
+    (this as any).zoomInput = zoomInput;
+
     return container;
   }
 
@@ -1503,26 +1535,30 @@ export class PlayerDemo {
         const markerB = (this as any).markerB;
 
         if (loopPoints && markerA && markerB) {
-          // Always show marker A when available
-          markerA.style.display = "block";
-          markerA.style.left = `${loopPoints.a}%`;
+          // Handle marker A
+          if (loopPoints.a !== null) {
+            markerA.style.display = "block";
+            markerA.style.left = `${loopPoints.a}%`;
+          } else {
+            markerA.style.display = "none";
+          }
+
+          // Handle marker B
+          if (loopPoints.b !== null) {
+            markerB.style.display = "block";
+            markerB.style.left = `${loopPoints.b}%`;
+          } else {
+            markerB.style.display = "none";
+          }
 
           if (loopRegion) {
-            if (loopPoints.b !== null) {
-              console.log("[startUpdateLoop]");
-              console.log([loopPoints.a, loopPoints.b]);
-              console.log([loopRegion]);
-              // Show region & marker B when both A and B exist
+            if (loopPoints.a !== null && loopPoints.b !== null) {
+              // Both markers exist – show region between them
               loopRegion.style.display = "block";
               loopRegion.style.left = `${loopPoints.a}%`;
               loopRegion.style.width = `${loopPoints.b - loopPoints.a}%`;
-
-              markerB.style.display = "block";
-              markerB.style.left = `${loopPoints.b}%`;
             } else {
-              // Hide region & marker B when only A exists
               loopRegion.style.display = "none";
-              markerB.style.display = "none";
             }
           }
         } else if (loopRegion && markerA && markerB) {
@@ -1537,6 +1573,22 @@ export class PlayerDemo {
       const updatePlayButton = (this as any).updatePlayButton;
       if (updatePlayButton) {
         updatePlayButton();
+      }
+
+      // ------------------------------------------------------------------
+      // Keep zoomInput value in sync with actual piano roll zoom level
+      // ------------------------------------------------------------------
+      const zoomInputElem = (this as any).zoomInput as
+        | HTMLInputElement
+        | undefined;
+      if (zoomInputElem && document.activeElement !== zoomInputElem) {
+        const zoomState = this.pianoRollInstance?.getState?.().zoomX;
+        if (zoomState !== undefined) {
+          const formatted = zoomState.toFixed(1);
+          if (zoomInputElem.value !== formatted) {
+            zoomInputElem.value = formatted;
+          }
+        }
       }
     }, 100); // Update 10 times per second
   }
