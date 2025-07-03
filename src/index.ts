@@ -145,6 +145,39 @@ export {
 // Export player demo types
 export type { PlayerDemoOptions } from "./PlayerDemo";
 
+// Export multi MIDI functionality
+export {
+  /**
+   * Creates a multi MIDI demo with file management
+   */
+  createMultiMidiDemo,
+
+  /**
+   * Multi MIDI demo class
+   */
+  MultiMidiDemo,
+} from "./MultiMidiDemo";
+
+// Export multi MIDI manager
+export {
+  /**
+   * Multi MIDI file manager
+   */
+  MultiMidiManager,
+
+  /**
+   * Default color palettes
+   */
+  DEFAULT_PALETTES,
+} from "./MultiMidiManager";
+
+// Export multi MIDI types
+export type {
+  MidiFileEntry,
+  MultiMidiState,
+  ColorPalette,
+} from "./MultiMidiManager";
+
 import "./wave-roll-element";
 
 export { WaveRollMidiElement } from "./wave-roll-element";

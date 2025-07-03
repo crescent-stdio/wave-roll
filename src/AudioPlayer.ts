@@ -51,6 +51,8 @@ export interface PlayerState {
   tempo: number;
   /** Reference tempo used when MIDI was decoded (immutable baseline) */
   originalTempo: number;
+  /** Current stereo pan value (-1 left, 0 center, 1 right) */
+  pan: number;
 }
 
 /**
@@ -90,6 +92,9 @@ export interface AudioPlayerControls {
 
   /** Clean up resources */
   destroy(): void;
+
+  /** Set stereo pan value (-1 left, 0 center, 1 right) */
+  setPan(pan: number): void;
 }
 
 /**
@@ -114,6 +119,7 @@ class AudioPlayer implements AudioPlayerControls {
   private sampler: Tone.Sampler | null = null;
   private part: Tone.Part | null = null;
   private syncScheduler: number | null = null;
+  private panner: Tone.Panner | null = null;
 
   // Player state
   private state: PlayerState;
@@ -261,6 +267,7 @@ class AudioPlayer implements AudioPlayerControls {
       volume: this.options.volume,
       tempo: this.options.tempo,
       originalTempo: this.options.tempo,
+      pan: 0,
     };
 
     // Store the original tempo used when converting MIDI ticks to seconds.
@@ -284,7 +291,10 @@ class AudioPlayer implements AudioPlayerControls {
       // Set initial tempo
       Tone.getTransport().bpm.value = this.options.tempo;
 
-      // Create sampler for note playback
+      // Create stereo panner (center by default) -> destination
+      this.panner = new Tone.Panner(0).toDestination();
+
+      // Create sampler for note playback and route through panner
       this.sampler = new Tone.Sampler({
         urls: {
           C4: "C4.mp3",
@@ -299,7 +309,7 @@ class AudioPlayer implements AudioPlayerControls {
         onload: () => {
           // Sampler loaded successfully
         },
-      }).toDestination();
+      }).connect(this.panner);
 
       // Wait for sampler to be loaded
       await Tone.loaded();
@@ -389,12 +399,12 @@ class AudioPlayer implements AudioPlayerControls {
       );
       // Debug: log every note that is actually triggered so we can verify
       // that audio playback is occurring even if speakers are muted.
-      console.log("[Note]", {
-        note: event.note,
-        velocity: event.velocity,
-        duration: event.duration,
-        time: time.toFixed(3),
-      });
+      // console.log("[Note]", {
+      //   note: event.note,
+      //   velocity: event.velocity,
+      //   duration: event.duration,
+      //   time: time.toFixed(3),
+      // });
     }, events);
 
     this.part.humanize = false;
@@ -963,15 +973,22 @@ class AudioPlayer implements AudioPlayerControls {
    * Clean up resources
    */
   public destroy(): void {
-    // Stop playback
-    this.pause();
+    // Detach transport callbacks before manipulating the Transport to avoid
+    // unintended "stop" / "pause" events resetting the visual playhead.
+    this.removeTransportCallbacks();
+
+    // Ensure the global transport is fully stopped and cleared so that the
+    // next AudioPlayer instance starts from a clean state. This prevents
+    // silent playback when a new Part is created while the previous
+    // Transport is still running.
+    const transport = Tone.getTransport();
+    if (transport.state !== "stopped") {
+      transport.stop();
+    }
+    transport.cancel();
+
     this.stopSyncScheduler();
 
-    // Stop and clean up transport
-    Tone.getTransport().stop();
-    Tone.getTransport().cancel();
-
-    // Dispose of Tone.js components
     if (this.part) {
       this.part.dispose();
       this.part = null;
@@ -982,10 +999,20 @@ class AudioPlayer implements AudioPlayerControls {
       this.sampler = null;
     }
 
-    this.isInitialized = false;
+    if (this.panner) {
+      this.panner.dispose();
+      this.panner = null;
+    }
+  }
 
-    // Remove transport event callbacks
-    this.removeTransportCallbacks();
+  /**
+   * Set stereo pan value (-1 left, 0 center, 1 right)
+   */
+  public setPan(pan: number): void {
+    if (!this.panner) return;
+    const clamped = Math.max(-1, Math.min(1, pan));
+    this.panner.pan.value = clamped;
+    this.state.pan = clamped;
   }
 }
 
@@ -1024,7 +1051,9 @@ export function createAudioPlayer(
   pianoRoll: PianoRollSync,
   options: PlayerOptions = {}
 ): AudioPlayerControls {
-  return new AudioPlayer(notes, pianoRoll, options);
+  const player = new AudioPlayer(notes, pianoRoll, options);
+  // Expose public controls only
+  return player;
 }
 
 /**

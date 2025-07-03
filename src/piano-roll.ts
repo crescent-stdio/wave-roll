@@ -29,6 +29,10 @@ export interface PianoRollOptions {
   noteRange?: { min: number; max: number };
   /** Time step for grid lines */
   timeStep?: number;
+  /** Minor grid step (seconds) for lighter subdivision lines */
+  minorTimeStep?: number;
+  /** Custom note renderer function to determine color per note */
+  noteRenderer?: (note: NoteData, index: number) => number;
 }
 
 /**
@@ -81,6 +85,9 @@ export class PianoRoll {
   private loopStart: number | null = null;
   private loopEnd: number | null = null;
 
+  // Fixed pixel-per-second scale used for horizontal time mapping
+  private pxPerSecond: number | null = null;
+
   private onTimeChangeCallback: ((time: number) => void) | null = null;
 
   private constructor(
@@ -97,8 +104,10 @@ export class PianoRoll {
       showPianoKeys: true,
       noteRange: { min: 21, max: 108 }, // A0 to C8
       timeStep: 1,
+      minorTimeStep: 0.1,
+      noteRenderer: undefined,
       ...options,
-    };
+    } as Required<PianoRollOptions>;
 
     // Initialize state
     this.state = {
@@ -194,9 +203,22 @@ export class PianoRoll {
         ? Math.max(...this.notes.map((n) => n.time + n.duration))
         : 60; // Default 60 seconds if no notes
 
-    this.timeScale = scaleLinear()
-      .domain([0, maxTime])
-      .range([0, this.options.width - (this.options.showPianoKeys ? 60 : 0)]);
+    // Preserve a constant pixel-per-second ratio to ensure grid spacing
+    // stays visually consistent even when the total track length changes.
+    const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
+    if (this.pxPerSecond === null) {
+      // Establish baseline px/sec so that about 8 seconds are visible
+      // in the viewport at the default zoom level, resulting in a
+      // looser grid spacing that is easier to read. Users can still
+      // zoom out to view more of the timeline if desired.
+      const TARGET_VISIBLE_SECONDS = 8;
+      this.pxPerSecond =
+        (this.options.width - pianoKeysOffset) / TARGET_VISIBLE_SECONDS;
+    }
+
+    const rangeEnd = maxTime * this.pxPerSecond;
+
+    this.timeScale = scaleLinear().domain([0, maxTime]).range([0, rangeEnd]);
 
     this.pitchScale = scaleLinear()
       .domain([this.options.noteRange.min, this.options.noteRange.max])
@@ -366,31 +388,54 @@ export class PianoRoll {
       }
     }
 
-    // Time grid lines
+    // Time grid lines (major & minor)
     const timeStep = this.options.timeStep;
+    const minorStep = this.options.minorTimeStep;
     const maxTime = this.timeScale.domain()[1];
 
-    for (let t = 0; t <= maxTime; t += timeStep) {
+    // Helper to draw vertical grid line
+    const drawGridLine = (tVal: number, alpha: number, showLabel: boolean) => {
       const x =
-        this.timeScale(t) * this.state.zoomX +
+        this.timeScale(tVal) * this.state.zoomX +
         this.state.panX +
         (this.options.showPianoKeys ? 60 : 0);
       this.backgroundGrid.moveTo(x, 0);
       this.backgroundGrid.lineTo(x, this.options.height);
-      this.backgroundGrid.stroke({ width: 1, color: 0xe0e0e0, alpha: 0.5 });
+      this.backgroundGrid.stroke({ width: 1, color: 0xe0e0e0, alpha });
 
-      // Add time label beneath the grid line
-      const label = new PIXI.Text({
-        text: t.toFixed(1) + "s",
-        style: {
-          fontSize: 10,
-          fill: 0x555555,
-          align: "center",
-        },
-      });
-      label.x = x + 2;
-      label.y = this.options.height - 14;
-      this.backgroundGrid.addChild(label);
+      if (showLabel) {
+        const label = new PIXI.Text({
+          text: tVal.toFixed(1) + "s",
+          style: {
+            fontSize: 10,
+            fill: 0x555555,
+            align: "center",
+          },
+        });
+        label.x = x + 2;
+        label.y = this.options.height - 14;
+        this.backgroundGrid.addChild(label);
+      }
+    };
+
+    // Major lines
+    for (let t = 0; t <= maxTime; t += timeStep) {
+      drawGridLine(t, 1.0, true);
+    }
+
+    // Minor subdivision lines (draw after to appear underneath labels)
+    if (minorStep && minorStep < timeStep) {
+      const eps = minorStep / 1000; // tolerance for float comparisons
+      for (let t = 0; t <= maxTime + eps; t += minorStep) {
+        // skip if approximately a major line
+        if (
+          Math.abs(t % timeStep) < eps ||
+          Math.abs(timeStep - (t % timeStep)) < eps
+        ) {
+          continue;
+        }
+        drawGridLine(t, 0.25, false);
+      }
     }
 
     // -------------------------------------------------------------
@@ -497,13 +542,13 @@ export class PianoRoll {
     //   zoomX: this.state.zoomX,
     // });
 
-    for (const note of this.notes) {
+    this.notes.forEach((note, index) => {
       // Skip notes outside viewport (only check time, not pitch)
       if (
         note.time + note.duration < viewportTimeStart ||
         note.time > viewportTimeEnd
       ) {
-        continue;
+        return;
       }
 
       const x =
@@ -520,24 +565,29 @@ export class PianoRoll {
 
       const noteGraphic = new PIXI.Graphics();
 
+      // Determine note color using custom renderer or default
+      const noteColor = this.options.noteRenderer
+        ? this.options.noteRenderer(note, index)
+        : this.options.noteColor;
+
       // Note color based on velocity
       const alpha = 0.3 + note.velocity * 0.7; // Scale alpha based on velocity
 
       // Draw filled rectangle
       noteGraphic.rect(x, y - height / 2, width, height);
-      noteGraphic.fill({ color: this.options.noteColor, alpha: alpha });
+      noteGraphic.fill({ color: noteColor, alpha: alpha });
 
       // Note border
       noteGraphic.rect(x, y - height / 2, width, height);
       noteGraphic.stroke({
         width: 1,
-        color: this.options.noteColor,
+        color: noteColor,
         alpha: 0.8,
       });
 
       this.notesContainer.addChild(noteGraphic);
       this.noteGraphics.push(noteGraphic);
-    }
+    });
   }
 
   /**
@@ -715,14 +765,30 @@ export class PianoRoll {
    * Update timeStep (grid spacing in seconds) and re-render background
    */
   public setTimeStep(step: number): void {
-    if (step <= 0) return;
-    this.options.timeStep = step;
+    this.options.timeStep = Math.max(0.01, step);
     this.requestRender();
   }
 
-  /** Get current timeStep */
+  /**
+   * Update minor grid step and re-render
+   */
+  public setMinorTimeStep(step: number): void {
+    this.options.minorTimeStep = Math.max(0.001, step);
+    this.requestRender();
+  }
+
+  /**
+   * Get current timeStep
+   */
   public getTimeStep(): number {
     return this.options.timeStep;
+  }
+
+  /**
+   * Get current minor timeStep
+   */
+  public getMinorTimeStep(): number {
+    return this.options.minorTimeStep;
   }
 
   /**
@@ -880,5 +946,15 @@ export async function createPianoRoll(
      */
     onTimeChange: (callback: (time: number) => void) =>
       pianoRoll.onTimeChange(callback),
+
+    /**
+     * Update minor grid step and re-render
+     */
+    setMinorTimeStep: (step: number) => pianoRoll.setMinorTimeStep(step),
+
+    /**
+     * Get current minor timeStep
+     */
+    getMinorTimeStep: () => pianoRoll.getMinorTimeStep(),
   };
 }
