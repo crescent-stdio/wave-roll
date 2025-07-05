@@ -825,6 +825,9 @@ class AudioPlayer implements AudioPlayerControls {
     const clampedVolume = Math.max(0, Math.min(1, volume));
     this.state.volume = clampedVolume;
 
+    // Ensure future initialization uses the latest volume (e.g., muted before first play)
+    this.options.volume = clampedVolume;
+
     if (this.sampler) {
       this.sampler.volume.value = Tone.gainToDb(clampedVolume);
     }

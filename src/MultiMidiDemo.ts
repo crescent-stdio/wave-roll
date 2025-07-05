@@ -50,33 +50,137 @@ function detectOverlappingNotes(
 }
 
 /**
- * Blend multiple RGB colors using an (optionally weighted) average.
+ * Convert RGB integer values (0-255) to HSV.
  *
- * @param colors  Array of colors as 0xRRGGBB numbers.
- * @param weights Optional per-color weights. If omitted, all weights = 1.
- * @returns Blended color as 0xRRGGBB.
+ * @param r Red   component in [0, 255]
+ * @param g Green component in [0, 255]
+ * @param b Blue  component in [0, 255]
+ * @returns Tuple containing hue (deg 0-360), saturation (0-1) and value (0-1)
  */
-function blendColorsAverage(colors: number[], weights: number[] = []): number {
-  if (colors.length === 0) return 0xffffff;
+function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
 
-  let sumR = 0;
-  let sumG = 0;
-  let sumB = 0;
-  let sumW = 0;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
 
-  for (let i = 0; i < colors.length; i++) {
-    const w = weights[i] ?? 1;
-    const c = colors[i];
-    sumR += w * ((c >> 16) & 0xff);
-    sumG += w * ((c >> 8) & 0xff);
-    sumB += w * (c & 0xff);
-    sumW += w;
+  let h = 0;
+  if (delta !== 0) {
+    switch (max) {
+      case r:
+        h = ((g - b) / delta) % 6;
+        break;
+      case g:
+        h = (b - r) / delta + 2;
+        break;
+      default:
+        h = (r - g) / delta + 4;
+    }
+    h *= 60;
+    if (h < 0) {
+      h += 360;
+    }
   }
 
-  const r = Math.round(sumR / sumW);
-  const g = Math.round(sumG / sumW);
-  const b = Math.round(sumB / sumW);
+  const s = max === 0 ? 0 : delta / max;
+  const v = max;
 
+  return [h, s, v];
+}
+
+/**
+ * Convert HSV values back to RGB.
+ *
+ * @param h Hue in degrees [0, 360)
+ * @param s Saturation in [0, 1]
+ * @param v Value in [0, 1]
+ * @returns Tuple with RGB integer values in [0, 255]
+ */
+function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  const c = v * s;
+  const hh = (h % 360) / 60;
+  const x = c * (1 - Math.abs((hh % 2) - 1));
+
+  let r1 = 0,
+    g1 = 0,
+    b1 = 0;
+
+  if (hh >= 0 && hh < 1) {
+    r1 = c;
+    g1 = x;
+  } else if (hh >= 1 && hh < 2) {
+    r1 = x;
+    g1 = c;
+  } else if (hh >= 2 && hh < 3) {
+    g1 = c;
+    b1 = x;
+  } else if (hh >= 3 && hh < 4) {
+    g1 = x;
+    b1 = c;
+  } else if (hh >= 4 && hh < 5) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  const m = v - c;
+  // Base RGB values in 0..255
+  const rBase = (r1 + m) * 255;
+  const gBase = (g1 + m) * 255;
+  const bBase = (b1 + m) * 255;
+
+  // Lighten the colour slightly to avoid overly vivid tones.
+  const lightenFactor = 0.2; // 0 = original colour, 1 = pure white
+  const r = Math.round(rBase + (255 - rBase) * lightenFactor);
+  const g = Math.round(gBase + (255 - gBase) * lightenFactor);
+  const b = Math.round(bBase + (255 - bBase) * lightenFactor);
+
+  return [r, g, b];
+}
+
+/**
+ * Blend multiple RGB colors using an unweighted average in HSV space.
+ * This approach preserves hue relationships better than direct RGB averaging,
+ * producing more visually pleasing results when many colours overlap.
+ *
+ * @param colors Array of colours as 0xRRGGBB numbers.
+ * @param weights Ignored – kept for backwards-compatibility.
+ * @returns Blended colour as 0xRRGGBB.
+ */
+function blendColorsAverage(colors: number[], _weights: number[] = []): number {
+  if (colors.length === 0) {
+    return 0xffffff;
+  }
+
+  let sumX = 0;
+  let sumY = 0;
+  let sumS = 0;
+  let sumV = 0;
+
+  for (const c of colors) {
+    const r = (c >> 16) & 0xff;
+    const g = (c >> 8) & 0xff;
+    const b = c & 0xff;
+
+    const [h, s, v] = rgbToHsv(r, g, b);
+    const rad = (h * Math.PI) / 180;
+    sumX += Math.cos(rad);
+    sumY += Math.sin(rad);
+    sumS += s;
+    sumV += v;
+  }
+
+  const n = colors.length;
+  const avgH = Math.atan2(sumY / n, sumX / n);
+  const hueDeg = (avgH * 180) / Math.PI + (avgH < 0 ? 360 : 0);
+  const sat = Math.min(1, Math.max(0, sumS / n));
+  const val = Math.min(1, Math.max(0, sumV / n));
+
+  const [r, g, b] = hsvToRgb(hueDeg, sat, val);
   return (r << 16) | (g << 8) | b;
 }
 
@@ -127,10 +231,30 @@ export class MultiMidiDemo {
 
   // Grid subdivision (minor) step in seconds
   private minorTimeStep: number = 0.1;
+  // Map of file-ID → function(panValue)
+  // Allows global L/R controls to synchronise individual sliders.
+  private filePanStateHandlers: Record<string, (pan: number | null) => void> =
+    {};
 
-  constructor(container: HTMLElement) {
+  // Persist per-file pan value so the UI maintains state across re-renders.
+  private filePanValues: Record<string, number> = {};
+
+  // Track mute state when neither L nor R channel is active
+  private muteDueNoLR: boolean = false;
+  private lastVolumeBeforeMute: number = 0.7;
+
+  // Store any user-supplied files so we can load them on initialize()
+  private initialFiles: Array<{ path: string; displayName?: string }> = [];
+
+  constructor(
+    container: HTMLElement,
+    initialFiles: Array<{ path: string; displayName?: string }> = []
+  ) {
     this.container = container;
     this.midiManager = new MultiMidiManager();
+
+    // Store any user-supplied files so we can load them on initialize()
+    this.initialFiles = initialFiles;
 
     // Create layout containers
     this.mainContainer = document.createElement("div");
@@ -155,8 +279,12 @@ export class MultiMidiDemo {
       this.updateFileToggleSection();
     });
 
-    // Load sample MIDI files
-    await this.loadSampleFiles();
+    // Load user-supplied files if provided, otherwise fallback to default sample files
+    if (this.initialFiles && this.initialFiles.length > 0) {
+      await this.loadSampleFiles(this.initialFiles);
+    } else {
+      await this.loadSampleFiles();
+    }
   }
 
   /**
@@ -317,18 +445,27 @@ export class MultiMidiDemo {
       transition: all 0.2s ease;
     `;
 
-    // Checkbox
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = file.isVisible;
-    checkbox.style.cssText = `
-      width: 16px;
-      height: 16px;
+    // Visibility toggle using eye icon
+    const visBtn = document.createElement("button");
+    const isVisible = file.isVisible;
+    visBtn.innerHTML = isVisible
+      ? PLAYER_ICONS.eye_open
+      : PLAYER_ICONS.eye_closed;
+    visBtn.style.cssText = `
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      background: transparent;
       cursor: pointer;
-      accent-color: #0984e3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: ${isVisible ? "#495057" : "#adb5bd"};
+      transition: color 0.15s ease;
     `;
 
-    checkbox.addEventListener("change", () => {
+    visBtn.addEventListener("click", () => {
       this.midiManager.toggleVisibility(file.id);
     });
 
@@ -365,7 +502,7 @@ export class MultiMidiDemo {
       item.style.boxShadow = "none";
     });
 
-    item.appendChild(checkbox);
+    item.appendChild(visBtn);
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
 
@@ -375,25 +512,26 @@ export class MultiMidiDemo {
   /**
    * Load sample MIDI files
    */
-  private async loadSampleFiles(): Promise<void> {
+  private async loadSampleFiles(
+    files: Array<{ path: string; displayName?: string }> = []
+  ): Promise<void> {
     this.isBatchLoading = true;
 
-    const sampleFiles = [
-      {
-        path: "./src/sample_midi/primed_chopin_rnn_2.mid",
-        displayName: "Chopin RNN 2",
-      },
-      {
-        path: "./src/sample_midi/primed_chopin_harmonically_progresses.mid",
-        displayName: "Chopin Harmonic Progress",
-      },
-      {
-        path: "./src/sample_midi/primed_chopin_baseline_transformer-2.mid",
-        displayName: "Chopin Baseline Transformer 2",
-      },
-    ];
+    const fileList =
+      files.length > 0
+        ? files
+        : [
+            {
+              path: "./src/sample_midi/basic_pitch_transcription.mid",
+              displayName: "Basic Pitch Transcription",
+            },
+            {
+              path: "./src/sample_midi/cut_liszt.mid",
+              displayName: "Cut Liszt",
+            },
+          ];
 
-    for (const file of sampleFiles) {
+    for (const file of fileList) {
       try {
         const parsedData = await parseMidi(file.path);
         this.midiManager.addMidiFile(file.path, parsedData, file.displayName);
@@ -485,7 +623,8 @@ export class MultiMidiDemo {
           }
         }
         if (mixColors.length > 1) {
-          noteColors.push(blendColorsAverage(mixColors, mixWeights));
+          // noteColors.push(blendColorsAverage(mixColors, mixWeights));
+          noteColors.push(0xaaaaaa);
         } else {
           noteColors.push(item.color);
         }
@@ -734,9 +873,10 @@ export class MultiMidiDemo {
     const tempoControl = this.createTempoControl();
     controlsRow.appendChild(tempoControl);
 
-    // Group 5: Pan Control (L / R)
-    const panControl = this.createPanControls();
-    controlsRow.appendChild(panControl);
+    // Group 5: Pan Control (L / R) ->
+    // TODO: maybe add this back in later
+    // const panControl = this.createPanControls();
+    // controlsRow.appendChild(panControl);
 
     // Group 6: Zoom Reset Control
     const zoomResetControl = this.createZoomControls();
@@ -1873,6 +2013,34 @@ export class MultiMidiDemo {
     let leftBtnObj: any;
     let rightBtnObj: any;
 
+    // Track global L/R button states (true = active)
+    let leftGlobalActive = true;
+    let rightGlobalActive = true;
+
+    const updateGlobalPan = () => {
+      let panVal = 0;
+      const bothOff = !leftGlobalActive && !rightGlobalActive;
+
+      if (leftGlobalActive && !rightGlobalActive) panVal = -1;
+      else if (!leftGlobalActive && rightGlobalActive) panVal = 1;
+
+      // Propagate pan changes to audio player and per-file controls
+      if (bothOff) {
+        // No active channel → mute per-file L/R buttons as well
+        this.applyPanToVisibleFiles(null);
+      } else {
+        this.audioPlayer?.setPan(panVal);
+        this.applyPanToVisibleFiles(panVal);
+      }
+
+      // Handle mute/unmute based on global state
+      this.updateMuteState(bothOff);
+
+      // Refresh per-button visuals
+      leftBtnObj.updateActiveStyle();
+      rightBtnObj.updateActiveStyle();
+    };
+
     const makeLeft = () => {
       const obj: any = {};
       obj.btn = document.createElement("button");
@@ -1890,8 +2058,7 @@ export class MultiMidiDemo {
         transition: all 0.15s ease;
       `;
       obj.updateActiveStyle = () => {
-        const currentPan = this.audioPlayer?.getState().pan ?? 0;
-        if (currentPan < -0.5) {
+        if (leftGlobalActive) {
           obj.btn.style.background = "rgba(40, 167, 69, 0.1)";
           obj.btn.style.color = "#28a745";
         } else {
@@ -1900,9 +2067,9 @@ export class MultiMidiDemo {
         }
       };
       obj.btn.addEventListener("click", () => {
-        this.audioPlayer?.setPan(-1);
-        obj.updateActiveStyle();
-        rightBtnObj.updateActiveStyle();
+        leftGlobalActive = !leftGlobalActive;
+        // If both turned off we do NOT automatically enable right.
+        updateGlobalPan();
       });
       return obj;
     };
@@ -1924,8 +2091,7 @@ export class MultiMidiDemo {
         transition: all 0.15s ease;
       `;
       obj.updateActiveStyle = () => {
-        const currentPan = this.audioPlayer?.getState().pan ?? 0;
-        if (currentPan > 0.5) {
+        if (rightGlobalActive) {
           obj.btn.style.background = "rgba(220, 53, 69, 0.1)";
           obj.btn.style.color = "#dc3545";
         } else {
@@ -1934,9 +2100,8 @@ export class MultiMidiDemo {
         }
       };
       obj.btn.addEventListener("click", () => {
-        this.audioPlayer?.setPan(1);
-        leftBtnObj.updateActiveStyle();
-        obj.updateActiveStyle();
+        rightGlobalActive = !rightGlobalActive;
+        updateGlobalPan();
       });
       return obj;
     };
@@ -1947,9 +2112,8 @@ export class MultiMidiDemo {
     const updateLeft = leftBtnObj.updateActiveStyle;
     const updateRight = rightBtnObj.updateActiveStyle;
 
-    // Initial style sync
-    updateLeft();
-    updateRight();
+    // Initial state sync
+    updateGlobalPan();
 
     container.appendChild(leftBtnObj.btn);
     container.appendChild(rightBtnObj.btn);
@@ -2832,6 +2996,9 @@ export class MultiMidiDemo {
 
     this.fileToggleContainer.innerHTML = "";
 
+    // Reset per-file pan handlers
+    this.filePanStateHandlers = {};
+
     const state = this.midiManager.getState();
 
     if (state.files.length === 0) {
@@ -2862,16 +3029,26 @@ export class MultiMidiDemo {
         width: 100%;
       `;
 
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = file.isVisible;
-      checkbox.style.cssText = `
-        width: 14px;
-        height: 14px;
-        accent-color: #0984e3;
+      // Visibility toggle
+      const visBtn = document.createElement("button");
+      const isVisibleToggle = file.isVisible;
+      visBtn.innerHTML = isVisibleToggle
+        ? PLAYER_ICONS.eye_open
+        : PLAYER_ICONS.eye_closed;
+      visBtn.style.cssText = `
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border: none;
+        background: transparent;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${isVisibleToggle ? "#495057" : "#adb5bd"};
+        transition: color 0.15s ease;
       `;
-      checkbox.addEventListener("change", () => {
+      visBtn.addEventListener("click", () => {
         this.midiManager.toggleVisibility(file.id);
       });
 
@@ -2890,129 +3067,117 @@ export class MultiMidiDemo {
         color: ${file.isVisible ? "#343a40" : "#6c757d"};
       `;
 
-      label.appendChild(checkbox);
+      label.appendChild(visBtn);
       label.appendChild(colorDot);
       label.appendChild(nameSpan);
 
-      // L / R button container
-      const lrContainer = document.createElement("div");
-      lrContainer.style.cssText = `
+      // Pan slider [L] —— [R]
+      const panContainer = document.createElement("div");
+      panContainer.style.cssText = `
         display: flex;
+        align-items: center;
         gap: 4px;
         margin-left: auto;
       `;
 
-      let leftActive = true;
-      let rightActive = true;
+      const leftLabel = document.createElement("span");
+      leftLabel.textContent = "L";
+      leftLabel.style.cssText = `
+        font-size: 10px;
+        font-weight: 700;
+        color: #495057;
+      `;
 
-      const updatePan = () => {
-        if (!this.audioPlayer) return;
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "-1";
+      slider.max = "1";
+      slider.step = "0.1";
+      const initialPan = this.filePanValues[file.id] ?? 0;
+      slider.value = initialPan.toString();
+      slider.style.cssText = `
+        width: 70px;
+        cursor: pointer;
+      `;
 
-        let panVal = 0; // Center when both active or both inactive
-        if (leftActive && !rightActive)
-          panVal = -1; // Left only
-        else if (!leftActive && rightActive) panVal = 1; // Right only
+      const rightLabel = document.createElement("span");
+      rightLabel.textContent = "R";
+      rightLabel.style.cssText = `
+        font-size: 10px;
+        font-weight: 700;
+        color: #495057;
+      `;
 
-        this.audioPlayer.setPan(panVal);
+      const applyPan = (val: number) => {
+        this.audioPlayer?.setPan(val);
+        this.filePanValues[file.id] = val;
+        this.updateMuteState(false);
       };
 
-      const createLRButton = (text: "L" | "R"): HTMLButtonElement => {
-        const btn = document.createElement("button");
-        btn.textContent = text;
-        btn.style.cssText = `
-          width: 22px;
-          height: 22px;
-          border: none;
-          border-radius: 4px;
-          background: transparent;
-          color: #495057;
-          font-size: 10px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease;
-        `;
+      // User-driven change
+      slider.addEventListener("input", () => {
+        applyPan(parseFloat(slider.value));
+      });
 
-        btn.addEventListener("mouseenter", () => {
-          if (text === "L" ? !leftActive : !rightActive) {
-            btn.style.background = "rgba(0,0,0,0.05)";
-          }
-        });
-        btn.addEventListener("mouseleave", () => {
-          if (text === "L" ? !leftActive : !rightActive) {
-            btn.style.background = "transparent";
-          }
-        });
+      panContainer.appendChild(leftLabel);
+      panContainer.appendChild(slider);
+      panContainer.appendChild(rightLabel);
 
-        return btn;
+      label.appendChild(panContainer);
+
+      // Handler for global controls → update this slider
+      this.filePanStateHandlers[file.id] = (panVal: number | null) => {
+        const v = panVal ?? 0;
+        slider.value = v.toString();
       };
 
-      const leftBtn = createLRButton("L");
-      const rightBtn = createLRButton("R");
-
-      const refreshStyles = () => {
-        if (leftActive) {
-          leftBtn.style.background = "rgba(0,123,255,0.15)";
-          leftBtn.style.color = "#007bff";
-        } else {
-          leftBtn.style.background = "transparent";
-          leftBtn.style.color = "#495057";
-        }
-
-        if (rightActive) {
-          rightBtn.style.background = "rgba(0,123,255,0.15)";
-          rightBtn.style.color = "#007bff";
-        } else {
-          rightBtn.style.background = "transparent";
-          rightBtn.style.color = "#495057";
-        }
-      };
-
-      const handleClick = (side: "L" | "R") => {
-        if (side === "L") {
-          if (leftActive && !rightActive) {
-            // prevent both off -> turn both on (center)
-            leftActive = true;
-            rightActive = true;
-          } else {
-            leftActive = !leftActive;
-          }
-        } else {
-          if (rightActive && !leftActive) {
-            leftActive = true;
-            rightActive = true;
-          } else {
-            rightActive = !rightActive;
-          }
-        }
-
-        refreshStyles();
-        updatePan();
-      };
-
-      leftBtn.addEventListener("click", () => handleClick("L"));
-      rightBtn.addEventListener("click", () => handleClick("R"));
-
-      // Initial style
-      refreshStyles();
-
-      lrContainer.appendChild(leftBtn);
-      lrContainer.appendChild(rightBtn);
-
-      label.appendChild(lrContainer);
-
-      // Initial pan value (center)
-      updatePan();
+      // Persist current pan
+      this.filePanValues[file.id] = initialPan;
 
       this.fileToggleContainer!.appendChild(label);
     });
+  }
+
+  /**
+   * Propagate a pan change from the global L/R buttons to every *visible* file's
+   * individual L/R toggle buttons.
+   * @param pan  -1 for Left, 1 for Right, 0 (or any other) for Center (L+R).
+   */
+  private applyPanToVisibleFiles(pan: number | null): void {
+    const state = this.midiManager.getState();
+    state.files.forEach((file) => {
+      if (!file.isVisible) return;
+      const handler = this.filePanStateHandlers[file.id];
+      if (handler) handler(pan);
+      this.filePanValues[file.id] = pan ?? 0;
+    });
+  }
+
+  /**
+   * Mute or restore audio output depending on channel activity.
+   * @param shouldMute - If true, mute audio; otherwise restore previous volume.
+   */
+  private updateMuteState(shouldMute: boolean): void {
+    if (!this.audioPlayer) return;
+    if (shouldMute) {
+      if (!this.muteDueNoLR) {
+        this.lastVolumeBeforeMute = this.audioPlayer.getState().volume;
+        this.audioPlayer.setVolume(0);
+        this.muteDueNoLR = true;
+      }
+    } else if (this.muteDueNoLR) {
+      this.audioPlayer.setVolume(this.lastVolumeBeforeMute);
+      this.muteDueNoLR = false;
+    }
   }
 }
 
 /** Factory function to create multi MIDI demo (restored) */
 export async function createMultiMidiDemo(
-  container: HTMLElement
+  container: HTMLElement,
+  files: Array<{ path: string; displayName?: string }> = []
 ): Promise<MultiMidiDemo> {
-  const demo = new MultiMidiDemo(container);
+  const demo = new MultiMidiDemo(container, files);
   await demo.initialize();
   return demo;
 }

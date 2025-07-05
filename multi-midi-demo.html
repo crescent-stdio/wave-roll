@@ -71,45 +71,24 @@
       <header>
         <h1>Multi MIDI Visualizer</h1>
       </header>
-      <div id="demo-container">
+      <!-- <div id="demo-container">
         <div class="loading">Loading...</div>
-      </div>
+      </div> -->
+      <wave-roll-multi-midi
+        style="height: calc(100vh - 80px); display: block; width: 100%"
+        files='[
+        { "path": "./src/sample_midi/bytedance-liszt.mid", "displayName": "Bytedance Liszt" },
+        { "path": "./src/sample_midi/basicpitch-liszt.mid", "displayName": "Basic Pitch Liszt" },
+        { "path": "./src/sample_midi/MusicToMidi-liszt.mid", "displayName": "MusicToMidi Liszt" },
+        { "path": "./src/sample_midi/Transkun-liszt.mid", "displayName": "Transkun Liszt" }
+        ]'
+      ></wave-roll-multi-midi>
+
+      <!-- Load the custom element definition -->
+      <script type="module">
+        // During dev with Vite, importing the TS file directly registers the element.
+        import "/src/wave-roll-multi-midi-element.ts";
+      </script>
     </div>
-
-    <script type="module">
-      import { createMultiMidiDemo } from "/src/MultiMidiDemo.ts";
-
-      // Initialize the demo
-      async function init() {
-        const container = document.getElementById("demo-container");
-
-        try {
-          // Clear loading message
-          container.innerHTML = "";
-
-          // Create the multi MIDI demo
-          const demo = await createMultiMidiDemo(container);
-
-          // Store demo instance for debugging
-          window.multiMidiDemo = demo;
-
-          console.log("Multi MIDI Demo initialized successfully");
-        } catch (error) {
-          console.error("Failed to initialize Multi MIDI Demo:", error);
-          container.innerHTML = `
-            <div class="error">
-              Failed to initialize: ${error.message}
-            </div>
-          `;
-        }
-      }
-
-      // Start initialization when DOM is ready
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", init);
-      } else {
-        init();
-      }
-    </script>
   </body>
 </html>

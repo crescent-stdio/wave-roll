@@ -179,8 +179,10 @@ export type {
 } from "./MultiMidiManager";
 
 import "./wave-roll-element";
+import "./wave-roll-multi-midi-element";
 
 export { WaveRollMidiElement } from "./wave-roll-element";
+export { WaveRollMultiMidiElement } from "./wave-roll-multi-midi-element";
 
 /**
  * Default export of the main parsing function for convenience

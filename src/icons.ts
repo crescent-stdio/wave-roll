@@ -79,4 +79,14 @@ export const PLAYER_ICONS = {
     <text x="9.5" y="5.5" font-size="5" font-weight="bold" fill="currentColor">A</text>
     <text x="13" y="5.5" font-size="5" font-weight="bold" fill="currentColor">B</text>
   </svg>`,
+
+  eye_open: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+    <circle cx="8" cy="8" r="2.5" />
+  </svg>`,
+
+  eye_closed: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+    <line x1="1" y1="1" x2="15" y2="15" />
+  </svg>`,
 };
