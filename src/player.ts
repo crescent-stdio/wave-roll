@@ -5,7 +5,7 @@
  * with piano-roll visualization and playback controls.
  */
 
-import { MidiInput } from "./types";
+import { MidiInput } from "@/types";
 
 // Module-level cache for Blob URLs to prevent regeneration
 const blobUrlCache = new Map<string, string>();

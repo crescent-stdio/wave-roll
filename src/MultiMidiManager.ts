@@ -2,7 +2,7 @@
  * MultiMidiManager - Manages multiple MIDI files with color palettes
  */
 
-import { NoteData, ParsedMidi } from "./types";
+import { NoteData, ParsedMidi } from "@/types";
 
 /**
  * Color palette for MIDI tracks

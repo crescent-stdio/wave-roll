@@ -34,6 +34,13 @@ export default defineConfig({
 
   // Ensure proper module resolution
   resolve: {
+    alias: {
+      "@/core": resolve(__dirname, "src/core"),
+      "@/demos": resolve(__dirname, "src/demos"),
+      "@/components": resolve(__dirname, "src/components"),
+      "@/assets": resolve(__dirname, "src/assets"),
+      "@/types": resolve(__dirname, "src/core/types/index.ts"),
+    },
     conditions: ["module", "browser", "import", "default"],
   },
 });

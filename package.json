@@ -20,8 +20,8 @@
     "url": "git+https://github.com/crescent-stdio/wave-roll.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Hannah Park",
+  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/crescent-stdio/wave-roll/issues"

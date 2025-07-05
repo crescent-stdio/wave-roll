@@ -1,4 +1,4 @@
-import { NoteData } from '../types';
+import { NoteData } from "@/types";
 
 // Color constants for MIDI visualization
 export const COLOR_PRIMARY = "#0984e3"; // Vibrant blue
@@ -44,7 +44,11 @@ export function detectOverlappingNotes(
  * @param b Blue component (0-255)
  * @returns HSV values as [hue, saturation, value]
  */
-export function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
+export function rgbToHsv(
+  r: number,
+  g: number,
+  b: number
+): [number, number, number] {
   r /= 255;
   g /= 255;
   b /= 255;
@@ -81,7 +85,11 @@ export function rgbToHsv(r: number, g: number, b: number): [number, number, numb
  * @param v Value (0-1)
  * @returns RGB values as [red, green, blue] (0-255)
  */
-export function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+export function hsvToRgb(
+  h: number,
+  s: number,
+  v: number
+): [number, number, number] {
   const c = v * s;
   const hh = (h % 360) / 60;
   const x = c * (1 - Math.abs((hh % 2) - 1));
@@ -133,7 +141,10 @@ export function hsvToRgb(h: number, s: number, v: number): [number, number, numb
  * @param _weights Ignored – kept for backwards-compatibility
  * @returns Blended color as 0xRRGGBB number
  */
-export function blendColorsAverage(colors: number[], _weights: number[] = []): number {
+export function blendColorsAverage(
+  colors: number[],
+  _weights: number[] = []
+): number {
   if (colors.length === 0) {
     return 0xffffff;
   }

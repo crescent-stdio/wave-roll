@@ -3,9 +3,12 @@
  * Extracted from MultiMidiDemo to provide centralized visualization controls
  */
 
-import { NoteData } from "../types";
-import { createPianoRoll } from "../components/piano-roll";
-import { createAudioPlayer, AudioPlayerControls } from "../AudioPlayer";
+import { NoteData } from "@/types";
+import { createPianoRoll } from "@/components/piano-roll";
+import {
+  createAudioPlayer,
+  AudioPlayerControls,
+} from "@/components/audio-player";
 import { detectOverlappingNotes, blendColorsAverage } from "./ColorUtils";
 import { VisualState } from "./StateManager";
 

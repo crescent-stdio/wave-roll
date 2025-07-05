@@ -3,10 +3,10 @@
  * Extracted from MultiMidiDemo.ts for better code organization
  */
 
-import { PLAYER_ICONS } from "../assets/player-icons";
-import { MidiFileEntry, DEFAULT_PALETTES } from "../MultiMidiManager";
+import { PLAYER_ICONS } from "../../assets/player-icons";
+import { MidiFileEntry, DEFAULT_PALETTES } from "../../MultiMidiManager";
 import { COLOR_PRIMARY, COLOR_A, COLOR_B, COLOR_OVERLAP } from "./ColorUtils";
-import { parseMidi } from "../parsers/midi-parser";
+import { parseMidi } from "@/core/parsers/midi-parser";
 
 /**
  * Interface for UI component dependencies

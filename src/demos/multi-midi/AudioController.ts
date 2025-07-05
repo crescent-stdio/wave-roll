@@ -3,8 +3,11 @@
  * Manages audio playback, controls, loop functionality, and state synchronization
  */
 
-import { createAudioPlayer, AudioPlayerControls } from "../AudioPlayer";
-import { NoteData } from "../types";
+import {
+  createAudioPlayer,
+  AudioPlayerControls,
+} from "@/components/audio-player";
+import { NoteData } from "@/types";
 import { StateManager } from "./StateManager";
 import { formatTime } from "./StateManager";
 
@@ -54,7 +57,10 @@ export class AudioController {
   private muteDueNoLR: boolean = false;
   private lastVolumeBeforeMute: number = 0.7;
 
-  constructor(stateManager: StateManager, config?: Partial<AudioControllerConfig>) {
+  constructor(
+    stateManager: StateManager,
+    config?: Partial<AudioControllerConfig>
+  ) {
     this.stateManager = stateManager;
     this.config = {
       defaultVolume: 0.7,
@@ -62,16 +68,19 @@ export class AudioController {
       minTempo: 30,
       maxTempo: 300,
       updateInterval: 50,
-      ...config
+      ...config,
     };
   }
 
   /**
    * Initialize audio player with notes and piano roll instance
    */
-  public async initializeAudioPlayer(notes: NoteData[], pianoRollInstance: any): Promise<void> {
+  public async initializeAudioPlayer(
+    notes: NoteData[],
+    pianoRollInstance: any
+  ): Promise<void> {
     this.pianoRollInstance = pianoRollInstance;
-    
+
     // Destroy existing audio player if any
     if (this.audioPlayer) {
       this.audioPlayer.destroy();
@@ -82,7 +91,7 @@ export class AudioController {
     this.audioPlayer = createAudioPlayer(notes, pianoRollInstance, {
       tempo: this.config.defaultTempo,
       volume: this.config.defaultVolume,
-      repeat: false
+      repeat: false,
     });
 
     // Start update loop
@@ -94,7 +103,7 @@ export class AudioController {
    */
   public async recreateAudioPlayer(notes: NoteData[]): Promise<void> {
     if (!this.pianoRollInstance) {
-      throw new Error('Piano roll instance not initialized');
+      throw new Error("Piano roll instance not initialized");
     }
 
     // Preserve current state
@@ -115,12 +124,12 @@ export class AudioController {
     this.audioPlayer = createAudioPlayer(notes, this.pianoRollInstance, {
       tempo: prevTempo,
       volume: prevVolume,
-      repeat: false
+      repeat: false,
     });
 
     // Restore previous state
     this.audioPlayer.setPan(prevPan);
-    
+
     // Restore playback position and state
     if (prevTime > 0) {
       this.audioPlayer.seek(prevTime, false);
@@ -131,7 +140,10 @@ export class AudioController {
       try {
         await this.audioPlayer.play();
       } catch (error) {
-        console.error('Failed to resume playback after player recreation:', error);
+        console.error(
+          "Failed to resume playback after player recreation:",
+          error
+        );
       }
     }
   }
@@ -141,13 +153,13 @@ export class AudioController {
    */
   public async play(): Promise<void> {
     if (!this.audioPlayer) {
-      throw new Error('Audio player not initialized');
+      throw new Error("Audio player not initialized");
     }
-    
+
     try {
       await this.audioPlayer.play();
     } catch (error) {
-      console.error('Failed to start playback:', error);
+      console.error("Failed to start playback:", error);
       throw error;
     }
   }
@@ -191,7 +203,10 @@ export class AudioController {
    */
   public setTempo(bpm: number): void {
     if (!this.audioPlayer) return;
-    const clampedTempo = Math.max(this.config.minTempo, Math.min(this.config.maxTempo, bpm));
+    const clampedTempo = Math.max(
+      this.config.minTempo,
+      Math.min(this.config.maxTempo, bpm)
+    );
     this.audioPlayer.setTempo(clampedTempo);
   }
 
@@ -216,7 +231,7 @@ export class AudioController {
    */
   public setLoopPoints(start: number | null, end: number | null): void {
     if (!this.audioPlayer) return;
-    
+
     this.loopPoints = { a: start, b: end };
     this.audioPlayer.setLoopPoints(start, end);
     this.stateManager.setLoopPoints(start, end);
@@ -234,7 +249,7 @@ export class AudioController {
    */
   public getState(): AudioPlayerState | null {
     if (!this.audioPlayer) return null;
-    
+
     const state = this.audioPlayer.getState();
     return {
       isPlaying: state.isPlaying,
@@ -243,7 +258,7 @@ export class AudioController {
       volume: state.volume,
       tempo: state.tempo,
       pan: state.pan,
-      isRepeating: state.isRepeating
+      isRepeating: state.isRepeating,
     };
   }
 
@@ -302,13 +317,13 @@ export class AudioController {
     if (!this.audioPlayer) return;
 
     const state = this.audioPlayer.getState();
-    
+
     // Update state manager with current audio state
     this.stateManager.updatePlaybackState({
       currentTime: state.currentTime,
       duration: state.duration,
       isPlaying: state.isPlaying,
-      volume: state.volume
+      volume: state.volume,
     });
   }
 
@@ -330,13 +345,16 @@ export class AudioController {
   /**
    * Handle seek bar interaction
    */
-  public handleSeekBarClick(event: MouseEvent, seekBarElement: HTMLElement): void {
+  public handleSeekBarClick(
+    event: MouseEvent,
+    seekBarElement: HTMLElement
+  ): void {
     if (!this.audioPlayer) return;
 
     const rect = seekBarElement.getBoundingClientRect();
     const percent = (event.clientX - rect.left) / rect.width;
     const state = this.audioPlayer.getState();
-    
+
     if (state.duration > 0) {
       const seekTime = percent * state.duration;
       this.seek(seekTime);
@@ -351,7 +369,7 @@ export class AudioController {
 
     const startPoint = this.loopPoints.a ?? 0;
     this.seek(startPoint);
-    
+
     if (!this.audioPlayer.getState().isPlaying) {
       this.play();
     }
@@ -368,7 +386,7 @@ export class AudioController {
     const state = this.audioPlayer.getState();
     return {
       current: formatTime(state.currentTime),
-      total: formatTime(state.duration)
+      total: formatTime(state.duration),
     };
   }
 
@@ -377,10 +395,10 @@ export class AudioController {
    */
   public getProgress(): number {
     if (!this.audioPlayer) return 0;
-    
+
     const state = this.audioPlayer.getState();
     if (state.duration === 0) return 0;
-    
+
     return (state.currentTime / state.duration) * 100;
   }
 
@@ -389,12 +407,12 @@ export class AudioController {
    */
   public destroy(): void {
     this.stopUpdateLoop();
-    
+
     if (this.audioPlayer) {
       this.audioPlayer.destroy();
       this.audioPlayer = null;
     }
-    
+
     this.pianoRollInstance = null;
   }
 }
@@ -403,7 +421,7 @@ export class AudioController {
  * Create audio controller instance
  */
 export function createAudioController(
-  stateManager: StateManager, 
+  stateManager: StateManager,
   config?: Partial<AudioControllerConfig>
 ): AudioController {
   return new AudioController(stateManager, config);
@@ -447,5 +465,5 @@ export const AudioControllerUtils = {
    */
   percentToTime: (percent: number, duration: number): number => {
     return (percent / 100) * duration;
-  }
+  },
 };

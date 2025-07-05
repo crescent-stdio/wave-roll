@@ -3,8 +3,8 @@
  */
 
 import { parseMidi } from "../parsers/midi-parser";
-import { MidiInput, ParsedMidi } from "../types";
-import { MultiMidiManager, MidiFileEntry } from "../MultiMidiManager";
+import { MidiInput, ParsedMidi } from "@/types";
+import { MultiMidiManager, MidiFileEntry } from "../../MultiMidiManager";
 
 /**
  * Interface for file loading options
@@ -210,7 +210,9 @@ export class FileManager {
    * @param isVisible - Whether the file should be visible
    */
   setFileVisibility(fileId: string, isVisible: boolean): void {
-    const file = this.midiManager.getState().files.find((f) => f.id === fileId);
+    const file = this.midiManager
+      .getState()
+      .files.find((f: MidiFileEntry) => f.id === fileId);
     if (file && file.isVisible !== isVisible) {
       this.midiManager.toggleVisibility(fileId);
     }

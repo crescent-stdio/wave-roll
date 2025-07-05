@@ -7,7 +7,7 @@ import {
   MidiHeader,
   TempoEvent,
   TimeSignatureEvent,
-} from "../types";
+} from "@/types";
 import { midiToNoteName, midiToPitchClass, midiToOctave } from "../utils";
 
 /**

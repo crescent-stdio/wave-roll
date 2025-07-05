@@ -3,8 +3,8 @@
  * This shows how to refactor existing code to use the new FileManager
  */
 
-import { FileManager, DEFAULT_SAMPLE_FILES } from './FileManager';
-import { MultiMidiManager } from '../MultiMidiManager';
+import { FileManager, DEFAULT_SAMPLE_FILES } from "./FileManager";
+import { MultiMidiManager } from "../../MultiMidiManager";
 
 // Example 1: Basic setup and sample file loading
 export async function basicUsageExample() {
@@ -17,8 +17,8 @@ export async function basicUsageExample() {
 
   // Or load custom sample files
   const customFiles = [
-    { path: './src/sample_midi/jazz.mid', displayName: 'Jazz Piece' },
-    { path: './src/sample_midi/cut_liszt.mid', displayName: 'Liszt Excerpt' }
+    { path: "./src/sample_midi/jazz.mid", displayName: "Jazz Piece" },
+    { path: "./src/sample_midi/cut_liszt.mid", displayName: "Liszt Excerpt" },
   ];
   await fileManager.loadSampleFiles(customFiles);
 
@@ -38,9 +38,9 @@ export function fileUploadExample() {
         const fileIds = await fileManager.loadMultipleFiles(files);
         console.log(`Successfully loaded ${fileIds.length} files`);
       } catch (error) {
-        console.error('Failed to load files:', error);
+        console.error("Failed to load files:", error);
       }
-    }
+    },
   });
 
   // Add to DOM
@@ -53,20 +53,20 @@ export async function fileValidationExample() {
   const fileManager = new FileManager(midiManager);
 
   // Validate file before loading
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.mid,.midi';
-  
-  fileInput.addEventListener('change', async (e) => {
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.accept = ".mid,.midi";
+
+  fileInput.addEventListener("change", async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (file) {
       const validation = await fileManager.validateFile(file);
-      
+
       if (validation.isValid) {
         const fileId = await fileManager.loadFile(file);
         console.log(`File loaded with ID: ${fileId}`);
       } else {
-        console.error('File validation failed:', validation.error);
+        console.error("File validation failed:", validation.error);
       }
     }
   });
@@ -79,11 +79,11 @@ export function fileManagementExample() {
 
   // Get all files
   const allFiles = fileManager.getAllFiles();
-  console.log('All files:', allFiles);
+  console.log("All files:", allFiles);
 
   // Get visible files only
   const visibleFiles = fileManager.getVisibleFiles();
-  console.log('Visible files:', visibleFiles);
+  console.log("Visible files:", visibleFiles);
 
   // Toggle file visibility
   if (allFiles.length > 0) {
@@ -95,8 +95,8 @@ export function fileManagementExample() {
   // Update file properties
   if (allFiles.length > 0) {
     const firstFile = allFiles[0];
-    fileManager.updateFileDisplayName(firstFile.id, 'New Name');
-    fileManager.updateFileColor(firstFile.id, 0xFF0000); // Red color
+    fileManager.updateFileDisplayName(firstFile.id, "New Name");
+    fileManager.updateFileColor(firstFile.id, 0xff0000); // Red color
   }
 
   // Remove a file
@@ -113,7 +113,7 @@ export function dragDropExample() {
   const fileManager = new FileManager(midiManager);
 
   // Set up drag and drop area
-  const dropArea = document.createElement('div');
+  const dropArea = document.createElement("div");
   dropArea.style.cssText = `
     width: 300px;
     height: 200px;
@@ -125,10 +125,10 @@ export function dragDropExample() {
     margin: 20px;
     background: #f9f9f9;
   `;
-  dropArea.textContent = 'Drop MIDI files here';
+  dropArea.textContent = "Drop MIDI files here";
 
   // Prevent default drag behaviors
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+  ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
     dropArea.addEventListener(eventName, (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -136,27 +136,29 @@ export function dragDropExample() {
   });
 
   // Handle visual feedback
-  ['dragenter', 'dragover'].forEach(eventName => {
+  ["dragenter", "dragover"].forEach((eventName) => {
     dropArea.addEventListener(eventName, () => {
-      dropArea.style.borderColor = '#007bff';
-      dropArea.style.background = '#e3f2fd';
+      dropArea.style.borderColor = "#007bff";
+      dropArea.style.background = "#e3f2fd";
     });
   });
 
-  ['dragleave', 'drop'].forEach(eventName => {
+  ["dragleave", "drop"].forEach((eventName) => {
     dropArea.addEventListener(eventName, () => {
-      dropArea.style.borderColor = '#ccc';
-      dropArea.style.background = '#f9f9f9';
+      dropArea.style.borderColor = "#ccc";
+      dropArea.style.background = "#f9f9f9";
     });
   });
 
   // Handle file drop
-  dropArea.addEventListener('drop', async (e) => {
+  dropArea.addEventListener("drop", async (e) => {
     try {
       const fileIds = await fileManager.handleFileDrop(e as DragEvent);
-      console.log(`Successfully loaded ${fileIds.length} files via drag and drop`);
+      console.log(
+        `Successfully loaded ${fileIds.length} files via drag and drop`
+      );
     } catch (error) {
-      console.error('Failed to handle file drop:', error);
+      console.error("Failed to handle file drop:", error);
     }
   });
 
@@ -198,7 +200,7 @@ export class RefactoredMultiMidiDemo {
     // Update the UI based on the current state
     const files = this.fileManager.getAllFiles();
     console.log(`UI updated with ${files.length} files`);
-    
+
     // This is where you'd update your actual UI elements
     // For example: this.updateSidebar(), this.updateVisualization(), etc.
   }
@@ -213,9 +215,9 @@ export class RefactoredMultiMidiDemo {
           console.log(`Successfully loaded ${fileIds.length} files`);
           // UI will be updated automatically via the state change listener
         } catch (error) {
-          console.error('Failed to load files:', error);
+          console.error("Failed to load files:", error);
         }
-      }
+      },
     });
 
     // Add to your UI container
@@ -225,18 +227,18 @@ export class RefactoredMultiMidiDemo {
 
 // Example 7: Utility functions usage
 export function utilityFunctionsExample() {
-  const { FileUtils } = require('./FileManager');
+  const { FileUtils } = require("./FileManager");
 
   // Check if file is valid MIDI
-  const file = new File([''], 'test.mid', { type: 'audio/midi' });
-  console.log('Is valid MIDI:', FileUtils.isValidMidiFile(file));
+  const file = new File([""], "test.mid", { type: "audio/midi" });
+  console.log("Is valid MIDI:", FileUtils.isValidMidiFile(file));
 
   // Format file size
-  console.log('File size:', FileUtils.formatFileSize(1024 * 1024)); // "1 MB"
+  console.log("File size:", FileUtils.formatFileSize(1024 * 1024)); // "1 MB"
 
   // Get file name without extension
-  console.log('Base name:', FileUtils.getFileNameWithoutExtension('song.mid')); // "song"
+  console.log("Base name:", FileUtils.getFileNameWithoutExtension("song.mid")); // "song"
 
   // Generate unique file ID
-  console.log('Unique ID:', FileUtils.generateFileId('song.mid'));
+  console.log("Unique ID:", FileUtils.generateFileId("song.mid"));
 }
