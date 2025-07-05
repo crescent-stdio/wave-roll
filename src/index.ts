@@ -8,7 +8,7 @@
  */
 
 // Import and export the main parsing function
-import { parseMidi } from "./parsers/midi-parser";
+import { parseMidi } from "@/core/parsers/midi-parser";
 export { parseMidi };
 
 // Export all type definitions
@@ -20,7 +20,7 @@ export type {
   MidiHeader,
   TempoEvent,
   TimeSignatureEvent,
-} from "./types";
+} from "@/types";
 
 // Export utility functions that might be useful
 export {
@@ -44,7 +44,7 @@ export {
    * @returns Octave number
    */
   midiToOctave,
-} from "./utils";
+} from "@/core/utils";
 
 // Export MIDI player functionality
 export {
@@ -194,14 +194,14 @@ export {
    * File utility functions
    */
   FileUtils,
-} from "./multi-midi-demo/FileManager";
+} from "@/demos/multi-midi/FileManager";
 
 // Export file manager types
 export type {
   FileLoadOptions,
   SampleFileConfig,
   FileValidationResult,
-} from "./multi-midi-demo/FileManager";
+} from "@/demos/multi-midi/FileManager";
 
 import "./wave-roll-element";
 import "./wave-roll-multi-midi-element";

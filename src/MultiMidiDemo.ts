@@ -5,9 +5,12 @@
 
 import { PlayerDemo, PlayerDemoOptions } from "./PlayerDemo";
 import { MultiMidiManager, MidiFileEntry } from "./MultiMidiManager";
-import { NoteData, ParsedMidi } from "./types";
-import { createPianoRoll } from "./components/piano-roll";
-import { createAudioPlayer, AudioPlayerControls } from "./AudioPlayer";
+import { NoteData, ParsedMidi } from "@/types";
+import { createPianoRoll } from "@/components/piano-roll";
+import {
+  createAudioPlayer,
+  AudioPlayerControls,
+} from "@/components/audio-player";
 
 // Import extracted modules
 import {
@@ -19,7 +22,7 @@ import {
   rgbToHsv,
   hsvToRgb,
   blendColorsAverage,
-} from "./multi-midi-demo/ColorUtils";
+} from "@/demos/multi-midi/ColorUtils";
 import {
   StateManager,
   UIState,
@@ -27,21 +30,21 @@ import {
   FileVisibilityState,
   LoopPointsState,
   PanVolumeState,
-} from "./multi-midi-demo/StateManager";
+} from "@/demos/multi-midi/StateManager";
 import {
   FileManager,
   SampleFileConfig,
   DEFAULT_SAMPLE_FILES,
-} from "./multi-midi-demo/FileManager";
+} from "@/demos/multi-midi/FileManager";
 import {
   VisualizationEngine,
   PianoRollConfig,
   ColoredNote,
-} from "./multi-midi-demo/VisualizationEngine";
+} from "@/demos/multi-midi/VisualizationEngine";
 import {
   AudioController,
   AudioControllerConfig,
-} from "./multi-midi-demo/AudioController";
+} from "@/demos/multi-midi/AudioController";
 import {
   UILayoutManager,
   UIControlFactory,
@@ -51,7 +54,7 @@ import {
   UIUtils,
   UIComponentDependencies,
   UIElements,
-} from "./multi-midi-demo/UIComponents";
+} from "@/demos/multi-midi/UIComponents";
 
 /**
  * Configuration for MultiMidiDemo

@@ -1,4 +1,4 @@
-import { parseMidi } from "./parsers/midi-parser";
+import { parseMidi } from "@/core/parsers/midi-parser";
 import { createPlayerDemo, PlayerDemoOptions, PlayerDemo } from "./PlayerDemo";
 
 /**
@@ -81,7 +81,7 @@ class WaveRollMidiElement extends HTMLElement {
 
       // Optional: parse component-level options from data- attributes in the future
       const options: PlayerDemoOptions = {
-        // Sensible defaults – can be extended later via attributes
+        // Sensible defaults - can be extended later via attributes
         player: {
           tempo:
             parsed.header.tempos?.[0]?.bpm ?? 120 /* fallback if no tempo */,

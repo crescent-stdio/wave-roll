@@ -3,9 +3,12 @@
  * Extracted from MultiMidiDemo to provide centralized visualization controls
  */
 
-import { NoteData } from "../types";
-import { createPianoRoll } from "../components/piano-roll";
-import { createAudioPlayer, AudioPlayerControls } from "../AudioPlayer";
+import { NoteData } from "@/types";
+import { createPianoRoll } from "@/components/piano-roll";
+import {
+  createAudioPlayer,
+  AudioPlayerControls,
+} from "@/components/audio-player";
 import { detectOverlappingNotes, blendColorsAverage } from "./ColorUtils";
 import { VisualState } from "./StateManager";
 
@@ -607,7 +610,7 @@ export class VisualizationEngine {
   }
 
   /**
-   * Proxy custom loop points (A–B) to underlying audio player
+   * Proxy custom loop points (A-B) to underlying audio player
    */
   public setLoopPoints(start: number | null, end: number | null): void {
     this.audioPlayer?.setLoopPoints(start, end);

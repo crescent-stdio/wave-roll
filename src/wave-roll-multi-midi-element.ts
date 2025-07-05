@@ -64,7 +64,7 @@ class WaveRollMultiMidiElement extends HTMLElement {
         return parsed.filter((it) => typeof it === "object" && it.path);
       }
     } catch {
-      /* fallthrough – not JSON */
+      /* fallthrough - not JSON */
     }
 
     // Fallback: comma-separated list "path|name,path2|name2"
@@ -86,7 +86,7 @@ class WaveRollMultiMidiElement extends HTMLElement {
       return;
     }
 
-    // If demo already initialised with same file list – skip reinit
+    // If demo already initialised with same file list - skip reinit
     if (this.demo && filesAttr === this.lastFilesAttr) {
       return;
     }
