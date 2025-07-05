@@ -506,7 +506,7 @@ export class PlayerDemo {
             [pointA, pointB] = [pointB, pointA];
           }
 
-          // Visual update – active style for A
+          // Visual update - active style for A
           btnA.style.background = COLOR_A;
           btnA.style.color = "white";
           btnA.style.fontWeight = "800";
@@ -530,7 +530,7 @@ export class PlayerDemo {
         }
       },
       false
-    ); // Initially inactive – styled upon user action
+    ); // Initially inactive - styled upon user action
 
     // B button
     const btnB = createLoopButton(
@@ -578,7 +578,7 @@ export class PlayerDemo {
         console.log("[UI:B click] before swap", { pointA, pointB });
       },
       false
-    ); // Initially inactive – styled upon user action
+    ); // Initially inactive - styled upon user action
 
     // Clear button
     const btnClear = createLoopButton("✕", () => {
@@ -694,7 +694,7 @@ export class PlayerDemo {
           }
         }
       }
-      // No valid loop data – reset
+      // No valid loop data - reset
       (this as any).loopPoints = null;
 
       // Clear overlay on piano roll
@@ -945,7 +945,7 @@ export class PlayerDemo {
       `;
     // box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 
-    // PROGRESS INDICATOR ▼ – always visible current position marker
+    // PROGRESS INDICATOR ▼ - always visible current position marker
     const progressIndicator = document.createElement("div");
     progressIndicator.style.cssText = `
       position: absolute;
@@ -1372,7 +1372,7 @@ export class PlayerDemo {
 
           if (loopRegion) {
             if (loopPoints.a !== null && loopPoints.b !== null) {
-              // Both markers exist – show region between them
+              // Both markers exist - show region between them
               loopRegion.style.display = "block";
               loopRegion.style.left = `${loopPoints.a}%`;
               loopRegion.style.width = `${loopPoints.b - loopPoints.a}%`;

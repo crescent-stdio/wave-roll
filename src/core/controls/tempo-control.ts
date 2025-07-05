@@ -2,7 +2,7 @@ import { AudioPlayerControls } from "../../AudioPlayer";
 import { COLOR_PRIMARY } from "../constants";
 
 /**
- * Tempo control – numeric input with BPM label.
+ * Tempo control - numeric input with BPM label.
  */
 export function createTempoControl(
   audioPlayer: AudioPlayerControls | null
@@ -20,7 +20,7 @@ export function createTempoControl(
 
   const tempoVal = audioPlayer?.getState().tempo ?? 120;
 
-  // Numeric input (40–400 BPM)
+  // Numeric input (40-400 BPM)
   const input = document.createElement("input");
   input.type = "number";
   input.min = "40";

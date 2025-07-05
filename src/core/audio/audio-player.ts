@@ -81,7 +81,7 @@ export interface AudioPlayerControls {
   setTempo(bpm: number): void;
 
   /**
-   * Set custom A–B loop points (in seconds).
+   * Set custom A-B loop points (in seconds).
    * Passing `null` for both parameters clears the loop.
    * If only `start` is provided, the loop will extend to the end of the piece.
    */
@@ -153,7 +153,7 @@ class AudioPlayer implements AudioPlayerControls {
       return;
     }
 
-    // If a custom A–B loop is active, we manage looping manually via seek()
+    // If a custom A-B loop is active, we manage looping manually via seek()
     if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
       return;
     }
@@ -170,7 +170,7 @@ class AudioPlayer implements AudioPlayerControls {
       this.state.isPlaying = false;
       this.stopSyncScheduler();
 
-      // When repeat mode (global or A–B) is active we now rely exclusively on
+      // When repeat mode (global or A-B) is active we now rely exclusively on
       // Transport.loop to wrap the timeline. Therefore we should NOT trigger
       // a full `restart()` here. Simply keep the transport stopped; if the
       // user presses play again it will resume from the beginning of the loop
@@ -194,7 +194,7 @@ class AudioPlayer implements AudioPlayerControls {
   };
 
   /**
-   * When Transport.loop=true (global repeat or A–B repeat)
+   * When Transport.loop=true (global repeat or A-B repeat)
    * Tone.Transport emits a "loop" event at the moment the playhead
    * wraps from loopEnd back to loopStart. Since we disabled Part.loop
    * to prevent double-scheduling, we have to *manually* retrigger the
@@ -343,7 +343,7 @@ class AudioPlayer implements AudioPlayerControls {
       this.part.dispose();
     }
 
-    // Create events, optionally windowed for A–B looping
+    // Create events, optionally windowed for A-B looping
     const events = this.notes
       .filter((note) => {
         if (
@@ -353,7 +353,7 @@ class AudioPlayer implements AudioPlayerControls {
           loopEndVisual !== null
         ) {
           // Keep any note whose *onset* occurs inside the loop window.
-          // This allows very short A–B regions (\<= 한 음 길이) to still trigger sound.
+          // This allows very short A-B regions (\<= 한 음 길이) to still trigger sound.
           const noteStart = note.time;
           return noteStart >= loopStartVisual && noteStart < loopEndVisual;
         }
@@ -537,7 +537,7 @@ class AudioPlayer implements AudioPlayerControls {
       // Resume from paused position or start from beginning
       if (this.pausedTime > 0) {
         Tone.getTransport().seconds = this.pausedTime;
-        // When a custom A–B loop is active the Part's events are stored *relative* to
+        // When a custom A-B loop is active the Part's events are stored *relative* to
         // the loop's visual `start` (i.e. the first note in the loop has time = 0).
         // Therefore we must convert the absolute `pausedTime` (in transport seconds)
         // into an *offset inside the loop window* before starting the Part; otherwise
@@ -552,7 +552,7 @@ class AudioPlayer implements AudioPlayerControls {
             this._loopStartVisual !== null && this._loopEndVisual !== null
               ? // Offset is the visual distance from loop start
                 Math.max(0, this.state.currentTime - this._loopStartVisual)
-              : // No custom loop – use pausedTime (transport seconds)
+              : // No custom loop - use pausedTime (transport seconds)
                 this.pausedTime;
 
           this.part.start("+0", offsetForPart);
@@ -625,12 +625,12 @@ class AudioPlayer implements AudioPlayerControls {
 
     // Remove any lingering events that the previous Part may have left in the
     // Tone.Transport schedule. This prevents notes beyond the new loop window
-    // from firing after A–B boundaries are updated.
+    // from firing after A-B boundaries are updated.
     Tone.getTransport().cancel();
 
     const transport = Tone.getTransport();
 
-    // Determine where the restart should jump to. If an A–B loop is active,
+    // Determine where the restart should jump to. If an A-B loop is active,
     // restart from the loop's start (point A). Otherwise from the very
     // beginning of the piece.
     const visualStart =
@@ -653,7 +653,7 @@ class AudioPlayer implements AudioPlayerControls {
     }
 
     if (wasPlaying) {
-      // A–B 창이 있으면 그 범위로, 없으면 전체로
+      // A-B 창이 있으면 그 범위로, 없으면 전체로
       if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
         this.setupNotePart(this._loopStartVisual, this._loopEndVisual);
       } else {
@@ -717,7 +717,7 @@ class AudioPlayer implements AudioPlayerControls {
     // We rely exclusively on Tone.Transport looping to repeat playback. Using
     // both Part.loop **and** Transport.loop can cause notes to be scheduled
     // twice (once for each mechanism) which results in either phasing artefacts
-    // or missing notes after the first pass of an A–B loop. Therefore, keep
+    // or missing notes after the first pass of an A-B loop. Therefore, keep
     // the Part non-looping here and let the Transport handle the repetition.
     if (this.part) {
       this.part.loop = false;
@@ -765,7 +765,7 @@ class AudioPlayer implements AudioPlayerControls {
 
       Tone.getTransport().seconds = transportSeconds;
 
-      // Re-create the Part. If A–B loop is active, schedule only notes inside the window.
+      // Re-create the Part. If A-B loop is active, schedule only notes inside the window.
       if (this.sampler) {
         if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
           this.setupNotePart(this._loopStartVisual, this._loopEndVisual);
@@ -888,7 +888,7 @@ class AudioPlayer implements AudioPlayerControls {
   }
 
   /**
-   * Set custom A–B loop points (in seconds).
+   * Set custom A-B loop points (in seconds).
    * Passing `null` for both parameters clears the loop.
    * If only `start` is provided, the loop will extend to the end of the piece.
    */
@@ -941,7 +941,7 @@ class AudioPlayer implements AudioPlayerControls {
       this.setupNotePart(start, end);
       // Only the Transport is set to loop. Leaving the Part non-looping avoids
       // duplicate scheduling (Part + Transport) that caused silent or mangled
-      // playback after the first iteration of an A–B loop.
+      // playback after the first iteration of an A-B loop.
       if (this.part) {
         this.part.loop = false;
       }

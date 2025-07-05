@@ -26,7 +26,7 @@ export default defineConfig({
 
   // Ensure TypeScript files are served in development
   optimizeDeps: {
-    include: ["html-midi-player", "@tonejs/midi", "@magenta/music"],
+    include: ["@tonejs/midi"],
     esbuildOptions: {
       target: "es2020",
     },

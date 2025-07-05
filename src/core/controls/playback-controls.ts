@@ -139,7 +139,7 @@ export function createPlaybackControls(
   };
 
   /* ------------------------------------------------------------------
-   * Restart button – seeks to 0 and auto-plays if not already playing
+   * Restart button - seeks to 0 and auto-plays if not already playing
    * ------------------------------------------------------------------ */
   const restartBtn = createSecondaryButton(PLAYER_ICONS.restart, () => {
     audioPlayer?.seek(0);
@@ -150,7 +150,7 @@ export function createPlaybackControls(
   });
 
   /* ------------------------------------------------------------------
-   * Repeat toggle button – toggles repeat mode on the AudioPlayer
+   * Repeat toggle button - toggles repeat mode on the AudioPlayer
    * ------------------------------------------------------------------ */
   const repeatBtn = createSecondaryButton(PLAYER_ICONS.repeat, () => {
     const state = audioPlayer?.getState();

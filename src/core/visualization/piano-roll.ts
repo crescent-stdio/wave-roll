@@ -81,7 +81,7 @@ export class PianoRoll {
   private lastRenderTime = 0;
   private renderThrottleMs = 16; // ~60fps
 
-  // Loop window (A–B) state
+  // Loop window (A-B) state
   private loopStart: number | null = null;
   private loopEnd: number | null = null;
 
@@ -261,7 +261,7 @@ export class PianoRoll {
     canvas.addEventListener("mouseup", this.onPointerUp.bind(this));
     canvas.addEventListener("mouseleave", this.onPointerUp.bind(this));
 
-    // Touch events – explicit non-passive options because we call preventDefault() in the handlers.
+    // Touch events - explicit non-passive options because we call preventDefault() in the handlers.
     canvas.addEventListener(
       "touchstart",
       this.onPointerDown.bind(this),
@@ -274,7 +274,7 @@ export class PianoRoll {
     );
     canvas.addEventListener("touchend", this.onPointerUp.bind(this));
 
-    // Wheel event for zooming – preventDefault() is used, so keep it non-passive.
+    // Wheel event for zooming - preventDefault() is used, so keep it non-passive.
     canvas.addEventListener("wheel", this.onWheel.bind(this), nonPassive);
 
     // Prevent default touch behaviors via CSS property.
@@ -863,14 +863,14 @@ export class PianoRoll {
     // This equals -contentWidth (entire timeline shifted left up to playhead).
     const minPanX = -contentWidth;
 
-    // panX should never be positive – that would push notes to the right of playhead
+    // panX should never be positive - that would push notes to the right of playhead
     const maxPanX = 0;
 
     this.state.panX = Math.max(minPanX, Math.min(this.state.panX, maxPanX));
   }
 
   /**
-   * Update loop window markers (A–B). Pass nulls to clear.
+   * Update loop window markers (A-B). Pass nulls to clear.
    */
   public setLoopWindow(start: number | null, end: number | null): void {
     this.loopStart = start;
@@ -976,7 +976,7 @@ export async function createPianoRoll(
     getTimeStep: () => pianoRoll.getTimeStep(),
 
     /**
-     * Update loop window markers (A–B)
+     * Update loop window markers (A-B)
      */
     setLoopWindow: (start: number | null, end: number | null) =>
       pianoRoll.setLoopWindow(start, end),

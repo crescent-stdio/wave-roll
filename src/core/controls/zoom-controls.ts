@@ -1,7 +1,7 @@
 import { COLOR_PRIMARY } from "../constants";
 
 /**
- * Zoom controls – numeric input that updates piano roll zoomX.
+ * Zoom controls - numeric input that updates piano roll zoomX.
  */
 export function createZoomControls(pianoRoll: any): HTMLElement {
   const container = document.createElement("div");

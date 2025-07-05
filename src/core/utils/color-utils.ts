@@ -138,7 +138,7 @@ export function hsvToRgb(
  * This approach preserves hue relationships better than direct RGB averaging,
  * producing more visually pleasing results when many colours overlap.
  * @param colors Array of colours as 0xRRGGBB numbers
- * @param _weights Ignored – kept for backwards-compatibility
+ * @param _weights Ignored - kept for backwards-compatibility
  * @returns Blended color as 0xRRGGBB number
  */
 export function blendColorsAverage(

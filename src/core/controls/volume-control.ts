@@ -187,7 +187,7 @@ export function createVolumeControl(
     { passive: false }
   );
 
-  // Global keyboard shortcuts – ArrowUp/Down, Shift+Arrow, M
+  // Global keyboard shortcuts - ArrowUp/Down, Shift+Arrow, M
   if (!(window as any)._volumeKeyHandlerAttached) {
     (window as any)._volumeKeyHandlerAttached = true;
     window.addEventListener("keydown", (e) => {

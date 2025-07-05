@@ -610,7 +610,7 @@ export class VisualizationEngine {
   }
 
   /**
-   * Proxy custom loop points (A–B) to underlying audio player
+   * Proxy custom loop points (A-B) to underlying audio player
    */
   public setLoopPoints(start: number | null, end: number | null): void {
     this.audioPlayer?.setLoopPoints(start, end);
