@@ -31,7 +31,6 @@ export const PLAYER_ICONS = {
     <path d="M8 4.5a.5.5 0 0 1 .5.5v3.61l2.846 2.846a.5.5 0 0 1-.708.708L7.5 9.025V5a.5.5 0 0 1 .5-.5z"/>
   </svg>`,
 
-  // Additional icons for future use
   skip_forward: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
     <path d="M12.5 4a.5.5 0 0 0-1 0v3.248L5.233 3.612C4.713 3.31 4 3.655 4 4.308v7.384c0 .653.713.998 1.233.696L11.5 8.752V12a.5.5 0 0 0 1 0V4zM5 4.633 10.804 8 5 11.367V4.633z"/>
   </svg>`,
@@ -53,15 +52,10 @@ export const PLAYER_ICONS = {
     <path d="M8 2a2 2 0 0 0-2 2v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 0-.5.5V8a.5.5 0 0 0 .5.5h2a.5.5 0 0 1 .5.5V10a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 0 .5-.5V7a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1-.5-.5V4a2 2 0 0 0-2-2H8z"/>
   </svg>`,
 
-  // New icon: zoom reset (magnifying glass with counterclockwise arrow)
   zoom_reset: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
-    <!-- Lens -->
     <circle cx="7" cy="7" r="3.25" />
-    <!-- Handle -->
     <line x1="9.5" y1="9.5" x2="13" y2="13" />
-    <!-- Counter-clockwise arrow curve -->
     <path d="M12 4 A6 6 0 1 0 4 12" />
-    <!-- Arrow head -->
     <polyline points="12 2 12 4 10 4" />
   </svg>`,
 
@@ -70,11 +64,8 @@ export const PLAYER_ICONS = {
   </svg>`,
 
   loop_restart: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
-    <!-- Triangle (play symbol) pointing to vertical line -->
     <path d="M3 4.5v7l5-3.5z"/>
-    <!-- Vertical line (start marker) -->
     <rect x="1" y="3" width="2" height="10"/>
-    <!-- A-B markers with connecting line -->
     <rect x="9" y="6" width="6" height="1" fill="currentColor" opacity="0.6"/>
     <text x="9.5" y="5.5" font-size="5" font-weight="bold" fill="currentColor">A</text>
     <text x="13" y="5.5" font-size="5" font-weight="bold" fill="currentColor">B</text>

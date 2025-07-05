@@ -7,7 +7,7 @@
 
 import * as PIXI from "pixi.js";
 import { scaleLinear } from "d3-scale";
-import { NoteData } from "./types";
+import { NoteData } from "../types";
 
 /**
  * Configuration options for the piano roll
@@ -90,6 +90,9 @@ export class PianoRoll {
 
   private onTimeChangeCallback: ((time: number) => void) | null = null;
 
+  private backgroundLabelContainer!: PIXI.Container;
+  private loopLabelContainer!: PIXI.Container;
+
   private constructor(
     canvas: HTMLCanvasElement,
     options: PianoRollOptions = {}
@@ -169,6 +172,11 @@ export class PianoRoll {
     this.backgroundGrid.zIndex = 1;
     this.container.addChild(this.backgroundGrid);
 
+    // Container for time grid labels (kept separate to avoid addChild on Graphics)
+    this.backgroundLabelContainer = new PIXI.Container();
+    this.backgroundLabelContainer.zIndex = 2;
+    this.container.addChild(this.backgroundLabelContainer);
+
     // Notes container for all note rectangles
     this.notesContainer = new PIXI.Container();
     this.notesContainer.zIndex = 10;
@@ -183,6 +191,11 @@ export class PianoRoll {
     this.loopOverlay = new PIXI.Graphics();
     this.loopOverlay.zIndex = 500; // below playhead but above notes
     this.container.addChild(this.loopOverlay);
+
+    // Container for loop A/B labels
+    this.loopLabelContainer = new PIXI.Container();
+    this.loopLabelContainer.zIndex = 600; // alongside loop lines
+    this.container.addChild(this.loopLabelContainer);
 
     // Vertical lines for A (start) and B (end)
     const startLine = new PIXI.Graphics();
@@ -231,21 +244,40 @@ export class PianoRoll {
   private setupInteraction(): void {
     const canvas = this.app.canvas;
 
-    // Mouse/touch events for panning
-    canvas.addEventListener("mousedown", this.onPointerDown.bind(this));
-    canvas.addEventListener("mousemove", this.onPointerMove.bind(this));
+    // Reusable options objects
+    const nonPassive: AddEventListenerOptions = { passive: false };
+
+    // Mouse events for panning
+    canvas.addEventListener(
+      "mousedown",
+      this.onPointerDown.bind(this),
+      nonPassive
+    );
+    canvas.addEventListener(
+      "mousemove",
+      this.onPointerMove.bind(this),
+      nonPassive
+    );
     canvas.addEventListener("mouseup", this.onPointerUp.bind(this));
     canvas.addEventListener("mouseleave", this.onPointerUp.bind(this));
 
-    // Touch events
-    canvas.addEventListener("touchstart", this.onPointerDown.bind(this));
-    canvas.addEventListener("touchmove", this.onPointerMove.bind(this));
+    // Touch events – explicit non-passive options because we call preventDefault() in the handlers.
+    canvas.addEventListener(
+      "touchstart",
+      this.onPointerDown.bind(this),
+      nonPassive
+    );
+    canvas.addEventListener(
+      "touchmove",
+      this.onPointerMove.bind(this),
+      nonPassive
+    );
     canvas.addEventListener("touchend", this.onPointerUp.bind(this));
 
-    // Wheel event for zooming
-    canvas.addEventListener("wheel", this.onWheel.bind(this));
+    // Wheel event for zooming – preventDefault() is used, so keep it non-passive.
+    canvas.addEventListener("wheel", this.onWheel.bind(this), nonPassive);
 
-    // Prevent default touch behaviors
+    // Prevent default touch behaviors via CSS property.
     canvas.style.touchAction = "none";
   }
 
@@ -344,6 +376,14 @@ export class PianoRoll {
    * Render background grid and piano keys
    */
   private renderBackground(): void {
+    // Clear previous labels to avoid duplicates and stale objects
+    if (this.backgroundLabelContainer) {
+      this.backgroundLabelContainer.removeChildren();
+    }
+    if (this.loopLabelContainer) {
+      this.loopLabelContainer.removeChildren();
+    }
+
     // Remove any previously added children (e.g., text labels) and clear drawings
     this.backgroundGrid.removeChildren();
     this.backgroundGrid.clear();
@@ -414,7 +454,7 @@ export class PianoRoll {
         });
         label.x = x + 2;
         label.y = this.options.height - 14;
-        this.backgroundGrid.addChild(label);
+        this.backgroundLabelContainer.addChild(label);
       }
     };
 
@@ -465,7 +505,7 @@ export class PianoRoll {
         });
         text.x = x + 2;
         text.y = 0;
-        this.loopOverlay.addChild(text);
+        this.loopLabelContainer.addChild(text);
       };
 
       let startX: number | null = null;

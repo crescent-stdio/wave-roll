@@ -107,7 +107,7 @@ class WaveRollMultiMidiElement extends HTMLElement {
   /** Dispose of demo instance */
   private destroyDemo(): void {
     if (this.demo) {
-      this.demo.destroy();
+      this.demo.dispose();
       this.demo = null;
     }
   }

@@ -8,7 +8,7 @@
  */
 
 // Import and export the main parsing function
-import { parseMidi } from "./midi-parser";
+import { parseMidi } from "./parsers/midi-parser";
 export { parseMidi };
 
 // Export all type definitions
@@ -98,10 +98,10 @@ export {
    * Piano roll class for advanced usage
    */
   PianoRoll,
-} from "./piano-roll";
+} from "./components/piano-roll";
 
 // Export piano roll types
-export type { PianoRollOptions } from "./piano-roll";
+export type { PianoRollOptions } from "./components/piano-roll";
 
 // Export audio player functionality
 export {
@@ -177,6 +177,31 @@ export type {
   MultiMidiState,
   ColorPalette,
 } from "./MultiMidiManager";
+
+// Export file manager functionality
+export {
+  /**
+   * MIDI file manager for handling file operations
+   */
+  FileManager,
+
+  /**
+   * Default sample file configurations
+   */
+  DEFAULT_SAMPLE_FILES,
+
+  /**
+   * File utility functions
+   */
+  FileUtils,
+} from "./multi-midi-demo/FileManager";
+
+// Export file manager types
+export type {
+  FileLoadOptions,
+  SampleFileConfig,
+  FileValidationResult,
+} from "./multi-midi-demo/FileManager";
 
 import "./wave-roll-element";
 import "./wave-roll-multi-midi-element";

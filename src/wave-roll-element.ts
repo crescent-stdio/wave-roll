@@ -1,4 +1,4 @@
-import { parseMidi } from "./midi-parser";
+import { parseMidi } from "./parsers/midi-parser";
 import { createPlayerDemo, PlayerDemoOptions, PlayerDemo } from "./PlayerDemo";
 
 /**

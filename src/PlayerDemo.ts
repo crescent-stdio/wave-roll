@@ -6,13 +6,13 @@
  */
 
 import { NoteData } from "./types";
-import { createPianoRoll, PianoRollOptions } from "./piano-roll";
+import { createPianoRoll, PianoRollOptions } from "./components/piano-roll";
 import {
   createAudioPlayer,
   AudioPlayerControls,
   PlayerOptions,
 } from "./AudioPlayer";
-import { PLAYER_ICONS } from "./icons";
+import { PLAYER_ICONS } from "./assets/player-icons";
 
 /**
  * Color-blind-safe palette with high saturation and brightness contrast
@@ -1213,14 +1213,18 @@ export class PlayerDemo {
     input.addEventListener("input", handleInputChange);
     input.addEventListener("blur", handleInputChange);
 
-    // Wheel scroll (hover)
-    container.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 1 : -1;
-      const newVal = clampPercent(parseFloat(slider.value) + delta);
-      isMuted = false;
-      updateVolume(newVal);
-    });
+    // Wheel scroll (hover) – non-passive listener because we call preventDefault()
+    container.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        const newVal = clampPercent(parseFloat(slider.value) + delta);
+        isMuted = false;
+        updateVolume(newVal);
+      },
+      { passive: false }
+    );
 
     // Global keyboard shortcuts: ArrowUp/Down (±1) , Shift+Arrow (±5) , M for mute
     if (!(window as any)._volumeKeyHandlerAttached) {
@@ -1474,14 +1478,18 @@ export class PlayerDemo {
       }
     });
 
-    // Wheel over zoomInput → adjust ±0.1 steps
-    zoomInput.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.1 : -0.1;
-      const numeric = parseFloat(zoomInput.value) || currentZoom;
-      zoomInput.value = (numeric + delta).toFixed(1);
-      applyZoom();
-    });
+    // Wheel over zoomInput → adjust ±0.1 steps; mark listener as non-passive
+    zoomInput.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.1 : -0.1;
+        const numeric = parseFloat(zoomInput.value) || currentZoom;
+        zoomInput.value = (numeric + delta).toFixed(1);
+        applyZoom();
+      },
+      { passive: false }
+    );
 
     // Static 'x' suffix label
     const zoomSuffix = document.createElement("span");
