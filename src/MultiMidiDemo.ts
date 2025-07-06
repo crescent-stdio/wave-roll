@@ -217,14 +217,19 @@ export class MultiMidiDemo {
     const loopPoints = this.stateManager.getLoopPointsState();
     const panVolumeState = this.stateManager.getPanVolumeState();
 
+    // Use direct references so that UI mutations persist across re-renders
+    const filePanValuesRef = this.stateManager.getFilePanValuesRef();
+    const filePanStateHandlersRef =
+      this.stateManager.getFilePanStateHandlersRef();
+
     // Reuse existing object so that mutations done by UIComponents persist
     if (!this.uiDeps) {
       this.uiDeps = {
         midiManager: this.midiManager,
         audioPlayer: this.visualizationEngine,
         pianoRollInstance: this.visualizationEngine.getPianoRollInstance(),
-        filePanStateHandlers: panVolumeState.filePanStateHandlers,
-        filePanValues: panVolumeState.filePanValues,
+        filePanStateHandlers: filePanStateHandlersRef,
+        filePanValues: filePanValuesRef,
         muteDueNoLR: uiState.muteDueNoLR,
         lastVolumeBeforeMute: uiState.lastVolumeBeforeMute,
         minorTimeStep: uiState.minorTimeStep,
@@ -243,8 +248,8 @@ export class MultiMidiDemo {
       this.uiDeps.audioPlayer = this.visualizationEngine;
       this.uiDeps.pianoRollInstance =
         this.visualizationEngine.getPianoRollInstance();
-      this.uiDeps.filePanStateHandlers = panVolumeState.filePanStateHandlers;
-      this.uiDeps.filePanValues = panVolumeState.filePanValues;
+      this.uiDeps.filePanStateHandlers = filePanStateHandlersRef;
+      this.uiDeps.filePanValues = filePanValuesRef;
       this.uiDeps.muteDueNoLR = uiState.muteDueNoLR;
       this.uiDeps.lastVolumeBeforeMute = uiState.lastVolumeBeforeMute;
       this.uiDeps.minorTimeStep = uiState.minorTimeStep;
@@ -425,10 +430,10 @@ export class MultiMidiDemo {
       if (overlappingIndices.has(index)) {
         return {
           ...coloredNote,
-          color:
-            typeof COLOR_OVERLAP === "string"
-              ? parseInt(COLOR_OVERLAP.replace("#", ""), 16)
-              : COLOR_OVERLAP,
+          // color:
+          //   typeof COLOR_OVERLAP === "string"
+          //     ? parseInt(COLOR_OVERLAP.replace("#", ""), 16)
+          //     : COLOR_OVERLAP,
         };
       }
       return coloredNote;

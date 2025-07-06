@@ -222,6 +222,26 @@ export class StateManager {
     };
   }
 
+  // NEW METHODS: provide direct references for mutable access
+  /**
+   * Get mutable reference to file pan values map (fileId -> pan value).
+   * Mutating this map will NOT trigger state change notifications automatically.
+   * Call setFilePanValue when a reactive update is required.
+   */
+  public getFilePanValuesRef(): Record<string, number> {
+    return this.state.panVolume.filePanValues;
+  }
+
+  /**
+   * Get mutable reference to file pan state handlers map.
+   */
+  public getFilePanStateHandlersRef(): Record<
+    string,
+    (pan: number | null) => void
+  > {
+    return this.state.panVolume.filePanStateHandlers;
+  }
+
   // State setters
 
   /**
@@ -243,7 +263,9 @@ export class StateManager {
   /**
    * Update file visibility state
    */
-  public updateFileVisibilityState(updates: Partial<FileVisibilityState>): void {
+  public updateFileVisibilityState(
+    updates: Partial<FileVisibilityState>
+  ): void {
     this.state.fileVisibility = { ...this.state.fileVisibility, ...updates };
     this.notifyStateChange();
   }
@@ -280,7 +302,7 @@ export class StateManager {
   public preserveStateForBatch<T>(operation: () => T): T {
     const wasBatchLoading = this.state.ui.isBatchLoading;
     this.state.ui.isBatchLoading = true;
-    
+
     try {
       return operation();
     } finally {
@@ -305,7 +327,8 @@ export class StateManager {
    */
   public addFileToVisibility(fileId: string): void {
     this.state.fileVisibility.visibleFileIds.add(fileId);
-    this.state.fileVisibility.totalFiles = this.state.fileVisibility.visibleFileIds.size;
+    this.state.fileVisibility.totalFiles =
+      this.state.fileVisibility.visibleFileIds.size;
     this.notifyStateChange();
   }
 
@@ -314,7 +337,8 @@ export class StateManager {
    */
   public removeFileFromVisibility(fileId: string): void {
     this.state.fileVisibility.visibleFileIds.delete(fileId);
-    this.state.fileVisibility.totalFiles = this.state.fileVisibility.visibleFileIds.size;
+    this.state.fileVisibility.totalFiles =
+      this.state.fileVisibility.visibleFileIds.size;
     this.notifyStateChange();
   }
 
@@ -351,7 +375,10 @@ export class StateManager {
   /**
    * Register pan state handler for a file
    */
-  public registerFilePanHandler(fileId: string, handler: (pan: number | null) => void): void {
+  public registerFilePanHandler(
+    fileId: string,
+    handler: (pan: number | null) => void
+  ): void {
     this.state.panVolume.filePanStateHandlers[fileId] = handler;
   }
 
@@ -366,9 +393,11 @@ export class StateManager {
    * Synchronize pan values across all files
    */
   public syncPanValues(panValue: number | null): void {
-    Object.values(this.state.panVolume.filePanStateHandlers).forEach(handler => {
-      handler(panValue);
-    });
+    Object.values(this.state.panVolume.filePanStateHandlers).forEach(
+      (handler) => {
+        handler(panValue);
+      }
+    );
   }
 
   /**
@@ -377,7 +406,7 @@ export class StateManager {
   public setLoopPoints(a: number | null, b: number | null): void {
     // Validate that A comes before B if both are set
     if (a !== null && b !== null && a > b) {
-      console.warn('Loop point A cannot be greater than B, swapping values');
+      console.warn("Loop point A cannot be greater than B, swapping values");
       [a, b] = [b, a];
     }
 
@@ -410,13 +439,16 @@ export class StateManager {
   /**
    * Set loop points from percentages
    */
-  public setLoopPointsFromPercentages(aPercent: number | null, bPercent: number | null): void {
+  public setLoopPointsFromPercentages(
+    aPercent: number | null,
+    bPercent: number | null
+  ): void {
     const { duration } = this.state.playback;
     if (duration === 0) return;
 
     const a = aPercent !== null ? (aPercent / 100) * duration : null;
     const b = bPercent !== null ? (bPercent / 100) * duration : null;
-    
+
     this.setLoopPoints(a, b);
   }
 
@@ -448,11 +480,11 @@ export class StateManager {
       return;
     }
 
-    this.stateChangeCallbacks.forEach(callback => {
+    this.stateChangeCallbacks.forEach((callback) => {
       try {
         callback();
       } catch (error) {
-        console.error('Error in state change callback:', error);
+        console.error("Error in state change callback:", error);
       }
     });
   }
@@ -515,7 +547,9 @@ export class StateManager {
 /**
  * Create a new state manager instance
  */
-export function createStateManager(config?: Partial<StateManagerConfig>): StateManager {
+export function createStateManager(
+  config?: Partial<StateManagerConfig>
+): StateManager {
   return new StateManager(config);
 }
 
@@ -525,7 +559,7 @@ export function createStateManager(config?: Partial<StateManagerConfig>): StateM
 export function formatTime(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 /**
@@ -539,5 +573,5 @@ export function clamp(value: number, min: number, max: number): number {
  * Validate file ID
  */
 export function isValidFileId(fileId: string): boolean {
-  return typeof fileId === 'string' && fileId.length > 0;
+  return typeof fileId === "string" && fileId.length > 0;
 }

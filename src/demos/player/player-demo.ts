@@ -109,7 +109,7 @@ export class PlayerDemo {
       // Create audio player
       this.audioPlayer = createAudioPlayer(this.notes, this.pianoRollInstance, {
         tempo: 120,
-        volume: 0.7,
+        volume: 1.0,
         repeat: false,
         ...this.options.player,
       });

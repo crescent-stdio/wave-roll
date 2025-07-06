@@ -206,56 +206,88 @@ export class VisualizationEngine {
     const notes: NoteData[] = [];
     const noteColors: number[] = [];
 
-    if (this.config.enableOverlapDetection) {
-      // Detect overlapping notes
-      const overlappingIndices = detectOverlappingNotes(visibleNotes);
-
-      visibleNotes.forEach((item, idx) => {
-        notes.push(item.note);
-
-        // Calculate color based on overlaps
-        const mixColors: number[] = [item.color];
-        const mixWeights: number[] = [item.note.velocity ?? 1];
-
-        // Find overlapping notes from different files
-        for (let j = 0; j < visibleNotes.length; j++) {
-          if (j === idx) continue;
-
-          const other = visibleNotes[j];
-          if (this.notesOverlap(item, other)) {
-            mixColors.push(other.color);
-            mixWeights.push(other.note.velocity ?? 1);
-          }
-        }
-
-        // Apply color blending or overlap color
-        if (mixColors.length > 1) {
-          noteColors.push(this.config.overlapColor);
-        } else {
-          noteColors.push(item.color);
-        }
-      });
-    } else {
-      // Simple mapping without overlap detection
+    if (!this.config.enableOverlapDetection) {
+      // Fast-path: no overlap logic required
       visibleNotes.forEach((item) => {
         notes.push(item.note);
         noteColors.push(item.color);
       });
+      return { notes, noteColors };
     }
 
-    return { notes, noteColors };
-  }
+    // Detect overlapping sections per note
+    const overlappingMap = detectOverlappingNotes(visibleNotes);
 
-  /**
-   * Check if two notes overlap
-   */
-  private notesOverlap(noteA: ColoredNote, noteB: ColoredNote): boolean {
-    return (
-      noteA.fileId !== noteB.fileId &&
-      noteA.note.midi === noteB.note.midi &&
-      noteA.note.time < noteB.note.time + noteB.note.duration &&
-      noteB.note.time < noteA.note.time + noteA.note.duration
-    );
+    visibleNotes.forEach((item, idx) => {
+      const overlapRanges = overlappingMap.get(idx) ?? [];
+
+      // If no overlaps → push entire note with its original colour
+      if (overlapRanges.length === 0) {
+        notes.push(item.note);
+        noteColors.push(item.color);
+        return;
+      }
+
+      // Sort ranges to build segments sequentially
+      const sortedRanges = [...overlapRanges].sort((a, b) => a.start - b.start);
+
+      const noteStart = item.note.time;
+      const noteEnd = item.note.time + item.note.duration;
+      let cursor = noteStart;
+
+      const cloneNote = (start: number, end: number): NoteData => ({
+        ...item.note,
+        time: start,
+        duration: end - start,
+      });
+
+      for (const r of sortedRanges) {
+        // Non-overlapping segment before this range
+        if (cursor < r.start) {
+          notes.push(cloneNote(cursor, r.start));
+          noteColors.push(item.color);
+        }
+
+        // Overlapping segment
+        const overlapStart = Math.max(cursor, r.start);
+        const overlapEnd = Math.min(noteEnd, r.end);
+        if (overlapEnd > overlapStart) {
+          // Gather colours of all notes that overlap this segment
+          const contributingColors: number[] = [item.color];
+
+          visibleNotes.forEach((other, otherIdx) => {
+            if (otherIdx === idx) return;
+            if (other.fileId === item.fileId) return;
+            if (other.note.midi !== item.note.midi) return;
+
+            const otherStart = other.note.time;
+            const otherEnd = other.note.time + other.note.duration;
+
+            if (otherEnd > overlapStart && otherStart < overlapEnd) {
+              contributingColors.push(other.color);
+            }
+          });
+
+          const blended =
+            contributingColors.length > 1
+              ? 0x444444 // blendColorsAverage(contributingColors)
+              : item.color;
+
+          notes.push(cloneNote(overlapStart, overlapEnd));
+          noteColors.push(blended);
+        }
+
+        cursor = Math.max(cursor, r.end);
+      }
+
+      // Trailing non-overlap segment
+      if (cursor < noteEnd) {
+        notes.push(cloneNote(cursor, noteEnd));
+        noteColors.push(item.color);
+      }
+    });
+
+    return { notes, noteColors };
   }
 
   /**

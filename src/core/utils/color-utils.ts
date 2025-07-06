@@ -9,32 +9,79 @@ export const COLOR_OVERLAP = "#9b59b6"; // Purple for overlapping notes
 /**
  * Detects overlapping notes between different MIDI files
  * @param notes Array of note objects with color and file ID information
- * @returns Map of indices that have overlapping notes
+ * @returns Map where the key is the note index and the value is the overlapping time range { start, end }
  */
 export function detectOverlappingNotes(
   notes: Array<{ note: NoteData; color: number; fileId: string }>
-): Map<number, boolean> {
-  const overlappingIndices = new Map<number, boolean>();
+): Map<number, Array<{ start: number; end: number }>> {
+  const overlappingRanges = new Map<
+    number,
+    Array<{ start: number; end: number }>
+  >();
 
+  // Iterate over all note pairs to find overlaps
   for (let i = 0; i < notes.length; i++) {
     const noteA = notes[i].note;
     for (let j = i + 1; j < notes.length; j++) {
       const noteB = notes[j].note;
 
-      // Check if notes overlap in time and are from different files
-      if (
-        notes[i].fileId !== notes[j].fileId &&
-        noteA.midi === noteB.midi &&
-        noteA.time < noteB.time + noteB.duration &&
-        noteB.time < noteA.time + noteA.duration
-      ) {
-        overlappingIndices.set(i, true);
-        overlappingIndices.set(j, true);
+      // Only compare notes that come from different files and share the same pitch
+      if (notes[i].fileId === notes[j].fileId || noteA.midi !== noteB.midi) {
+        continue;
       }
+
+      // Calculate overlap interval
+      const overlapStart = Math.max(noteA.time, noteB.time);
+      const overlapEnd = Math.min(
+        noteA.time + noteA.duration,
+        noteB.time + noteB.duration
+      );
+
+      if (overlapEnd <= overlapStart) {
+        continue; // No actual overlap
+      }
+
+      // Push range helper
+      const addRange = (idx: number, start: number, end: number): void => {
+        const ranges = overlappingRanges.get(idx) ?? [];
+        ranges.push({ start, end });
+        overlappingRanges.set(idx, ranges);
+      };
+
+      addRange(i, overlapStart, overlapEnd);
+      addRange(j, overlapStart, overlapEnd);
     }
   }
 
-  return overlappingIndices;
+  // Merge overlapping ranges for each note, but keep distinct adjoining ranges
+  // separate so that we end up with disjoint intervals as required.
+  overlappingRanges.forEach((ranges, idx) => {
+    if (ranges.length <= 1) return;
+
+    // Sort by start time
+    ranges.sort((a, b) => a.start - b.start);
+
+    const merged: Array<{ start: number; end: number }> = [];
+    let current = { ...ranges[0] };
+
+    for (let k = 1; k < ranges.length; k++) {
+      const r = ranges[k];
+      if (r.start < current.end) {
+        // Ranges overlap by a positive amount → extend
+        current.end = Math.max(current.end, r.end);
+      } else {
+        // Touching (r.start === current.end) or separated → keep separate
+        merged.push(current);
+        current = { ...r };
+      }
+    }
+    merged.push(current);
+
+    console.log(idx, merged);
+    overlappingRanges.set(idx, merged);
+  });
+
+  return overlappingRanges;
 }
 
 /**

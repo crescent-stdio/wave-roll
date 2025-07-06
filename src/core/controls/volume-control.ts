@@ -49,7 +49,7 @@ export function createVolumeControl(
   slider.type = "range";
   slider.min = "0";
   slider.max = "100";
-  slider.value = "70";
+  slider.value = "100";
   slider.style.cssText = `
     width: 70px;
     -webkit-appearance: none;
@@ -68,7 +68,7 @@ export function createVolumeControl(
   input.type = "number";
   input.min = "0";
   input.max = "100";
-  input.value = "70";
+  input.value = "100";
   input.step = "1";
   input.style.cssText = `
     width: 52px;
@@ -146,29 +146,44 @@ export function createVolumeControl(
   /* ------------------------------------------------------------------
    * Interactions
    * ------------------------------------------------------------------ */
-  let previousVolume = 0.7;
+  let previousVolume = 1;
   let isMuted = false;
 
+  /** Toggle mute/unmute via icon button */
   iconBtn.addEventListener("click", () => {
     if (isMuted) {
+      // Unmute: restore previous volume
       updateVolume(previousVolume * 100);
       isMuted = false;
+      iconBtn.innerHTML = PLAYER_ICONS.volume;
     } else {
+      // Mute: store current volume then set to 0
+      previousVolume = parseFloat(slider.value) / 100;
       updateVolume(0);
       isMuted = true;
+      iconBtn.innerHTML = PLAYER_ICONS.mute;
     }
   });
 
   slider.addEventListener("input", () => {
-    isMuted = false;
-    updateVolume(parseFloat(slider.value));
+    const percent = parseFloat(slider.value);
+    isMuted = percent === 0;
+    if (!isMuted) {
+      previousVolume = percent / 100;
+    }
+    updateVolume(percent);
+    iconBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
   });
 
   const handleInputChange = () => {
     const val = parseFloat(input.value);
     if (!isNaN(val)) {
-      isMuted = false;
+      isMuted = val === 0;
+      if (!isMuted) {
+        previousVolume = val / 100;
+      }
       updateVolume(val);
+      iconBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
     }
   };
   input.addEventListener("input", handleInputChange);
@@ -181,8 +196,12 @@ export function createVolumeControl(
       e.preventDefault();
       const delta = e.deltaY < 0 ? 1 : -1;
       const newVal = clamp(parseFloat(slider.value) + delta);
-      isMuted = false;
+      isMuted = newVal === 0;
+      if (!isMuted) {
+        previousVolume = newVal / 100;
+      }
       updateVolume(newVal);
+      iconBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
     },
     { passive: false }
   );
@@ -212,7 +231,8 @@ export function createVolumeControl(
   }
 
   // Initial sync
-  updateVolume(70);
+  updateVolume(100);
+  iconBtn.innerHTML = PLAYER_ICONS.volume;
 
   container.appendChild(iconBtn);
   container.appendChild(slider);

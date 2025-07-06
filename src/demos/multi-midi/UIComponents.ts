@@ -268,7 +268,7 @@ export class FileItemFactory {
       item.style.boxShadow = "none";
     });
 
-    item.appendChild(visBtn);
+    // Append elements in desired order
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
 
@@ -323,9 +323,9 @@ export class UIControlFactory {
     const tempoControl = this.createTempoControl(dependencies);
     controlsRow.appendChild(tempoControl);
 
-    // Group 5: Pan Control (commented out in original)
-    // const panControl = this.createPanControls(dependencies);
-    // controlsRow.appendChild(panControl);
+    // Group 5: Pan Control
+    const panControl = this.createPanControls(dependencies);
+    controlsRow.appendChild(panControl);
 
     // Group 6: Zoom Reset Control
     const zoomResetControl = this.createZoomControls(dependencies);
@@ -1000,10 +1000,15 @@ export class UIControlFactory {
       color: #6c757d;
     `;
 
-    // Pan control logic
+    // Sync pan value on input
     slider.addEventListener("input", () => {
-      const pan = parseFloat(slider.value) / 100;
-      dependencies.audioPlayer?.setPan(pan);
+      const panValue = parseFloat(slider.value) / 100; // -1 to 1
+      dependencies.audioPlayer?.setPan(panValue);
+    });
+
+    // Double-click → reset to center (0)
+    slider.addEventListener("dblclick", () => {
+      dependencies.audioPlayer?.setPan(0);
     });
 
     container.appendChild(label);
@@ -1339,11 +1344,26 @@ export class FileToggleManager {
       border: 1px solid #dee2e6;
     `;
 
-    // Checkbox
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = file.isVisible;
-    checkbox.addEventListener("change", () => {
+    // Visibility toggle with eye icon
+    const visBtn = document.createElement("button");
+    visBtn.innerHTML = file.isVisible
+      ? PLAYER_ICONS.eye_open
+      : PLAYER_ICONS.eye_closed;
+    visBtn.style.cssText = `
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: ${file.isVisible ? "#495057" : "#adb5bd"};
+      transition: color 0.15s ease;
+    `;
+
+    visBtn.addEventListener("click", () => {
       dependencies.midiManager.toggleVisibility(file.id);
     });
 
@@ -1365,9 +1385,84 @@ export class FileToggleManager {
       color: ${file.isVisible ? "#343a40" : "#6c757d"};
     `;
 
-    item.appendChild(checkbox);
+    // Mute / Unmute toggle button
+    const muteBtn = document.createElement("button");
+    let isMuted = false;
+    muteBtn.innerHTML = PLAYER_ICONS.volume;
+    muteBtn.style.cssText = `
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #adb5bd;
+      transition: color 0.15s ease;
+    `;
+
+    muteBtn.addEventListener("click", () => {
+      isMuted = !isMuted;
+      muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
+      // TODO: Integrate per-file mute logic when audio layer supports it
+    });
+
+    // Stereo labels for clarity
+    const labelL = document.createElement("span");
+    labelL.textContent = "L";
+    labelL.style.cssText = `font-size: 12px; color: #6c757d;`;
+
+    const labelR = document.createElement("span");
+    labelR.textContent = "R";
+    labelR.style.cssText = `font-size: 12px; color: #6c757d;`;
+
+    // Per-file Pan Slider (L/R)
+    const panSlider = document.createElement("input");
+    panSlider.type = "range";
+    panSlider.min = "-100";
+    panSlider.max = "100";
+    panSlider.step = "1";
+    const initPan = (dependencies.filePanValues?.[file.id] ?? 0) * 100;
+    panSlider.value = initPan.toString();
+    panSlider.title = "Pan (L • R)";
+    panSlider.style.cssText = `
+      width: 80px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #e9ecef;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+    `;
+
+    // Sync pan value on input
+    panSlider.addEventListener("input", () => {
+      const panValue = parseFloat(panSlider.value) / 100; // -1 to 1
+      if (dependencies.filePanValues) {
+        dependencies.filePanValues[file.id] = panValue;
+      }
+      dependencies.audioPlayer?.setPan(panValue);
+    });
+
+    // Double-click → reset to center (0)
+    panSlider.addEventListener("dblclick", () => {
+      if (dependencies.filePanValues) {
+        dependencies.filePanValues[file.id] = 0;
+      }
+      dependencies.audioPlayer?.setPan(0);
+    });
+
+    // Append elements in desired order
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
+    item.appendChild(visBtn);
+    item.appendChild(muteBtn);
+    item.appendChild(labelL);
+    item.appendChild(panSlider);
+    item.appendChild(labelR);
 
     return item;
   }
@@ -1468,96 +1563,37 @@ export class SettingsModalManager {
     };
     refreshFileList();
 
-    const addBtn = document.createElement("button");
-    addBtn.textContent = "+ Add MIDI";
-    addBtn.style.cssText = `padding:8px 12px;border:2px dashed #dee2e6;border-radius:6px;background:transparent;cursor:pointer;`;
-    addBtn.onclick = () => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".mid,.midi";
-      input.multiple = true;
-      input.onchange = async (e) => {
-        const files = (e.target as HTMLInputElement).files;
-        if (!files) return;
-        for (const f of Array.from(files)) {
-          try {
-            const parsed = await parseMidi(f);
-            dependencies.midiManager.addMidiFile(f.name, parsed);
-          } catch (err) {
-            console.error(err);
-            alert(`Failed to load ${f.name}`);
-          }
-        }
-        refreshFileList();
-      };
-      input.click();
-    };
-
     filesSection.appendChild(fileList);
-    filesSection.appendChild(addBtn);
-
-    // Palette section
-    const paletteSection = document.createElement("div");
-    const palHeader = document.createElement("h3");
-    palHeader.textContent = "Palette";
-    palHeader.style.cssText = `margin:24px 0 12px;font-size:16px;font-weight:600;`;
-    paletteSection.appendChild(palHeader);
-
-    const grid = document.createElement("div");
-    grid.style.cssText = `display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;`;
-    const allPalettes = [
-      ...DEFAULT_PALETTES,
-      ...dependencies.midiManager.getState().customPalettes,
-    ];
-    allPalettes.forEach((pal: any) => {
-      const item = document.createElement("div");
-      item.style.cssText = `border:2px solid #dee2e6;border-radius:6px;padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px;align-items:center;`;
-      if (pal.id === dependencies.midiManager.getState().activePaletteId) {
-        item.style.borderColor = "#0984e3";
-      }
-      const name = document.createElement("span");
-      name.textContent = pal.name;
-      name.style.cssText = `font-size:12px;font-weight:600;`;
-      const row = document.createElement("div");
-      row.style.cssText = `display:flex;gap:2px;flex-wrap:wrap;`;
-      pal.colors.slice(0, 6).forEach((c: number) => {
-        const dot = document.createElement("div");
-        dot.style.cssText = `width:12px;height:12px;border-radius:50%;background:#${c.toString(16).padStart(6, "0")}`;
-        row.appendChild(dot);
-      });
-      item.appendChild(name);
-      item.appendChild(row);
-      item.onclick = () => {
-        dependencies.midiManager.setActivePalette(pal.id);
-        refreshFileList();
-        overlay.remove();
-      };
-      grid.appendChild(item);
-    });
-    paletteSection.appendChild(grid);
-
-    // assemble modal
     modal.appendChild(header);
     modal.appendChild(filesSection);
-    modal.appendChild(paletteSection);
     overlay.appendChild(modal);
+
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) overlay.remove();
     });
+
     document.body.appendChild(overlay);
   }
 }
 
 /**
- * Utility functions
+ * Utility functions for UIComponents
  */
 export class UIUtils {
+  /**
+   * Format seconds to MM:SS
+   */
   static formatTime(seconds: number): string {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
+    return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
+      .toString()
+      .padStart(2, "0")}`;
   }
 
+  /**
+   * Quick helper to create an element with inline styles
+   */
   static createElement(
     tag: string,
     styles: string,
