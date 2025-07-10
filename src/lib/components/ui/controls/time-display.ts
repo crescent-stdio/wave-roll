@@ -1,0 +1,167 @@
+import { COLOR_PRIMARY } from "@/lib/core/constants";
+import { UIComponentDependencies } from "../types";
+
+/**
+ * Create a time display element.
+ *
+ * @param dependencies - The UI component dependencies.
+ * @returns The time display element.
+ */
+export function createTimeDisplay(
+  dependencies: UIComponentDependencies
+): HTMLElement {
+  const container = document.createElement("div");
+  container.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      padding: 14px 14px 10px 14px;
+      border-radius: 8px;
+      margin-top: 4px;
+    `;
+
+  // Current time label
+  const currentTimeLabel = document.createElement("span");
+  currentTimeLabel.style.cssText = `
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #495057;
+      min-width: 45px;
+      text-align: right;
+    `;
+  currentTimeLabel.textContent = "00:00";
+
+  // Seek bar container
+  const seekBarContainer = document.createElement("div");
+  seekBarContainer.style.cssText = `
+      flex: 1;
+      position: relative;
+      height: 6px;
+      background: #e9ecef;
+      border-radius: 8px;
+      cursor: pointer;
+    `;
+
+  // Progress bar
+  const progressBar = document.createElement("div");
+  progressBar.style.cssText = `
+      height: 100%;
+      background: linear-gradient(90deg, ${COLOR_PRIMARY}, #4dabf7);
+      border-radius: 8px;
+      width: 0%;
+    `;
+
+  // Seek handle
+  const seekHandle = document.createElement("div");
+  seekHandle.style.cssText = `
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: ${COLOR_PRIMARY};
+      border-radius: 50%;
+      cursor: pointer;
+      left: 0%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    `;
+
+  // Total time label
+  const totalTimeLabel = document.createElement("span");
+  totalTimeLabel.style.cssText = `
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6c757d;
+      min-width: 45px;
+    `;
+  totalTimeLabel.textContent = "00:00";
+
+  // Assemble seek bar
+  seekBarContainer.appendChild(progressBar);
+  seekBarContainer.appendChild(seekHandle);
+
+  // Assemble container
+  container.appendChild(currentTimeLabel);
+  container.appendChild(seekBarContainer);
+  container.appendChild(totalTimeLabel);
+
+  /**
+   * ---- Seek-bar logic ----
+   */
+  const updateSeekBar = (override?: {
+    currentTime: number;
+    duration: number;
+  }): void => {
+    const state = override ?? dependencies.audioPlayer?.getState();
+    const dbgCounters = (updateSeekBar as any)._dbg ?? {
+      noState: 0,
+      zeroDur: 0,
+      normal: 0,
+    };
+    (updateSeekBar as any)._dbg = dbgCounters;
+
+    if (!state) {
+      if (dbgCounters.noState < 5) {
+        console.warn("[UIControlFactory.updateSeekBar] no state");
+        dbgCounters.noState++;
+      }
+      return;
+    }
+
+    if (state.duration === 0) {
+      if (dbgCounters.zeroDur < 5) {
+        console.warn("[UIControlFactory.updateSeekBar] duration 0", state);
+        dbgCounters.zeroDur++;
+      }
+      return;
+    }
+
+    // Debug percent and currentTime (first few only)
+    if (dbgCounters.normal < 5) {
+      const dbgPercent = (state.currentTime / state.duration) * 100;
+      console.log("[UIControlFactory.updateSeekBar]", {
+        currentTime: state.currentTime.toFixed(2),
+        duration: state.duration.toFixed(2),
+        percent: dbgPercent.toFixed(1),
+      });
+      dbgCounters.normal++;
+    }
+
+    const percent = (state.currentTime / state.duration) * 100;
+    progressBar.style.width = `${percent}%`;
+    seekHandle.style.left = `${percent}%`;
+
+    // Update labels
+    currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
+    totalTimeLabel.textContent = dependencies.formatTime(state.duration);
+  };
+
+  // Expose to external update loop
+  dependencies.updateSeekBar = updateSeekBar;
+
+  // Initial draw
+  updateSeekBar();
+
+  /** Click / seek interaction */
+  const handleSeek = (evt: MouseEvent): void => {
+    const rect = seekBarContainer.getBoundingClientRect();
+    const percent = (evt.clientX - rect.left) / rect.width;
+    const state = dependencies.audioPlayer?.getState();
+    if (!state || state.duration === 0) {
+      return;
+    }
+    const newTime = Math.max(
+      0,
+      Math.min(state.duration * percent, state.duration)
+    );
+    dependencies.audioPlayer?.seek(newTime, true);
+    updateSeekBar();
+  };
+
+  seekBarContainer.addEventListener("click", handleSeek);
+
+  return container;
+}
