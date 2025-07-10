@@ -1,4 +1,5 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
+import * as Tone from "tone";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 
@@ -13,7 +14,7 @@ export interface PlaybackControlsResult {
  * the play/pause button UI in sync with current playback state.
  */
 export function createPlaybackControls(
-  audioPlayer: AudioPlayerControls | null
+  audioPlayer: AudioPlayerContainer | null
 ): PlaybackControlsResult {
   // Container for playback buttons
   const container = document.createElement("div");
@@ -67,6 +68,19 @@ export function createPlaybackControls(
       playBtn.innerHTML = PLAYER_ICONS.play;
       playBtn.style.background = COLOR_PRIMARY;
       playBtn.onclick = async () => {
+        try {
+          /* -------------------------------------------------------
+           * Ensure AudioContext is resumed within the direct user
+           * gesture callback before we invoke our asynchronous
+           * player.play() logic. This satisfies Chrome’s autoplay
+           * policy which requires a synchronous resume().
+           * ----------------------------------------------------- */
+          await Tone.start();
+        } catch (e) {
+          /* eslint-disable no-console */
+          console.warn("[PlaybackControls] Tone.start() failed", e);
+          /* eslint-enable no-console */
+        }
         try {
           await audioPlayer?.play();
           updatePlayButton();

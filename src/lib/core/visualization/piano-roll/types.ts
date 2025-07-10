@@ -61,4 +61,7 @@ export type PianoRollInstance = {
   onTimeChange: (callback: (time: number) => void) => void;
   setMinorTimeStep: (step: number) => void;
   getMinorTimeStep: () => number;
+
+  /** Resize the visualizer to a new width/height */
+  resize: (width: number, height?: number) => void;
 };

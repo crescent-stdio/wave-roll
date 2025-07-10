@@ -62,9 +62,9 @@ export class FileItemFactory {
       flex: 1;
       font-size: 14px;
       color: ${file.isVisible ? "#343a40" : "#6c757d"};
-      overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      max-width: 100%;
     `;
 
     /* hover feedback */

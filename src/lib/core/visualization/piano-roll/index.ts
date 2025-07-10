@@ -105,6 +105,9 @@ export async function createPianoRoll(
      * Get current minor timeStep
      */
     getMinorTimeStep: () => pianoRoll.getMinorTimeStep(),
+
+    /** Resize the PixiJS renderer */
+    resize: (width: number, height?: number) => pianoRoll.resize(width, height),
   };
 }
 

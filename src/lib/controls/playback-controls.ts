@@ -1,4 +1,4 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 
@@ -13,7 +13,7 @@ export interface PlaybackControlsResult {
  * the play/pause button UI in sync with current playback state.
  */
 export function createPlaybackControls(
-  audioPlayer: AudioPlayerControls | null
+  audioPlayer: AudioPlayerContainer | null
 ): PlaybackControlsResult {
   // Container for playback buttons
   const container = document.createElement("div");

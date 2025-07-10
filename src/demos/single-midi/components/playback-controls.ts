@@ -1,6 +1,6 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/core/constants";
-import { AudioPlayerControls } from "@/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/core/audio/audio-player";
 
 /**
  * Create main playback control buttons
@@ -9,7 +9,7 @@ import { AudioPlayerControls } from "@/core/audio/audio-player";
  * @returns HTMLElement containing playback controls
  */
 export function createPlaybackControls(
-  audioPlayer: AudioPlayerControls
+  audioPlayer: AudioPlayerContainer
 ): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `

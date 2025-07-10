@@ -3,6 +3,12 @@ import { MidiFileEntry } from "@/lib/core/midi";
 
 import { UIComponentDependencies, UIElements } from "@/lib/components/ui/types";
 import { FileItemFactory } from "../file/item-factory";
+import {
+  SIDEBAR_WIDTH,
+  SIDEBAR_GAP,
+  ICON_BUTTON_MARGIN,
+  calcToggleButtonLeft,
+} from "@/lib/components/ui/utils/sidebar-position";
 
 /**
  * Provides layout & sidebar rendering for the Multi-MIDI demo.
@@ -18,21 +24,26 @@ export class UILayoutManager {
 
     /* ---------- base flex layout ---------- */
     elements.mainContainer.style.cssText = `
+      position: relative;
       display: flex;
       gap: 20px;
       height: 100%;
       min-height: 600px;
     `;
 
-    /* sidebar */
+    /* sidebar (initially visible, absolute positioning so it doesn't occupy layout width) */
     elements.sidebarContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 280px;
+      height: 100%;
       background: #f8f9fa;
       border-radius: 8px;
       padding: 16px;
       overflow-y: auto;
-      flex-shrink: 0;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
     `;
 
     /* player column (piano-roll + controls) */
@@ -46,7 +57,85 @@ export class UILayoutManager {
     // assemble DOM
     elements.mainContainer.appendChild(elements.sidebarContainer);
     elements.mainContainer.appendChild(elements.playerContainer);
+
+    // Sidebar hidden by default → shift it left
+    elements.sidebarContainer.style.transform = "translateX(-120%)";
+
+    // Sidebar hidden by default, no padding initially
+    elements.mainContainer.style.paddingLeft = "0px";
+
+    // Hamburger button to toggle sidebar
+    const toggleBtn = document.createElement("button");
+    toggleBtn.innerHTML = PLAYER_ICONS.menu;
+    // Initial left based on hidden sidebar
+    toggleBtn.style.cssText = `
+      position: absolute;
+      top: ${ICON_BUTTON_MARGIN}px;
+      left: ${calcToggleButtonLeft(false)};
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 4px;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      z-index: 10;
+      transition: background 0.2s ease, left 0.3s ease;
+    `;
+
+    toggleBtn.addEventListener("mouseenter", () => {
+      toggleBtn.style.background = "#f1f3f5";
+    });
+    toggleBtn.addEventListener("mouseleave", () => {
+      toggleBtn.style.background = "#ffffff";
+    });
+
+    let sidebarVisible = false;
+    toggleBtn.addEventListener("click", () => {
+      sidebarVisible = !sidebarVisible;
+
+      // move sidebar
+      if (sidebarVisible) {
+        elements.sidebarContainer.style.transform = "translateX(0)";
+        elements.mainContainer.style.paddingLeft = `${SIDEBAR_WIDTH + SIDEBAR_GAP}px`;
+      } else {
+        elements.sidebarContainer.style.transform = "translateX(-120%)";
+        elements.mainContainer.style.paddingLeft = "0px";
+      }
+
+      // reposition button
+      toggleBtn.style.left = calcToggleButtonLeft(sidebarVisible);
+
+      // Trigger PixiJS piano roll resize if available
+      const pr = dependencies.pianoRoll as any;
+      if (pr?.resize) {
+        const newWidth = elements.playerContainer.clientWidth;
+        // Keep existing height (400 as default)
+        pr.resize(newWidth);
+      }
+    });
+
+    elements.mainContainer.appendChild(toggleBtn);
+
     container.appendChild(elements.mainContainer);
+
+    /* ---------- window resize → resize PixiJS canvas ---------- */
+    const handleWindowResize = () => {
+      const pr = dependencies.pianoRoll as any;
+      if (pr?.resize) {
+        const newWidth = elements.playerContainer.clientWidth;
+        pr.resize(newWidth);
+      }
+    };
+
+    window.addEventListener("resize", handleWindowResize);
+
+    // Call once to ensure correct initial sizing if layout differs from default.
+    handleWindowResize();
 
     // initial sidebar population
     this.setupSidebar(elements.sidebarContainer, dependencies);

@@ -42,8 +42,8 @@ export class PianoRoll {
   public loopStart: number | null = null;
   public loopEnd: number | null = null;
 
-  // Fixed pixel-per-second scale used for horizontal time mapping
-  public pxPerSecond: number = 0;
+  // Fixed pixel-per-second scale used for horizontal time mapping. Null until first scale calculation.
+  public pxPerSecond: number | null = null;
 
   public onTimeChangeCallback: ((time: number) => void) | null = null;
 
@@ -132,6 +132,12 @@ export class PianoRoll {
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     });
+    console.log(
+      "[initializeApp] renderer",
+      this.app.renderer.resolution,
+      this.app.renderer.width,
+      this.app.renderer.height
+    );
   }
 
   /**
@@ -250,9 +256,7 @@ export class PianoRoll {
   public render(): void {
     // Update playhead first so that its computed X position is available
     // to background and note layers (e.g., pianoKeys shading uses playheadX).
-    // this.renderPlayhead();
-    // this.renderBackground();
-    // this.renderNotes();
+
     renderPlayhead(this);
     renderGrid(this);
     renderNotes(this);
@@ -366,6 +370,31 @@ export class PianoRoll {
     // this.state.zoomY = 1; // Y zoom stays at 1
     this.state.panX = 0;
     clampPanX(this.timeScale, this.state);
+    this.requestRender();
+  }
+
+  /**
+   * Resize the PixiJS renderer and recompute scales/render.
+   * @param width New canvas width in pixels
+   * @param height New canvas height in pixels (defaults to existing height)
+   */
+  public resize(width: number, height?: number): void {
+    const newWidth = Math.max(1, Math.floor(width));
+    const newHeight = Math.max(1, Math.floor(height ?? this.options.height));
+
+    if (newWidth === this.options.width && newHeight === this.options.height) {
+      return; // nothing to do
+    }
+
+    // Update stored dimensions
+    this.options.width = newWidth;
+    this.options.height = newHeight;
+
+    // Resize Pixi renderer
+    this.app.renderer.resize(newWidth, newHeight);
+
+    // Recalculate scales based on new size and re-render
+    this.initializeScales();
     this.requestRender();
   }
 

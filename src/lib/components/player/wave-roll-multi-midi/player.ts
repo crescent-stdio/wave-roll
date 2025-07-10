@@ -27,6 +27,7 @@ import { UILayoutManager } from "@/demos/multi-midi/components/ui/layout-manager
 import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
 import { FileToggleManager } from "@/demos/multi-midi/components/file/toggle-manager";
 import { openSettingsModal } from "../../ui/settings-modal";
+import { AudioPlayerContainer } from "@/core/audio";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -34,15 +35,16 @@ import { openSettingsModal } from "../../ui/settings-modal";
 export class WaveRollMultiMidiPlayer {
   private container: HTMLElement;
   private midiManager: MultiMidiManager;
-  private playerDemo: WaveRollMultiMidiPlayer | null = null;
+  private audioController!: AudioController;
+  private waveRollPlayer: WaveRollMultiMidiPlayer | null = null;
 
   // Extracted modules
   private stateManager!: StateManager;
   private fileManager!: FileManager;
   private visualizationEngine!: VisualizationEngine;
-  private audioController!: AudioController;
 
   // UI containers
+  private audioPlayerContainer: AudioPlayerContainer | null = null;
   private mainContainer!: HTMLElement;
   private sidebarContainer!: HTMLElement;
   private playerContainer!: HTMLElement;
@@ -134,11 +136,14 @@ export class WaveRollMultiMidiPlayer {
     // Initialize visualization engine with resolved piano-roll configuration
     this.visualizationEngine = new VisualizationEngine({
       defaultPianoRollConfig: pianoRollConfig,
+      updateInterval: this.config.ui.updateInterval, // Use same interval as UI update loop
     });
 
     // Keep seek bar and time display tightly synced with the engine's visual updates.
     this.visualizationEngine.onVisualUpdate(({ currentTime, duration }) => {
-      this.uiDeps?.updateSeekBar?.({ currentTime, duration } as any);
+      // Always get fresh dependencies to ensure updateSeekBar is available
+      const deps = this.getUIDependencies();
+      deps.updateSeekBar?.({ currentTime, duration } as any);
       this.updateTimeDisplay(currentTime);
     });
 
@@ -182,6 +187,12 @@ export class WaveRollMultiMidiPlayer {
     if (!this.uiDeps) {
       this.uiDeps = {
         midiManager: this.midiManager,
+        // Use VisualizationEngine itself as the audio player proxy so that
+        // keyboard shortcuts (Space bar), seek-bar, and other controls
+        // interact with the actual underlying AudioPlayer instance managed
+        // by the engine. This prevents “Audio player not initialized” errors
+        // that occurred when the controls referenced the bare AudioController
+        // before it had created its internal AudioPlayer.
         audioPlayer: this.visualizationEngine,
         pianoRoll: this.visualizationEngine.getPianoRollInstance(),
         filePanStateHandlers: filePanStateHandlersRef,
@@ -245,13 +256,18 @@ export class WaveRollMultiMidiPlayer {
    * Initialize the demo
    */
   public async initialize(): Promise<void> {
-    // Set up layout
+    // Build UI elements reference and set up layout
+    const uiElements = this.getUIElements();
     setupLayout(
       this.container,
-      this.getUIElements(),
+      uiElements,
       this.getUIDependencies(),
       this.pianoRollContainer
     );
+
+    // Sync fileToggleContainer assigned inside layout
+    this.fileToggleContainer = uiElements.fileToggleContainer;
+
     // Initialise empty piano-roll so the container is registered before data loads
     await this.visualizationEngine.initializePianoRoll(
       this.pianoRollContainer,
@@ -259,8 +275,7 @@ export class WaveRollMultiMidiPlayer {
       this.config.pianoRoll
     );
 
-    // After the layout and piano roll are ready, create the File Visibility toggle section
-    this.setupFileToggleSection();
+    // The File Visibility toggle section is already created by the layout.
 
     // Load initial files
     if (this.initialFileItemList.length > 0) {
@@ -268,6 +283,11 @@ export class WaveRollMultiMidiPlayer {
     } else {
       await this.loadSampleFiles();
     }
+
+    // Kick-off continuous UI syncing (seek-bar, play button, etc.)
+    // This used to be forgotten which meant the progress bar and icons
+    // wouldn’t refresh when playback started via the keyboard.
+    this.startUpdateLoop();
   }
 
   /**
@@ -367,11 +387,6 @@ export class WaveRollMultiMidiPlayer {
     // Detect overlapping notes and apply overlap color
     const overlappingIndices = detectOverlappingNotes(notes);
 
-    console.log(
-      "[getColoredNotes] visible notes",
-      notes.length,
-      notes.slice(0, 5)
-    );
     return notes.map((coloredNote, index) => {
       if (overlappingIndices.has(index)) {
         return {
@@ -429,6 +444,9 @@ export class WaveRollMultiMidiPlayer {
         this.uiDeps.updatePlayButton();
       }
     };
+
+    // Perform immediate update to avoid initial delay
+    updateLoop();
 
     const loopId = setInterval(updateLoop, updateInterval) as unknown as number;
     this.stateManager.updateUIState({ updateLoopId: loopId });
@@ -510,71 +528,69 @@ export class WaveRollMultiMidiPlayer {
   private handleKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return; // Ignore auto-repeat
 
-    // Debug: Log keydown details and current engine state
-    const _debugState = this.visualizationEngine.getState();
-    console.log("[MultiMidiDemo] KeyDown", {
-      key: event.key,
-      code: event.code,
-      isTogglingPlayback: this.isTogglingPlayback,
-      isPlaying: _debugState?.isPlaying,
-    });
+    // We only handle the Space key here
+    if (!(event.code === "Space" || event.key === " ")) return;
 
-    if (event.code === "Space" || event.key === " ") {
-      // Skip if focus is on interactive element that handles Space (inputs, buttons, links etc.)
-      const target = event.target as HTMLElement | null;
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLSelectElement ||
-        target instanceof HTMLAnchorElement ||
-        target?.getAttribute("role") === "button" ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
+    // Skip if focus is on an interactive element that already consumes Space
+    const target = event.target as HTMLElement | null;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target instanceof HTMLAnchorElement ||
+      target?.getAttribute("role") === "button" ||
+      target?.isContentEditable
+    ) {
+      return;
+    }
 
-      event.preventDefault();
-      event.stopPropagation();
+    event.preventDefault();
+    event.stopPropagation();
 
-      // Prevent rapid toggling
-      if (this.isTogglingPlayback) {
-        return;
-      }
+    // Debounce rapid toggling
+    if (this.isTogglingPlayback) return;
+    this.isTogglingPlayback = true;
 
-      this.isTogglingPlayback = true;
+    // Always work off the freshest UI dependencies
+    const deps = this.getUIDependencies();
+    const audioPlayer = deps.audioPlayer;
 
-      // Toggle playback state directly to avoid relying on a synthetic click() which
-      // did not refresh the icon correctly in some browsers.
-      const playerState = this.visualizationEngine.getState();
+    // Safety check – if no audioPlayer is available, bail out gracefully
+    if (!audioPlayer) {
+      this.isTogglingPlayback = false;
+      return;
+    }
 
-      const finishToggle = () => {
-        // Always obtain the freshest dependency object so that audioPlayer reference
-        // is up-to-date even if the update loop hasn't run yet.
-        const deps = this.getUIDependencies();
-        deps.updatePlayButton?.();
-        // Immediately refresh progress bar to reflect the latest playback position
-        deps.updateSeekBar?.();
-        // Debounce window before next toggle
-        setTimeout(() => {
-          this.isTogglingPlayback = false;
-        }, 100);
-      };
+    const finishToggle = () => {
+      deps.updatePlayButton?.();
+      // deps.updateSeekBar?.();
+      setTimeout(() => {
+        this.isTogglingPlayback = false;
+      }, 100);
+    };
 
-      if (playerState?.isPlaying) {
-        // Currently playing → pause
-        this.visualizationEngine.pause();
-        finishToggle();
-      } else {
-        // Currently paused → play (async)
-        this.visualizationEngine
-          .play()
-          .catch((err) =>
-            console.error("Failed to start playback via Space:", err)
-          )
-          .finally(() => {
-            finishToggle();
-          });
-      }
+    const state = audioPlayer.getState();
+
+    if (state?.isPlaying) {
+      // Currently playing → pause synchronously
+      audioPlayer.pause();
+      finishToggle();
+    } else {
+      // Currently paused → attempt async play
+      audioPlayer
+        .play()
+        .then(() => {
+          finishToggle();
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to start playback via Space:", error);
+          alert(
+            `Failed to start playback: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`
+          );
+          finishToggle();
+        });
     }
   };
 

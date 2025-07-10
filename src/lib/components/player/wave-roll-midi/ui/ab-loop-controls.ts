@@ -1,10 +1,10 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_A } from "@/lib/core/constants";
 import { SeekBarInstance } from "./seek-bar";
 
 export interface ABLoopDeps {
-  audioPlayer: AudioPlayerControls;
+  audioPlayer: AudioPlayerContainer;
   pianoRoll: { setLoopWindow?: (a: number | null, b: number | null) => void };
 }
 
@@ -119,7 +119,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   return { element: root, getLoopPoints, clear };
 }
 function updateA(
-  audioPlayer: AudioPlayerControls,
+  audioPlayer: AudioPlayerContainer,
   btnA: HTMLButtonElement,
   btnB: HTMLButtonElement,
   pointA: number | null,

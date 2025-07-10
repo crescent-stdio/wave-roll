@@ -36,7 +36,7 @@ export interface PlayerOptions {
 /**
  * Audio player state
  */
-export interface PlayerState {
+export interface AudioPlayerState {
   /** Whether audio is currently playing */
   isPlaying: boolean;
   /** Whether repeat mode is enabled */
@@ -58,7 +58,7 @@ export interface PlayerState {
 /**
  * Audio player control interface
  */
-export interface AudioPlayerControls {
+export interface AudioPlayerContainer {
   /** Start or resume playback */
   play(): Promise<void>;
 
@@ -88,7 +88,7 @@ export interface AudioPlayerControls {
   setLoopPoints(start: number | null, end: number | null): void;
 
   /** Get current player state */
-  getState(): PlayerState;
+  getState(): AudioPlayerState;
 
   /** Clean up resources */
   destroy(): void;
@@ -96,7 +96,7 @@ export interface AudioPlayerControls {
   /** Set stereo pan value (-1 left, 0 center, 1 right) */
   setPan(pan: number): void;
 
-  options: PlayerOptions;
+  // options: PlayerOptions;
 }
 
 /**
@@ -112,7 +112,7 @@ export interface OperationState {
 /**
  * Internal audio player implementation
  */
-export class AudioPlayer implements AudioPlayerControls {
+export class AudioPlayer implements AudioPlayerContainer {
   private notes: NoteData[];
   private pianoRoll: PianoRollSync;
   public options: Required<PlayerOptions>;
@@ -124,7 +124,7 @@ export class AudioPlayer implements AudioPlayerControls {
   private panner: Tone.Panner | null = null;
 
   // Player state
-  private state: PlayerState;
+  private state: AudioPlayerState;
   /** Tempo at which the notes' "time" values were originally calculated (used for sync scaling) */
   private originalTempo: number;
   private isInitialized = false;
@@ -453,7 +453,14 @@ export class AudioPlayer implements AudioPlayerControls {
         return;
       }
 
-      const transportTime = Tone.getTransport().seconds;
+      const transport = Tone.getTransport();
+      // Skip update if transport is not actually running yet
+      if (transport.state !== "started") {
+        return;
+      }
+
+      const transportTime = transport.seconds;
+
       const visualTime =
         (transportTime * this.state.tempo) / this.originalTempo;
 
@@ -473,8 +480,10 @@ export class AudioPlayer implements AudioPlayerControls {
       }
     };
 
-    // Kick-off immediately and then at a fixed interval (~60 FPS by default)
+    // Start with immediate update for 0:00 position
     performUpdate();
+
+    // Then continue with regular interval updates
     this.syncScheduler = window.setInterval(
       performUpdate,
       this.options.syncInterval
@@ -519,11 +528,15 @@ export class AudioPlayer implements AudioPlayerControls {
     }
     this._playLock = true;
 
-    console.log("[AudioPlayer.play:in]", {
-      isInitialized: this.isInitialized,
-      isPlaying: this.state.isPlaying,
-      transportState: Tone.getTransport().state,
-    });
+    console.log(
+      "[AudioPlayer.play:in]",
+      "isInitialized:",
+      this.isInitialized,
+      "isPlaying:",
+      this.state.isPlaying,
+      "transportState:",
+      Tone.getTransport().state
+    );
     // Initialize audio on first play (after user gesture)
     if (!this.isInitialized) {
       await this.initializeAudio();
@@ -619,9 +632,6 @@ export class AudioPlayer implements AudioPlayerControls {
    * Pause playback
    */
   public pause(): void {
-    console.log("[AudioPlayer.pause:in]", {
-      transportState: Tone.getTransport().state,
-    });
     // Check actual Transport state instead of relying on internal state
     const transport = Tone.getTransport();
 
@@ -632,33 +642,26 @@ export class AudioPlayer implements AudioPlayerControls {
       return;
     }
 
-    transport.pause();
-    this.state.isPlaying = false;
+    // Capture the pause time before stopping transport
     this.pausedTime = transport.seconds;
     this.state.currentTime =
       (this.pausedTime * this.state.tempo) / this.originalTempo;
+
+    // Now pause the transport
+    transport.pause();
+    this.state.isPlaying = false;
+
+    // Stop the sync scheduler after state is updated
     this.stopSyncScheduler();
 
     // Update piano roll to freeze at current position
     this.pianoRoll.setTime(this.state.currentTime);
-
-    console.log("[AudioPlayer.pause:out]", {
-      isPlaying: this.state.isPlaying,
-      transportState: Tone.getTransport().state,
-    });
   }
 
   /**
    * Stop and restart from beginning
    */
   public restart(): void {
-    console.log("[AudioPlayer.restart:in]", {
-      wasPlaying: this.state.isPlaying,
-      currentState: { ...this.state },
-      syncScheduler: this.syncScheduler,
-      isSeeking: this.operationState.isSeeking,
-    });
-
     const wasPlaying = this.state.isPlaying;
 
     // Prevent concurrent restarts
@@ -734,10 +737,6 @@ export class AudioPlayer implements AudioPlayerControls {
         this.startSyncScheduler();
         this.state.isPlaying = true;
         this.operationState.isRestarting = false;
-        console.log("[AudioPlayer.restart:scheduled]", {
-          startTime,
-          transportSeconds: transport.seconds,
-        });
         // Sync visual playhead immediately after transport starts
         this.scheduleVisualUpdate(() => this.pianoRoll.setTime(visualStart));
       }, RESTART_DELAY * 1000);
@@ -745,13 +744,6 @@ export class AudioPlayer implements AudioPlayerControls {
       this.state.isPlaying = false;
       this.operationState.isRestarting = false;
     }
-
-    console.log("[AudioPlayer.restart:out]", {
-      wasPlaying,
-      currentState: { ...this.state },
-      transportState: transport.state,
-      transportSeconds: transport.seconds,
-    });
   }
 
   /**
@@ -977,8 +969,6 @@ export class AudioPlayer implements AudioPlayerControls {
     this._loopEndVisual = end;
     this.state.isRepeating = true;
 
-    console.log("[AudioPlayer.setLoopPoints]", { start, end });
-
     const transportStart = (start * this.originalTempo) / this.state.tempo;
     const transportEnd = (end * this.originalTempo) / this.state.tempo;
     const transport = Tone.getTransport();
@@ -1020,7 +1010,7 @@ export class AudioPlayer implements AudioPlayerControls {
   /**
    * Get current player state
    */
-  public getState(): PlayerState {
+  public getState(): AudioPlayerState {
     // Sync with the underlying Tone.Transport to prevent stale `isPlaying`
     // flags from causing inconsistent UI behaviour (e.g., space-bar toggle
     // failing after multiple rapid play/pause interactions).
@@ -1109,7 +1099,7 @@ export function createAudioPlayer(
   notes: NoteData[],
   pianoRoll: PianoRollSync,
   options: PlayerOptions = {}
-): AudioPlayerControls {
+): AudioPlayerContainer {
   const player = new AudioPlayer(notes, pianoRoll, options);
   // Expose public controls only
   return player;

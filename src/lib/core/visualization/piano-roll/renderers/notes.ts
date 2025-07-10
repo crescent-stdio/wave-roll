@@ -10,7 +10,6 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   });
   pianoRoll.noteGraphics = [];
 
-  console.log("[renderNotes] will draw", pianoRoll.notes.length, "graphics");
   /* ------------------------------------------------------------------
    * Previous implementation aggressively culled notes that were deemed
    * outside the visible viewport, but an incorrect viewport calculation

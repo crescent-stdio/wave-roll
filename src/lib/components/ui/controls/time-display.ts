@@ -96,6 +96,14 @@ export function createTimeDisplay(
     duration: number;
   }): void => {
     const state = override ?? dependencies.audioPlayer?.getState();
+
+    // Remove debug logging
+    // console.log("[updateSeekBar] called", {
+    //   hasOverride: !!override,
+    //   state,
+    //   audioPlayerExists: !!dependencies.audioPlayer,
+    // });
+
     const dbgCounters = (updateSeekBar as any)._dbg ?? {
       noState: 0,
       zeroDur: 0,
@@ -111,32 +119,36 @@ export function createTimeDisplay(
       return;
     }
 
+    // Update time labels even if duration is 0
+    currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
+    totalTimeLabel.textContent = dependencies.formatTime(state.duration);
+
     if (state.duration === 0) {
       if (dbgCounters.zeroDur < 5) {
         console.warn("[UIControlFactory.updateSeekBar] duration 0", state);
         dbgCounters.zeroDur++;
       }
+      // Set progress to 0 when duration is 0
+      progressBar.style.width = "0%";
+      seekHandle.style.left = "0%";
       return;
     }
 
     // Debug percent and currentTime (first few only)
-    if (dbgCounters.normal < 5) {
-      const dbgPercent = (state.currentTime / state.duration) * 100;
-      console.log("[UIControlFactory.updateSeekBar]", {
-        currentTime: state.currentTime.toFixed(2),
-        duration: state.duration.toFixed(2),
-        percent: dbgPercent.toFixed(1),
-      });
-      dbgCounters.normal++;
-    }
+    // Remove debug logging
+    // if (dbgCounters.normal < 5) {
+    //   const dbgPercent = (state.currentTime / state.duration) * 100;
+    //   console.log("[updateSeekBar] updating", {
+    //     currentTime: state.currentTime,
+    //     duration: state.duration,
+    //     percent: dbgPercent,
+    //   });
+    //   dbgCounters.normal++;
+    // }
 
     const percent = (state.currentTime / state.duration) * 100;
     progressBar.style.width = `${percent}%`;
     seekHandle.style.left = `${percent}%`;
-
-    // Update labels
-    currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
-    totalTimeLabel.textContent = dependencies.formatTime(state.duration);
   };
 
   // Expose to external update loop
@@ -153,6 +165,7 @@ export function createTimeDisplay(
     if (!state || state.duration === 0) {
       return;
     }
+
     const newTime = Math.max(
       0,
       Math.min(state.duration * percent, state.duration)

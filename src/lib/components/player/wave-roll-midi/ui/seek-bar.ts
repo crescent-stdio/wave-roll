@@ -1,8 +1,8 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 
 export interface SeekBarDeps {
   /** Audio player – used for seek / drag */
-  audioPlayer: AudioPlayerControls | null;
+  audioPlayer: AudioPlayerContainer | null;
   /** Optional: piano roll instance to forward loop markers */
   pianoRoll?: { setLoopWindow?: (a: number | null, b: number | null) => void };
   /** HH:MM formatter injected from caller to avoid duplication */
