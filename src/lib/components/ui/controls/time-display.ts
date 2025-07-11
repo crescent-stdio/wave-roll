@@ -1,5 +1,6 @@
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 import { UIComponentDependencies } from "../types";
+import { clamp } from "@/core/utils";
 
 /**
  * Create a time display element.
@@ -91,11 +92,43 @@ export function createTimeDisplay(
   /**
    * ---- Seek-bar logic ----
    */
+  // Cache for last valid non-zero currentTime
+  let lastValidCurrentTime = 0;
+
   const updateSeekBar = (override?: {
     currentTime: number;
     duration: number;
   }): void => {
     const state = override ?? dependencies.audioPlayer?.getState();
+
+    // Enhanced debugging to track the source of updates
+    const updateSource = override ? "override" : "audioPlayer";
+    const stackTrace = new Error().stack?.split("\n")[2]?.trim() || "unknown";
+
+    // Only log significant changes to reduce console noise
+    const shouldLog =
+      Math.abs((state?.currentTime || 0) - lastValidCurrentTime) > 0.1 ||
+      state?.currentTime === 0;
+
+    if (shouldLog) {
+      console.log(
+        "[SeekBar.updateSeekBar]",
+        state?.currentTime,
+        state?.duration,
+        {
+          ...state,
+          updateSource,
+          caller: stackTrace,
+          lastValidCurrentTime,
+        }
+      );
+    }
+    // console.log(
+    //   "[SeekBar] current:",
+    //   state?.currentTime,
+    //   "dur:",
+    //   state?.duration
+    // );
 
     // Remove debug logging
     // console.log("[updateSeekBar] called", {
@@ -117,6 +150,29 @@ export function createTimeDisplay(
         dbgCounters.noState++;
       }
       return;
+    }
+
+    // Detect and ignore sudden drops to 0 when playback is active
+    if (state.currentTime === 0 && lastValidCurrentTime > 0.1) {
+      // If we had a valid non-zero time and suddenly get 0, ignore it
+      // unless it's a genuine seek to start
+      // Check if we're playing (either from override or from audio player state)
+      const isPlaying = override
+        ? false
+        : dependencies.audioPlayer?.getState()?.isPlaying;
+      if (isPlaying) {
+        console.log(
+          "[SeekBar.updateSeekBar] Ignoring sudden drop to 0, keeping",
+          lastValidCurrentTime
+        );
+        // Use the last valid time instead
+        state.currentTime = lastValidCurrentTime;
+      }
+    }
+
+    // Update cache if we have a valid time
+    if (state.currentTime > 0) {
+      lastValidCurrentTime = state.currentTime;
     }
 
     // Update time labels even if duration is 0
@@ -147,6 +203,14 @@ export function createTimeDisplay(
     // }
 
     const percent = (state.currentTime / state.duration) * 100;
+    // Only log percent changes for debugging
+    if (shouldLog) {
+      console.log(
+        "%c[SeekBar.updateSeekBar] percent:",
+        "color: red; font-weight: bold;",
+        percent
+      );
+    }
     progressBar.style.width = `${percent}%`;
     seekHandle.style.left = `${percent}%`;
   };
@@ -166,10 +230,7 @@ export function createTimeDisplay(
       return;
     }
 
-    const newTime = Math.max(
-      0,
-      Math.min(state.duration * percent, state.duration)
-    );
+    const newTime = clamp(state.duration * percent, 0, state.duration);
     dependencies.audioPlayer?.seek(newTime, true);
     updateSeekBar();
   };

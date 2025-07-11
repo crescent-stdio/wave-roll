@@ -59,6 +59,8 @@ export function createPlaybackControls(
         try {
           await dependencies.audioPlayer?.play();
           updatePlayButton();
+          // Force immediate seekbar update (same as spacebar)
+          dependencies.updateSeekBar?.();
         } catch (error) {
           console.error("Failed to play:", error);
           alert(

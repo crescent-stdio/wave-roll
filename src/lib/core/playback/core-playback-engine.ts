@@ -88,6 +88,9 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   // Signature tracking to avoid redundant recreations
   private lastAudioSignature = "";
 
+  // Cache last known state to prevent flickering during recreation
+  private lastKnownState: AudioPlayerState | null = null;
+
   constructor(
     stateManager?: StateManager,
     config: CorePlaybackEngineConfig = {}
@@ -137,6 +140,11 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     // Preserve current state
     const prevState = this.audioPlayer?.getState();
     const wasPlaying = prevState?.isPlaying || false;
+
+    // Update cached state before destroying player
+    if (prevState) {
+      this.lastKnownState = prevState;
+    }
 
     // Destroy existing player
     if (this.audioPlayer) {
@@ -194,13 +202,63 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       throw new Error("Audio player not initialized");
     }
 
+    // Get state before playing to check if we're starting from the beginning
+    const stateBefore = this.audioPlayer.getState();
+    const isStartingFromBeginning = stateBefore.currentTime === 0;
+
     await this.audioPlayer.play();
+
+    // Start update loop immediately
     this.startUpdateLoop();
 
-    if (this.pianoRollManager) {
-      const state = this.audioPlayer.getState();
-      this.pianoRollManager.setTime(state.currentTime);
+    // If starting from 0:00, ensure initial position is set immediately
+    if (isStartingFromBeginning && this.pianoRollManager) {
+      this.pianoRollManager.setTime(0);
+
+      // Force an immediate visual update callback
+      const updateParams: VisualUpdateParams = {
+        currentTime: 0,
+        duration: stateBefore.duration,
+        isPlaying: true,
+        volume: stateBefore.volume,
+        tempo: stateBefore.tempo,
+        pan: stateBefore.pan,
+      };
+
+      this.visualUpdateCallbacks.forEach((callback) => {
+        try {
+          callback(updateParams);
+        } catch (error) {
+          console.error("Error in visual update callback:", error);
+        }
+      });
     }
+
+    // Schedule another update after a short delay to ensure transport is ready
+    setTimeout(() => {
+      if (this.audioPlayer && this.pianoRollManager) {
+        const state = this.audioPlayer.getState();
+        this.pianoRollManager.setTime(state.currentTime);
+
+        // Trigger visual update callbacks again
+        const updateParams: VisualUpdateParams = {
+          currentTime: state.currentTime,
+          duration: state.duration,
+          isPlaying: state.isPlaying,
+          volume: state.volume,
+          tempo: state.tempo,
+          pan: state.pan,
+        };
+
+        this.visualUpdateCallbacks.forEach((callback) => {
+          try {
+            callback(updateParams);
+          } catch (error) {
+            console.error("Error in visual update callback:", error);
+          }
+        });
+      }
+    }, 50);
   }
 
   public pause(): void {
@@ -263,6 +321,16 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 
   public getState(): AudioPlayerState {
     if (!this.audioPlayer) {
+      // Return last known state if available to prevent flickering
+      if (this.lastKnownState) {
+        // Ensure isPlaying is false when audio player is null
+        return {
+          ...this.lastKnownState,
+          isPlaying: false,
+        };
+      }
+
+      // Fall back to default state
       return {
         isPlaying: false,
         currentTime: 0,
@@ -274,7 +342,11 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         isRepeating: false,
       };
     }
-    return this.audioPlayer.getState();
+
+    // Get current state and cache it
+    const currentState = this.audioPlayer.getState();
+    this.lastKnownState = currentState;
+    return currentState;
   }
 
   public destroy(): void {
@@ -365,6 +437,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   private startUpdateLoop(): void {
     if (this.updateLoopId !== null) return;
 
+    // console.log("[CorePlaybackEngine] startUpdateLoop");
     const performUpdate = () => {
       if (!this.audioPlayer || this.seeking) return;
 

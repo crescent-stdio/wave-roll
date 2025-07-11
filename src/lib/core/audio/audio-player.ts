@@ -448,6 +448,24 @@ export class AudioPlayer implements AudioPlayerContainer {
     // Prevent duplicate schedulers
     if (this.syncScheduler !== null) return;
 
+    // Force initial sync to current position (usually 0:00 when starting fresh)
+    const initialSync = () => {
+      const transport = Tone.getTransport();
+      const transportTime = transport.seconds;
+      const visualTime =
+        (transportTime * this.state.tempo) / this.originalTempo;
+
+      // Update state and visual
+      this.state.currentTime = visualTime;
+      this.pianoRoll.setTime(visualTime);
+
+      // Initial log
+      // console.log("[Sync] Initial:", { visualTime, transportTime });
+    };
+
+    // Perform initial sync immediately
+    initialSync();
+
     const performUpdate = () => {
       if (!this.state.isPlaying || this.operationState.isSeeking) {
         return;
@@ -463,6 +481,8 @@ export class AudioPlayer implements AudioPlayerContainer {
 
       const visualTime =
         (transportTime * this.state.tempo) / this.originalTempo;
+      // Debug logging removed to reduce console spam
+      // console.log("[SyncScheduler]", { visualTime, transportTime });
 
       // Sync internal state and visual playhead
       this.state.currentTime = visualTime;
@@ -473,17 +493,14 @@ export class AudioPlayer implements AudioPlayerContainer {
         this.pause();
       }
 
-      // Throttled debug log (1 Hz)
-      if (Math.floor(visualTime) !== this._lastLogged) {
-        console.log("[Sync]", { visualTime, transportTime });
-        this._lastLogged = Math.floor(visualTime);
-      }
+      // Throttled debug log (1 Hz) - disabled to reduce console spam
+      // if (Math.floor(visualTime) !== this._lastLogged) {
+      //   console.log("[Sync]", { visualTime, transportTime });
+      //   this._lastLogged = Math.floor(visualTime);
+      // }
     };
 
-    // Start with immediate update for 0:00 position
-    performUpdate();
-
-    // Then continue with regular interval updates
+    // Start regular interval updates
     this.syncScheduler = window.setInterval(
       performUpdate,
       this.options.syncInterval
@@ -519,6 +536,10 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Start or resume playback
    */
   public async play(): Promise<void> {
+    console.log(
+      "[AudioPlayer.play] enter. transport:",
+      Tone.getTransport().state
+    );
     // Ignore if a play request is already in flight
     if (this._playLock) {
       console.log(
@@ -599,7 +620,13 @@ export class AudioPlayer implements AudioPlayerContainer {
           this.part.start("+0", offsetForPart);
         }
       } else {
-        // Start from the beginning
+        // Start from the beginning - explicitly set transport to 0
+        Tone.getTransport().seconds = 0;
+        this.state.currentTime = 0;
+
+        // Immediately update piano roll to 0 position
+        this.pianoRoll.setTime(0);
+
         if (this.part) {
           // Ensure part is stopped before starting
           this.part.stop();
@@ -1011,10 +1038,28 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Get current player state
    */
   public getState(): AudioPlayerState {
-    // Sync with the underlying Tone.Transport to prevent stale `isPlaying`
-    // flags from causing inconsistent UI behaviour (e.g., space-bar toggle
-    // failing after multiple rapid play/pause interactions).
-    this.state.isPlaying = Tone.getTransport().state === "started";
+    // Synchronise state with the live Tone.Transport on *every* call so that
+    // UI components (seek-bar, time-display, etc.) always receive an up-to-date
+    // playback position even if the internal sync-scheduler is paused or has
+    // not started yet.
+
+    const transport = Tone.getTransport();
+
+    // Update the «isPlaying» flag directly from the transport.
+    this.state.isPlaying = transport.state === "started";
+
+    // Derive the current visual time from the transport position.  This makes
+    // `getState()` fully authoritative for the playhead location and prevents
+    // situations where `currentTime` remains stuck at 0 when the transport is
+    // actually running (e.g., when the sync-scheduler failed to start).
+    const transportSeconds = transport.seconds;
+    const visualSeconds =
+      (transportSeconds * this.state.tempo) / this.originalTempo;
+
+    // Clamp inside piece duration to avoid returning values slightly past the
+    // end due to floating-point rounding.
+    this.state.currentTime = Math.min(visualSeconds, this.state.duration);
+
     return { ...this.state };
   }
 

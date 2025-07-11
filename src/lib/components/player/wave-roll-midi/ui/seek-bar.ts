@@ -1,3 +1,4 @@
+import { clamp } from "@/core/utils";
 import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 
 export interface SeekBarDeps {
@@ -96,6 +97,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     if (!audioPlayer) return;
     const rect = barWrap.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (px - rect.left) / rect.width));
+    // const pct = clamp()
     audioPlayer.seek(pct * audioPlayer.getState().duration);
   };
 

@@ -17,8 +17,6 @@ import {
   DEFAULT_PIANO_ROLL_CONFIG,
 } from "@/core/playback";
 
-// Re-export types for backward compatibility
-export { PianoRollConfig } from "@/core/playback";
 export type ColoredNote = CoreColoredNote;
 
 /**
@@ -94,6 +92,9 @@ export class VisualizationEngine {
 
     // Set up visual update forwarding
     this.coreEngine.onVisualUpdate((params) => {
+      // Debug logging removed - was causing console spam
+      // console.log("[VisualizationEngine] onVisualUpdate", params);
+
       const extendedParams: VisualUpdateParams = {
         ...params,
         zoomLevel: this.pianoRollManager.getZoom(),

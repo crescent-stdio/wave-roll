@@ -16,7 +16,6 @@ import {
   ColoredNote,
   VisualizationEngine,
   DEFAULT_PIANO_ROLL_CONFIG,
-  PianoRollConfig,
 } from "@/demos/multi-midi/components/visualization-engine";
 import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
@@ -28,6 +27,13 @@ import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
 import { FileToggleManager } from "@/demos/multi-midi/components/file/toggle-manager";
 import { openSettingsModal } from "../../ui/settings-modal";
 import { AudioPlayerContainer } from "@/core/audio";
+import {
+  CorePlaybackEngine,
+  createCorePlaybackEngine,
+  createPianoRollManager,
+  PianoRollConfig,
+  PianoRollManager,
+} from "@/core/playback";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -35,8 +41,8 @@ import { AudioPlayerContainer } from "@/core/audio";
 export class WaveRollMultiMidiPlayer {
   private container: HTMLElement;
   private midiManager: MultiMidiManager;
-  private audioController!: AudioController;
-  private waveRollPlayer: WaveRollMultiMidiPlayer | null = null;
+  private pianoRollManager: PianoRollManager | null = null;
+  private corePlaybackEngine: CorePlaybackEngine | null = null;
 
   // Extracted modules
   private stateManager!: StateManager;
@@ -145,13 +151,19 @@ export class WaveRollMultiMidiPlayer {
       const deps = this.getUIDependencies();
       deps.updateSeekBar?.({ currentTime, duration } as any);
       this.updateTimeDisplay(currentTime);
+
+      // NEW: keep piano-roll playhead in perfect sync with audio
+      const piano = this.visualizationEngine.getPianoRollInstance();
+      piano?.setTime(currentTime);
     });
 
-    // Initialize audio controller
-    this.audioController = new AudioController(
-      this.stateManager,
-      this.config.audioController
-    );
+    this.pianoRollManager = createPianoRollManager();
+    this.pianoRollManager.initialize(this.pianoRollContainer, []);
+
+    const coreEngine = createCorePlaybackEngine(this.stateManager);
+    coreEngine.initialize(this.pianoRollManager);
+
+    this.corePlaybackEngine = coreEngine;
 
     // Set up state change listener
     this.midiManager.setOnStateChange(() => {
@@ -333,6 +345,17 @@ export class WaveRollMultiMidiPlayer {
    * Update visualization
    */
   private updateVisualization(): void {
+    // We only need the piano-roll to be ready here; the AudioPlayer will be
+    // lazily created by `VisualizationEngine.updateVisualization()` as soon
+    // as it receives the first batch of notes. Checking the full
+    // `VisualizationEngine.isInitialized()` would erroneously wait for the
+    // audio player, creating a circular dependency (it can’t exist until we
+    // call this method). Hence, we guard only against an un-initialised
+    // piano-roll instance.
+    if (!this.visualizationEngine?.getPianoRollInstance()) {
+      return;
+    }
+
     const state = this.midiManager.getState();
 
     // Build notes for piano-roll (visible) and audio (all but muted)
@@ -361,7 +384,7 @@ export class WaveRollMultiMidiPlayer {
 
     const toNumberColor = (c: string | number): number => {
       if (typeof c === "number") return c;
-      // 문자열 "#RRGGBB" → 0xRRGGBB
+      //  "#RRGGBB" → 0xRRGGBB
       return parseInt(c.replace("#", ""), 16);
     };
 
@@ -428,14 +451,61 @@ export class WaveRollMultiMidiPlayer {
   private startUpdateLoop(): void {
     const updateInterval = this.config.ui.updateInterval;
 
+    // Track if we've seen non-zero time since playback started
+    let hasSeenNonZeroTime = false;
+
     const updateLoop = () => {
       // Keep UI dependency in sync with current visualization engine so
       // updateSeekBar always queries the live audioPlayer instance.
       if (this.uiDeps) {
         this.uiDeps.audioPlayer = this.visualizationEngine;
       }
-      this.updateSeekBar();
-      this.updateTimeDisplay();
+
+      // Get current state from visualization engine
+      const state = this.visualizationEngine.getState();
+      if (state) {
+        // Track when we see non-zero time
+        if (state.currentTime > 0) {
+          hasSeenNonZeroTime = true;
+        }
+
+        // Skip redundant 0-second frames that occur immediately after
+        // playback starts. These frames arrive before the audio transport
+        // advances and would reset the seek-bar back to 0 even though
+        // onVisualUpdate has already shown progress.
+        // Only skip if we haven't seen any non-zero time yet
+        if (state.isPlaying && state.currentTime === 0 && !hasSeenNonZeroTime) {
+          return;
+        }
+
+        // Reset tracking when playback stops
+        if (!state.isPlaying) {
+          hasSeenNonZeroTime = false;
+        }
+
+        // Update piano roll time position (handled by onVisualUpdate now)
+        // const pianoRollInstance =
+        //   this.visualizationEngine.getPianoRollInstance();
+        // if (pianoRollInstance) {
+        //   pianoRollInstance.setTime(state.currentTime);
+        // }
+
+        // Update seek bar with current state
+        if (this.uiDeps?.updateSeekBar) {
+          this.uiDeps.updateSeekBar({
+            currentTime: state.currentTime,
+            duration: state.duration,
+          } as any);
+        }
+
+        // Update time display
+        this.updateTimeDisplay(state.currentTime);
+      } else {
+        // Fallback if state is not available
+        this.updateSeekBar();
+        this.updateTimeDisplay();
+      }
+
       // Keep play/pause button icon in sync with actual playback state
       if (
         this.uiDeps?.updatePlayButton &&
@@ -447,6 +517,12 @@ export class WaveRollMultiMidiPlayer {
 
     // Perform immediate update to avoid initial delay
     updateLoop();
+
+    // Clear any existing update loop before starting new one
+    const existingLoopId = this.stateManager.getUIState().updateLoopId;
+    if (existingLoopId) {
+      clearInterval(existingLoopId);
+    }
 
     const loopId = setInterval(updateLoop, updateInterval) as unknown as number;
     this.stateManager.updateUIState({ updateLoopId: loopId });
@@ -470,10 +546,17 @@ export class WaveRollMultiMidiPlayer {
 
     const state = this.visualizationEngine.getState();
     if (state) {
+      // Always pass explicit state to ensure seekbar is updated
       this.uiDeps.updateSeekBar({
         currentTime: state.currentTime,
         duration: state.duration,
       } as any);
+
+      // Also ensure piano roll is synced
+      const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
+      if (pianoRollInstance) {
+        pianoRollInstance.setTime(state.currentTime);
+      }
     } else {
       // Fallback to existing logic if state is unavailable (e.g., before first load)
       this.uiDeps.updateSeekBar();
@@ -512,7 +595,8 @@ export class WaveRollMultiMidiPlayer {
    * Update mute state
    */
   private updateMuteState(shouldMute: boolean): void {
-    this.audioController.handleChannelMute(shouldMute);
+    // this.audioController.handleChannelMute(shouldMute);
+    this.corePlaybackEngine?.handleChannelMute(shouldMute);
   }
 
   /**
@@ -561,35 +645,34 @@ export class WaveRollMultiMidiPlayer {
       return;
     }
 
-    const finishToggle = () => {
-      deps.updatePlayButton?.();
-      // deps.updateSeekBar?.();
-      setTimeout(() => {
-        this.isTogglingPlayback = false;
-      }, 100);
-    };
-
     const state = audioPlayer.getState();
 
     if (state?.isPlaying) {
-      // Currently playing → pause synchronously
-      audioPlayer.pause();
-      finishToggle();
+      // Currently playing → pause
+      deps.audioPlayer?.pause();
+      // Clear debounce shortly after pausing so we can resume quickly
+      setTimeout(() => {
+        this.isTogglingPlayback = false;
+      }, 100);
     } else {
-      // Currently paused → attempt async play
+      // Currently paused → play via space-bar
+
       audioPlayer
         .play()
         .then(() => {
-          finishToggle();
+          // Playback has effectively started – refresh UI once.
+          this.startUpdateLoop();
+          deps.updatePlayButton?.();
+          deps.updateSeekBar?.();
         })
-        .catch((error: unknown) => {
-          console.error("Failed to start playback via Space:", error);
-          alert(
-            `Failed to start playback: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`
-          );
-          finishToggle();
+        .catch((error: any) => {
+          console.error("Failed to play:", error);
+        })
+        .finally(() => {
+          // Always release the debounce lock, even if play() fails
+          setTimeout(() => {
+            this.isTogglingPlayback = false;
+          }, 100);
         });
     }
   };
@@ -614,7 +697,8 @@ export class WaveRollMultiMidiPlayer {
 
     // Dispose modules
     this.visualizationEngine.destroy();
-    this.audioController.destroy();
+    // this.audioController.destroy();
+    this.corePlaybackEngine?.destroy();
     // StateManager doesn't have a dispose method
   }
 }

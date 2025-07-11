@@ -279,6 +279,7 @@ export class PianoRoll {
    * Set current playback time and update playhead
    */
   public setTime(time: number): void {
+    // console.log("[PianoRoll.setTime]", time);
     this.state.currentTime = time;
 
     // Only auto-scroll if user is not actively panning
