@@ -151,10 +151,10 @@ export class AudioPlayer implements AudioPlayerContainer {
   private handleTransportStop = (): void => {
     // Ignore stop when seeking or restarting
     if (this.operationState.isSeeking || this.operationState.isRestarting) {
-      console.log("[Transport.stop] Ignored - operation in progress", {
-        isSeeking: this.operationState.isSeeking,
-        isRestarting: this.operationState.isRestarting,
-      });
+      // console.log("[Transport.stop] Ignored - operation in progress", {
+      //   isSeeking: this.operationState.isSeeking,
+      //   isRestarting: this.operationState.isRestarting,
+      // });
       return;
     }
 
@@ -163,12 +163,12 @@ export class AudioPlayer implements AudioPlayerContainer {
       return;
     }
 
-    console.log(
-      "[Transport.stop] Processing - isRepeating:",
-      this.state.isRepeating,
-      "isPlaying:",
-      this.state.isPlaying
-    );
+    // console.log(
+    //   "[Transport.stop] Processing - isRepeating:",
+    //   this.state.isRepeating,
+    //   "isPlaying:",
+    //   this.state.isPlaying
+    // );
 
     // Only update state if we're not in the middle of another operation
     if (!this.operationState.isSeeking && !this.operationState.isRestarting) {
@@ -213,12 +213,12 @@ export class AudioPlayer implements AudioPlayerContainer {
     this._loopCounter += 1;
     const transport = Tone.getTransport();
 
-    console.log("[Loop]", {
-      iteration: this._loopCounter,
-      transportSeconds: transport.seconds.toFixed(3),
-      loopStart: transport.loopStart,
-      loopEnd: transport.loopEnd,
-    });
+    // console.log("[Loop]", {
+    //   iteration: this._loopCounter,
+    //   transportSeconds: transport.seconds.toFixed(3),
+    //   loopStart: transport.loopStart,
+    //   loopEnd: transport.loopEnd,
+    // });
 
     // Cancel any notes which were scheduled for the previous cycle.
     // Using a very small delay prevents race conditions where cancel/stop
@@ -536,28 +536,28 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Start or resume playback
    */
   public async play(): Promise<void> {
-    console.log(
-      "[AudioPlayer.play] enter. transport:",
-      Tone.getTransport().state
-    );
+    // console.log(
+    //   "[AudioPlayer.play] enter. transport:",
+    //   Tone.getTransport().state
+    // );
     // Ignore if a play request is already in flight
     if (this._playLock) {
-      console.log(
-        "[AudioPlayer.play] Request ignored – play already in progress"
-      );
+      // console.log(
+      //   "[AudioPlayer.play] Request ignored – play already in progress"
+      // );
       return;
     }
     this._playLock = true;
 
-    console.log(
-      "[AudioPlayer.play:in]",
-      "isInitialized:",
-      this.isInitialized,
-      "isPlaying:",
-      this.state.isPlaying,
-      "transportState:",
-      Tone.getTransport().state
-    );
+    // console.log(
+    //   "[AudioPlayer.play:in]",
+    //   "isInitialized:",
+    //   this.isInitialized,
+    //   "isPlaying:",
+    //   this.state.isPlaying,
+    //   "transportState:",
+    //   Tone.getTransport().state
+    // );
     // Initialize audio on first play (after user gesture)
     if (!this.isInitialized) {
       await this.initializeAudio();
@@ -640,10 +640,10 @@ export class AudioPlayer implements AudioPlayerContainer {
       this.state.isPlaying = true;
       this.startSyncScheduler();
 
-      console.log("[AudioPlayer.play:out]", {
-        isPlaying: this.state.isPlaying,
-        transportState: Tone.getTransport().state,
-      });
+      // console.log("[AudioPlayer.play:out]", {
+      //   isPlaying: this.state.isPlaying,
+      //   transportState: Tone.getTransport().state,
+      // });
     } catch (error) {
       console.error("Failed to start playback:", error);
       throw new Error(

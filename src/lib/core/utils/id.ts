@@ -15,7 +15,7 @@ export function generateUniqueId(prefix = "id"): string {
  * @example
  * ```typescript
  * const id = generateMidiFileId();
- * console.log(id); // "midi-1715235600-1234567890"
+ * // console.log(id); // "midi-1715235600-1234567890"
  * ```
  */
 export const generateMidiFileId = () => generateUniqueId("midi");
@@ -29,7 +29,7 @@ export const generateMidiFileId = () => generateUniqueId("midi");
  * @example
  * ```typescript
  * const id = generateCoreFileId("test.mid");
- * console.log(id); // "core-test-1715235600-1234567890"
+ * // console.log(id); // "core-test-1715235600-1234567890"
  * ```
  */
 export const generateCoreFileId = (fileName: string) =>

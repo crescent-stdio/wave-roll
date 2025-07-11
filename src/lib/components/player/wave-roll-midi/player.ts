@@ -58,6 +58,12 @@ export class WaveRollMidiPlayer {
   private controlsRoot: HTMLElement;
   private seekBar!: SeekBarInstance;
 
+  /** Debounce flag for rapid space-bar toggling */
+  private isTogglingPlayback = false;
+
+  /** Keep reference to the global <Space> key handler so we can unregister it */
+  private spaceKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+
   /* Update loop */
   private loopId = 0;
 
@@ -118,6 +124,9 @@ export class WaveRollMidiPlayer {
 
     /* Start update loop ------------------------------------------- */
     this.startUpdateLoop();
+
+    /* Register global <Space> shortcut --------------------------- */
+    this.registerSpaceShortcut();
   }
 
   /** Tear everything down. */
@@ -125,6 +134,11 @@ export class WaveRollMidiPlayer {
     cancelAnimationFrame(this.loopId);
     this.audioPlayer?.destroy();
     this.pianoRoll?.destroy();
+
+    if (this.spaceKeyHandler) {
+      document.removeEventListener("keydown", this.spaceKeyHandler);
+      this.spaceKeyHandler = null;
+    }
   }
 
   /* ----------------------------------------------------------------
@@ -200,12 +214,77 @@ export class WaveRollMidiPlayer {
   private startUpdateLoop(): void {
     const step = () => {
       const { currentTime, duration } = this.audioPlayer.getState();
+      // Keep piano-roll playhead perfectly synced with audio even if Tone.Draw
+      // callbacks are delayed (e.g., when the tab is throttled).
+      this.pianoRoll.setTime(currentTime);
       // The seek-bar itself internally handles loop overlays via the
       // LoopControls component, so we pass `null` here.
       this.seekBar.update(currentTime, duration, null);
       this.loopId = requestAnimationFrame(step);
     };
     this.loopId = requestAnimationFrame(step);
+  }
+
+  /* ----------------------------------------------------------------
+   * Global <Space> shortcut
+   * ---------------------------------------------------------------- */
+  private registerSpaceShortcut(): void {
+    if (this.spaceKeyHandler) return; // already registered
+
+    this.spaceKeyHandler = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      if (!(event.code === "Space" || event.key === " ")) return;
+
+      // Ignore if focus is inside an element that naturally consumes Space.
+      const t = event.target as HTMLElement | null;
+      if (
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement ||
+        t instanceof HTMLAnchorElement ||
+        t?.getAttribute("role") === "button" ||
+        t?.isContentEditable
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Debounce to avoid double-toggles when key is pressed very quickly.
+      if (this.isTogglingPlayback) return;
+      this.isTogglingPlayback = true;
+
+      const state = this.audioPlayer.getState();
+
+      const finish = () => {
+        // Immediately refresh seek-bar for snappy feedback.
+        const s = this.audioPlayer.getState();
+        this.seekBar.update(s.currentTime, s.duration, null);
+        // Release debounce lock shortly after action completes.
+        setTimeout(() => {
+          this.isTogglingPlayback = false;
+        }, 100);
+      };
+
+      if (state.isPlaying) {
+        this.audioPlayer.pause();
+        finish();
+      } else {
+        this.audioPlayer
+          .play()
+          .then(() => {
+            // Ensure update loop is running.
+            this.startUpdateLoop();
+          })
+          .catch((err) => {
+            console.error("Failed to start playback via <Space>:", err);
+          })
+          .finally(finish);
+      }
+    };
+
+    document.addEventListener("keydown", this.spaceKeyHandler);
   }
 
   /* ----------------------------------------------------------------

@@ -24,6 +24,16 @@ export function renderNotes(pianoRoll: PianoRoll): void {
 
   const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
 
+  if (pianoRoll.notes.length > 0) {
+    // console.log(
+    //   "[renderNotes] initial note",
+    //   pianoRoll.notes[0].time,
+    //   pianoRoll.timeScale(pianoRoll.notes[0].time) * pianoRoll.state.zoomX +
+    //     pianoRoll.state.panX +
+    //     pianoKeysOffset
+    // );
+  }
+
   pianoRoll.notes.forEach((note: NoteData, index: number) => {
     const x =
       pianoRoll.timeScale(note.time) * pianoRoll.state.zoomX +
@@ -31,6 +41,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       pianoKeysOffset;
     const y = pianoRoll.pitchScale(note.midi); // No Y zoom/pan
     const width = pianoRoll.timeScale(note.duration) * pianoRoll.state.zoomX;
+
+    // if (index === 0) {
+    //   if (index === 0) {
+    //     console.log("[renderNotes] first-x", x, "panX", pianoRoll.state.panX);
+    //   }
+    // }
 
     // Fixed note height calculation: no Y zoom
     const noteRange =

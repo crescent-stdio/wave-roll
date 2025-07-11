@@ -41,7 +41,7 @@ import {
 export class WaveRollMultiMidiPlayer {
   private container: HTMLElement;
   private midiManager: MultiMidiManager;
-  private pianoRollManager: PianoRollManager | null = null;
+  public pianoRollManager: PianoRollManager | null = null;
   private corePlaybackEngine: CorePlaybackEngine | null = null;
 
   // Extracted modules
@@ -483,6 +483,8 @@ export class WaveRollMultiMidiPlayer {
           hasSeenNonZeroTime = false;
         }
 
+        this.updatePianoRoll();
+
         // Update piano roll time position (handled by onVisualUpdate now)
         // const pianoRollInstance =
         //   this.visualizationEngine.getPianoRollInstance();
@@ -528,6 +530,12 @@ export class WaveRollMultiMidiPlayer {
     this.stateManager.updateUIState({ updateLoopId: loopId });
   }
 
+  private updatePianoRoll(): void {
+    const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
+    if (pianoRollInstance) {
+      pianoRollInstance.setTime(this.visualizationEngine.getState().currentTime);
+    }
+  }
   /**
    * Update seek bar
    */

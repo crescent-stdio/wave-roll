@@ -6,7 +6,10 @@
  */
 
 import { NoteData } from "src/lib/types";
-import { createPianoRoll, PianoRollOptions } from "@/lib/core/visualization/piano-roll";
+import {
+  createPianoRoll,
+  PianoRollOptions,
+} from "@/lib/core/visualization/piano-roll";
 import {
   createAudioPlayer,
   AudioPlayerControls,
@@ -575,7 +578,7 @@ export class PlayerDemo {
           // Re-render seek bar
           updateSeekBar();
         }
-        console.log("[UI:B click] before swap", { pointA, pointB });
+        // console.log("[UI:B click] before swap", { pointA, pointB });
       },
       false
     ); // Initially inactive - styled upon user action

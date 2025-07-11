@@ -59,7 +59,8 @@ export function createTimeDisplay(
   seekHandle.style.cssText = `
       position: absolute;
       top: 50%;
-      transform: translate(-50%, -50%);
+      /* Only translate vertically so the handle is always fully visible even at 0% */
+      transform: translateY(-50%);
       width: 16px;
       height: 16px;
       background: ${COLOR_PRIMARY};
@@ -111,19 +112,19 @@ export function createTimeDisplay(
       state?.currentTime === 0;
 
     if (shouldLog) {
-      console.log(
-        "[SeekBar.updateSeekBar]",
-        state?.currentTime,
-        state?.duration,
-        {
-          ...state,
-          updateSource,
-          caller: stackTrace,
-          lastValidCurrentTime,
-        }
-      );
+      // // console.log(
+      //   "[SeekBar.updateSeekBar]",
+      //   state?.currentTime,
+      //   state?.duration,
+      //   {
+      //     ...state,
+      //     updateSource,
+      //     caller: stackTrace,
+      //     lastValidCurrentTime,
+      //   }
+      // );
     }
-    // console.log(
+    // // console.log(
     //   "[SeekBar] current:",
     //   state?.currentTime,
     //   "dur:",
@@ -131,7 +132,7 @@ export function createTimeDisplay(
     // );
 
     // Remove debug logging
-    // console.log("[updateSeekBar] called", {
+    // // console.log("[updateSeekBar] called", {
     //   hasOverride: !!override,
     //   state,
     //   audioPlayerExists: !!dependencies.audioPlayer,
@@ -161,10 +162,10 @@ export function createTimeDisplay(
         ? false
         : dependencies.audioPlayer?.getState()?.isPlaying;
       if (isPlaying) {
-        console.log(
-          "[SeekBar.updateSeekBar] Ignoring sudden drop to 0, keeping",
-          lastValidCurrentTime
-        );
+        // // console.log(
+        //   "[SeekBar.updateSeekBar] Ignoring sudden drop to 0, keeping",
+        //   lastValidCurrentTime
+        // );
         // Use the last valid time instead
         state.currentTime = lastValidCurrentTime;
       }
@@ -181,7 +182,7 @@ export function createTimeDisplay(
 
     if (state.duration === 0) {
       if (dbgCounters.zeroDur < 5) {
-        console.warn("[UIControlFactory.updateSeekBar] duration 0", state);
+        // console.warn("[UIControlFactory.updateSeekBar] duration 0", state);
         dbgCounters.zeroDur++;
       }
       // Set progress to 0 when duration is 0
@@ -194,7 +195,7 @@ export function createTimeDisplay(
     // Remove debug logging
     // if (dbgCounters.normal < 5) {
     //   const dbgPercent = (state.currentTime / state.duration) * 100;
-    //   console.log("[updateSeekBar] updating", {
+    //   // console.log("[updateSeekBar] updating", {
     //     currentTime: state.currentTime,
     //     duration: state.duration,
     //     percent: dbgPercent,
@@ -205,14 +206,17 @@ export function createTimeDisplay(
     const percent = (state.currentTime / state.duration) * 100;
     // Only log percent changes for debugging
     if (shouldLog) {
-      console.log(
-        "%c[SeekBar.updateSeekBar] percent:",
-        "color: red; font-weight: bold;",
-        percent
-      );
+      // // console.log(
+      //   "%c[SeekBar.updateSeekBar] percent:",
+      //   "color: red; font-weight: bold;",
+      //   percent
+      // );
     }
     progressBar.style.width = `${percent}%`;
-    seekHandle.style.left = `${percent}%`;
+    // Prevent the handle from being positioned slightly outside the bar when
+    // the progress is extremely small (e.g., < 0.5%).
+    const safePercent = Math.max(percent, 0);
+    seekHandle.style.left = `${safePercent}%`;
   };
 
   // Expose to external update loop

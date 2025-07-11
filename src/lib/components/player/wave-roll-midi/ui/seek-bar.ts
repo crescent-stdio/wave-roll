@@ -75,7 +75,9 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   /* Seek handle (follows mouse) */
   const handle = document.createElement("div");
   handle.style.cssText = `
-    position:absolute; top:50%; transform:translate(-50%,-50%);
+    position:absolute; top:50%;
+    /* Remove horizontal centering so even very small percentages are visible */
+    transform:translateY(-50%);
     width:14px; height:14px; background:#4285f4; border-radius:8px;
     border:2px solid #fff; opacity:0; transition:opacity .15s;
     z-index:2;
@@ -133,7 +135,9 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
 
     const pct = duration > 0 ? (current / duration) * 100 : 0;
     progress.style.width = `${pct}%`;
-    handle.style.left = `${pct}%`;
+    // Avoid tiny negative offset when pct is very small.
+    const safePct = Math.max(pct, 0);
+    handle.style.left = `${safePct}%`;
 
     /* loop overlay */
     if (loop && loop.a !== null && loop.b !== null) {

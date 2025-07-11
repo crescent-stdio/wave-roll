@@ -437,11 +437,18 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   private startUpdateLoop(): void {
     if (this.updateLoopId !== null) return;
 
-    // console.log("[CorePlaybackEngine] startUpdateLoop");
+    // // console.log("[CorePlaybackEngine] startUpdateLoop");
     const performUpdate = () => {
+      // console.log("[CorePlaybackEngine] performUpdate");
       if (!this.audioPlayer || this.seeking) return;
 
       const state = this.audioPlayer.getState();
+
+      // NEW: keep piano roll playhead in sync with transport at all times
+      if (this.pianoRollManager) {
+        // Avoid redundant calls if already at the same time – PianoRoll internally throttles renders anyway.
+        this.pianoRollManager.setTime(state.currentTime);
+      }
 
       // Sync with StateManager
       if (this.config.enableStateSync && this.stateManager) {

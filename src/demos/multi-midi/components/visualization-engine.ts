@@ -93,7 +93,7 @@ export class VisualizationEngine {
     // Set up visual update forwarding
     this.coreEngine.onVisualUpdate((params) => {
       // Debug logging removed - was causing console spam
-      // console.log("[VisualizationEngine] onVisualUpdate", params);
+      // // console.log("[VisualizationEngine] onVisualUpdate", params);
 
       const extendedParams: VisualUpdateParams = {
         ...params,

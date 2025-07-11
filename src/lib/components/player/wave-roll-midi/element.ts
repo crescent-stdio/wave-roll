@@ -109,6 +109,26 @@ class WaveRollMidiElement extends HTMLElement {
       this.demo = null;
     }
   }
+
+  /* --------------------------------------------------------------
+   * Debug helpers – surface internal state to outside callers.
+   * -------------------------------------------------------------- */
+  /**
+   * Return the current audio + piano-roll state. Returns undefined if the
+   * internal player has not finished initializing yet or has been destroyed.
+   */
+  public getState() {
+    return this.demo?.getState();
+  }
+
+  /**
+   * Return the underlying WaveRollMidiPlayer instance – useful for advanced
+   * integrations where you need full programmatic control. May be `null` if
+   * the player is still loading or has already been disposed.
+   */
+  public getPlayer(): WaveRollMidiPlayer | null {
+    return this.demo;
+  }
 }
 
 // Register the custom element exactly once

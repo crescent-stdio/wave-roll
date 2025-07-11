@@ -141,9 +141,9 @@ function convertNote(note: any): NoteData {
  * const file = fileInput.files[0];
  * const midiData = await parseMidi(file);
  *
- * console.log(`Song: ${midiData.header.name}`);
- * console.log(`Duration: ${midiData.duration} seconds`);
- * console.log(`Notes: ${midiData.notes.length}`);
+ * // console.log(`Song: ${midiData.header.name}`);
+ * // console.log(`Duration: ${midiData.duration} seconds`);
+ * // console.log(`Notes: ${midiData.notes.length}`);
  * ```
  */
 export async function parseMidi(input: MidiInput): Promise<ParsedMidi> {

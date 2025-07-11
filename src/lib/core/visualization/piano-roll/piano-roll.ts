@@ -132,12 +132,12 @@ export class PianoRoll {
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
     });
-    console.log(
-      "[initializeApp] renderer",
-      this.app.renderer.resolution,
-      this.app.renderer.width,
-      this.app.renderer.height
-    );
+    // console.log(
+    //   "[initializeApp] renderer",
+    //   this.app.renderer.resolution,
+    //   this.app.renderer.width,
+    //   this.app.renderer.height
+    // );
   }
 
   /**
@@ -269,7 +269,7 @@ export class PianoRoll {
    * Set note data and trigger re-render
    */
   public setNotes(notes: NoteData[]): void {
-    console.log("[setNotes] incoming notes", notes.length);
+    // console.log("[setNotes] incoming notes", notes.length);
     this.notes = notes;
     this.initializeScales(); // Recalculate scales based on new data
     this.render();
@@ -279,7 +279,13 @@ export class PianoRoll {
    * Set current playback time and update playhead
    */
   public setTime(time: number): void {
-    // console.log("[PianoRoll.setTime]", time);
+    // console.log(
+    //     "[setTime] time",
+    //     time,
+    //     "panX(before)",
+    //     this.state.panX,
+    //     "zoomX"
+    //   );
     this.state.currentTime = time;
 
     // Only auto-scroll if user is not actively panning
@@ -291,6 +297,14 @@ export class PianoRoll {
       // so that the note at the current time is always under the playhead.
       this.state.panX = -timeOffsetPx;
       clampPanX(this.timeScale, this.state);
+      // console.log(
+      //     "[setTime] pxPerSecond",
+      //     pxPerSecond,
+      //     "timeOffsetPx",
+      //     timeOffsetPx,
+      //     "panX(after)",
+      //     this.state.panX
+      //   );
     }
 
     // Force immediate render without throttling for seek operations
@@ -324,12 +338,12 @@ export class PianoRoll {
     this.state.panX =
       anchorPx - pianoKeysOffset - this.timeScale(timeAtAnchor) * newZoom;
 
-    console.log("[zoomX]", {
-      anchorPx,
-      timeAtAnchor,
-      newZoom,
-      panX: this.state.panX,
-    });
+    // // console.log("[zoomX]", {
+    //   anchorPx,
+    //   timeAtAnchor,
+    //   newZoom,
+    //   panX: this.state.panX,
+    // });
     // Clamp pan within valid bounds
     clampPanX(this.timeScale, this.state);
 
@@ -395,6 +409,10 @@ export class PianoRoll {
     this.app.renderer.resize(newWidth, newHeight);
 
     // Recalculate scales based on new size and re-render
+    // IMPORTANT: Drop cached pxPerSecond so createScales picks a new value
+    // that matches the new width. Otherwise scrolling speed stays stuck at
+    // the ratio that was computed when the canvas width was near-zero.
+    this.pxPerSecond = null;
     this.initializeScales();
     this.requestRender();
   }
