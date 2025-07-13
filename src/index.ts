@@ -20,7 +20,7 @@ export type {
   MidiHeader,
   TempoEvent,
   TimeSignatureEvent,
-} from "@/types";
+} from "@/lib/midi/types";
 
 // Export utility functions that might be useful
 export {
@@ -44,170 +44,176 @@ export {
    * @returns Octave number
    */
   midiToOctave,
-} from "@/core/utils";
+} from "@/lib/midi";
 
 // Export MIDI player functionality
-export {
-  /**
-   * Creates a MIDI player with piano-roll visualization
-   */
-  createMidiPlayer,
+// export {
+//   /**
+//    * Creates a MIDI player with piano-roll visualization
+//    */
+//   createMidiPlayer,
 
-  /**
-   * Converts ArrayBuffer to base64 data URL for MIDI data
-   */
-  arrayBufferToDataUrl,
+//   /**
+//    * Converts ArrayBuffer to base64 data URL for MIDI data
+//    */
+//   arrayBufferToDataUrl,
 
-  /**
-   * Converts ArrayBuffer to Blob URL for MIDI data (more efficient)
-   */
-  arrayBufferToBlobUrl,
+//   /**
+//    * Converts ArrayBuffer to Blob URL for MIDI data (more efficient)
+//    */
+//   arrayBufferToBlobUrl,
 
-  /**
-   * Cleans up cached blob URLs to prevent memory leaks
-   */
-  cleanupBlobUrls,
+//   /**
+//    * Cleans up cached blob URLs to prevent memory leaks
+//    */
+//   cleanupBlobUrls,
 
-  /**
-   * Loads html-midi-player Web Components
-   */
-  loadPlayerComponents,
+//   /**
+//    * Loads html-midi-player Web Components
+//    */
+//   loadPlayerComponents,
 
-  /**
-   * Checks if player components are available
-   */
-  isPlayerAvailable,
+//   /**
+//    * Checks if player components are available
+//    */
+//   isPlayerAvailable,
 
-  /**
-   * Debug function to check player state
-   */
-  debugPlayerState,
-} from "./player";
+//   /**
+//    * Debug function to check player state
+//    */
+//   debugPlayerState,
+// } from "@/lib/components/player/wave-roll-multi-midi";
 
-// Export player types
-export type { MidiPlayerOptions } from "./player";
+// // Export player types
+// export type {
+//   MidiPlayerOptions,
+//   WaveRollMultiMidiPlayerOptions,
+// } from "@/lib/components/player/wave-roll-multi-midi";
 
-// Export piano roll visualizer
-export {
-  /**
-   * Creates a PixiJS-based piano roll visualizer
-   */
-  createPianoRoll,
+// // Export piano roll visualizer
+// export {
+//   /**
+//    * Creates a PixiJS-based piano roll visualizer
+//    */
+//   createPianoRoll,
 
-  /**
-   * Piano roll class for advanced usage
-   */
-  PianoRoll,
-} from "./components/piano-roll";
+//   /**
+//    * Piano roll class for advanced usage
+//    */
+//   PianoRoll,
+// } from "@/lib/core/visualization/piano-roll";
 
-// Export piano roll types
-export type { PianoRollOptions } from "./components/piano-roll";
+// // Export piano roll types
+// export type { PianoRollOptions } from "@/lib/core/visualization/piano-roll/types";
 
-// Export audio player functionality
-export {
-  /**
-   * Creates a synchronized audio player for piano roll
-   */
-  createAudioPlayer,
+// // Export audio player functionality
+// export {
+//   /**
+//    * Creates a synchronized audio player for piano roll
+//    */
+//   createAudioPlayer,
 
-  /**
-   * Check if audio context is supported
-   */
-  isAudioSupported,
+//   /**
+//    * Check if audio context is supported
+//    */
+//   isAudioSupported,
 
-  /**
-   * Get audio context state for debugging
-   */
-  getAudioContextState,
-} from "./AudioPlayer";
+//   /**
+//    * Get audio context state for debugging
+//    */
+//   getAudioContextState,
+// } from "@/lib/core/audio/audio-player";
 
-// Export audio player types
-export type {
-  AudioPlayerControls,
-  PlayerOptions,
-  PlayerState,
-  PianoRollSync,
-} from "./AudioPlayer";
+// // Export audio player types
+// export type {
+//   AudioPlayerControls,
+//   PlayerOptions,
+//   PlayerState,
+//   PianoRollSync,
+// } from "@/lib/core/audio/audio-player";
 
-// Export player demo functionality
-export {
-  /**
-   * Creates a complete player demo with controls
-   */
-  createPlayerDemo,
+// // Export player demo functionality
+// export {
+//   /**
+//    * Creates a complete player demo with controls
+//    */
+//   createPlayerDemo,
 
-  /**
-   * Player demo class for advanced usage
-   */
-  PlayerDemo,
-} from "./PlayerDemo";
+//   /**
+//    * Player demo class for advanced usage
+//    */
+//   PlayerDemo,
+// } from "@/demos/multi-midi/player-demo";
 
-// Export player demo types
-export type { PlayerDemoOptions } from "./PlayerDemo";
+// // Export player demo types
+// export type { PlayerDemoOptions } from "@/demos/multi-midi/player-demo";
 
-// Export multi MIDI functionality
-export {
-  /**
-   * Creates a multi MIDI demo with file management
-   */
-  createMultiMidiDemo,
+// // Export multi MIDI functionality
+// export {
+//   /**
+//    * Creates a multi MIDI demo with file management
+//    */
+//   createMultiMidiDemo,
 
-  /**
-   * Multi MIDI demo class
-   */
-  MultiMidiDemo,
-} from "./MultiMidiDemo";
+//   /**
+//    * Multi MIDI demo class
+//    */
+//   MultiMidiDemo,
+// } from "@/demos/multi-midi/multi-midi-demo";
 
-// Export multi MIDI manager
-export {
-  /**
-   * Multi MIDI file manager
-   */
-  MultiMidiManager,
+// // Export multi MIDI manager
+// export {
+//   /**
+//    * Multi MIDI file manager
+//    */
+//   MultiMidiManager,
 
-  /**
-   * Default color palettes
-   */
-  DEFAULT_PALETTES,
-} from "./MultiMidiManager";
+//   /**
+//    * Default color palettes
+//    */
+//   DEFAULT_PALETTES,
+// } from "@/lib/core/audio/multi-midi-manager";
 
-// Export multi MIDI types
-export type {
-  MidiFileEntry,
-  MultiMidiState,
-  ColorPalette,
-} from "./MultiMidiManager";
+// // Export multi MIDI types
+// export type {
+//   MidiFileEntry,
+//   MultiMidiState,
+//   ColorPalette,
+// } from "@/lib/core/audio/multi-midi-manager";
 
-// Export file manager functionality
-export {
-  /**
-   * MIDI file manager for handling file operations
-   */
-  FileManager,
+// // Export file manager functionality
+// export {
+//   /**
+//    * MIDI file manager for handling file operations
+//    */
+//   FileManager,
 
-  /**
-   * Default sample file configurations
-   */
-  DEFAULT_SAMPLE_FILES,
+//   /**
+//    * Default sample file configurations
+//    */
+//   DEFAULT_SAMPLE_FILES,
 
-  /**
-   * File utility functions
-   */
-  FileUtils,
-} from "@/demos/multi-midi/FileManager";
+//   /**
+//    * File utility functions
+//    */
+//   FileUtils,
+// } from "@/lib/core/file/file-manager";
 
 // Export file manager types
 export type {
   FileLoadOptions,
   SampleFileConfig,
   FileValidationResult,
-} from "@/demos/multi-midi/FileManager";
+} from "@/lib/core/file/types";
 
-import "./wave-roll-element";
-import "./wave-roll-multi-midi-element";
+import "@/lib/components/player/wave-roll-midi/element";
+import "@/lib/components/player/wave-roll-multi-midi/element";
+import { WaveRollMultiMidiElement } from "@/lib/components/player/wave-roll-multi-midi";
+import { WaveRollMidiElement } from "@/lib/components/player/wave-roll-midi";
 
-export { WaveRollMidiElement } from "./wave-roll-element";
-export { WaveRollMultiMidiElement } from "./wave-roll-multi-midi-element";
+export { WaveRollMidiElement };
+export { WaveRollMultiMidiElement };
+export { createWaveRollMultiMidiPlayer } from "@/lib/components/player/wave-roll-multi-midi";
 
 /**
  * Default export of the main parsing function for convenience

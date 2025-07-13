@@ -15,12 +15,13 @@
     "rootDir": "src",
     "baseUrl": ".",
     "paths": {
-      "@/core/*": ["src/core/*"],
+      "@/core/*": ["src/lib/core/*"],
       "@/demos/*": ["src/demos/*"],
-      "@/components/*": ["src/components/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/components/*": ["src/lib/components/*"],
       "@/assets/*": ["src/assets/*"],
-      "@/types/*": ["src/core/types/*"],
-      "@/types": ["src/core/types/index.ts"]
+      "@/types/*": ["src/lib/types/*"],
+      "@/types": ["src/lib/types/index.ts"]
     }
   },
   "include": ["src/**/*"],
