@@ -54,6 +54,11 @@ export const PLAYER_ICONS = {
     <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
   </svg>`,
 
+  /** Hamburger menu icon used to toggle the sidebar */
+  menu: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
+    <path d="M2 4h12v1H2zM2 8h12v1H2zM2 12h12v1H2z"/>
+  </svg>`,
+
   midi: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
     <path d="M8 2a2 2 0 0 0-2 2v1.5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 0-.5.5V8a.5.5 0 0 0 .5.5h2a.5.5 0 0 1 .5.5V10a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2V9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 0 .5-.5V7a.5.5 0 0 0-.5-.5h-2a.5.5 0 0 1-.5-.5V4a2 2 0 0 0-2-2H8z"/>
   </svg>`,

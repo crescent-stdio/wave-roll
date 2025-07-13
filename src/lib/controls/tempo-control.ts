@@ -1,4 +1,4 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 
 /**
@@ -7,7 +7,7 @@ import { COLOR_PRIMARY } from "@/lib/core/constants";
 export function createTempoControl({
   audioPlayer,
 }: {
-  audioPlayer: AudioPlayerControls;
+  audioPlayer: AudioPlayerContainer;
 }): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `

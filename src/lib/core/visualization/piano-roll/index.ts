@@ -27,6 +27,31 @@ export async function createPianoRoll(
   // Create piano roll instance
   const pianoRoll = await PianoRoll.create(canvas, options);
 
+  /* -----------------------------------------------------------
+   * Keep PixiJS renderer in sync with container size.
+   * In some layouts the parent element width is 0 when
+   * createPianoRoll() runs (e.g. inside a still-hidden tab).
+   * When the element becomes visible its width grows, but the
+   * internal px/second scale was already cached – resulting in
+   * almost-static scrolling (≈0.4 px/s in your logs).
+   *
+   * We attach a ResizeObserver so that the PianoRoll recalculates
+   * its scales whenever the container resizes after first paint.
+   * ----------------------------------------------------------- */
+
+  const resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) {
+        pianoRoll.resize(Math.floor(width), Math.floor(height));
+      }
+    }
+  });
+
+  // Observe the immediate parent <div> that wraps the canvas so we
+  // capture both initial display and any subsequent window resizes.
+  resizeObserver.observe(container);
+
   // Set initial notes
   if (notes.length > 0) {
     pianoRoll.setNotes(notes);
@@ -72,7 +97,10 @@ export async function createPianoRoll(
     /**
      * Clean up resources
      */
-    destroy: () => pianoRoll.destroy(),
+    destroy: () => {
+      resizeObserver.disconnect();
+      pianoRoll.destroy();
+    },
 
     /**
      * Update timeStep (grid spacing in seconds)
@@ -105,6 +133,9 @@ export async function createPianoRoll(
      * Get current minor timeStep
      */
     getMinorTimeStep: () => pianoRoll.getMinorTimeStep(),
+
+    /** Resize the PixiJS renderer */
+    resize: (width: number, height?: number) => pianoRoll.resize(width, height),
   };
 }
 

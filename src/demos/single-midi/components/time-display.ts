@@ -1,7 +1,7 @@
 import { COLOR_PRIMARY } from "@/core/constants";
 import { COLOR_A } from "@/core/constants";
 import { COLOR_B } from "@/core/constants";
-import { AudioPlayerControls } from "@/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/core/audio/audio-player";
 
 /**
  * Create time display and seek bar
@@ -10,7 +10,7 @@ import { AudioPlayerControls } from "@/core/audio/audio-player";
  * @returns HTMLElement containing time display and seek bar
  */
 export function createTimeDisplay(
-  audioPlayer: AudioPlayerControls
+  audioPlayer: AudioPlayerContainer
 ): HTMLElement {
   if (!audioPlayer) {
     throw new Error("AudioPlayerControls instance is required");

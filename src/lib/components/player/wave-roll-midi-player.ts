@@ -23,7 +23,7 @@ import type {
   PianoRollInstance,
 } from "@/lib/core/visualization/piano-roll/types";
 
-import type { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import type { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { formatTime } from "@/lib/core/utils/time";
 import type { WaveRollMidiPlayerOptions } from "./wave-roll-midi/types";
 
@@ -52,7 +52,7 @@ export class WaveRollMidiPlayer {
 
   /* Core objects */
   private pianoRoll!: PianoRollInstance;
-  private audioPlayer!: AudioPlayerControls;
+  private audioPlayer!: AudioPlayerContainer;
 
   /* UI */
   private controlsRoot: HTMLElement;

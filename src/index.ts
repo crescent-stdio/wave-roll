@@ -213,6 +213,7 @@ import { WaveRollMidiElement } from "@/lib/components/player/wave-roll-midi";
 
 export { WaveRollMidiElement };
 export { WaveRollMultiMidiElement };
+export { createWaveRollMultiMidiPlayer } from "@/lib/components/player/wave-roll-multi-midi";
 
 /**
  * Default export of the main parsing function for convenience

@@ -1,4 +1,4 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
 
@@ -8,7 +8,7 @@ export interface LoopControlsResult {
 }
 
 interface LoopContext {
-  audioPlayer: AudioPlayerControls | null;
+  audioPlayer: AudioPlayerContainer | null;
   pianoRoll: any;
   formatTime: (seconds: number) => string;
 }

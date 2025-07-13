@@ -1,4 +1,4 @@
-import { AudioPlayerControls } from "@/lib/core/audio/audio-player";
+import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 
@@ -9,7 +9,7 @@ import { COLOR_PRIMARY } from "@/lib/core/constants";
 export function createVolumeControl({
   audioPlayer,
 }: {
-  audioPlayer: AudioPlayerControls;
+  audioPlayer: AudioPlayerContainer;
 }): HTMLElement {
   /* ------------------------------------------------------------------
    * Container

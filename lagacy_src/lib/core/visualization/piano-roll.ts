@@ -7,7 +7,7 @@
 
 import * as PIXI from "pixi.js";
 import { scaleLinear } from "d3-scale";
-import { NoteData } from "@/lib/midi/type";
+import { NoteData } from ""
 
 /**
  * Configuration options for the piano roll

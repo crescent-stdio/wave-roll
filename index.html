@@ -289,12 +289,12 @@
         const originalFetch = window.fetch;
         window.fetch = function (...args) {
           const url = args[0];
-          // console.log("Fetch request:", url);
+          // // console.log("Fetch request:", url);
 
           return originalFetch
             .apply(this, args)
             .then((response) => {
-              // console.log(`Fetch response for ${url}:`, {
+              // // console.log(`Fetch response for ${url}:`, {
               //   status: response.status,
               //   statusText: response.statusText,
               //   headers: Object.fromEntries(response.headers.entries()),
@@ -355,9 +355,9 @@
       // Initialize player components
       async function initializePlayer() {
         try {
-          console.log("Loading MIDI player components...");
+          // console.log("Loading MIDI player components...");
           await loadPlayerComponents();
-          console.log("MIDI player components loaded");
+          // console.log("MIDI player components loaded");
 
           // Add user interaction prompt
           const playerContainer = document.getElementById("playerContainer");
@@ -575,7 +575,7 @@
 
           // Add debug information
           const debugInfo = debugPlayerState(container);
-          console.log("Player debug info:", debugInfo);
+          // console.log("Player debug info:", debugInfo);
 
           // Only add debug button if it doesn't exist
           if (!container.querySelector(".debug-btn")) {
@@ -630,10 +630,10 @@
 
         try {
           if (pianoRollInstance) {
-            console.log("Updating existing piano roll with new data");
+            // console.log("Updating existing piano roll with new data");
             pianoRollInstance.setNotes(currentParsedData.notes);
           } else {
-            console.log("Creating new PixiJS piano roll");
+            // console.log("Creating new PixiJS piano roll");
 
             pianoRollInstance = await createPianoRoll(
               container,
@@ -705,11 +705,11 @@
 
         try {
           if (syncPlayerInstance) {
-            console.log("Cleaning up existing synchronized player");
+            // console.log("Cleaning up existing synchronized player");
             syncPlayerInstance.destroy();
           }
 
-          console.log("Creating new synchronized audio player + piano roll");
+          // console.log("Creating new synchronized audio player + piano roll");
 
           // Extract initial tempo from MIDI data
           const initialTempo =
@@ -718,7 +718,7 @@
               ? currentParsedData.header.tempos[0].bpm
               : 120; // fallback to 120 if no tempo events
 
-          console.log(`Using initial tempo from MIDI: ${initialTempo} BPM`);
+          // console.log(`Using initial tempo from MIDI: ${initialTempo} BPM`);
 
           syncPlayerInstance = await createPlayerDemo(
             container,
@@ -871,8 +871,8 @@
 
       // Initialize with delay to avoid conflicts
       setTimeout(() => {
-        console.log("WaveRoll Demo initialized");
-        console.log("Player components available:", isPlayerAvailable());
+        // console.log("WaveRoll Demo initialized");
+        // console.log("Player components available:", isPlayerAvailable());
 
         // Load player components
         initializePlayer();

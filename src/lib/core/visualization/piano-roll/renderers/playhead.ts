@@ -1,15 +1,28 @@
 import { PianoRoll } from "../piano-roll";
 
 export function renderPlayhead(pianoRoll: PianoRoll): void {
+  // console.log(
+  //   "[renderPlayhead] panX",
+  //   pianoRoll.state.panX,
+  //   "playheadX",
+  //   pianoRoll.playheadX
+  // );
   pianoRoll.playheadLine.clear();
 
   const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
   const pxPerSecond = pianoRoll.timeScale(1) * pianoRoll.state.zoomX;
   const timeOffsetPx = pianoRoll.state.currentTime * pxPerSecond;
 
-  // Calculate playhead position based on current phase
-  // const playheadX = timeOffsetPx + pianoKeysOffset;
+  // console.log(
+  //   "%c[renderPlayhead] timeOffsetPx:",
+  //   "color: blue; font-weight: bold;",
+  //   timeOffsetPx
+  // );
+  // Keep playhead fixed right after the piano-keys column so the
+  // underlying note layer scrolls while the playhead stays in place.
   const playheadX = pianoKeysOffset;
+  // Optional debug: uncomment to let the playhead move with timeline
+  // const playheadX = timeOffsetPx + pianoKeysOffset;
   pianoRoll.playheadX = playheadX;
 
   // Draw a thicker, more visible red line
@@ -24,12 +37,12 @@ export function renderPlayhead(pianoRoll: PianoRoll): void {
   // Force container to re-sort children by zIndex
   pianoRoll.container.sortChildren();
 
-  // console.debug("[playhead]", {
+  // console.log("[playhead]", {
   //   x: playheadX,
-  //   phase: timeOffsetPx <= playheadFixedPosition ? "moving" : "fixed",
-  //   height: this.options.height,
-  //   currentTime: this.state.currentTime,
-  //   visible: this.playheadLine.visible,
+  //   phase: timeOffsetPx <= playheadX ? "moving" : "fixed",
+  //   height: pianoRoll.options.height,
+  //   currentTime: pianoRoll.state.currentTime,
+  //   visible: pianoRoll.playheadLine.visible,
   //   color: "0xff0000",
   // });
 }

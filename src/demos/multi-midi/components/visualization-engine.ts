@@ -1,137 +1,106 @@
 /**
- * VisualizationEngine - Handles piano roll management and visualization logic
- * Extracted from MultiMidiDemo to provide centralized visualization controls
+ * VisualizationEngine - Legacy wrapper around CorePlaybackEngine
+ * Maintains backward compatibility while delegating to unified engine
  */
 
 import { NoteData } from "@/lib/midi/types";
-import { createPianoRoll } from "@/core/visualization/piano-roll";
-import { AudioPlayerControls, createAudioPlayer } from "@/core/audio";
-import { detectOverlappingNotes } from "@/core/utils/midi/overlap";
+import { AudioPlayerState } from "@/core/audio";
+import {
+  CorePlaybackEngine,
+  createCorePlaybackEngine,
+  VisualUpdateParams as CoreVisualUpdateParams,
+} from "@/core/playback";
+import {
+  PianoRollManager,
+  createPianoRollManager,
+  ColoredNote as CoreColoredNote,
+  DEFAULT_PIANO_ROLL_CONFIG,
+} from "@/core/playback";
+
+export type ColoredNote = CoreColoredNote;
 
 /**
- * Configuration for piano roll visualization
+ * Default piano roll configuration - re-export for compatibility
  */
-export interface PianoRollConfig {
-  width: number;
-  height: number;
-  backgroundColor: number;
-  playheadColor: number;
-  showPianoKeys: boolean;
-  noteRange: { min: number; max: number };
-  minorTimeStep: number;
-}
-
-/**
- * Represents a note with associated color and file metadata
- */
-export interface ColoredNote {
-  note: NoteData;
-  color: number;
-  fileId: string;
-  /** Whether this note's source file is muted (audio only) */
-  isMuted: boolean;
-}
-
-/**
- * Visual update parameters for synchronization
- */
-export interface VisualUpdateParams {
-  currentTime: number;
-  duration: number;
-  isPlaying: boolean;
-  zoomLevel: number;
-}
-
-/**
- * Piano roll instance interface (based on piano-roll.ts)
- */
-export interface PianoRollInstance {
-  setNotes(notes: NoteData[]): void;
-  setTime(time: number): void;
-  getState(): { zoomX: number; [key: string]: any };
-  zoomX(factor: number): void;
-  resetView(): void;
-  setMinorTimeStep?(timeStep: number): void;
-  onTimeChange?(callback: (time: number) => void): void;
-}
-
-/**
- * Audio player state for preservation during updates
- */
-export interface AudioPlayerState {
-  isPlaying: boolean;
-  currentTime: number;
-  tempo: number;
-  volume: number;
-  isRepeating: boolean;
-  pan: number;
-}
+export { DEFAULT_PIANO_ROLL_CONFIG };
 
 /**
  * Visualization engine configuration
  */
 export interface VisualizationEngineConfig {
-  defaultPianoRollConfig: PianoRollConfig;
+  defaultPianoRollConfig: import("@/core/playback").PianoRollConfig;
   updateInterval: number;
   enableOverlapDetection: boolean;
   overlapColor: number;
 }
 
-// Default configurations
-
-export const DEFAULT_PIANO_ROLL_CONFIG: PianoRollConfig = {
-  width: 800,
-  height: 380,
-  backgroundColor: 0xffffff,
-  playheadColor: 0xff4444,
-  showPianoKeys: true,
-  noteRange: { min: 21, max: 108 },
-  minorTimeStep: 0.1,
-};
-
+/**
+ * Default visualization configuration
+ */
 export const DEFAULT_VISUALIZATION_CONFIG: VisualizationEngineConfig = {
   defaultPianoRollConfig: DEFAULT_PIANO_ROLL_CONFIG,
-  updateInterval: 100,
+  updateInterval: 50,
   enableOverlapDetection: true,
-  overlapColor: 0xaaaaaa,
+  overlapColor: 0x800080,
 };
 
 /**
- * Main visualization engine class
+ * Visual update parameters - re-export for compatibility
+ */
+export interface VisualUpdateParams extends CoreVisualUpdateParams {
+  zoomLevel: number;
+}
+
+/**
+ * Piano roll instance interface for compatibility
+ */
+export interface PianoRollInstance {
+  setNotes(notes: NoteData[]): void;
+  setTime(time: number): void;
+  zoomX?(scale: number): void;
+  getState?(): { zoomX: number };
+  onTimeChange?(callback: (time: number) => void): void;
+  setMinorTimeStep?(step: number): void;
+}
+
+/**
+ * Main visualization engine class - Thin wrapper around CorePlaybackEngine
  */
 export class VisualizationEngine {
-  private pianoRollInstance: PianoRollInstance | null = null;
-  private audioPlayer: AudioPlayerControls | null = null;
-  private pianoRollContainer: HTMLElement | null = null;
-  private currentNoteColors: number[] = [];
+  private coreEngine: CorePlaybackEngine;
+  private pianoRollManager: PianoRollManager;
   private config: VisualizationEngineConfig;
   private visualUpdateCallbacks: ((params: VisualUpdateParams) => void)[] = [];
-  private updateLoopId: number | null = null;
-  /** String signature of the last audioNotes array that fed the AudioPlayer.
-   *  Used to skip redundant player recreation that resets the playhead. */
-  private lastAudioSignature = "";
-
-  /**
-   * Generate a simple signature string for an array of notes. We only need
-   * to know if the *content* changed, not hash it cryptographically.
-   * Format: `${length}:${first.time}-${first.midi}:${last.time}-${last.midi}`
-   */
-  private getNotesSignature(notes: NoteData[]): string {
-    if (notes.length === 0) return "0";
-    // Stable ordering ensures signature doesn't fluctuate when input array
-    // order varies (e.g., set update triggers that rebuild note arrays).
-    const sorted = [...notes].sort((a, b) => {
-      if (a.time !== b.time) return a.time - b.time;
-      return a.midi - b.midi;
-    });
-
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
-    return `${sorted.length}:${first.time}-${first.midi}:${last.time}-${last.midi}`;
-  }
 
   constructor(config: Partial<VisualizationEngineConfig> = {}) {
     this.config = { ...DEFAULT_VISUALIZATION_CONFIG, ...config };
+
+    // Create core engine without state manager (for backward compatibility)
+    this.coreEngine = createCorePlaybackEngine(undefined, {
+      updateInterval: this.config.updateInterval,
+      enableStateSync: false,
+    });
+
+    // Create piano roll manager
+    this.pianoRollManager = createPianoRollManager(
+      this.config.defaultPianoRollConfig,
+      {
+        enableOverlapDetection: this.config.enableOverlapDetection,
+        overlapColor: this.config.overlapColor,
+      }
+    );
+
+    // Set up visual update forwarding
+    this.coreEngine.onVisualUpdate((params) => {
+      // Debug logging removed - was causing console spam
+      // // console.log("[VisualizationEngine] onVisualUpdate", params);
+
+      const extendedParams: VisualUpdateParams = {
+        ...params,
+        zoomLevel: this.pianoRollManager.getZoom(),
+      };
+      this.notifyVisualUpdateCallbacks(extendedParams);
+    });
   }
 
   /**
@@ -140,32 +109,21 @@ export class VisualizationEngine {
   public async initializePianoRoll(
     container: HTMLElement,
     notes: NoteData[],
-    pianoRollConfig: Partial<PianoRollConfig> = {}
+    pianoRollConfig: Partial<import("@/core/playback").PianoRollConfig> = {}
   ): Promise<void> {
-    this.pianoRollContainer = container;
-
     const config = {
       ...this.config.defaultPianoRollConfig,
       ...pianoRollConfig,
     };
 
-    // Create piano roll with note renderer using current colors
-    this.pianoRollInstance = await createPianoRoll(container, notes, {
-      ...config,
-      width: container.clientWidth || config.width,
-      noteRenderer: (_note: NoteData, index: number) =>
-        this.currentNoteColors[index],
-    });
+    // Update piano roll manager config
+    this.pianoRollManager.updateConfig(config);
 
-    // Set up time change callback
-    this.pianoRollInstance.onTimeChange?.((time: number) => {
-      this.audioPlayer?.seek(time, false);
-    });
+    // Initialize piano roll
+    await this.pianoRollManager.initialize(container, notes);
 
-    // Apply minor time step if supported
-    if (this.pianoRollInstance.setMinorTimeStep) {
-      this.pianoRollInstance.setMinorTimeStep(config.minorTimeStep);
-    }
+    // Initialize core engine with piano roll manager
+    await this.coreEngine.initialize(this.pianoRollManager);
   }
 
   /**
@@ -175,487 +133,114 @@ export class VisualizationEngine {
     visibleNotes: ColoredNote[],
     audioNotesOverride?: NoteData[]
   ): Promise<void> {
-    console.log("[updateVisualization] visibleNotes", visibleNotes.length);
-    if (visibleNotes.length === 0) {
-      await this.handleEmptyVisualization();
-      return;
-    }
+    // Update piano roll visualization
+    await this.pianoRollManager.updateVisualization(visibleNotes);
 
-    // Process notes and colors with overlap detection
-    const { notes, noteColors } = this.processNotesWithColors(visibleNotes);
+    // Update audio with appropriate notes
+    const audioNotes =
+      audioNotesOverride ??
+      visibleNotes.filter((cn) => !cn.isMuted).map((cn) => cn.note);
 
-    console.log("[updateVisualization] processed notes", notes.length);
-    // Determine which notes should feed the audio layer.
-    const audioNotes: NoteData[] = audioNotesOverride
-      ? audioNotesOverride
-      : visibleNotes.filter((item) => !item.isMuted).map((item) => item.note);
-
-    if (this.pianoRollInstance) {
-      // Update existing piano roll
-      await this.updateExistingPianoRoll(notes, noteColors, audioNotes);
-    } else {
-      // Create new piano roll
-      await this.createNewPianoRoll(notes, noteColors, audioNotes);
-    }
-
-    // Start the visual update loop
-    this.startVisualUpdateLoop();
+    await this.coreEngine.updateAudio(audioNotes);
   }
 
   /**
-   * Handle empty visualization state
+   * Get piano roll instance
    */
-  private async handleEmptyVisualization(): Promise<void> {
-    // Pause audio player if active
-    this.audioPlayer?.pause();
-
-    // Keep piano roll visible but empty
-    if (this.pianoRollContainer) {
-      this.pianoRollContainer.style.display = "block";
-    }
-
-    // Clear notes from piano roll
-    if (this.pianoRollInstance) {
-      this.currentNoteColors = [];
-      this.pianoRollInstance.setNotes([]);
-    }
-
-    // Recreate audio player with empty notes
-    await this.recreateAudioPlayer([]);
+  public getPianoRollInstance(): PianoRollInstance | null {
+    return this.pianoRollManager.getPianoRollInstance() as PianoRollInstance | null;
   }
 
   /**
-   * Process notes and generate colors with overlap detection
+   * Set minor time step
    */
-  private processNotesWithColors(visibleNotes: ColoredNote[]): {
-    notes: NoteData[];
-    noteColors: number[];
-  } {
-    const notes: NoteData[] = [];
-    const noteColors: number[] = [];
-
-    if (!this.config.enableOverlapDetection) {
-      // Fast-path: no overlap logic required
-      visibleNotes.forEach((item) => {
-        notes.push(item.note);
-        noteColors.push(item.color);
-      });
-      return { notes, noteColors };
-    }
-
-    // Detect overlapping sections per note
-    const overlappingMap = detectOverlappingNotes(visibleNotes);
-
-    visibleNotes.forEach((item, idx) => {
-      const overlapRanges = overlappingMap.get(idx) ?? [];
-
-      // If no overlaps → push entire note with its original colour
-      if (overlapRanges.length === 0) {
-        notes.push(item.note);
-        noteColors.push(item.color);
-        return;
-      }
-
-      // Sort ranges to build segments sequentially
-      const sortedRanges = [...overlapRanges].sort((a, b) => a.start - b.start);
-
-      const noteStart = item.note.time;
-      const noteEnd = item.note.time + item.note.duration;
-      let cursor = noteStart;
-
-      const cloneNote = (start: number, end: number): NoteData => ({
-        ...item.note,
-        time: start,
-        duration: end - start,
-      });
-
-      for (const r of sortedRanges) {
-        // Non-overlapping segment before this range
-        if (cursor < r.start) {
-          notes.push(cloneNote(cursor, r.start));
-          noteColors.push(item.color);
-        }
-
-        // Overlapping segment
-        const overlapStart = Math.max(cursor, r.start);
-        const overlapEnd = Math.min(noteEnd, r.end);
-        if (overlapEnd > overlapStart) {
-          // Gather colours of all notes that overlap this segment
-          const contributingColors: number[] = [item.color];
-
-          visibleNotes.forEach((other, otherIdx) => {
-            if (otherIdx === idx) return;
-            if (other.fileId === item.fileId) return;
-            if (other.note.midi !== item.note.midi) return;
-
-            const otherStart = other.note.time;
-            const otherEnd = other.note.time + other.note.duration;
-
-            if (otherEnd > overlapStart && otherStart < overlapEnd) {
-              contributingColors.push(other.color);
-            }
-          });
-
-          const blended =
-            contributingColors.length > 1
-              ? 0x444444 // blendColorsAverage(contributingColors)
-              : item.color;
-
-          notes.push(cloneNote(overlapStart, overlapEnd));
-          noteColors.push(blended);
-        }
-
-        cursor = Math.max(cursor, r.end);
-      }
-
-      // Trailing non-overlap segment
-      if (cursor < noteEnd) {
-        notes.push(cloneNote(cursor, noteEnd));
-        noteColors.push(item.color);
-      }
-    });
-
-    return { notes, noteColors };
+  public setMinorTimeStep(step: number): void {
+    this.pianoRollManager.updateConfig({ minorTimeStep: step });
   }
 
   /**
-   * Update existing piano roll with new notes and colors
-   */
-  private async updateExistingPianoRoll(
-    notes: NoteData[],
-    noteColors: number[],
-    audioNotes: NoteData[]
-  ): Promise<void> {
-    if (!this.pianoRollInstance) return;
-
-    // Preserve current audio player state
-    const prevState = this.audioPlayer?.getState();
-
-    // Update colors and notes visually
-    this.currentNoteColors = noteColors;
-    this.pianoRollInstance.setNotes(notes);
-
-    // Show piano roll container
-    if (this.pianoRollContainer) {
-      this.pianoRollContainer.style.display = "block";
-    }
-
-    // ------------------------------------------------------------------
-    // Skip expensive AudioPlayer recreation if the underlying note set
-    // driving the audio layer is identical to the previous one. This
-    // prevents playhead resets (currentTime → 0) and flickering updates
-    // in the progress bar during normal playback when no score change
-    // actually occurred.
-    // ------------------------------------------------------------------
-    const newSig = this.getNotesSignature(audioNotes);
-    if (newSig === this.lastAudioSignature && this.audioPlayer) {
-      return; // Nothing changed – keep existing player running
-    }
-
-    // Recreate audio player with new notes
-    await this.recreateAudioPlayer(audioNotes, prevState);
-    this.lastAudioSignature = newSig;
-  }
-
-  /**
-   * Create new piano roll instance
-   */
-  private async createNewPianoRoll(
-    notes: NoteData[],
-    noteColors: number[],
-    audioNotes: NoteData[]
-  ): Promise<void> {
-    if (!this.pianoRollContainer) {
-      throw new Error("Piano roll container not initialized");
-    }
-
-    // Preserve current state
-    const prevState = this.audioPlayer?.getState();
-    const prevZoomX = this.pianoRollInstance?.getState?.().zoomX ?? 1;
-
-    // Clean up existing instances
-    if (this.audioPlayer) {
-      this.audioPlayer.destroy();
-      this.audioPlayer = null;
-    }
-
-    // Clear container
-    this.pianoRollContainer.innerHTML = "";
-
-    // Create new container for piano roll
-    const pianoRollDiv = document.createElement("div");
-    pianoRollDiv.style.cssText = `
-      width: 100%;
-      height: 400px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      background: #ffffff;
-    `;
-    this.pianoRollContainer.appendChild(pianoRollDiv);
-
-    // Store colors for note renderer
-    this.currentNoteColors = noteColors;
-
-    // Initialize piano roll
-    await this.initializePianoRoll(pianoRollDiv, notes);
-
-    // Create audio player (exclude muted files)
-    await this.recreateAudioPlayer(audioNotes, prevState);
-
-    // Cache signature for change detection
-    this.lastAudioSignature = this.getNotesSignature(audioNotes);
-
-    // Restore zoom level
-    if (prevZoomX !== 1 && this.pianoRollInstance?.zoomX) {
-      this.pianoRollInstance.zoomX(prevZoomX);
-    }
-  }
-
-  /**
-   * Recreate audio player with new notes
-   */
-  private async recreateAudioPlayer(
-    notes: NoteData[],
-    prevState?: AudioPlayerState
-  ): Promise<void> {
-    if (!this.pianoRollInstance) return;
-
-    // Default state values
-    const defaultState: AudioPlayerState = {
-      isPlaying: false,
-      currentTime: 0,
-      tempo: 120,
-      volume: 0.7,
-      isRepeating: false,
-      pan: 0,
-    };
-
-    const state = prevState || defaultState;
-
-    // Destroy existing audio player
-    if (this.audioPlayer) {
-      this.audioPlayer.destroy();
-      this.audioPlayer = null;
-    }
-
-    // Create new audio player
-    this.audioPlayer = createAudioPlayer(notes, this.pianoRollInstance, {
-      tempo: state.tempo,
-      volume: state.volume,
-      repeat: state.isRepeating,
-    });
-
-    // Restore pan immediately
-    this.audioPlayer.setPan(state.pan);
-
-    // Restore playback state with delay for initialization
-    if (prevState) {
-      setTimeout(async () => {
-        if (this.audioPlayer && this.pianoRollInstance) {
-          this.audioPlayer.seek(state.currentTime, false);
-          this.pianoRollInstance.setTime(state.currentTime);
-
-          if (state.isPlaying) {
-            try {
-              await this.audioPlayer.play();
-            } catch (error) {
-              console.error("Failed to resume playback:", error);
-            }
-          }
-        }
-      }, 100);
-    }
-  }
-
-  /**
-   * Get current piano roll zoom level
+   * Get current zoom level
    */
   public getZoomLevel(): number {
-    return this.pianoRollInstance?.getState?.().zoomX ?? 1;
+    return this.pianoRollManager.getZoom();
   }
 
   /**
    * Set zoom level
    */
-  public setZoomLevel(zoom: number): void {
-    if (!this.pianoRollInstance?.zoomX) return;
-
-    const currentZoom = this.getZoomLevel();
-    const factor = zoom / currentZoom;
-    this.pianoRollInstance.zoomX(factor);
+  public setZoomLevel(scale: number): void {
+    this.pianoRollManager.setZoom(scale);
   }
 
   /**
-   * Reset piano roll view (zoom and pan)
+   * Set playhead time
    */
-  public resetView(): void {
-    this.pianoRollInstance?.resetView();
-  }
-
-  /**
-   * Set minor time step for piano roll
-   */
-  public setMinorTimeStep(timeStep: number): void {
-    if (this.pianoRollInstance?.setMinorTimeStep) {
-      this.pianoRollInstance.setMinorTimeStep(timeStep);
-    }
+  public setTime(time: number): void {
+    this.pianoRollManager.setTime(time);
   }
 
   /**
    * Get current audio player state
    */
   public getAudioPlayerState(): AudioPlayerState | null {
-    if (!this.audioPlayer) return null;
-
-    const state = this.audioPlayer.getState();
-    console.log(
-      "[VisualizationEngine.getAudioPlayerState/state]",
-      state.currentTime
-    );
-    return {
-      isPlaying: state.isPlaying,
-      currentTime: state.currentTime,
-      tempo: state.tempo,
-      volume: state.volume,
-      isRepeating: state.isRepeating,
-      pan: state.pan,
-    };
+    return this.coreEngine.getState();
   }
 
   /**
-   * Control audio playback
+   * Control audio playback - Delegate to core engine
    */
   public async play(): Promise<void> {
-    console.log("[VisualizationEngine.play] requested");
-    if (!this.audioPlayer) return;
-
-    const playerState = this.audioPlayer.getState();
-    if (playerState.duration === 0) {
-      console.warn(
-        "[VisualizationEngine.play] Ignored – audio player not ready (duration=0)"
-      );
-      return;
-    }
-
-    await this.audioPlayer.play();
+    await this.coreEngine.play();
   }
 
   public pause(): void {
-    console.log("[VisualizationEngine.pause] requested");
-    if (this.audioPlayer) {
-      this.audioPlayer.pause();
-    }
+    this.coreEngine.pause();
   }
 
   public seek(time: number, updateVisual: boolean = true): void {
-    if (this.audioPlayer) {
-      this.audioPlayer.seek(time, updateVisual);
-    }
+    this.coreEngine.seek(time, updateVisual);
   }
 
   public setVolume(volume: number): void {
-    if (this.audioPlayer) {
-      this.audioPlayer.setVolume(volume);
-    }
+    this.coreEngine.setVolume(volume);
   }
 
   public setPan(pan: number): void {
-    if (this.audioPlayer) {
-      this.audioPlayer.setPan(pan);
-    }
+    this.coreEngine.setPan(pan);
   }
 
   public setTempo(tempo: number): void {
-    if (this.audioPlayer) {
-      this.audioPlayer.setTempo(tempo);
-    }
+    this.coreEngine.setTempo(tempo);
   }
 
   /**
-   * Start visual update loop for real-time synchronization
-   */
-  public startVisualUpdateLoop(): void {
-    this.stopVisualUpdateLoop();
-
-    this.updateLoopId = window.setInterval(() => {
-      const state = this.getAudioPlayerState();
-      if (!state) return;
-
-      const zoomLevel = this.getZoomLevel();
-      const updateParams: VisualUpdateParams = {
-        currentTime: state.currentTime,
-        duration: this.audioPlayer?.getState().duration ?? 0,
-        isPlaying: state.isPlaying,
-        zoomLevel: zoomLevel,
-      };
-
-      // Notify all registered callbacks
-      this.visualUpdateCallbacks.forEach((callback) => {
-        try {
-          callback(updateParams);
-        } catch (error) {
-          console.error("Error in visual update callback:", error);
-        }
-      });
-    }, this.config.updateInterval);
-  }
-
-  /**
-   * Stop visual update loop
-   */
-  public stopVisualUpdateLoop(): void {
-    if (this.updateLoopId !== null) {
-      clearInterval(this.updateLoopId);
-      this.updateLoopId = null;
-    }
-  }
-
-  /**
-   * Register callback for visual updates
+   * Register visual update callback
    */
   public onVisualUpdate(callback: (params: VisualUpdateParams) => void): void {
     this.visualUpdateCallbacks.push(callback);
   }
 
   /**
-   * Unregister visual update callback
+   * Start visual update loop
    */
-  public offVisualUpdate(callback: (params: VisualUpdateParams) => void): void {
-    const index = this.visualUpdateCallbacks.indexOf(callback);
-    if (index !== -1) {
-      this.visualUpdateCallbacks.splice(index, 1);
-    }
+  public startVisualUpdateLoop(): void {
+    // Core engine already manages update loop
+    // This is kept for compatibility
   }
 
   /**
-   * Update configuration
+   * Stop visual update loop
    */
-  public updateConfig(updates: Partial<VisualizationEngineConfig>): void {
-    this.config = { ...this.config, ...updates };
-  }
-
-  /**
-   * Get current configuration
-   */
-  public getConfig(): VisualizationEngineConfig {
-    return { ...this.config };
+  public stopVisualUpdateLoop(): void {
+    // Core engine manages this internally
   }
 
   /**
    * Clean up resources
    */
   public destroy(): void {
-    this.stopVisualUpdateLoop();
-
-    if (this.audioPlayer) {
-      this.audioPlayer.destroy();
-      this.audioPlayer = null;
-    }
-
-    this.pianoRollInstance = null;
-    this.pianoRollContainer = null;
-    this.currentNoteColors = [];
+    this.coreEngine.destroy();
+    this.pianoRollManager.destroy();
     this.visualUpdateCallbacks = [];
   }
 
@@ -663,49 +248,52 @@ export class VisualizationEngine {
    * Check if visualization is initialized
    */
   public isInitialized(): boolean {
-    return this.pianoRollInstance !== null;
+    return this.coreEngine.isInitialized();
   }
 
   /**
-   * Get current note colors
+   * Get engine info
    */
-  public getCurrentNoteColors(): number[] {
-    return [...this.currentNoteColors];
-  }
-
-  /**
-   * Get piano roll container element
-   */
-  public getPianoRollContainer(): HTMLElement | null {
-    return this.pianoRollContainer;
-  }
-
-  /**
-   * Get piano roll instance
-   */
-  public getPianoRollInstance(): PianoRollInstance | null {
-    return this.pianoRollInstance;
+  public getEngineInfo(): { width: number; height: number; fps: number } {
+    return {
+      width: this.config.defaultPianoRollConfig.width,
+      height: this.config.defaultPianoRollConfig.height,
+      fps: Math.round(1000 / this.config.updateInterval),
+    };
   }
 
   /**
    * Proxy - enable UI to access underlying player state
    */
-  public getState() {
-    return this.audioPlayer?.getState();
+  public getState(): AudioPlayerState {
+    return this.coreEngine.getState();
   }
 
   /**
    * Proxy repeat toggle to underlying audio player
    */
   public toggleRepeat(enabled: boolean): void {
-    this.audioPlayer?.toggleRepeat(enabled);
+    this.coreEngine.toggleRepeat(enabled);
   }
 
   /**
    * Proxy custom loop points (A-B) to underlying audio player
    */
   public setLoopPoints(start: number | null, end: number | null): void {
-    this.audioPlayer?.setLoopPoints(start, end);
+    this.coreEngine.setLoopPoints(start, end);
+  }
+
+  /**
+   * Notify visual update callbacks
+   */
+  private notifyVisualUpdateCallbacks(params: VisualUpdateParams): void {
+    this.visualUpdateCallbacks.forEach((callback) => {
+      try {
+        callback(params);
+      } catch (error) {
+        console.error("Error in visual update callback:", error);
+      }
+    });
   }
 }
 
@@ -718,39 +306,4 @@ export function createVisualizationEngine(
   config?: Partial<VisualizationEngineConfig>
 ): VisualizationEngine {
   return new VisualizationEngine(config);
-}
-
-/**
- * Helper function to convert hex color to RGB components
- */
-export function hexToRgb(hex: number): [number, number, number] {
-  const r = (hex >> 16) & 0xff;
-  const g = (hex >> 8) & 0xff;
-  const b = hex & 0xff;
-  return [r, g, b];
-}
-
-/**
- * Helper function to convert RGB to hex color
- */
-export function rgbToHex(r: number, g: number, b: number): number {
-  return (r << 16) | (g << 8) | b;
-}
-
-/**
- * Validate piano roll configuration
- */
-export function validatePianoRollConfig(
-  config: Partial<PianoRollConfig>
-): boolean {
-  if (config.width !== undefined && config.width <= 0) return false;
-  if (config.height !== undefined && config.height <= 0) return false;
-  if (config.noteRange) {
-    if (config.noteRange.min < 0 || config.noteRange.max > 127) return false;
-    if (config.noteRange.min >= config.noteRange.max) return false;
-  }
-  if (config.minorTimeStep !== undefined && config.minorTimeStep <= 0)
-    return false;
-
-  return true;
 }
