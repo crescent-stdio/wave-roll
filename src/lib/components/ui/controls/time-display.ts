@@ -59,8 +59,9 @@ export function createTimeDisplay(
   seekHandle.style.cssText = `
       position: absolute;
       top: 50%;
-      /* Only translate vertically so the handle is always fully visible even at 0% */
-      transform: translateY(-50%);
+      /* Center the handle both horizontally and vertically so the midpoint
+         aligns with the progress bar edge. */
+      transform: translate(-50%, -50%);
       width: 16px;
       height: 16px;
       background: ${COLOR_PRIMARY};
@@ -226,7 +227,16 @@ export function createTimeDisplay(
   updateSeekBar();
 
   /** Click / seek interaction */
+  // Flag to distinguish a simple click from a drag (pointermove).
+  let dragOccurred = false;
+
   const handleSeek = (evt: MouseEvent): void => {
+    // Ignore the synthetic click that fires right after a drag-release.
+    if (dragOccurred) {
+      dragOccurred = false;
+      return;
+    }
+
     const rect = seekBarContainer.getBoundingClientRect();
     const percent = (evt.clientX - rect.left) / rect.width;
     const state = dependencies.audioPlayer?.getState();
@@ -240,6 +250,61 @@ export function createTimeDisplay(
   };
 
   seekBarContainer.addEventListener("click", handleSeek);
+
+  /**
+   * ---- Drag interaction (pointer events) ----
+   * Allows real-time scrubbing by dragging the seek handle or anywhere on the bar.
+   */
+  let isDragging = false;
+  // Stores last time (sec) hovered while dragging so we can commit once.
+  let pendingSeekTime: number | null = null;
+
+  const handlePointerMove = (evt: PointerEvent): void => {
+    if (!isDragging) return;
+
+    // Mark that a drag (actual movement) has occurred so the upcoming click
+    // event (which fires after pointerup) can be suppressed.
+    dragOccurred = true;
+
+    const rect = seekBarContainer.getBoundingClientRect();
+    const percent = clamp((evt.clientX - rect.left) / rect.width, 0, 1);
+
+    const state = dependencies.audioPlayer?.getState();
+    const duration = state?.duration ?? 0;
+    const newTime = duration * percent;
+
+    // Cache the target time so we can apply it once on pointerup.
+    pendingSeekTime = newTime;
+
+    // Immediate visual feedback while dragging – no engine seek yet.
+    updateSeekBar({ currentTime: newTime, duration });
+  };
+
+  const endDrag = (): void => {
+    if (!isDragging) return;
+    isDragging = false;
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", endDrag);
+
+    // Commit the seek only once after drag completes to avoid audio glitches.
+    if (pendingSeekTime !== null) {
+      dependencies.audioPlayer?.seek(pendingSeekTime, true);
+      pendingSeekTime = null;
+    }
+  };
+
+  const startDrag = (evt: PointerEvent): void => {
+    isDragging = true;
+    // Perform first visual update immediately
+    handlePointerMove(evt);
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", endDrag, { once: true });
+  };
+
+  // Enable dragging from both the handle and the bar itself
+  seekHandle.addEventListener("pointerdown", startDrag);
+  seekBarContainer.addEventListener("pointerdown", startDrag);
 
   return container;
 }

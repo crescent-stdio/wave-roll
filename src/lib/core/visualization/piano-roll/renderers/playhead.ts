@@ -37,7 +37,7 @@ export function renderPlayhead(pianoRoll: PianoRoll): void {
   // Force container to re-sort children by zIndex
   pianoRoll.container.sortChildren();
 
-  // console.debug("[playhead]", {
+  // console.log("[playhead]", {
   //   x: playheadX,
   //   phase: timeOffsetPx <= playheadX ? "moving" : "fixed",
   //   height: pianoRoll.options.height,
