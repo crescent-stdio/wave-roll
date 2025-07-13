@@ -1,221 +1,83 @@
-/**
- * Wave Roll - A TypeScript library for parsing MIDI files
- *
- * This library provides functionality to parse MIDI files from URLs or File objects
- * and extract musical data in the Tone.js format, focusing on piano tracks.
- *
- * @packageDocumentation
- */
+// ------------------------------------------------------------------
+// Export missing APIs required by public HTML demos
+// ------------------------------------------------------------------
 
-// Import and export the main parsing function
-import { parseMidi } from "@/core/parsers/midi-parser";
-export { parseMidi };
+// 1) Piano-roll visualizer factory (fully functional implementation)
+export { createPianoRoll } from "@/lib/core/visualization/piano-roll";
 
-// Export all type definitions
-export type {
-  ParsedMidi,
-  MidiInput,
-  NoteData,
-  TrackData,
-  MidiHeader,
-  TempoEvent,
-  TimeSignatureEvent,
-} from "@/lib/midi/types";
+// 2) Player demo helper used by the synchronized-player example
+export { createWaveRollMidiPlayer } from "./lib/components/player/wave-roll-midi/player";
 
-// Export utility functions that might be useful
-export {
-  /**
-   * Converts MIDI note number to scientific pitch notation
-   * @param midi - MIDI note number (0-127)
-   * @returns Scientific pitch notation (e.g., "C4", "A#3")
-   */
-  midiToNoteName,
-
-  /**
-   * Extracts the pitch class from a MIDI note number
-   * @param midi - MIDI note number (0-127)
-   * @returns Pitch class (e.g., "C", "A#")
-   */
-  midiToPitchClass,
-
-  /**
-   * Extracts the octave number from a MIDI note number
-   * @param midi - MIDI note number (0-127)
-   * @returns Octave number
-   */
-  midiToOctave,
-} from "@/lib/midi";
-
-// Export MIDI player functionality
-// export {
-//   /**
-//    * Creates a MIDI player with piano-roll visualization
-//    */
-//   createMidiPlayer,
-
-//   /**
-//    * Converts ArrayBuffer to base64 data URL for MIDI data
-//    */
-//   arrayBufferToDataUrl,
-
-//   /**
-//    * Converts ArrayBuffer to Blob URL for MIDI data (more efficient)
-//    */
-//   arrayBufferToBlobUrl,
-
-//   /**
-//    * Cleans up cached blob URLs to prevent memory leaks
-//    */
-//   cleanupBlobUrls,
-
-//   /**
-//    * Loads html-midi-player Web Components
-//    */
-//   loadPlayerComponents,
-
-//   /**
-//    * Checks if player components are available
-//    */
-//   isPlayerAvailable,
-
-//   /**
-//    * Debug function to check player state
-//    */
-//   debugPlayerState,
-// } from "@/lib/components/player/wave-roll-multi-midi";
-
-// // Export player types
-// export type {
-//   MidiPlayerOptions,
-//   WaveRollMultiMidiPlayerOptions,
-// } from "@/lib/components/player/wave-roll-multi-midi";
-
-// // Export piano roll visualizer
-// export {
-//   /**
-//    * Creates a PixiJS-based piano roll visualizer
-//    */
-//   createPianoRoll,
-
-//   /**
-//    * Piano roll class for advanced usage
-//    */
-//   PianoRoll,
-// } from "@/lib/core/visualization/piano-roll";
-
-// // Export piano roll types
-// export type { PianoRollOptions } from "@/lib/core/visualization/piano-roll/types";
-
-// // Export audio player functionality
-// export {
-//   /**
-//    * Creates a synchronized audio player for piano roll
-//    */
-//   createAudioPlayer,
-
-//   /**
-//    * Check if audio context is supported
-//    */
-//   isAudioSupported,
-
-//   /**
-//    * Get audio context state for debugging
-//    */
-//   getAudioContextState,
-// } from "@/lib/core/audio/audio-player";
-
-// // Export audio player types
-// export type {
-//   AudioPlayerControls,
-//   PlayerOptions,
-//   PlayerState,
-//   PianoRollSync,
-// } from "@/lib/core/audio/audio-player";
-
-// // Export player demo functionality
-// export {
-//   /**
-//    * Creates a complete player demo with controls
-//    */
-//   createPlayerDemo,
-
-//   /**
-//    * Player demo class for advanced usage
-//    */
-//   PlayerDemo,
-// } from "@/demos/multi-midi/player-demo";
-
-// // Export player demo types
-// export type { PlayerDemoOptions } from "@/demos/multi-midi/player-demo";
-
-// // Export multi MIDI functionality
-// export {
-//   /**
-//    * Creates a multi MIDI demo with file management
-//    */
-//   createMultiMidiDemo,
-
-//   /**
-//    * Multi MIDI demo class
-//    */
-//   MultiMidiDemo,
-// } from "@/demos/multi-midi/multi-midi-demo";
-
-// // Export multi MIDI manager
-// export {
-//   /**
-//    * Multi MIDI file manager
-//    */
-//   MultiMidiManager,
-
-//   /**
-//    * Default color palettes
-//    */
-//   DEFAULT_PALETTES,
-// } from "@/lib/core/audio/multi-midi-manager";
-
-// // Export multi MIDI types
-// export type {
-//   MidiFileEntry,
-//   MultiMidiState,
-//   ColorPalette,
-// } from "@/lib/core/audio/multi-midi-manager";
-
-// // Export file manager functionality
-// export {
-//   /**
-//    * MIDI file manager for handling file operations
-//    */
-//   FileManager,
-
-//   /**
-//    * Default sample file configurations
-//    */
-//   DEFAULT_SAMPLE_FILES,
-
-//   /**
-//    * File utility functions
-//    */
-//   FileUtils,
-// } from "@/lib/core/file/file-manager";
-
-// Export file manager types
-export type {
-  FileLoadOptions,
-  SampleFileConfig,
-  FileValidationResult,
-} from "@/lib/core/file/types";
-
-import "@/lib/components/player/wave-roll-midi/element";
-import "@/lib/components/player/wave-roll-multi-midi/element";
-import { WaveRollMultiMidiElement } from "@/lib/components/player/wave-roll-multi-midi";
-import { WaveRollMidiElement } from "@/lib/components/player/wave-roll-midi";
-
-export { WaveRollMidiElement };
-export { WaveRollMultiMidiElement };
-export { createWaveRollMultiMidiPlayer } from "@/lib/components/player/wave-roll-multi-midi";
+// ------------------------------------------------------------------
+// 3) Deprecated html-midi-player stubs
+// ------------------------------------------------------------------
 
 /**
- * Default export of the main parsing function for convenience
+ * Options accepted by the legacy <html-midi-player/> wrapper.
+ * These are kept only so that older code can still compile.
+ * They have no effect in the stub implementation below.
  */
-export default { parseMidi };
+export interface MidiPlayerOptions {
+  showVisualizer?: boolean;
+  soundFont?: boolean | string;
+  className?: string;
+  width?: string;
+  height?: string;
+}
+
+/**
+ * No-op replacement for the removed html-midi-player dependency.
+ * It simply shows an informational message and returns.
+ */
+export async function createMidiPlayer(
+  container: HTMLElement,
+  _input: unknown,
+  _options: MidiPlayerOptions = {}
+): Promise<void> {
+  console.warn(
+    "[wave-roll] createMidiPlayer is deprecated – html-midi-player has been removed. " +
+      "Please migrate to <wave-roll-midi> or createAudioPlayer + createPianoRoll."
+  );
+
+  if (container) {
+    container.innerHTML =
+      '<div style="text-align:center;padding:16px;color:#666;">' +
+      "Interactive MIDI player is no longer available." +
+      "</div>";
+  }
+}
+
+/**
+ * Legacy helper that previously converted ArrayBuffer → base64 data-URL.
+ * Returns an empty string and logs a warning.
+ */
+export function arrayBufferToDataUrl(_arrayBuffer: ArrayBuffer): string {
+  console.warn(
+    "[wave-roll] arrayBufferToDataUrl is deprecated and returns an empty string."
+  );
+  return "";
+}
+
+/**
+ * Stubbed loader for html-midi-player Web Components.
+ */
+export async function loadPlayerComponents(): Promise<void> {
+  /* html-midi-player components were removed – nothing to load */
+  return;
+}
+
+/**
+ * Legacy runtime check – always returns false because the old player was removed.
+ */
+export function isPlayerAvailable(): boolean {
+  return false;
+}
+
+/**
+ * Stub that used to return internal player state – now returns an empty object.
+ */
+export function debugPlayerState(
+  _container?: HTMLElement
+): Record<string, never> {
+  return {} as const;
+}
