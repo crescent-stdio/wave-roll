@@ -241,23 +241,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         this.pianoRollManager.setTime(state.currentTime);
 
         // Trigger visual update callbacks again
-        //ANCHOR - Duplicate code
-        const updateParams: VisualUpdateParams = {
-          currentTime: state.currentTime,
-          duration: state.duration,
-          isPlaying: state.isPlaying,
-          volume: state.volume,
-          tempo: state.tempo,
-          pan: state.pan,
-        };
-
-        this.visualUpdateCallbacks.forEach((callback) => {
-          try {
-            callback(updateParams);
-          } catch (error) {
-            console.error("Error in visual update callback:", error);
-          }
-        });
+        this.dispatchVisualUpdateFromState(state);
       }
     }, 50);
   }
@@ -435,6 +419,34 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     return `${sorted.length}:${first.time}-${first.midi}:${last.time}-${last.midi}`;
   }
 
+  /**
+   * Dispatch a visual update event to all registered callbacks.
+   */
+  private dispatchVisualUpdate(params: VisualUpdateParams): void {
+    this.visualUpdateCallbacks.forEach((callback) => {
+      try {
+        callback(params);
+      } catch (error) {
+        console.error("Error in visual update callback:", error);
+      }
+    });
+  }
+
+  /**
+   * Helper: build `VisualUpdateParams` from an `AudioPlayerState` and dispatch.
+   */
+  private dispatchVisualUpdateFromState(state: AudioPlayerState): void {
+    const params: VisualUpdateParams = {
+      currentTime: state.currentTime,
+      duration: state.duration,
+      isPlaying: state.isPlaying,
+      volume: state.volume,
+      tempo: state.tempo,
+      pan: state.pan,
+    };
+    this.dispatchVisualUpdate(params);
+  }
+
   private startUpdateLoop(): void {
     if (this.updateLoopId !== null) return;
 
@@ -462,23 +474,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       }
 
       // Notify visual update callbacks
-      //ANCHOR - Duplicate code
-      const updateParams: VisualUpdateParams = {
-        currentTime: state.currentTime,
-        duration: state.duration,
-        isPlaying: state.isPlaying,
-        volume: state.volume,
-        tempo: state.tempo,
-        pan: state.pan,
-      };
-
-      this.visualUpdateCallbacks.forEach((callback) => {
-        try {
-          callback(updateParams);
-        } catch (error) {
-          console.error("Error in visual update callback:", error);
-        }
-      });
+      this.dispatchVisualUpdateFromState(state);
     };
 
     // Immediate update

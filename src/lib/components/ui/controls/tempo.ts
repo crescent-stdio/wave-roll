@@ -7,7 +7,7 @@ import { UIComponentDependencies } from "../types";
  * @param dependencies - The UI component dependencies.
  * @returns The tempo control element.
  */
-export function createTempoControl(
+export function createTempoControlUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");

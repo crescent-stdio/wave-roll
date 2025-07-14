@@ -1,6 +1,6 @@
 import * as PIXI from "pixi.js";
 import { NoteData } from "@/lib/midi/types";
-import { PianoRollOptions, PianoRollState } from "./types";
+import { PianoRollConfig, PianoRollViewState } from "./types";
 import { createScales } from "@/lib/core/visualization/piano-roll/utils/scales";
 import {
   onPointerDown,
@@ -27,8 +27,8 @@ export class PianoRoll {
   public playheadX: number = 0;
   public notes: NoteData[] = [];
   public noteGraphics: PIXI.Graphics[] = [];
-  public state: PianoRollState;
-  public options: Required<PianoRollOptions>;
+  public state: PianoRollViewState;
+  public options: Required<PianoRollConfig>;
 
   // Scales for coordinate transformation
   public timeScale!: ScaleLinear<number, number>;
@@ -52,7 +52,7 @@ export class PianoRoll {
 
   private constructor(
     canvas: HTMLCanvasElement,
-    options: PianoRollOptions = {}
+    options: PianoRollConfig = {}
   ) {
     // Set default options
     this.options = {
@@ -67,7 +67,7 @@ export class PianoRoll {
       minorTimeStep: 0.1,
       noteRenderer: undefined,
       ...options,
-    } as Required<PianoRollOptions>;
+    } as Required<PianoRollConfig>;
 
     // Initialize state
     this.state = {
@@ -108,7 +108,7 @@ export class PianoRoll {
    */
   public static async create(
     canvas: HTMLCanvasElement,
-    options: PianoRollOptions = {}
+    options: PianoRollConfig = {}
   ): Promise<PianoRoll> {
     const instance = new PianoRoll(canvas, options);
     await instance.initializeApp(canvas);
@@ -458,7 +458,7 @@ export class PianoRoll {
   /**
    * Get current state for debugging
    */
-  public getState(): PianoRollState {
+  public getState(): PianoRollViewState {
     return { ...this.state };
   }
 

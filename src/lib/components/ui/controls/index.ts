@@ -1,13 +1,13 @@
 import { UIComponentDependencies } from "../types";
 
-import { createPlaybackControls } from "./playback";
-import { createLoopControls } from "./loop";
-import { createVolumeControl } from "./volume";
-import { createTempoControl } from "./tempo";
-import { createPanControls } from "./pan";
-import { createZoomControls } from "./zoom";
-import { createTimeDisplay } from "./time-display";
-import { createSettingsControl } from "./settings";
+import { createPlaybackControlsUI } from "./playback";
+import { createLoopControlsUI } from "./loop";
+import { createVolumeControlUI } from "./volume";
+import { createTempoControlUI } from "./tempo";
+import { createPanControlsUI } from "./pan";
+import { createZoomControlsUI } from "./zoom";
+import { createTimeDisplayUI } from "./time-display";
+import { createSettingsControlUI } from "./settings";
 
 /**
  * Assemble all UI sub-controls and inject them into the given containers.
@@ -44,16 +44,16 @@ export function setupUI(
     overflow-x: auto;
   `;
 
-  row.appendChild(createPlaybackControls(deps));
-  row.appendChild(createLoopControls(deps));
-  row.appendChild(createVolumeControl(deps));
-  row.appendChild(createTempoControl(deps));
-  row.appendChild(createPanControls(deps));
-  row.appendChild(createZoomControls(deps));
-  row.appendChild(createSettingsControl(deps));
+  row.appendChild(createPlaybackControlsUI(deps));
+  row.appendChild(createLoopControlsUI(deps));
+  row.appendChild(createVolumeControlUI(deps));
+  row.appendChild(createTempoControlUI(deps));
+  row.appendChild(createPanControlsUI(deps));
+  row.appendChild(createZoomControlsUI(deps));
+  row.appendChild(createSettingsControlUI(deps));
 
   controlsContainer.appendChild(row);
-  controlsContainer.appendChild(createTimeDisplay(deps));
+  controlsContainer.appendChild(createTimeDisplayUI(deps));
 
   // Mount everything in the player container.
   playerContainer.appendChild(controlsContainer);

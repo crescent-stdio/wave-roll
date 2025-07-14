@@ -9,7 +9,7 @@ import { createIconButton } from "../utils/icon-button";
  * @param dependencies - The UI component dependencies.
  * @returns The zoom control element.
  */
-export function createZoomControls(
+export function createZoomControlsUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");

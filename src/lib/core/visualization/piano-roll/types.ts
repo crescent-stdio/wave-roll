@@ -3,7 +3,7 @@ import { NoteData } from "@/lib/midi/types";
 /**
  * Configuration options for the piano roll
  */
-export interface PianoRollOptions {
+export interface PianoRollConfig {
   /** Container width in pixels */
   width?: number;
   /** Container height in pixels */
@@ -29,7 +29,7 @@ export interface PianoRollOptions {
 /**
  * Piano roll component state
  */
-export interface PianoRollState {
+export interface PianoRollViewState {
   /** Current zoom level on X axis (time) */
   zoomX: number;
   /** Current zoom level on Y axis (pitch) */
@@ -53,11 +53,11 @@ export type PianoRollInstance = {
   zoomY: (factor: number) => void;
   pan: (deltaX: number, deltaY: number) => void;
   resetView: () => void;
-  getState: () => PianoRollState;
+  getState: () => PianoRollViewState;
   destroy: () => void;
   setTimeStep: (step: number) => void;
   getTimeStep: () => number;
-  setLoopWindow: (start: number | null, end: number | null) => void;
+  setLoopWindow?: (start: number | null, end: number | null) => void;
   onTimeChange: (callback: (time: number) => void) => void;
   setMinorTimeStep: (step: number) => void;
   getMinorTimeStep: () => number;

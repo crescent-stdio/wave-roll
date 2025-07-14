@@ -1,8 +1,8 @@
-import type { PianoRollOptions } from "@/lib/core/visualization/piano-roll/types";
+import type { PianoRollConfig } from "@/lib/core/visualization/piano-roll/types";
 import type { PlayerOptions } from "@/lib/core/audio/audio-player";
 
 export interface WaveRollMidiPlayerOptions {
-  pianoRoll?: PianoRollOptions;
+  pianoRoll?: PianoRollConfig;
   player?: PlayerOptions;
   /** Hide volume slider if `false` */
   showVolumeControl?: boolean;

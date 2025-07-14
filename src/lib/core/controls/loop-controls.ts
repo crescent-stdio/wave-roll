@@ -1,24 +1,26 @@
 import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
+import { PianoRollInstance } from "../visualization/piano-roll/types";
+import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 
-export interface LoopControlsResult {
+export interface LoopControlsDeps {
+  audioPlayer: AudioPlayerContainer;
+  pianoRoll: PianoRollInstance;
+}
+
+export interface LoopControlsHandles {
   element: HTMLElement;
   updateSeekBar: () => void;
 }
-
-interface LoopContext {
-  audioPlayer: AudioPlayerContainer | null;
-  pianoRoll: any;
-  formatTime: (seconds: number) => string;
-}
-
 /**
  * Build A-B loop control buttons (Loop-Restart, A, B, Clear) and
  * internally manage loop point state.
  */
-export function createLoopControls(ctx: LoopContext): LoopControlsResult {
-  const { audioPlayer, pianoRoll, formatTime } = ctx;
+export function createCoreLoopControls(
+  ctx: LoopControlsDeps
+): LoopControlsHandles {
+  const { audioPlayer, pianoRoll } = ctx;
 
   /* ------------------------------------------------------------------
    * Element setup
@@ -69,16 +71,7 @@ export function createLoopControls(ctx: LoopContext): LoopControlsResult {
       justify-content: center;
       transition: all 0.15s ease;
     `;
-    btn.addEventListener("mouseenter", () => {
-      if (!btn.dataset.active) {
-        btn.style.background = "rgba(0, 0, 0, 0.05)";
-      }
-    });
-    btn.addEventListener("mouseleave", () => {
-      if (!btn.dataset.active) {
-        btn.style.background = "transparent";
-      }
-    });
+    attachHoverBackground(btn);
     if (isActive) btn.dataset.active = "true";
     return btn;
   };
@@ -114,16 +107,7 @@ export function createLoopControls(ctx: LoopContext): LoopControlsResult {
       btnLoopRestart.style.color = "#495057";
     }
   };
-  btnLoopRestart.addEventListener("mouseenter", () => {
-    if (!btnLoopRestart.dataset.active) {
-      btnLoopRestart.style.background = "rgba(0, 0, 0, 0.05)";
-    }
-  });
-  btnLoopRestart.addEventListener("mouseleave", () => {
-    if (!btnLoopRestart.dataset.active) {
-      btnLoopRestart.style.background = "transparent";
-    }
-  });
+  attachHoverBackground(btnLoopRestart);
   btnLoopRestart.onclick = () => {
     isLoopRestartActive = !isLoopRestartActive;
     setLoopRestartUI();

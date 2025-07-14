@@ -3,7 +3,7 @@ import { UIComponentDependencies } from "../types";
 import { createIconButton } from "../utils/icon-button";
 import { openZoomGridSettingsModal } from "../settings/modal/zoom-grid";
 
-export function createSettingsControl(
+export function createSettingsControlUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");

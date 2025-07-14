@@ -19,7 +19,7 @@ import {
 import { createPianoRoll } from "@/lib/core/visualization/piano-roll";
 
 import type {
-  PianoRollOptions,
+  PianoRollConfig,
   PianoRollInstance,
 } from "@/lib/core/visualization/piano-roll/types";
 
@@ -28,12 +28,12 @@ import { formatTime } from "@/lib/core/utils/time";
 import type { WaveRollMidiPlayerOptions } from "./types";
 
 /* UI controls ------------------------------------------------------- */
-import { createPlaybackControls } from "@/lib/components/ui/controls/playback";
-import { createLoopControls } from "@/lib/components/ui/controls/loop";
-import { createVolumeControl } from "@/lib/components/ui/controls/volume";
-import { createTempoControl } from "@/lib/components/ui/controls/tempo";
-import { createZoomControls } from "@/lib/components/ui/controls/zoom";
-import { createSettingsControl } from "@/lib/components/ui/controls/settings";
+import { createPlaybackControlsUI } from "@/lib/components/ui/controls/playback";
+import { createLoopControlsUI } from "@/lib/components/ui/controls/loop";
+import { createVolumeControlUI } from "@/lib/components/ui/controls/volume";
+import { createTempoControlUI } from "@/lib/components/ui/controls/tempo";
+import { createZoomControlsUI } from "@/lib/components/ui/controls/zoom";
+import { createSettingsControlUI } from "@/lib/components/ui/controls/settings";
 
 import type { UIComponentDependencies } from "@/lib/components/ui/types";
 
@@ -204,34 +204,34 @@ export class WaveRollMidiPlayer {
     `;
 
     /* Playback */
-    const playbackUI = createPlaybackControls(deps);
+    const playbackUI = createPlaybackControlsUI(deps);
     row.appendChild(playbackUI);
 
     /* Loop (A-B) */
-    const loopUI = createLoopControls(deps);
+    const loopUI = createLoopControlsUI(deps);
     row.appendChild(loopUI);
 
     /* Volume */
     if (this.options.showVolumeControl) {
-      const volumeControl = createVolumeControl(deps);
+      const volumeControl = createVolumeControlUI(deps);
       row.appendChild(volumeControl);
     }
 
     /* Tempo */
     if (this.options.showTempoControl) {
-      const tempoControl = createTempoControl(deps);
+      const tempoControl = createTempoControlUI(deps);
       row.appendChild(tempoControl);
     }
 
     /* Zoom reset */
     if (this.options.showZoomControl) {
-      const zoomControl = createZoomControls(deps);
+      const zoomControl = createZoomControlsUI(deps);
       row.appendChild(zoomControl);
     }
 
     /* Settings modal trigger */
     if (this.options.showSettingsControl) {
-      row.appendChild(createSettingsControl(deps));
+      row.appendChild(createSettingsControlUI(deps));
     }
 
     /* Mount controls */

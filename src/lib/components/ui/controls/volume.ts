@@ -7,7 +7,7 @@ import { UIComponentDependencies } from "../types";
  * @param dependencies - The UI component dependencies.
  * @returns The volume control element.
  */
-export function createVolumeControl(
+export function createVolumeControlUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");

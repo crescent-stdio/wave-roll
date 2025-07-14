@@ -2,8 +2,16 @@ import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import * as Tone from "tone";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
+import { attachHoverBackground } from "@/core/controls/utils/hover-background";
+import { attachButtonScale } from "@/core/controls/utils/button-scale";
+import { setupPlayButton } from "@/core/controls/utils/play-button";
+import { attachRepeatToggle } from "@/core/controls/utils/repeat-toggle";
 
-export interface PlaybackControlsResult {
+export interface PlaybackControlsDeps {
+  audioPlayer: AudioPlayerContainer;
+}
+
+export interface PlaybackControlsHandles {
   element: HTMLElement;
   updatePlayButton: () => void;
 }
@@ -14,9 +22,13 @@ export interface PlaybackControlsResult {
  * the play/pause button UI in sync with current playback state.
  */
 export function createPlaybackControls(
-  audioPlayer: AudioPlayerContainer | null
-): PlaybackControlsResult {
-  // Container for playback buttons
+  ctx: PlaybackControlsDeps
+): PlaybackControlsHandles {
+  const { audioPlayer } = ctx;
+
+  /* ------------------------------------------------------------------
+   * Container for playback buttons
+   * ------------------------------------------------------------------ */
   const container = document.createElement("div");
   container.style.cssText = `
     display: flex;
@@ -51,64 +63,15 @@ export function createPlaybackControls(
     position: relative;
   `;
 
-  /**
-   * Sync the play/pause button to current player state and attach
-   * appropriate click handler.
-   */
-  const updatePlayButton = () => {
-    const state = audioPlayer?.getState();
-    if (state?.isPlaying) {
-      playBtn.innerHTML = PLAYER_ICONS.pause;
-      playBtn.style.background = "#28a745";
-      playBtn.onclick = () => {
-        audioPlayer?.pause();
-        updatePlayButton();
-      };
-    } else {
-      playBtn.innerHTML = PLAYER_ICONS.play;
-      playBtn.style.background = COLOR_PRIMARY;
-      playBtn.onclick = async () => {
-        try {
-          /* -------------------------------------------------------
-           * Ensure AudioContext is resumed within the direct user
-           * gesture callback before we invoke our asynchronous
-           * player.play() logic. This satisfies Chrome’s autoplay
-           * policy which requires a synchronous resume().
-           * ----------------------------------------------------- */
-          await Tone.start();
-        } catch (e) {
-          /* eslint-disable no-console */
-          console.warn("[PlaybackControls] Tone.start() failed", e);
-          /* eslint-enable no-console */
-        }
-        try {
-          await audioPlayer?.play();
-          updatePlayButton();
-        } catch (error) {
-          /* eslint-disable no-console */
-          console.error("Failed to play:", error);
-          alert(
-            `Failed to start playback: ${error instanceof Error ? error.message : "Unknown error"}`
-          );
-          /* eslint-enable no-console */
-        }
-      };
-    }
-  };
+  // Play / pause behaviour via shared util
+  const updatePlayButton = setupPlayButton({
+    playBtn,
+    audioPlayer,
+    prePlay: () => Tone.start(),
+  });
 
-  // Hover effects
-  playBtn.addEventListener("mouseenter", () => {
-    playBtn.style.transform = "scale(1.05)";
-  });
-  playBtn.addEventListener("mouseleave", () => {
-    playBtn.style.transform = "scale(1)";
-  });
-  playBtn.addEventListener("mousedown", () => {
-    playBtn.style.transform = "scale(0.95)";
-  });
-  playBtn.addEventListener("mouseup", () => {
-    playBtn.style.transform = "scale(1.05)";
-  });
+  // Hover/press scale effects
+  attachButtonScale(playBtn);
 
   // Initial sync
   updatePlayButton();
@@ -138,16 +101,7 @@ export function createPlaybackControls(
       transition: all 0.15s ease;
     `;
 
-    btn.addEventListener("mouseenter", () => {
-      if (!btn.dataset.active) {
-        btn.style.background = "rgba(0, 0, 0, 0.05)";
-      }
-    });
-    btn.addEventListener("mouseleave", () => {
-      if (!btn.dataset.active) {
-        btn.style.background = "transparent";
-      }
-    });
+    attachHoverBackground(btn);
 
     return btn;
   };
@@ -166,21 +120,8 @@ export function createPlaybackControls(
   /* ------------------------------------------------------------------
    * Repeat toggle button - toggles repeat mode on the AudioPlayer
    * ------------------------------------------------------------------ */
-  const repeatBtn = createSecondaryButton(PLAYER_ICONS.repeat, () => {
-    const state = audioPlayer?.getState();
-    const newRepeat = !state?.isRepeating;
-    audioPlayer?.toggleRepeat(newRepeat);
-
-    if (newRepeat) {
-      repeatBtn.dataset.active = "true";
-      repeatBtn.style.background = "rgba(0, 123, 255, 0.1)";
-      repeatBtn.style.color = COLOR_PRIMARY;
-    } else {
-      delete repeatBtn.dataset.active;
-      repeatBtn.style.background = "transparent";
-      repeatBtn.style.color = "#495057";
-    }
-  });
+  const repeatBtn = createSecondaryButton(PLAYER_ICONS.repeat, () => {});
+  attachRepeatToggle(repeatBtn, audioPlayer);
 
   // Assemble container
   container.appendChild(restartBtn);

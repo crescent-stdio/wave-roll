@@ -1,10 +1,10 @@
 import { type ScaleLinear } from "d3-scale";
-import { PianoRollState } from "../types";
+import { PianoRollViewState } from "../types";
 import { clamp } from "@/core/utils";
 
 export function clampPanX(
   timeScale: ScaleLinear<number, number>,
-  state: PianoRollState
+  state: PianoRollViewState
 ): void {
   const contentWidth = timeScale.range()[1] * state.zoomX;
   const minPanX = -contentWidth;

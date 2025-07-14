@@ -8,7 +8,7 @@ import { clamp } from "@/core/utils";
  * @param dependencies - The UI component dependencies.
  * @returns The time display element.
  */
-export function createTimeDisplay(
+export function createTimeDisplayUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");

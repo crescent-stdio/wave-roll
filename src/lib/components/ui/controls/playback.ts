@@ -1,5 +1,9 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
+import { attachHoverBackground } from "@/core/controls/utils/hover-background";
+import { attachButtonScale } from "@/core/controls/utils/button-scale";
+import { setupPlayButton } from "@/core/controls/utils/play-button";
+import { attachRepeatToggle } from "@/core/controls/utils/repeat-toggle";
 import { UIComponentDependencies } from "../types";
 
 /**
@@ -8,7 +12,7 @@ import { UIComponentDependencies } from "../types";
  * @param dependencies - The UI component dependencies.
  * @returns The playback control element.
  */
-export function createPlaybackControls(
+export function createPlaybackControlsUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");
@@ -43,50 +47,16 @@ export function createPlaybackControls(
     position: relative;
   `;
 
-  const updatePlayButton = () => {
-    const state = dependencies.audioPlayer?.getState();
-    if (state?.isPlaying) {
-      playBtn.innerHTML = PLAYER_ICONS.pause;
-      playBtn.style.background = "#28a745";
-      playBtn.onclick = () => {
-        dependencies.audioPlayer?.pause();
-        updatePlayButton();
-      };
-    } else {
-      playBtn.innerHTML = PLAYER_ICONS.play;
-      playBtn.style.background = COLOR_PRIMARY;
-      playBtn.onclick = async () => {
-        try {
-          await dependencies.audioPlayer?.play();
-          updatePlayButton();
-          // Force immediate seekbar update (same as spacebar)
-          dependencies.updateSeekBar?.();
-        } catch (error) {
-          console.error("Failed to play:", error);
-          alert(
-            `Failed to start playback: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`
-          );
-        }
-      };
-    }
-  };
-
-  playBtn.addEventListener("mouseenter", () => {
-    playBtn.style.transform = "scale(1.05)";
-  });
-  playBtn.addEventListener("mouseleave", () => {
-    playBtn.style.transform = "scale(1)";
-  });
-  playBtn.addEventListener("mousedown", () => {
-    playBtn.style.transform = "scale(0.95)";
-  });
-  playBtn.addEventListener("mouseup", () => {
-    playBtn.style.transform = "scale(1.05)";
+  const updatePlayButton = setupPlayButton({
+    playBtn,
+    audioPlayer: dependencies.audioPlayer,
+    postPlay: () => dependencies.updateSeekBar?.(),
   });
 
+  // Apply scale effects and initial sync
+  attachButtonScale(playBtn);
   updatePlayButton();
+
   dependencies.updatePlayButton = updatePlayButton;
 
   /* ---------------- helper for small buttons ---------------- */
@@ -108,12 +78,7 @@ export function createPlaybackControls(
       justify-content: center;
       transition: all 0.15s ease;
     `;
-    btn.addEventListener("mouseenter", () => {
-      if (!btn.dataset.active) btn.style.background = "rgba(0,0,0,0.05)";
-    });
-    btn.addEventListener("mouseleave", () => {
-      if (!btn.dataset.active) btn.style.background = "transparent";
-    });
+    attachHoverBackground(btn);
     return btn;
   };
 
@@ -127,20 +92,8 @@ export function createPlaybackControls(
   });
 
   /* repeat toggle */
-  const repeatBtn = mkBtn(PLAYER_ICONS.repeat, () => {
-    const state = dependencies.audioPlayer?.getState();
-    const newRepeat = !state?.isRepeating;
-    dependencies.audioPlayer?.toggleRepeat(newRepeat);
-    if (newRepeat) {
-      repeatBtn.dataset.active = "true";
-      repeatBtn.style.background = "rgba(0, 123, 255, 0.1)";
-      repeatBtn.style.color = COLOR_PRIMARY;
-    } else {
-      delete repeatBtn.dataset.active;
-      repeatBtn.style.background = "transparent";
-      repeatBtn.style.color = "#495057";
-    }
-  });
+  const repeatBtn = mkBtn(PLAYER_ICONS.repeat, () => {});
+  attachRepeatToggle(repeatBtn, dependencies.audioPlayer);
 
   container.appendChild(restartBtn);
   container.appendChild(playBtn);

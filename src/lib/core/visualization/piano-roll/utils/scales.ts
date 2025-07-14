@@ -1,6 +1,6 @@
 import { scaleLinear, type ScaleLinear } from "d3-scale";
 import type { NoteData } from "@/lib/midi/types";
-import type { PianoRollOptions } from "../types";
+import type { PianoRollConfig } from "../types";
 
 /**
  * Object returned by createScales.
@@ -25,7 +25,7 @@ export interface Scales {
 export function createScales(
   notes: NoteData[],
   options: Required<
-    Pick<PianoRollOptions, "width" | "height" | "noteRange" | "showPianoKeys">
+    Pick<PianoRollConfig, "width" | "height" | "noteRange" | "showPianoKeys">
   >,
   currentPxPerSecond: number | null = null,
   TARGET_VISIBLE_SECONDS = 8

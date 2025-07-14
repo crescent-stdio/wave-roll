@@ -6,7 +6,7 @@ import { UIComponentDependencies } from "../types";
  * @param dependencies - The UI component dependencies.
  * @returns The pan control element.
  */
-export function createPanControls(
+export function createPanControlsUI(
   dependencies: UIComponentDependencies
 ): HTMLElement {
   const container = document.createElement("div");

@@ -16,6 +16,7 @@ import {
   ColoredNote as CoreColoredNote,
   DEFAULT_PIANO_ROLL_CONFIG,
 } from "@/core/playback";
+import type { PianoRollInstance as CorePianoRollInstance } from "@/core/playback";
 
 export type ColoredNote = CoreColoredNote;
 
@@ -51,17 +52,8 @@ export interface VisualUpdateParams extends CoreVisualUpdateParams {
   zoomLevel: number;
 }
 
-/**
- * Piano roll instance interface for compatibility
- */
-export interface PianoRollInstance {
-  setNotes(notes: NoteData[]): void;
-  setTime(time: number): void;
-  zoomX?(scale: number): void;
-  getState?(): { zoomX: number };
-  onTimeChange?(callback: (time: number) => void): void;
-  setMinorTimeStep?(step: number): void;
-}
+// Piano roll instance type alias for backward-compatibility
+export type PianoRollInstance = CorePianoRollInstance;
 
 /**
  * Main visualization engine class - Thin wrapper around CorePlaybackEngine

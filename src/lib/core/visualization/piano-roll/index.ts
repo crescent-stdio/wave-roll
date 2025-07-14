@@ -1,5 +1,5 @@
 import { NoteData } from "@/lib/midi/types";
-import { PianoRollOptions, PianoRollInstance } from "./types";
+import { PianoRollConfig, PianoRollInstance } from "./types";
 import { PianoRoll } from "./piano-roll";
 
 /**
@@ -12,7 +12,7 @@ import { PianoRoll } from "./piano-roll";
 export async function createPianoRoll(
   container: HTMLElement,
   notes: NoteData[] = [],
-  options: PianoRollOptions = {}
+  options: PianoRollConfig = {}
 ): Promise<PianoRollInstance> {
   // Create canvas element
   const canvas = document.createElement("canvas");

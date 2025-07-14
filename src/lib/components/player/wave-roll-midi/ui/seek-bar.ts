@@ -74,6 +74,24 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   `;
   barWrap.appendChild(loopRegion);
 
+  // Helper to sync loop overlay + piano-roll marker -------------------------
+  const updateLoopOverlay = (loop: LoopWindow | null, duration: number) => {
+    if (loop && loop.prev !== null && loop.next !== null) {
+      loopRegion.style.display = "block";
+      loopRegion.style.left = `${loop.prev}%`;
+      loopRegion.style.width = `${loop.next - loop.prev}%`;
+
+      pianoRoll?.setLoopWindow?.(
+        (loop.prev / 100) * duration,
+        (loop.next / 100) * duration
+      );
+    } else {
+      loopRegion.style.display = "none";
+      pianoRoll?.setLoopWindow?.(null, null);
+    }
+  };
+  /* --------------------------------------------------------------------- */
+
   /* ----------------------------------------------------------------
    * Native range slider (transparent track) – the thumb handles user
    * interactions while custom divs render progress & loop overlays.
@@ -282,23 +300,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
       /* loop overlay still needs to stay in sync with external changes
          (e.g. programmatic loop-window updates). We therefore update only the
          loop UI parts while leaving the progress bar untouched. */
-      //ANCHOR - Duplicate code
-      if (loop && loop.prev !== null && loop.next !== null) {
-        loopRegion.style.display = "block";
-        loopRegion.style.left = `${loop.prev}%`;
-        loopRegion.style.width = `${loop.next - loop.prev}%`;
-      } else {
-        loopRegion.style.display = "none";
-      }
-
-      if (loop && loop.prev !== null && loop.next !== null) {
-        pianoRoll?.setLoopWindow?.(
-          (loop.prev / 100) * duration,
-          (loop.next / 100) * duration
-        );
-      } else {
-        pianoRoll?.setLoopWindow?.(null, null);
-      }
+      updateLoopOverlay(loop, duration);
 
       return; // Skip the rest of the update while dragging
     }
@@ -306,24 +308,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     // No extra handling; realtime updates occur in slider input handler.
 
     /* loop overlay */
-    //ANCHOR - Duplicate code
-    if (loop && loop.prev !== null && loop.next !== null) {
-      loopRegion.style.display = "block";
-      loopRegion.style.left = `${loop.prev}%`;
-      loopRegion.style.width = `${loop.next - loop.prev}%`;
-    } else {
-      loopRegion.style.display = "none";
-    }
-
-    if (loop && loop.prev !== null && loop.next !== null) {
-      /* forward to piano-roll overlay */
-      pianoRoll?.setLoopWindow?.(
-        (loop.prev / 100) * duration,
-        (loop.next / 100) * duration
-      );
-    } else {
-      pianoRoll?.setLoopWindow?.(null, null);
-    }
+    updateLoopOverlay(loop, duration);
     console.log("[SeekBar.update] end", {
       current: current.toFixed(3),
       duration: duration.toFixed(3),
