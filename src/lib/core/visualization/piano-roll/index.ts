@@ -1,6 +1,7 @@
 import { NoteData } from "@/lib/midi/types";
 import { PianoRollConfig, PianoRollInstance } from "./types";
 import { PianoRoll } from "./piano-roll";
+export type { PianoRollConfig, PianoRollInstance };
 
 /**
  * Factory function to create a piano roll visualizer

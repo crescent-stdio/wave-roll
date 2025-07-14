@@ -19,3 +19,11 @@ export {
   type PianoRollInstance,
   DEFAULT_PIANO_ROLL_CONFIG,
 } from "./piano-roll-manager";
+
+export {
+  AudioController,
+  createAudioController,
+  type AudioControllerConfig,
+  type AudioPlayerState,
+  type LoopPoints,
+} from "./audio-controller";

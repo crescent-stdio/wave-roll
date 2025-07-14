@@ -1,7 +1,7 @@
 import { createSettingsModalSkeleton } from "./skeleton";
 import { createModalHeader } from "./header";
 import { createFileList } from "../sections/file-list";
-import { UIComponentDependencies } from "@/lib/components/ui/types";
+import { UIComponentDependencies } from "@/lib/components/ui";
 
 /**
  * Open (or focus) the MIDI settings modal.

@@ -1,8 +1,8 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 import type { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
-import type { AudioController } from "@/demos/multi-midi/components/audio-controller";
-import type { VisualizationEngine } from "@/demos/multi-midi/components/visualization-engine";
+import type { AudioController } from "@/core/playback";
+import type { VisualizationEngine } from "@/core/visualization/visualization-engine";
 
 export type AnyAudioPlayer =
   | AudioPlayerContainer

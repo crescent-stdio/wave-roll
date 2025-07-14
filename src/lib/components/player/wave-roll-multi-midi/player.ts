@@ -16,15 +16,17 @@ import {
   ColoredNote,
   VisualizationEngine,
   DEFAULT_PIANO_ROLL_CONFIG,
-} from "@/demos/multi-midi/components/visualization-engine";
+} from "@/core/visualization";
 import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
-import { AudioController } from "@/demos/multi-midi/components/audio-controller";
-import { UIComponentDependencies, UIElements } from "../../ui/types";
+import { AudioController } from "@/core/playback";
+import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
 import { formatTime } from "@/core/utils";
-import { UILayoutManager } from "@/demos/multi-midi/components/ui/layout-manager";
+import { UILayoutManager } from "@/lib/components/ui/layout-manager";
 import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
-import { FileToggleManager } from "@/demos/multi-midi/components/file/toggle-manager";
+import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
+import { setupUI } from "@/lib/components/ui/controls";
+import { setupFileToggleSection } from "./layout";
 import { AudioPlayerContainer } from "@/core/audio";
 import {
   CorePlaybackEngine,
@@ -206,7 +208,7 @@ export class WaveRollMultiMidiPlayer {
         // that occurred when the controls referenced the bare AudioController
         // before it had created its internal AudioPlayer.
         audioPlayer: this.visualizationEngine,
-        pianoRoll: this.visualizationEngine.getPianoRollInstance(),
+        pianoRoll: this.visualizationEngine.getPianoRollInstance() as any,
         filePanStateHandlers: filePanStateHandlersRef,
         filePanValues: filePanValuesRef,
         muteDueNoLR: uiState.muteDueNoLR,
@@ -225,7 +227,8 @@ export class WaveRollMultiMidiPlayer {
       // Refresh dynamic fields
       this.uiDeps.midiManager = this.midiManager;
       this.uiDeps.audioPlayer = this.visualizationEngine;
-      this.uiDeps.pianoRoll = this.visualizationEngine.getPianoRollInstance();
+      this.uiDeps.pianoRoll =
+        this.visualizationEngine.getPianoRollInstance() as any;
       this.uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       this.uiDeps.filePanValues = filePanValuesRef;
       this.uiDeps.muteDueNoLR = uiState.muteDueNoLR;
@@ -268,7 +271,7 @@ export class WaveRollMultiMidiPlayer {
    * Initialize the demo
    */
   public async initialize(): Promise<void> {
-    // Build UI elements reference and set up layout
+    // 1) Build structural layout (sidebar, player area, placeholders).
     const uiElements = this.getUIElements();
     setupLayout(
       this.container,
@@ -277,17 +280,30 @@ export class WaveRollMultiMidiPlayer {
       this.pianoRollContainer
     );
 
-    // Sync fileToggleContainer assigned inside layout
-    this.fileToggleContainer = uiElements.fileToggleContainer;
-
-    // Initialise empty piano-roll so the container is registered before data loads
+    // 2) Now that the piano-roll container is in the DOM, initialise the
+    //    visualization engine so that `getPianoRollInstance()` returns a
+    //    valid reference required by the transport controls.
     await this.visualizationEngine.initializePianoRoll(
       this.pianoRollContainer,
       [],
       this.config.pianoRoll
     );
 
-    // The File Visibility toggle section is already created by the layout.
+    // 3) Build playback/transport controls **after** piano-roll + audio
+    //    player are ready so that dependencies like `pianoRoll` exist.
+    const depsReady = this.getUIDependencies();
+    setupUI(
+      uiElements.controlsContainer,
+      uiElements.playerContainer,
+      depsReady
+    );
+
+    // 4) File-visibility toggle section (below controls)
+    this.fileToggleContainer = setupFileToggleSection(
+      uiElements.playerContainer,
+      depsReady
+    );
+    uiElements.fileToggleContainer = this.fileToggleContainer;
 
     // Load initial files
     if (this.initialFileItemList.length > 0) {

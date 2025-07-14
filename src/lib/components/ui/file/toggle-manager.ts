@@ -1,7 +1,7 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
 
-import { UIComponentDependencies } from "@/lib/components/ui/types";
+import { UIComponentDependencies } from "@/lib/components/ui";
 
 /**
  * Manages file visibility and per-file audio controls.

@@ -1,9 +1,9 @@
-import { UILayoutManager } from "@/demos/multi-midi/components/ui/layout-manager";
-import { UIElements, UIComponentDependencies } from "@/lib/components/ui/types";
+import { UILayoutManager } from "@/lib/components/ui/layout-manager";
+import { UIElements, UIComponentDependencies } from "@/lib/components/ui";
 import { WaveRollMultiMidiPlayerOptions } from "./types";
-import { FileToggleManager } from "@/demos/multi-midi/components/file/toggle-manager";
-import { setupUI } from "@/lib/components/ui/controls";
-import { createAudioPlayer } from "@/core/audio";
+import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
+// NOTE: setupUI is intentionally imported in player after piano-roll initialisation.
+// createAudioPlayer is not required here.
 
 /**
  * Set up the main layout
@@ -28,16 +28,9 @@ export function setupLayout(
   uiElements.playerContainer.appendChild(pianoRollContainer);
 
   // Build playback & transport controls
-  setupUI(uiElements.controlsContainer, uiElements.playerContainer, uiDeps);
-
-  // Set up file toggle section (below controls)
-  uiElements.fileToggleContainer = setupFileToggleSection(
-    uiElements.playerContainer,
-    uiDeps
-  );
-
-  // Start update loop
-  // this.startUpdateLoop();
+  // NOTE: Controls and file toggle section will be set up later, once the
+  // audio player and piano-roll are fully initialised. This avoids runtime
+  // errors when they are accessed before being ready.
 }
 
 export function createDefaultConfig(): WaveRollMultiMidiPlayerOptions {

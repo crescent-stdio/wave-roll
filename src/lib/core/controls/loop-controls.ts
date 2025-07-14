@@ -1,11 +1,11 @@
-import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
+import { VisualizationEngine } from "@/core/visualization";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
 import { PianoRollInstance } from "../visualization/piano-roll/types";
 import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 
 export interface LoopControlsDeps {
-  audioPlayer: AudioPlayerContainer;
+  audioPlayer: VisualizationEngine;
   pianoRoll: PianoRollInstance;
 }
 
@@ -126,6 +126,8 @@ export function createCoreLoopControls(
     } else {
       audioPlayer?.setLoopPoints(null, null);
     }
+    // Refresh seek bar overlay to reflect current loop state
+    updateSeekBar();
   };
 
   /* ------------------------------------------------------------------
@@ -222,7 +224,23 @@ export function createCoreLoopControls(
       if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, null);
       pianoRoll?.setLoopWindow?.(null, null);
     }
-    // We could expose loopInfo via custom event here if desired.
+
+    /* ---------------------------------------------------------------
+     * Notify parent components (e.g. seek-bar) so they can refresh the
+     * loop overlay.  We bubble the event so that listeners do not need
+     * an explicit reference to this component.
+     * ------------------------------------------------------------- */
+    const loopWindow =
+      loopInfo.a === null && loopInfo.b === null
+        ? null
+        : ({ prev: loopInfo.a, next: loopInfo.b } as const);
+
+    container.dispatchEvent(
+      new CustomEvent("wr-loop-update", {
+        detail: { loopWindow },
+        bubbles: true,
+      })
+    );
   };
 
   /* ------------------------------------------------------------------

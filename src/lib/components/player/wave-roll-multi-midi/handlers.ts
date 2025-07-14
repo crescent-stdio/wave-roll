@@ -1,5 +1,5 @@
-import { VisualizationEngine } from "@/demos/multi-midi/components/visualization-engine";
-import { UIComponentDependencies } from "@/lib/components/ui/types";
+import { VisualizationEngine } from "@/core/visualization";
+import { UIComponentDependencies } from "@/lib/components/ui";
 
 /**
  * Register a global <Space> key listener that toggles playback.

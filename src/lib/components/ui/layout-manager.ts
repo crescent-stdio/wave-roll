@@ -1,8 +1,8 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
 
-import { UIComponentDependencies, UIElements } from "@/lib/components/ui/types";
-import { FileItemFactory } from "../file/item-factory";
+import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
+import { FileItemFactory } from "@/lib/components/ui/file";
 import {
   SIDEBAR_WIDTH,
   SIDEBAR_GAP,

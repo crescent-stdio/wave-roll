@@ -3,7 +3,6 @@
  * Maintains backward compatibility while delegating to unified engine
  */
 
-import { createAudioPlayer, AudioPlayerContainer } from "@/core/audio";
 import { StateManager } from "@/core/state";
 import { formatTime } from "@/core/utils";
 import { NoteData } from "@/lib/midi/types";

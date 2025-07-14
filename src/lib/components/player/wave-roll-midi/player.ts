@@ -35,10 +35,11 @@ import { createTempoControlUI } from "@/lib/components/ui/controls/tempo";
 import { createZoomControlsUI } from "@/lib/components/ui/controls/zoom";
 import { createSettingsControlUI } from "@/lib/components/ui/controls/settings";
 
-import type { UIComponentDependencies } from "@/lib/components/ui/types";
+import type { UIComponentDependencies } from "@/lib/components/ui";
 
 /* Seek-bar (time display + drag behaviour) -------------------------- */
 import { createSeekBar, SeekBarInstance } from "./ui/seek-bar";
+import type { LoopWindow } from "./ui/seek-bar";
 
 /* ------------------------------------------------------------------ */
 /* Public API types                                                   */
@@ -68,6 +69,9 @@ export class WaveRollMidiPlayer {
 
   /* Update loop */
   private loopId = 0;
+
+  /** Current loop window (percent units) coming from A-B buttons */
+  private loopWindow: LoopWindow | null = null;
 
   /* ----------------------------------------------------------------
    * Lifecycle
@@ -185,10 +189,14 @@ export class WaveRollMidiPlayer {
       seeking: false,
       updateSeekBar: (state?: { currentTime: number; duration: number }) => {
         if (state) {
-          this.seekBar.update(state.currentTime, state.duration, null);
+          this.seekBar.update(
+            state.currentTime,
+            state.duration,
+            this.loopWindow
+          );
         } else {
           const s = this.audioPlayer.getState();
-          this.seekBar.update(s.currentTime, s.duration, null);
+          this.seekBar.update(s.currentTime, s.duration, this.loopWindow);
         }
       },
       updatePlayButton: null,
@@ -209,6 +217,23 @@ export class WaveRollMidiPlayer {
 
     /* Loop (A-B) */
     const loopUI = createLoopControlsUI(deps);
+
+    /* ------------------------------------------------------------
+     * Listen for loop changes coming from the loop controls so we
+     * can propagate them to the seek-bar overlay in real-time.
+     * ---------------------------------------------------------- */
+    loopUI.addEventListener("wr-loop-update", (e: Event) => {
+      const { loopWindow } = (
+        e as CustomEvent<{
+          loopWindow: { prev: number | null; next: number | null } | null;
+        }>
+      ).detail;
+      this.loopWindow = loopWindow;
+
+      const s = this.audioPlayer.getState();
+      this.seekBar.update(s.currentTime, s.duration, this.loopWindow);
+    });
+
     row.appendChild(loopUI);
 
     /* Volume */
@@ -246,9 +271,8 @@ export class WaveRollMidiPlayer {
       // Keep piano-roll playhead perfectly synced with audio even if Tone.Draw
       // callbacks are delayed (e.g., when the tab is throttled).
       this.pianoRoll.setTime(currentTime);
-      // The seek-bar itself internally handles loop overlays via the
-      // LoopControls component, so we pass `null` here.
-      this.seekBar.update(currentTime, duration, null);
+      // Keep seek-bar progress and loop overlay in sync with playback.
+      this.seekBar.update(currentTime, duration, this.loopWindow);
       this.loopId = requestAnimationFrame(step);
     };
     this.loopId = requestAnimationFrame(step);
@@ -289,7 +313,7 @@ export class WaveRollMidiPlayer {
       const finish = () => {
         // Immediately refresh seek-bar for snappy feedback.
         const s = this.audioPlayer.getState();
-        this.seekBar.update(s.currentTime, s.duration, null);
+        this.seekBar.update(s.currentTime, s.duration, this.loopWindow);
         // Release debounce lock shortly after action completes.
         setTimeout(() => {
           this.isTogglingPlayback = false;

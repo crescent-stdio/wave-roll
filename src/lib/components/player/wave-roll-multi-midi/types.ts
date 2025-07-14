@@ -1,5 +1,4 @@
-import { AudioControllerConfig } from "@/demos/multi-midi/components/audio-controller";
-import { PianoRollConfig } from "@/core/playback";
+import { AudioControllerConfig, PianoRollConfig } from "@/core/playback";
 
 export interface WaveRollMultiMidiPlayerOptions {
   /** Configuration for the underlying AudioController */

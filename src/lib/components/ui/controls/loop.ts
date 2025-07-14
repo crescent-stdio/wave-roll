@@ -1,6 +1,5 @@
 import { UIComponentDependencies } from "../types";
 import { createCoreLoopControls } from "@/core/controls";
-import type { AudioPlayerContainer } from "@/core/audio";
 
 /**
  * UI wrapper around the core loop controls to avoid code duplication.

@@ -1,12 +1,11 @@
-import { PianoRollInstance } from "@/core/visualization/piano-roll/types";
-import { AudioController } from "@/demos/multi-midi/components/audio-controller";
-import { VisualizationEngine } from "@/demos/multi-midi/components/visualization-engine";
+import { PianoRollInstance } from "@/core/visualization/piano-roll";
+import { VisualizationEngine } from "@/core/visualization";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 
 export interface UIComponentDependencies {
   midiManager: MultiMidiManager;
-  /** Object exposing playback controls (AudioController or VisualizationEngine). */
-  audioPlayer: AudioController | VisualizationEngine | null;
+  /** Active visualization engine exposing playback controls. */
+  audioPlayer: VisualizationEngine | null;
   pianoRoll: PianoRollInstance | null;
 
   filePanStateHandlers: Record<string, (pan: number | null) => void>;

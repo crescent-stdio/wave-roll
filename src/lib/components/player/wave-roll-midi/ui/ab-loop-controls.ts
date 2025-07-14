@@ -154,7 +154,17 @@ function updateA(
     // Re-render seek bar
     updateSeekBar();
 
-    // Move piano roll playhead to A immediately (even when paused)
-    this.pianoRollInstance?.setTime?.(pointA);
+    // Legacy: was used to move the piano-roll playhead immediately.
+    // Component has been deprecated so we skip this step here.
   }
+}
+
+// -----------------------------------------------------------------
+// NOTE: This legacy component is no longer wired into the player UI.
+// We provide minimal stubs so the file still compiles without errors.
+// -----------------------------------------------------------------
+
+// Placeholder no-op so TypeScript finds a definition.
+function updateSeekBar(): void {
+  /* no-op – legacy UI component */
 }
