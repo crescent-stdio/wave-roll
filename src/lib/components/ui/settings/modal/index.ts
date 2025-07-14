@@ -1,7 +1,7 @@
-import { UIComponentDependencies } from "../types";
+import { UIComponentDependencies } from "../../types";
 import { createSettingsModalSkeleton } from "./skeleton";
 import { createModalHeader } from "./header";
-import { createFileList } from "./file-list";
+import { createFileList } from "../sections/file-list";
 
 /**
  * Open (or focus) the MIDI settings modal.
@@ -20,8 +20,9 @@ export function openSettingsModal(deps: UIComponentDependencies): void {
 
   // ---- Build modal content ----
   const header = createModalHeader("MIDI Settings", () => overlay.remove());
-  const fileListSection = createFileList(deps);
 
+  // Append sections
+  const fileListSection = createFileList(deps);
   modal.appendChild(header);
   modal.appendChild(fileListSection);
 

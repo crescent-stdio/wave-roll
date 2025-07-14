@@ -28,12 +28,14 @@ import { formatTime } from "@/lib/core/utils/time";
 import type { WaveRollMidiPlayerOptions } from "./types";
 
 /* UI controls ------------------------------------------------------- */
-import { createPlaybackControls } from "@/lib/core/controls/playback-controls";
-import { createLoopControls } from "@/lib/core/controls/loop-controls";
-import { createVolumeControl } from "@/lib/core/controls/volume-control";
-import { createTempoControl } from "@/lib/core/controls/tempo-control";
-import { createZoomControls } from "@/lib/core/controls/zoom-controls";
-import { createSettingsControl } from "@/lib/core/controls/settings-control";
+import { createPlaybackControls } from "@/lib/components/ui/controls/playback";
+import { createLoopControls } from "@/lib/components/ui/controls/loop";
+import { createVolumeControl } from "@/lib/components/ui/controls/volume";
+import { createTempoControl } from "@/lib/components/ui/controls/tempo";
+import { createZoomControls } from "@/lib/components/ui/controls/zoom";
+import { createSettingsControl } from "@/lib/components/ui/controls/settings";
+
+import type { UIComponentDependencies } from "@/lib/components/ui/types";
 
 /* Seek-bar (time display + drag behaviour) -------------------------- */
 import { createSeekBar, SeekBarInstance } from "./ui/seek-bar";
@@ -154,6 +156,47 @@ export class WaveRollMidiPlayer {
       box-shadow:0 1px 3px rgba(0,0,0,0.08);
     `;
 
+    /* ------------------------------------------------------------
+     * Build seek-bar first so other controls can reference the
+     * updateSeekBar() helper via the shared dependencies object.
+     * ---------------------------------------------------------- */
+    this.seekBar = createSeekBar({
+      audioPlayer: this.audioPlayer,
+      pianoRoll: this.pianoRoll,
+      formatTime,
+    });
+
+    /* ------------------------------------------------------------
+     * Shared dependencies object consumed by all UI controls.
+     * Only a subset of fields is actively used by current controls
+     * (audioPlayer, pianoRoll, updateSeekBar, …) but we still
+     * satisfy the full TypeScript contract to avoid compiler errors.
+     * ---------------------------------------------------------- */
+    const deps: UIComponentDependencies = {
+      midiManager: null as unknown as any,
+      audioPlayer: this.audioPlayer as any,
+      pianoRoll: this.pianoRoll as any,
+      filePanStateHandlers: {},
+      filePanValues: {},
+      muteDueNoLR: false,
+      lastVolumeBeforeMute: 1,
+      minorTimeStep: this.pianoRoll?.getMinorTimeStep?.() ?? 0.05,
+      loopPoints: null,
+      seeking: false,
+      updateSeekBar: (state?: { currentTime: number; duration: number }) => {
+        if (state) {
+          this.seekBar.update(state.currentTime, state.duration, null);
+        } else {
+          const s = this.audioPlayer.getState();
+          this.seekBar.update(s.currentTime, s.duration, null);
+        }
+      },
+      updatePlayButton: null,
+      updateMuteState: () => {},
+      openSettingsModal: () => {},
+      formatTime,
+    };
+
     /* Top row – buttons & sliders ------------------------------ */
     const row = document.createElement("div");
     row.style.cssText = `
@@ -161,52 +204,38 @@ export class WaveRollMidiPlayer {
     `;
 
     /* Playback */
-    const { element: playbackUI } = createPlaybackControls(this.audioPlayer);
+    const playbackUI = createPlaybackControls(deps);
     row.appendChild(playbackUI);
 
     /* Loop (A-B) */
-    const { element: loopUI } = createLoopControls({
-      audioPlayer: this.audioPlayer,
-      pianoRoll: this.pianoRoll,
-      formatTime,
-    });
+    const loopUI = createLoopControls(deps);
     row.appendChild(loopUI);
 
     /* Volume */
     if (this.options.showVolumeControl) {
-      const volumeControl = createVolumeControl({
-        audioPlayer: this.audioPlayer,
-      });
+      const volumeControl = createVolumeControl(deps);
       row.appendChild(volumeControl);
     }
 
     /* Tempo */
     if (this.options.showTempoControl) {
-      const tempoControl = createTempoControl({
-        audioPlayer: this.audioPlayer,
-      });
+      const tempoControl = createTempoControl(deps);
       row.appendChild(tempoControl);
     }
 
     /* Zoom reset */
     if (this.options.showZoomControl) {
-      const zoomControl = createZoomControls({ pianoRoll: this.pianoRoll });
+      const zoomControl = createZoomControls(deps);
       row.appendChild(zoomControl);
     }
 
     /* Settings modal trigger */
     if (this.options.showSettingsControl) {
-      row.appendChild(createSettingsControl(this.pianoRoll));
+      row.appendChild(createSettingsControl(deps));
     }
 
+    /* Mount controls */
     this.controlsRoot.appendChild(row);
-
-    /* Seek bar -------------------------------------------------- */
-    this.seekBar = createSeekBar({
-      audioPlayer: this.audioPlayer,
-      pianoRoll: this.pianoRoll,
-      formatTime,
-    });
     this.controlsRoot.appendChild(this.seekBar.element);
   }
 

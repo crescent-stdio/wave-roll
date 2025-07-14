@@ -1,9 +1,18 @@
 import { COLOR_PRIMARY } from "@/lib/core/constants";
+import { clamp } from "@/lib/core/utils";
+import type { PianoRollInstance } from "@/lib/core/visualization/piano-roll/types";
 
 /**
  * Zoom controls - numeric input that updates piano roll zoomX.
  */
-export function createZoomControls(pianoRoll: any): HTMLElement {
+export function createZoomControls({
+  pianoRoll,
+}: {
+  pianoRoll: PianoRollInstance;
+}): HTMLElement {
+  if (!pianoRoll) {
+    throw new Error("Piano roll is required");
+  }
   const container = document.createElement("div");
   container.style.cssText = `
     display: flex;
@@ -34,7 +43,7 @@ export function createZoomControls(pianoRoll: any): HTMLElement {
     background: #ffffff;
   `;
 
-  const clamp = (v: number) => Math.max(0.1, Math.min(10, v));
+  const clampZoom = (v: number) => clamp(v, 0.1, 10);
 
   const applyZoom = () => {
     const numericVal = parseFloat(zoomInput.value);
@@ -43,9 +52,9 @@ export function createZoomControls(pianoRoll: any): HTMLElement {
       zoomInput.value = current.toFixed(1);
       return;
     }
-    const safe = clamp(numericVal);
+    const safe = clampZoom(numericVal);
     zoomInput.value = safe.toFixed(1);
-    pianoRoll?.zoomTo?.(safe);
+    pianoRoll?.zoomX?.(safe);
   };
 
   zoomInput.addEventListener("input", applyZoom);

@@ -1,4 +1,4 @@
-import { parseMidi } from "../parsers/midi-parser";
+import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import type { MidiInput } from "@/lib/midi/types";
 import { DEFAULT_SAMPLE_FILES } from "./constants";
 import { FileLoadOptions, SampleFileConfig } from "./types";

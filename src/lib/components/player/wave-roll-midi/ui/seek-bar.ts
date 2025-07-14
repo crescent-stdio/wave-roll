@@ -282,6 +282,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
       /* loop overlay still needs to stay in sync with external changes
          (e.g. programmatic loop-window updates). We therefore update only the
          loop UI parts while leaving the progress bar untouched. */
+      //ANCHOR - Duplicate code
       if (loop && loop.prev !== null && loop.next !== null) {
         loopRegion.style.display = "block";
         loopRegion.style.left = `${loop.prev}%`;
@@ -305,6 +306,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     // No extra handling; realtime updates occur in slider input handler.
 
     /* loop overlay */
+    //ANCHOR - Duplicate code
     if (loop && loop.prev !== null && loop.next !== null) {
       loopRegion.style.display = "block";
       loopRegion.style.left = `${loop.prev}%`;

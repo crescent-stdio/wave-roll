@@ -1,4 +1,4 @@
-import { NoteData } from "@/lib/types";
+import { NoteData } from "@/lib/midi/types";
 
 /**
  * Detects overlapping notes between different MIDI files

@@ -25,7 +25,6 @@ import { formatTime } from "@/core/utils";
 import { UILayoutManager } from "@/demos/multi-midi/components/ui/layout-manager";
 import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
 import { FileToggleManager } from "@/demos/multi-midi/components/file/toggle-manager";
-import { openSettingsModal } from "../../ui/settings-modal";
 import { AudioPlayerContainer } from "@/core/audio";
 import {
   CorePlaybackEngine,
@@ -34,6 +33,7 @@ import {
   PianoRollConfig,
   PianoRollManager,
 } from "@/core/playback";
+import { openSettingsModal } from "@/lib/components/ui/settings/modal";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -533,7 +533,9 @@ export class WaveRollMultiMidiPlayer {
   private updatePianoRoll(): void {
     const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
     if (pianoRollInstance) {
-      pianoRollInstance.setTime(this.visualizationEngine.getState().currentTime);
+      pianoRollInstance.setTime(
+        this.visualizationEngine.getState().currentTime
+      );
     }
   }
   /**

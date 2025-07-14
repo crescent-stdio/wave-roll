@@ -1,4 +1,4 @@
-import { UIComponentDependencies } from "../types";
+import { UIComponentDependencies } from "../../types";
 
 /**
  * Build the “MIDI Files” list section of the settings modal.

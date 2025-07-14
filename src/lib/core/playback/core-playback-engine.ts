@@ -241,6 +241,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         this.pianoRollManager.setTime(state.currentTime);
 
         // Trigger visual update callbacks again
+        //ANCHOR - Duplicate code
         const updateParams: VisualUpdateParams = {
           currentTime: state.currentTime,
           duration: state.duration,
@@ -461,6 +462,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       }
 
       // Notify visual update callbacks
+      //ANCHOR - Duplicate code
       const updateParams: VisualUpdateParams = {
         currentTime: state.currentTime,
         duration: state.duration,

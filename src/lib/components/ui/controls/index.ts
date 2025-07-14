@@ -6,8 +6,8 @@ import { createVolumeControl } from "./volume";
 import { createTempoControl } from "./tempo";
 import { createPanControls } from "./pan";
 import { createZoomControls } from "./zoom";
-import { createSettingsControl } from "./settings";
 import { createTimeDisplay } from "./time-display";
+import { createSettingsControl } from "./settings";
 
 /**
  * Assemble all UI sub-controls and inject them into the given containers.
