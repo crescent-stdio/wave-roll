@@ -1,6 +1,7 @@
-import { COLOR_PRIMARY } from "@/lib/core/constants";
+import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
 import { UIComponentDependencies } from "../types";
 import { clamp } from "@/core/utils";
+import { updateLoopDisplay } from "@/lib/components/player/wave-roll-midi/ui/loop-display";
 
 /**
  * Create a time display element.
@@ -45,6 +46,87 @@ export function createTimeDisplayUI(
       cursor: pointer;
     `;
 
+  /* -------------------------------------------------------------
+   *  Loop overlay (striped region) + markers (A/B)
+   * ----------------------------------------------------------- */
+  // Striped loop region
+  const loopRegion = document.createElement("div");
+  loopRegion.style.cssText = `
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(241, 196, 15, 0.6) 0px,
+        rgba(241, 196, 15, 0.6) 4px,
+        rgba(243, 156, 18, 0.4) 4px,
+        rgba(243, 156, 18, 0.4) 8px
+      );
+      border-top: 2px solid rgba(241, 196, 15, 0.9);
+      border-bottom: 2px solid rgba(241, 196, 15, 0.9);
+      display: none;
+      pointer-events: none;
+      z-index: 1;
+      border-radius: 8px;
+    `;
+  seekBarContainer.appendChild(loopRegion);
+
+  /* -----------------------------------------------------------
+   * Re-use global .wr-marker style (injected once)
+   * --------------------------------------------------------- */
+  const markerCssId = "wr-marker-css";
+  if (!document.getElementById(markerCssId)) {
+    const style = document.createElement("style");
+    style.id = markerCssId;
+    style.textContent = `
+      .wr-marker {
+        position: absolute;
+        top: -24px;
+        transform: translateX(-50%);
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 4px;
+        border-radius: 4px 4px 0 0;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 3;
+      }
+      .wr-marker::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 14px;
+        background: currentColor;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const createMarker = (label: string, color: string, id: string) => {
+    const el = document.createElement("div");
+    el.id = id;
+    el.className = "wr-marker";
+    el.style.background = color;
+    el.style.color = color; // stem colour via currentColor
+
+    const span = document.createElement("span");
+    span.textContent = label;
+    span.style.color = "#ffffff";
+    el.appendChild(span);
+
+    return el;
+  };
+
+  const markerA = createMarker("A", COLOR_A, "wr-seekbar-marker-a");
+  const markerB = createMarker("B", COLOR_B, "wr-seekbar-marker-b");
+
   // Progress bar
   const progressBar = document.createElement("div");
   progressBar.style.cssText = `
@@ -83,8 +165,13 @@ export function createTimeDisplayUI(
   totalTimeLabel.textContent = "00:00";
 
   // Assemble seek bar
+  // Maintain correct stacking order: progress (0) → loopRegion (1) → handle (>1) → markers (3)
   seekBarContainer.appendChild(progressBar);
+  seekBarContainer.appendChild(loopRegion);
   seekBarContainer.appendChild(seekHandle);
+  // Markers on top-most layer
+  seekBarContainer.appendChild(markerA);
+  seekBarContainer.appendChild(markerB);
 
   // Assemble container
   container.appendChild(currentTimeLabel);
@@ -218,6 +305,20 @@ export function createTimeDisplayUI(
     // the progress is extremely small (e.g., < 0.5%).
     const safePercent = Math.max(percent, 0);
     seekHandle.style.left = `${safePercent}%`;
+
+    /* ---------------------------------------------------------
+     *   Loop overlay & markers
+     * ------------------------------------------------------- */
+    // Map dependency format (a/b in seconds or percent) to percent units.
+    // Here, dependencies.loopPoints follows { a:?, b:? } where the values are
+    // percentages [0-100] (this is what loop-controls dispatches). Therefore
+    // we can forward directly.
+    updateLoopDisplay({
+      loopPoints: (dependencies.loopPoints ?? null) as any,
+      loopRegion,
+      markerA,
+      markerB,
+    });
   };
 
   // Expose to external update loop
@@ -276,7 +377,7 @@ export function createTimeDisplayUI(
     // Cache the target time so we can apply it once on pointerup.
     pendingSeekTime = newTime;
 
-    // Immediate visual feedback while dragging – no engine seek yet.
+    // Immediate visual feedback while dragging - no engine seek yet.
     updateSeekBar({ currentTime: newTime, duration });
   };
 

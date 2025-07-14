@@ -459,7 +459,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 
       // NEW: keep piano roll playhead in sync with transport at all times
       if (this.pianoRollManager) {
-        // Avoid redundant calls if already at the same time – PianoRoll internally throttles renders anyway.
+        // Avoid redundant calls if already at the same time - PianoRoll internally throttles renders anyway.
         this.pianoRollManager.setTime(state.currentTime);
       }
 

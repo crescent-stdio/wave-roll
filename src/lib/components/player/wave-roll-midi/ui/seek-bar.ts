@@ -1,5 +1,7 @@
 import { clamp } from "@/core/utils";
 import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
+import { updateLoopDisplay } from "./loop-display";
+import { COLOR_A, COLOR_B } from "@/lib/core/constants";
 
 /** Loop window expressed in percentage (0-100) relative to the full track. */
 export interface LoopWindow {
@@ -8,7 +10,7 @@ export interface LoopWindow {
 }
 
 export interface SeekBarDeps {
-  /** Audio player – used for seek / drag */
+  /** Audio player - used for seek / drag */
   audioPlayer: AudioPlayerContainer | null;
   /** Optional: piano roll instance to forward loop markers */
   pianoRoll?: { setLoopWindow?: (a: number | null, b: number | null) => void };
@@ -17,7 +19,7 @@ export interface SeekBarDeps {
 }
 
 export interface SeekBarInstance {
-  /** <div> element (root) – append to the DOM. */
+  /** <div> element (root) - append to the DOM. */
   element: HTMLElement;
   /**
    * Update visual state (progress + loop markers).
@@ -74,26 +76,93 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   `;
   barWrap.appendChild(loopRegion);
 
-  // Helper to sync loop overlay + piano-roll marker -------------------------
-  const updateLoopOverlay = (loop: LoopWindow | null, duration: number) => {
-    if (loop && loop.prev !== null && loop.next !== null) {
-      loopRegion.style.display = "block";
-      loopRegion.style.left = `${loop.prev}%`;
-      loopRegion.style.width = `${loop.next - loop.prev}%`;
+  /* -------------------------------------------------------------
+   * Markers A / B (label + small stem) reusable CSS
+   * ----------------------------------------------------------- */
+  const markerCssId = "wr-marker-css";
+  if (!document.getElementById(markerCssId)) {
+    const style = document.createElement("style");
+    style.id = markerCssId;
+    style.textContent = `
+      .wr-marker {
+        position: absolute;
+        top: -24px;
+        transform: translateX(-50%);
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 4px;
+        border-radius: 4px 4px 0 0;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        z-index: 3;
+      }
+      .wr-marker::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 30px; /* reach down to progress bar */
+        background: currentColor;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
-      pianoRoll?.setLoopWindow?.(
-        (loop.prev / 100) * duration,
-        (loop.next / 100) * duration
-      );
-    } else {
-      loopRegion.style.display = "none";
-      pianoRoll?.setLoopWindow?.(null, null);
-    }
+  const createMarker = (label: string, color: string, id: string) => {
+    const el = document.createElement("div");
+    el.id = id;
+    el.className = "wr-marker";
+    el.style.background = color; // box bg
+    el.style.color = color; // currentColor → stem uses this
+
+    // Inner span to keep label text white
+    const span = document.createElement("span");
+    span.textContent = label;
+    span.style.color = "#ffffff";
+    el.appendChild(span);
+
+    return el;
   };
+
+  const markerA = createMarker("A", COLOR_A, "wr-seekbar-marker-a");
+  const markerB = createMarker("B", COLOR_B, "wr-seekbar-marker-b");
+  barWrap.appendChild(markerA);
+  barWrap.appendChild(markerB);
   /* --------------------------------------------------------------------- */
 
+  // Helper to sync loop overlay + piano-roll marker -------------------------
+  const updateLoopOverlay = (loop: LoopWindow | null, duration: number) => {
+    console.log("[SeekBar] overlay", { loop, duration });
+    // Map to LoopDisplay format (a/b in percent)
+    const loopPoints = loop ? { a: loop.prev, b: loop.next } : null;
+
+    updateLoopDisplay({
+      loopPoints,
+      loopRegion,
+      markerA,
+      markerB,
+    });
+
+    // Keep piano-roll shaded region in sync (seconds)
+    if (pianoRoll) {
+      if (loop && duration > 0) {
+        const startSec =
+          loop.prev !== null ? (loop.prev / 100) * duration : null;
+        const endSec = loop.next !== null ? (loop.next / 100) * duration : null;
+        pianoRoll.setLoopWindow?.(startSec, endSec);
+      } else {
+        pianoRoll.setLoopWindow?.(null, null);
+      }
+    }
+  };
   /* ----------------------------------------------------------------
-   * Native range slider (transparent track) – the thumb handles user
+   * Native range slider (transparent track) - the thumb handles user
    * interactions while custom divs render progress & loop overlays.
    * ---------------------------------------------------------------- */
 

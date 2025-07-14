@@ -1,10 +1,10 @@
 /**
- * WaveRollPlayer – an integrated Audio + Piano-roll component.
+ * WaveRollPlayer - an integrated Audio + Piano-roll component.
  *
  * * Responsibilities*
  *   1. Build AudioPlayer + PianoRoll core objects.
  *   2. Compose UI controls (playback, loop, volume, tempo, …).
- *   3. Maintain a lightweight update-loop to keep UI ⇄ audio ⇄ piano-roll in sync.
+ *   3. Maintain a lightweight update-loop to keep UI <-> audio <-> piano-roll in sync.
  *
  * The class itself **owns no UI-implementation details**: every visual control
  * is imported from `lib/components/ui/**`. That keeps the orchestration layer
@@ -205,7 +205,7 @@ export class WaveRollMidiPlayer {
       formatTime,
     };
 
-    /* Top row – buttons & sliders ------------------------------ */
+    /* Top row - buttons & sliders ------------------------------ */
     const row = document.createElement("div");
     row.style.cssText = `
       display:flex; align-items:center; gap:20px; flex-wrap:wrap;
@@ -228,6 +228,7 @@ export class WaveRollMidiPlayer {
           loopWindow: { prev: number | null; next: number | null } | null;
         }>
       ).detail;
+      console.log("[WaveRollMidiPlayer] event", loopWindow);
       this.loopWindow = loopWindow;
 
       const s = this.audioPlayer.getState();
@@ -264,7 +265,7 @@ export class WaveRollMidiPlayer {
     this.controlsRoot.appendChild(this.seekBar.element);
   }
 
-  /** 60 fps update-loop – keeps seek-bar in sync. */
+  /** 60 fps update-loop - keeps seek-bar in sync. */
   private startUpdateLoop(): void {
     const step = () => {
       const { currentTime, duration } = this.audioPlayer.getState();
@@ -352,7 +353,7 @@ export class WaveRollMidiPlayer {
 }
 
 /* ------------------------------------------------------------------ */
-/* Factory – convenient sugar so demo pages can one-liner instanciate. */
+/* Factory - convenient sugar so demo pages can one-liner instanciate. */
 /* ------------------------------------------------------------------ */
 export async function createWaveRollMidiPlayer(
   container: HTMLElement,

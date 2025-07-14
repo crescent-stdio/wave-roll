@@ -2,7 +2,7 @@
  * Create the basic overlay + modal structure for the settings dialog.
  *
  * @param id - DOM id used for the overlay element (prevents duplicates)
- * @returns { overlay, modal } – caller should append overlay to <body>.
+ * @returns { overlay, modal } - caller should append overlay to <body>.
  */
 export function createSettingsModalSkeleton(id = "multi-midi-settings-modal") {
   // Prevent multiple overlays with the same id.

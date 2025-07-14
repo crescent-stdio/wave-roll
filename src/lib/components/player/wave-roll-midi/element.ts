@@ -111,7 +111,7 @@ class WaveRollMidiElement extends HTMLElement {
   }
 
   /* --------------------------------------------------------------
-   * Debug helpers – surface internal state to outside callers.
+   * Debug helpers - surface internal state to outside callers.
    * -------------------------------------------------------------- */
   /**
    * Return the current audio + piano-roll state. Returns undefined if the
@@ -122,7 +122,7 @@ class WaveRollMidiElement extends HTMLElement {
   }
 
   /**
-   * Return the underlying WaveRollMidiPlayer instance – useful for advanced
+   * Return the underlying WaveRollMidiPlayer instance - useful for advanced
    * integrations where you need full programmatic control. May be `null` if
    * the player is still loading or has already been disposed.
    */

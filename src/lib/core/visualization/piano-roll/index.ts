@@ -33,7 +33,7 @@ export async function createPianoRoll(
    * In some layouts the parent element width is 0 when
    * createPianoRoll() runs (e.g. inside a still-hidden tab).
    * When the element becomes visible its width grows, but the
-   * internal px/second scale was already cached – resulting in
+   * internal px/second scale was already cached - resulting in
    * almost-static scrolling (≈0.4 px/s in your logs).
    *
    * We attach a ResizeObserver so that the PianoRoll recalculates

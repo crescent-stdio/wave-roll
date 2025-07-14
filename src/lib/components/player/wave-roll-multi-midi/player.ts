@@ -214,7 +214,7 @@ export class WaveRollMultiMidiPlayer {
         muteDueNoLR: uiState.muteDueNoLR,
         lastVolumeBeforeMute: uiState.lastVolumeBeforeMute,
         minorTimeStep: uiState.minorTimeStep,
-        loopPoints: loopPoints,
+        loopPoints: null,
         seeking: uiState.seeking,
         updateSeekBar: () => this.updateSeekBar(),
         updatePlayButton: () => this.updatePlayButton(),
@@ -223,6 +223,15 @@ export class WaveRollMultiMidiPlayer {
         openSettingsModal: () => this.openSettingsModal(),
         formatTime: (seconds: number) => formatTime(seconds),
       };
+
+      // After creation, convert seconds → % once we know duration.
+      const durationSec = playbackState.duration;
+      if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
+        this.uiDeps.loopPoints = {
+          a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
+          b: loopPoints.b !== null ? (loopPoints.b / durationSec) * 100 : null,
+        };
+      }
     } else {
       // Refresh dynamic fields
       this.uiDeps.midiManager = this.midiManager;
@@ -234,7 +243,15 @@ export class WaveRollMultiMidiPlayer {
       this.uiDeps.muteDueNoLR = uiState.muteDueNoLR;
       this.uiDeps.lastVolumeBeforeMute = uiState.lastVolumeBeforeMute;
       this.uiDeps.minorTimeStep = uiState.minorTimeStep;
-      this.uiDeps.loopPoints = loopPoints;
+
+      // Convert loopPoints (seconds) → % for seek-bar visualisation
+      const durationSec = playbackState.duration;
+      if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
+        this.uiDeps.loopPoints = {
+          a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
+          b: loopPoints.b !== null ? (loopPoints.b / durationSec) * 100 : null,
+        };
+      }
       this.uiDeps.seeking = uiState.seeking;
     }
 
@@ -296,6 +313,38 @@ export class WaveRollMultiMidiPlayer {
       uiElements.controlsContainer,
       uiElements.playerContainer,
       depsReady
+    );
+
+    /* ------------------------------------------------------------
+     *  Listen for A-B loop changes coming from the loop controls
+     *  and propagate them to the seek-bar overlay in real-time.
+     * ---------------------------------------------------------- */
+    uiElements.controlsContainer.addEventListener(
+      "wr-loop-update",
+      (e: Event) => {
+        const { loopWindow } = (
+          e as CustomEvent<{
+            loopWindow: { prev: number | null; next: number | null } | null;
+          }>
+        ).detail;
+
+        // Map to LoopPoints format expected by UI deps (percent-based)
+        const lp = loopWindow
+          ? { a: loopWindow.prev, b: loopWindow.next }
+          : null;
+
+        // Persist on the shared dependencies object so the seek-bar update
+        // function can access the latest values.
+        const deps = this.getUIDependencies();
+        (deps as any).loopPoints = lp;
+
+        // Force a seek-bar refresh immediately for snappy feedback.
+        const state = this.visualizationEngine.getState();
+        deps.updateSeekBar?.({
+          currentTime: state.currentTime,
+          duration: state.duration,
+        } as any);
+      }
     );
 
     // 4) File-visibility toggle section (below controls)
@@ -665,7 +714,7 @@ export class WaveRollMultiMidiPlayer {
     const deps = this.getUIDependencies();
     const audioPlayer = deps.audioPlayer;
 
-    // Safety check – if no audioPlayer is available, bail out gracefully
+    // Safety check - if no audioPlayer is available, bail out gracefully
     if (!audioPlayer) {
       this.isTogglingPlayback = false;
       return;
@@ -686,7 +735,7 @@ export class WaveRollMultiMidiPlayer {
       audioPlayer
         .play()
         .then(() => {
-          // Playback has effectively started – refresh UI once.
+          // Playback has effectively started - refresh UI once.
           this.startUpdateLoop();
           deps.updatePlayButton?.();
           deps.updateSeekBar?.();

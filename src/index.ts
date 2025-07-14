@@ -35,7 +35,7 @@ export async function createMidiPlayer(
   _options: MidiPlayerOptions = {}
 ): Promise<void> {
   console.warn(
-    "[wave-roll] createMidiPlayer is deprecated – html-midi-player has been removed. " +
+    "[wave-roll] createMidiPlayer is deprecated - html-midi-player has been removed. " +
       "Please migrate to <wave-roll-midi> or createAudioPlayer + createPianoRoll."
   );
 
@@ -62,19 +62,19 @@ export function arrayBufferToDataUrl(_arrayBuffer: ArrayBuffer): string {
  * Stubbed loader for html-midi-player Web Components.
  */
 export async function loadPlayerComponents(): Promise<void> {
-  /* html-midi-player components were removed – nothing to load */
+  /* html-midi-player components were removed - nothing to load */
   return;
 }
 
 /**
- * Legacy runtime check – always returns false because the old player was removed.
+ * Legacy runtime check - always returns false because the old player was removed.
  */
 export function isPlayerAvailable(): boolean {
   return false;
 }
 
 /**
- * Stub that used to return internal player state – now returns an empty object.
+ * Stub that used to return internal player state - now returns an empty object.
  */
 export function debugPlayerState(
   _container?: HTMLElement

@@ -170,7 +170,7 @@ export class AudioPlayer implements AudioPlayerContainer {
     // Increase suppression window to 3000 ms. In complex scores Tone.Transport can emit
     // deferred "stop" callbacks up to ~2.5 s after a heavy seek. Extending the guard
     // further prevents the UI from flickering back to 0 s when that stale event fires.
-    const SEEK_SUPPRESS_MS = 3000; // was 1200 – extended to better cover slow devices/browsers
+    const SEEK_SUPPRESS_MS = 3000; // was 1200 - extended to better cover slow devices/browsers
     if (Date.now() - this._lastSeekTimestamp < SEEK_SUPPRESS_MS) {
       return;
     }
@@ -197,7 +197,7 @@ export class AudioPlayer implements AudioPlayerContainer {
     });
 
     /* --------------------------------------------------------------
-     * Guard #3 – spurious stop events that do **not** correspond to
+     * Guard #3 - spurious stop events that do **not** correspond to
      * the player’s current visual position.
      * --------------------------------------------------------------
      * After a seek() / restart() Tone.Transport may emit a queued
@@ -211,8 +211,8 @@ export class AudioPlayer implements AudioPlayerContainer {
     const transportSec = Tone.getTransport().seconds;
     const visualSec = (transportSec * this.state.tempo) / this.originalTempo;
     if (Math.abs(visualSec - this.state.currentTime) > 1) {
-      // Likely a leftover event from the old timeline – discard.
-      // console.warn("[Transport.stop] Ignored – stale event", {
+      // Likely a leftover event from the old timeline - discard.
+      // console.warn("[Transport.stop] Ignored - stale event", {
       //   transportSec: transportSec.toFixed(3),
       //   visualSec: visualSec.toFixed(3),
       //   currentTime: this.state.currentTime.toFixed(3),
@@ -563,7 +563,7 @@ export class AudioPlayer implements AudioPlayerContainer {
        *--------------------------------------------------------------*/
       const TOLERANCE_SEC = 1;
       if (visualTime < this.state.currentTime - TOLERANCE_SEC) {
-        // Stale – keep existing position and let the first performUpdate()
+        // Stale - keep existing position and let the first performUpdate()
         // correct things once Transport.seconds has settled.
         return;
       }
@@ -602,15 +602,15 @@ export class AudioPlayer implements AudioPlayerContainer {
       // Debug logging removed to reduce console spam
       // console.log("[SyncScheduler]", { visualTime, transportTime });
 
-      const drift = (visualTime - this.state.currentTime) * 1000; // ms
-      if (Math.abs(drift) > 5) {
-        // greater than 5ms
-        console.warn("[Drift]", {
-          transportTime,
-          visualTime,
-          driftMs: drift.toFixed(2),
-        });
-      }
+      // const drift = (visualTime - this.state.currentTime) * 1000; // ms
+      // if (Math.abs(drift) > 5) {
+      //   // greater than 5ms
+      //   console.warn("[Drift]", {
+      //     transportTime,
+      //     visualTime,
+      //     driftMs: drift.toFixed(2),
+      //   });
+      // }
       // Sync internal state and visual playhead
       this.state.currentTime = visualTime;
       this.pianoRoll.setTime(visualTime);
@@ -674,7 +674,7 @@ export class AudioPlayer implements AudioPlayerContainer {
     // Ignore if a play request is already in flight
     if (this._playLock) {
       // console.log(
-      //   "[AudioPlayer.play] Request ignored – play already in progress"
+      //   "[AudioPlayer.play] Request ignored - play already in progress"
       // );
       return;
     }

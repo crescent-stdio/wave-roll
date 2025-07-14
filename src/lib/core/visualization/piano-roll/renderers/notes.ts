@@ -13,7 +13,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   /* ------------------------------------------------------------------
    * Previous implementation aggressively culled notes that were deemed
    * outside the visible viewport, but an incorrect viewport calculation
-   * occasionally caused **all** notes to be skipped – resulting in an
+   * occasionally caused **all** notes to be skipped - resulting in an
    * empty piano-roll even though the play-head was visible.
    *
    * Until a more robust dynamic-culling algorithm is re-introduced, we
@@ -61,7 +61,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       ? pianoRoll.options.noteRenderer(note, index)
       : pianoRoll.options.noteColor;
 
-    // Note color based on velocity – clamp velocity ∈ [0,1] to avoid NaN alpha
+    // Note color based on velocity - clamp velocity ∈ [0,1] to avoid NaN alpha
     const velocity = isFinite(note.velocity)
       ? Math.max(0, Math.min(1, note.velocity))
       : 0.5;

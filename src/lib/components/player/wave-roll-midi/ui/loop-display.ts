@@ -1,15 +1,15 @@
 // (No imports needed)
 
-/** Describe A-B loop window in percentage units (0–100). */
+/** Describe A-B loop window in percentage units (0-100). */
 export interface LoopPoints {
-  /** Start marker (A) – percentage or null when not set. */
+  /** Start marker (A) - percentage or null when not set. */
   a: number | null;
-  /** End marker (B) – percentage or null when not set. */
+  /** End marker (B) - percentage or null when not set. */
   b: number | null;
 }
 
 export interface LoopDisplayDeps {
-  /** Current loop window [percent] – can be null when inactive. */
+  /** Current loop window [percent] - can be null when inactive. */
   loopPoints: LoopPoints | null;
   /** <div> behind progress-bar showing golden region. */
   loopRegion: HTMLElement | null | undefined;
@@ -31,8 +31,9 @@ export function updateLoopDisplay({
   markerA,
   markerB,
 }: LoopDisplayDeps): void {
+  console.log("[LoopDisplay]", loopPoints);
   if (!loopRegion || !markerA || !markerB) {
-    return; // Defensive – refs not yet ready.
+    return; // Defensive - refs not yet ready.
   }
 
   if (loopPoints && (loopPoints.a !== null || loopPoints.b !== null)) {
@@ -57,7 +58,7 @@ export function updateLoopDisplay({
     }
 
     /* ---------------------------------------------
-     * Striped region – only when both markers exist
+     * Striped region - only when both markers exist
      * ------------------------------------------- */
     if (loopPoints.a !== null && loopPoints.b !== null) {
       loopRegion.style.display = "block";

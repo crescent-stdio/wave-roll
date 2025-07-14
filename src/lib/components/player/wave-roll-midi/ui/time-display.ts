@@ -49,7 +49,7 @@ export function updateTimeDisplay(
   totalLabel && (totalLabel.textContent = formatTime(state.duration));
 
   /* --------------------------------------------------------------
-   * Progress bar + handle – skip when user is dragging
+   * Progress bar + handle - skip when user is dragging
    * ------------------------------------------------------------ */
   if (progressBar && !(seeking && seeking())) {
     const pct =

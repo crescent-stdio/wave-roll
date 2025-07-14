@@ -241,6 +241,7 @@ export function createCoreLoopControls(
         bubbles: true,
       })
     );
+    console.log("[CoreLoopControls] dispatch", { loopInfo, loopWindow });
   };
 
   /* ------------------------------------------------------------------
