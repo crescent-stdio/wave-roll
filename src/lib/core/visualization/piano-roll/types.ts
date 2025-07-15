@@ -1,3 +1,4 @@
+import { NoteInterval } from "@/core/controls/utils/overlap";
 import { NoteData } from "@/lib/midi/types";
 
 /**
@@ -61,6 +62,8 @@ export type PianoRollInstance = {
   onTimeChange: (callback: (time: number) => void) => void;
   setMinorTimeStep: (step: number) => void;
   getMinorTimeStep: () => number;
+
+  setOverlapRegions?: (overlaps: NoteInterval[]) => void;
 
   /** Resize the visualizer to a new width/height */
   resize: (width: number, height?: number) => void;

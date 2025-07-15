@@ -14,6 +14,8 @@ import { renderNotes } from "@/lib/core/visualization/piano-roll/renderers/notes
 import { clampPanX } from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
 import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
+import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
+import { NoteInterval } from "@/lib/core/controls/utils/overlap";
 
 export class PianoRoll {
   public app: PIXI.Application;
@@ -23,10 +25,19 @@ export class PianoRoll {
   public backgroundGrid!: PIXI.Graphics;
   public loopOverlay!: PIXI.Graphics;
   public loopLines: { start: PIXI.Graphics; end: PIXI.Graphics } | null = null;
+  public overlapOverlay!: PIXI.Graphics;
+  public overlapIntervals: NoteInterval[] = [];
 
   public playheadX: number = 0;
   public notes: NoteData[] = [];
   public noteGraphics: PIXI.Graphics[] = [];
+  /**
+   * Sprite-based note objects used by the default renderer (Sprite batching).
+   * We keep the original `noteGraphics` array for compatibility with the
+   * legacy Graphics renderer that can still be enabled manually. Only one of
+   * the two arrays is populated at any given time.
+   */
+  public noteSprites: PIXI.Sprite[] = [];
   public state: PianoRollViewState;
   public options: Required<PianoRollConfig>;
 
@@ -184,6 +195,11 @@ export class PianoRoll {
     this.loopOverlay = new PIXI.Graphics();
     this.loopOverlay.zIndex = 500; // below playhead but above notes
     this.container.addChild(this.loopOverlay);
+
+    // Overlay for multi-track overlaps (semi-transparent red)
+    this.overlapOverlay = new PIXI.Graphics();
+    this.overlapOverlay.zIndex = 20; // above grid, below notes
+    this.container.addChild(this.overlapOverlay);
 
     // Container for loop A/B labels
     this.loopLabelContainer = new PIXI.Container();
@@ -481,7 +497,10 @@ export class PianoRoll {
    * Destroy the piano roll and clean up resources
    */
   public destroy(): void {
+    // Clean up legacy Graphics objects (if any)
     this.noteGraphics.forEach((graphic) => graphic.destroy());
+    // Clean up Sprite instances used by the default renderer
+    this.noteSprites.forEach((sprite) => sprite.destroy());
     this.app.destroy(true);
   }
 
@@ -527,5 +546,10 @@ export class PianoRoll {
 
     // Clamp within timeline bounds to avoid negative times or overshoot.
     return clamp(time, 0, this.timeScale.domain()[1]);
+  }
+
+  public setOverlapRegions(overlaps: NoteInterval[]): void {
+    this.overlapIntervals = overlaps;
+    drawOverlapRegions(this, overlaps);
   }
 }

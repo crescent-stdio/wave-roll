@@ -17,6 +17,8 @@ import {
   DEFAULT_PIANO_ROLL_CONFIG,
 } from "@/core/playback";
 import type { PianoRollInstance as CorePianoRollInstance } from "@/core/playback";
+import { overlapping } from "@/core/controls/utils/overlap";
+import { COLOR_OVERLAP } from "@/lib/core/constants";
 
 export type ColoredNote = CoreColoredNote;
 
@@ -42,7 +44,7 @@ export const DEFAULT_VISUALIZATION_CONFIG: VisualizationEngineConfig = {
   defaultPianoRollConfig: DEFAULT_PIANO_ROLL_CONFIG,
   updateInterval: 50,
   enableOverlapDetection: true,
-  overlapColor: 0x800080,
+  overlapColor: parseInt(COLOR_OVERLAP.replace("#", ""), 16),
 };
 
 /**
@@ -125,13 +127,48 @@ export class VisualizationEngine {
     visibleNotes: ColoredNote[],
     audioNotesOverride?: NoteData[]
   ): Promise<void> {
+    // ------------------------------------------------------------
+    // Conditional overlap recoloring (legacy path). If the calling code
+    // already provided pre-split overlap segments, we can skip this pass by
+    // setting `enableOverlapDetection = false` in the config.
+    // ------------------------------------------------------------
+    let recolored: typeof visibleNotes = visibleNotes;
+
+    if (this.config.enableOverlapDetection) {
+      const trackMap: Record<string, { start: number; end: number }[]> = {};
+      visibleNotes.forEach(({ note, fileId }) => {
+        if (!fileId) return;
+        const end = note.time + note.duration;
+        (trackMap[fileId] = trackMap[fileId] || []).push({
+          start: note.time,
+          end,
+        });
+      });
+
+      const overlaps = overlapping(
+        Object.values(trackMap).map((intervals) => ({
+          id: "overlap",
+          intervals,
+        }))
+      );
+
+      recolored = visibleNotes.map((cn) => {
+        const noteStart = cn.note.time;
+        const noteEnd = noteStart + cn.note.duration;
+        const intersects = overlaps.some(
+          (iv) => iv.start < noteEnd && iv.end > noteStart
+        );
+        return intersects ? { ...cn, color: this.config.overlapColor } : cn;
+      });
+    }
+
     // Update piano roll visualization
-    await this.pianoRollManager.updateVisualization(visibleNotes);
+    await this.pianoRollManager.updateVisualization(recolored);
 
     // Update audio with appropriate notes
     const audioNotes =
       audioNotesOverride ??
-      visibleNotes.filter((cn) => !cn.isMuted).map((cn) => cn.note);
+      recolored.filter((cn) => !cn.isMuted).map((cn) => cn.note);
 
     await this.coreEngine.updateAudio(audioNotes);
   }
@@ -199,6 +236,13 @@ export class VisualizationEngine {
 
   public setPan(pan: number): void {
     this.coreEngine.setPan(pan);
+  }
+
+  /**
+   * Set pan for a specific MIDI file track.
+   */
+  public setFilePan(fileId: string, pan: number): void {
+    (this.coreEngine as any).setFilePan?.(fileId, pan);
   }
 
   public setTempo(tempo: number): void {

@@ -30,11 +30,11 @@ export function createTempoControl({
   input.step = "0.1";
   input.value = tempoVal.toFixed(2);
   input.style.cssText = `
-    width: 80px;
-    padding: 4px 8px;
+    width: 40px;
+    padding: 4px 6px;
     border: none;
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: ${COLOR_PRIMARY};
     background: rgba(0, 123, 255, 0.08);

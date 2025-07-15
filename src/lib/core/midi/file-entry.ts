@@ -7,7 +7,7 @@ import { generateMidiFileId } from "@/lib/core/utils/id";
  *
  * @param fileName     Original filename on disk.
  * @param parsedData   Parsed result from @tonejs/midi (or equivalent).
- * @param color        Display colour (integer RGB).
+ * @param color        Display color (integer RGB).
  * @param displayName  Optional user‑friendly name shown in UI.
  */
 export function createMidiFileEntry(
@@ -29,11 +29,11 @@ export function createMidiFileEntry(
 }
 
 /**
- * Reassign colours to an existing list of file entries based on the given palette.
+ * Reassign colors to an existing list of file entries based on the given palette.
  * The nth entry receives `palette.colors[n % palette.colors.length]`.
  *
- * @param entries - The list of file entries to reassign colours to.
- * @param palette - The colour palette to use.
+ * @param entries - The list of file entries to reassign colors to.
+ * @param palette - The color palette to use.
  */
 export function reassignEntryColors(
   entries: MidiFileEntry[],

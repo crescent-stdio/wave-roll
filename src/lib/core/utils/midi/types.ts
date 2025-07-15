@@ -44,6 +44,8 @@ export interface NoteData {
   velocity: number;
   /** Duration in seconds */
   duration: number;
+  /** The ID of the source MIDI file this note belongs to */
+  fileId?: string;
 }
 
 /**

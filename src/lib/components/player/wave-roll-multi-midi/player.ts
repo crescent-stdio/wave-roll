@@ -6,7 +6,12 @@
 import { NoteData } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 
-import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
+import {
+  COLOR_PRIMARY,
+  COLOR_A,
+  COLOR_B,
+  COLOR_OVERLAP,
+} from "@/lib/core/constants";
 import { detectOverlappingNotes } from "@/lib/core/utils/midi/overlap";
 
 import { MidiFileItemList } from "@/lib/core/file/types";
@@ -19,7 +24,6 @@ import {
 } from "@/core/visualization";
 import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
-import { AudioController } from "@/core/playback";
 import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
 import { formatTime } from "@/core/utils";
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
@@ -144,7 +148,8 @@ export class WaveRollMultiMidiPlayer {
     // Initialize visualization engine with resolved piano-roll configuration
     this.visualizationEngine = new VisualizationEngine({
       defaultPianoRollConfig: pianoRollConfig,
-      updateInterval: this.config.ui.updateInterval, // Use same interval as UI update loop
+      updateInterval: this.config.ui.updateInterval, // Sync interval
+      enableOverlapDetection: false, // We handle overlap coloring manually
     });
 
     // Keep seek bar and time display tightly synced with the engine's visual updates.
@@ -441,7 +446,7 @@ export class WaveRollMultiMidiPlayer {
         file.parsedData.notes.forEach((note: NoteData) => {
           // Keep velocity within valid [0,1] range.
           const scaledVel = Math.min(1, note.velocity * velocityScale);
-          audioNotes.push({ ...note, velocity: scaledVel });
+          audioNotes.push({ ...note, velocity: scaledVel, fileId: file.id });
         });
       }
     });
@@ -457,30 +462,25 @@ export class WaveRollMultiMidiPlayer {
    * Get colored notes from MIDI state
    */
   private getColoredNotes(state: any): ColoredNote[] {
-    const notes: ColoredNote[] = [];
-    const colors = [COLOR_PRIMARY, COLOR_A, COLOR_B];
+    const fallbackColors = [COLOR_PRIMARY, COLOR_A, COLOR_B];
 
-    const toNumberColor = (c: string | number): number => {
-      if (typeof c === "number") return c;
-      //  "#RRGGBB" → 0xRRGGBB
-      return parseInt(c.replace("#", ""), 16);
-    };
+    const toNumberColor = (c: string | number): number =>
+      typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
+
+    /* ------------------------------------------------------------------
+     * 1) Collect visible notes with their per-file base color
+     * ------------------------------------------------------------------ */
+    const baseNotes: ColoredNote[] = [];
 
     state.files.forEach((file: any, index: number) => {
-      if (
-        !file.isPianoRollVisible ||
-        !file.parsedData ||
-        !file.parsedData.notes
-      ) {
-        return;
-      }
+      if (!file.isPianoRollVisible || !file.parsedData?.notes) return;
 
-      // Prefer per-file assigned color; fallback to static palette
-      const rawColor = file.color ?? colors[index % colors.length];
+      const rawColor =
+        file.color ?? fallbackColors[index % fallbackColors.length];
       const colorHex = toNumberColor(rawColor);
 
       file.parsedData.notes.forEach((note: any) => {
-        notes.push({
+        baseNotes.push({
           note,
           color: colorHex,
           fileId: file.id,
@@ -489,21 +489,68 @@ export class WaveRollMultiMidiPlayer {
       });
     });
 
-    // Detect overlapping notes and apply overlap color
-    const overlappingIndices = detectOverlappingNotes(notes);
+    /* ------------------------------------------------------------------
+     * 2) Analyse overlaps (pitch & time) between *different* files
+     * ------------------------------------------------------------------ */
+    const overlappingMap = detectOverlappingNotes(baseNotes);
+    const overlapColorHex = toNumberColor(COLOR_OVERLAP);
 
-    return notes.map((coloredNote, index) => {
-      if (overlappingIndices.has(index)) {
-        return {
-          ...coloredNote,
-          // color:
-          //   typeof COLOR_OVERLAP === "string"
-          //     ? parseInt(COLOR_OVERLAP.replace("#", ""), 16)
-          //     : COLOR_OVERLAP,
-        };
+    /* ------------------------------------------------------------------
+     * 3) Split notes so that only the true intersection is tinted with the
+     *    overlap color. Each original note can therefore generate:
+     *      • 0..N non-overlapping segments (base color)
+     *      • N   overlapping  segments (overlap color)
+     * ------------------------------------------------------------------ */
+    const finalNotes: ColoredNote[] = [];
+
+    baseNotes.forEach((original, idx) => {
+      const ranges = overlappingMap.get(idx) ?? [];
+
+      if (ranges.length === 0) {
+        // No overlaps → keep the original note as-is
+        finalNotes.push(original);
+        return;
       }
-      return coloredNote;
+
+      // Ensure ranges are sorted & merged (detectOverlappingNotes already
+      // merges adjoining ranges but we sort just in case).
+      const sorted = [...ranges].sort((a, b) => a.start - b.start);
+
+      let cursor = original.note.time;
+      const endTime = original.note.time + original.note.duration;
+
+      const pushSegment = (start: number, duration: number, color: number) => {
+        if (duration <= 0) return;
+        finalNotes.push({
+          note: {
+            ...original.note,
+            time: start,
+            duration,
+          },
+          color,
+          fileId: original.fileId,
+          isMuted: original.isMuted,
+        });
+      };
+
+      sorted.forEach(({ start, end }) => {
+        // 3a) non-overlap segment before this range
+        pushSegment(cursor, start - cursor, original.color);
+
+        // 3b) the actual overlap segment
+        pushSegment(start, end - start, overlapColorHex);
+
+        cursor = Math.max(cursor, end);
+      });
+
+      // 3c) tail of the note after the last overlap
+      pushSegment(cursor, endTime - cursor, original.color);
     });
+
+    // Sort by start-time to keep deterministic sprite order
+    finalNotes.sort((a, b) => a.note.time - b.note.time);
+
+    return finalNotes;
   }
   /**
    * Set up file toggle section

@@ -114,7 +114,7 @@ export function createTimeDisplayUI(
     el.id = id;
     el.className = "wr-marker";
     el.style.background = color;
-    el.style.color = color; // stem colour via currentColor
+    el.style.color = color; // stem color via currentColor
 
     const span = document.createElement("span");
     span.textContent = label;

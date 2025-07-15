@@ -45,7 +45,7 @@ export class FileItemFactory {
       midiManager.toggleVisibility(file.id);
     });
 
-    /* colour tag */
+    /* color tag */
     const colorIndicator = document.createElement("div");
     colorIndicator.style.cssText = `
       width: 12px;
@@ -77,7 +77,7 @@ export class FileItemFactory {
       item.style.boxShadow = "none";
     });
 
-    // order: colour ▸ name ▸ (eye)
+    // order: color ▸ name ▸ (eye)
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
     item.appendChild(visBtn);

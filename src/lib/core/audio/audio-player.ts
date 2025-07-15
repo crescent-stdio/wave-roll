@@ -97,6 +97,9 @@ export interface AudioPlayerContainer {
   /** Set stereo pan value (-1 left, 0 center, 1 right) */
   setPan(pan: number): void;
 
+  /** Set stereo pan for a specific file when multiple MIDI files are playing */
+  setFilePan(fileId: string, pan: number): void;
+
   // options: PlayerOptions;
 }
 
@@ -119,9 +122,17 @@ export class AudioPlayer implements AudioPlayerContainer {
   public options: Required<PlayerOptions>;
 
   // Tone.js components
+  /** Legacy single sampler (used for single-file players) */
   private sampler: Tone.Sampler | null = null;
+  /** Map of fileId -> {sampler, panner} for multi-file playback */
+  private trackSamplers: Map<
+    string,
+    { sampler: Tone.Sampler; panner: Tone.Panner }
+  > = new Map();
+
   private part: Tone.Part | null = null;
   private syncScheduler: number | null = null;
+  /** Global panner for legacy single-sampler path */
   private panner: Tone.Panner | null = null;
 
   /** Token that identifies the *current* sync-scheduler. Incrementing this
@@ -435,6 +446,50 @@ export class AudioPlayer implements AudioPlayerContainer {
       this.part.dispose();
     }
 
+    /* --------------------------------------------------------------
+     *  (Multi-file) Create or refresh Sampler + Panner chain per file
+     * ------------------------------------------------------------ */
+    const uniqueFileIds = new Set<string>();
+    this.notes.forEach((n: any) => {
+      const fid = n.fileId || "__default";
+      uniqueFileIds.add(fid);
+    });
+
+    // Clean up samplers that are no longer needed
+    this.trackSamplers.forEach((_value, fid) => {
+      if (!uniqueFileIds.has(fid)) {
+        const { sampler, panner } = this.trackSamplers.get(fid)!;
+        sampler.dispose();
+        panner.dispose();
+        this.trackSamplers.delete(fid);
+      }
+    });
+
+    // Create samplers for new file IDs
+    uniqueFileIds.forEach((fid) => {
+      if (!this.trackSamplers.has(fid)) {
+        const panner = new Tone.Panner(0).toDestination();
+        const sampler = new Tone.Sampler({
+          urls: {
+            C4: "C4.mp3",
+            "D#4": "Ds4.mp3",
+            "F#4": "Fs4.mp3",
+            A4: "A4.mp3",
+          },
+          release: 1,
+          baseUrl:
+            this.options.soundFont ||
+            "https://tonejs.github.io/audio/salamander/",
+        }).connect(panner);
+
+        // Apply any cached pan value
+        const cachedPan = (this as any).state?.pan ?? 0;
+        panner.pan.value = cachedPan;
+
+        this.trackSamplers.set(fid, { sampler, panner });
+      }
+    });
+
     // Create events, optionally windowed for A-B looping
     const events = this.notes
       .filter((note) => {
@@ -462,7 +517,7 @@ export class AudioPlayer implements AudioPlayerContainer {
           loopStartVisual !== null &&
           loopEndVisual !== null
         ) {
-          const maxTail = loopEndVisual - onset;
+          const maxTail = Math.max(0, loopEndVisual - onset);
           duration = Math.min(duration, maxTail);
         }
 
@@ -471,19 +526,37 @@ export class AudioPlayer implements AudioPlayerContainer {
             ? onset - loopStartVisual
             : onset;
 
+        // Ensure values are within valid range to avoid Tone.js errors
+        const timeSafe = Math.max(0, relativeTime);
+        const durationSafe = Math.max(0, duration);
+
         return {
-          time: relativeTime,
+          time: timeSafe,
           note: note.name,
-          duration,
+          duration: durationSafe,
           velocity: note.velocity,
+          fileId: (note as any).fileId || "__default",
         };
       });
 
     this.part = new Tone.Part((time: number, event: any) => {
-      if (!this.sampler) {
+      const fid = event.fileId || "__default";
+      const track = this.trackSamplers.get(fid);
+
+      if (!track) {
+        // Fallback to legacy single sampler if available
+        if (this.sampler) {
+          this.sampler.triggerAttackRelease(
+            event.note,
+            event.duration,
+            time,
+            event.velocity
+          );
+        }
         return;
       }
-      this.sampler.triggerAttackRelease(
+
+      track.sampler.triggerAttackRelease(
         event.note,
         event.duration,
         time,
@@ -1133,15 +1206,26 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Set playback volume
    */
   public setVolume(volume: number): void {
-    const clampedVolume = Math.max(0, Math.min(1, volume));
-    this.state.volume = clampedVolume;
+    // Clamp volume to [0,1]
+    const clamped = Math.max(0, Math.min(1, volume));
+
+    // Tone.js volume is in dB, convert 0-1 range to dB
+    const db = Tone.gainToDb(clamped);
+
+    // Legacy single sampler
+    if (this.sampler) {
+      this.sampler.volume.value = db;
+    }
+
+    // Per-track samplers
+    this.trackSamplers.forEach(({ sampler }) => {
+      sampler.volume.value = db;
+    });
+
+    this.state.volume = clamped;
 
     // Ensure future initialization uses the latest volume (e.g., muted before first play)
-    this.options.volume = clampedVolume;
-
-    if (this.sampler) {
-      this.sampler.volume.value = Tone.gainToDb(clampedVolume);
-    }
+    this.options.volume = clamped;
   }
 
   /**
@@ -1346,16 +1430,47 @@ export class AudioPlayer implements AudioPlayerContainer {
       this.panner.dispose();
       this.panner = null;
     }
+
+    // Dispose per-track samplers / panners
+    this.trackSamplers.forEach(({ sampler, panner }) => {
+      sampler.dispose();
+      panner.dispose();
+    });
+    this.trackSamplers.clear();
   }
 
   /**
    * Set stereo pan value (-1 left, 0 center, 1 right)
    */
   public setPan(pan: number): void {
-    if (!this.panner) return;
+    if (!this.panner && this.trackSamplers.size === 0) return;
+
     const clamped = Math.max(-1, Math.min(1, pan));
-    this.panner.pan.value = clamped;
+
+    // Legacy single panner
+    if (this.panner) {
+      this.panner.pan.value = clamped;
+    }
+
+    // Apply to all track-level panners
+    this.trackSamplers.forEach(({ panner }) => {
+      panner.pan.value = clamped;
+    });
+
     this.state.pan = clamped;
+  }
+
+  /**
+   * Set stereo pan for a specific file when multiple MIDI files are playing
+   */
+  public setFilePan(fileId: string, pan: number): void {
+    if (!this.trackSamplers.has(fileId)) {
+      console.warn(`File ID "${fileId}" not found in trackSamplers.`);
+      return;
+    }
+    const { panner } = this.trackSamplers.get(fileId)!;
+    const clamped = Math.max(-1, Math.min(1, pan));
+    panner.pan.value = clamped;
   }
 
   private retriggerHeldNotes(currentTime: number): void {

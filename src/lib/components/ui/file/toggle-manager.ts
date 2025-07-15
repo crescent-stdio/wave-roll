@@ -82,7 +82,6 @@ export class FileToggleManager {
     colorIndicator.style.cssText = `
       width: 12px;
       height: 12px;
-      border-radius: 2px;
       background: #${file.color.toString(16).padStart(6, "0")};
     `;
 
@@ -157,7 +156,15 @@ export class FileToggleManager {
       if (dependencies.filePanValues) {
         dependencies.filePanValues[file.id] = panValue;
       }
-      dependencies.audioPlayer?.setPan(panValue);
+
+      // Prefer per-file panning if supported by the audio player
+      const playerAny = dependencies.audioPlayer as any;
+      if (playerAny?.setFilePan) {
+        playerAny.setFilePan(file.id, panValue);
+      } else {
+        // Fallback to global pan (legacy single-file player)
+        dependencies.audioPlayer?.setPan(panValue);
+      }
     });
 
     // Double-click → reset to center (0)
@@ -165,7 +172,13 @@ export class FileToggleManager {
       if (dependencies.filePanValues) {
         dependencies.filePanValues[file.id] = 0;
       }
-      dependencies.audioPlayer?.setPan(0);
+
+      const playerAny = dependencies.audioPlayer as any;
+      if (playerAny?.setFilePan) {
+        playerAny.setFilePan(file.id, 0);
+      } else {
+        dependencies.audioPlayer?.setPan(0);
+      }
     });
 
     // Append elements in desired order

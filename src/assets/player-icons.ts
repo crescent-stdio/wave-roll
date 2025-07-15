@@ -91,4 +91,24 @@ export const PLAYER_ICONS = {
     <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
     <line x1="1" y1="1" x2="15" y2="15" />
   </svg>`,
+
+  /** Pencil icon for edit actions */
+  edit: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <path d="M11.207 2.793a1 1 0 0 1 1.414 0l.586.586a1 1 0 0 1 0 1.414l-8.25 8.25L3 14l.957-1.957 8.25-8.25z" />
+  </svg>`,
+
+  /** Overlapping squares icon for duplicate / clone actions */
+  duplicate: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <rect x="2" y="2" width="9" height="9" rx="1" />
+    <rect x="5" y="5" width="9" height="9" rx="1" />
+  </svg>`,
+
+  /** Trash icon used for delete actions */
+  trash: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <polyline points="3 4.75 13 4.75" />
+    <path d="M6 4.75v7.5" />
+    <path d="M10 4.75v7.5" />
+    <path d="M5.5 3h5l-.5-1h-4z" />
+    <path d="M4.5 4.75 5.3 14a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9l.8-9.25Z" />
+  </svg>`,
 };

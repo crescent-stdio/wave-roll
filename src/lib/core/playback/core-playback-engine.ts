@@ -188,6 +188,14 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       }
     }
 
+    // Apply stored per-file pan values (if any)
+    if (this.stateManager) {
+      const panValues = this.stateManager.getFilePanValuesRef();
+      Object.entries(panValues).forEach(([fid, p]) => {
+        (this.audioPlayer as any)?.setFilePan?.(fid, p);
+      });
+    }
+
     // Sync with state manager if enabled
     if (this.config.enableStateSync && this.stateManager) {
       this.syncWithStateManager();
@@ -302,6 +310,18 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 
   public setPan(pan: number): void {
     this.audioPlayer?.setPan(pan);
+  }
+
+  /**
+   * Set pan for a specific file track.
+   */
+  public setFilePan(fileId: string, pan: number): void {
+    (this.audioPlayer as any)?.setFilePan?.(fileId, pan);
+
+    // Persist in state manager so the value survives player recreation
+    if (this.config.enableStateSync && this.stateManager) {
+      this.stateManager.setFilePanValue(fileId, pan);
+    }
   }
 
   public getState(): AudioPlayerState {

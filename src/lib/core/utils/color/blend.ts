@@ -3,8 +3,8 @@ import { rgbToHsv, hsvToRgb } from "./format";
 /**
  * Blend multiple RGB colors using an unweighted average in HSV space.
  * This approach preserves hue relationships better than direct RGB averaging,
- * producing more visually pleasing results when many colours overlap.
- * @param colors Array of colours as 0xRRGGBB numbers
+ * producing more visually pleasing results when many colors overlap.
+ * @param colors Array of colors as 0xRRGGBB numbers
  * @param _weights Ignored - kept for backwards-compatibility
  * @returns Blended color as 0xRRGGBB number
  */

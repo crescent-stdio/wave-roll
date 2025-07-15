@@ -10,7 +10,7 @@
 
 import { NoteData } from "@/lib/midi/types";
 import { createPianoRoll } from "@/core/visualization/piano-roll";
-import { detectOverlappingNotes } from "@/core/utils/midi/overlap";
+// (Overlap detection logic is handled upstream in the multi-MIDI player)
 
 /**
  * Configuration for piano roll visualization
@@ -148,12 +148,9 @@ export class PianoRollManager {
     });
 
     // Apply overlap detection if enabled
-    if (this.enableOverlapDetection) {
-      const overlappingMap = detectOverlappingNotes(coloredNotes);
-      overlappingMap.forEach((_, idx) => {
-        noteColors[idx] = this.overlapColor;
-      });
-    }
+    // Overlap detection is handled upstream where overlapping segments are
+    // rendered as independent notes with a distinct color. We therefore keep
+    // the original per-note colors intact here.
 
     return { notes, noteColors };
   }

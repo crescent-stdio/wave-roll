@@ -1,5 +1,6 @@
 import { ColorPalette } from "./types";
 
+export const DEFAULT_PALETTE_ID = "vibrant";
 /**
  * Default color palettes
  */

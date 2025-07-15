@@ -1,6 +1,7 @@
 import { NoteData } from "@/lib/midi/types";
 import { PianoRollConfig, PianoRollInstance } from "./types";
 import { PianoRoll } from "./piano-roll";
+import { NoteInterval } from "@/lib/core/controls/utils/overlap";
 export type { PianoRollConfig, PianoRollInstance };
 
 /**
@@ -134,6 +135,10 @@ export async function createPianoRoll(
      * Get current minor timeStep
      */
     getMinorTimeStep: () => pianoRoll.getMinorTimeStep(),
+
+    /** Update overlap highlight bars */
+    setOverlapRegions: (ov: NoteInterval[]) =>
+      (pianoRoll as any).setOverlapRegions?.(ov),
 
     /** Resize the PixiJS renderer */
     resize: (width: number, height?: number) => pianoRoll.resize(width, height),

@@ -58,20 +58,20 @@ export class UILayoutManager {
     elements.mainContainer.appendChild(elements.sidebarContainer);
     elements.mainContainer.appendChild(elements.playerContainer);
 
-    // Sidebar hidden by default → shift it left
-    elements.sidebarContainer.style.transform = "translateX(-120%)";
+    // Sidebar visible by default → show it
+    elements.sidebarContainer.style.transform = "translateX(0)";
 
-    // Sidebar hidden by default, no padding initially
-    elements.mainContainer.style.paddingLeft = "0px";
+    // Sidebar visible by default, add padding initially
+    elements.mainContainer.style.paddingLeft = `${SIDEBAR_WIDTH + SIDEBAR_GAP}px`;
 
     // Hamburger button to toggle sidebar
     const toggleBtn = document.createElement("button");
     toggleBtn.innerHTML = PLAYER_ICONS.menu;
-    // Initial left based on hidden sidebar
+    // Initial left based on visible sidebar
     toggleBtn.style.cssText = `
       position: absolute;
       top: ${ICON_BUTTON_MARGIN}px;
-      left: ${calcToggleButtonLeft(false)};
+      left: ${calcToggleButtonLeft(true)};
       width: 32px;
       height: 32px;
       border: none;
@@ -94,7 +94,7 @@ export class UILayoutManager {
       toggleBtn.style.background = "#ffffff";
     });
 
-    let sidebarVisible = false;
+    let sidebarVisible = true;
     toggleBtn.addEventListener("click", () => {
       sidebarVisible = !sidebarVisible;
 
@@ -116,6 +116,23 @@ export class UILayoutManager {
         const newWidth = elements.playerContainer.clientWidth;
         // Keep existing height (400 as default)
         pr.resize(newWidth);
+      }
+    });
+
+    /* ------------------------------------------------------------
+     * Keyboard shortcut: press "b" to toggle the sidebar.
+     * ---------------------------------------------------------- */
+    window.addEventListener("keydown", (e) => {
+      const isBKey = e.key.toLowerCase() === "b";
+      const hasModifier = e.metaKey || e.ctrlKey || e.altKey || e.shiftKey;
+      const isTypingTarget =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable;
+
+      if (isBKey && !hasModifier && !isTypingTarget) {
+        e.preventDefault();
+        toggleBtn.click();
       }
     });
 

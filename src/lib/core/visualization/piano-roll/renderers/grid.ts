@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
+// import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
 export function renderGrid(pianoRoll: PianoRoll): void {
   // Clear previous labels to avoid duplicates and stale objects
@@ -26,6 +27,8 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     pianoRoll.loopLines.end.clear();
     pianoRoll.loopLines.end.removeChildren();
   }
+
+  // (Overlap overlay disabled – coloring handled per-note)
 
   // Piano key background (if enabled)
   if (pianoRoll.options.showPianoKeys) {
@@ -204,4 +207,6 @@ export function renderGrid(pianoRoll: PianoRoll): void {
       pianoRoll.loopOverlay.fill({ color: overlayColor, alpha: 0.35 });
     }
   }
+
+  // drawOverlapRegions disabled – overlap now indicated via note tinting
 }

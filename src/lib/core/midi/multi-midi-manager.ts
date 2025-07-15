@@ -3,6 +3,8 @@ import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
 
+const PALETTE_STORAGE_KEY = "waveRoll.paletteState";
+
 /**
  * Manages multiple MIDI files with visualization
  */
@@ -10,12 +12,29 @@ export class MultiMidiManager {
   private state: MultiMidiState;
   private colorIndex: number = 0;
   private onStateChange?: (state: MultiMidiState) => void;
+  /** Multiple subscribers for UI components */
+  private listeners: Array<(state: MultiMidiState) => void> = [];
 
   constructor() {
+    // Attempt to restore palette preferences from localStorage so that
+    // the UI remembers the user’s selection across sessions.
+    let stored: Partial<
+      Pick<MultiMidiState, "activePaletteId" | "customPalettes">
+    > | null = null;
+    if (typeof window !== "undefined" && "localStorage" in window) {
+      try {
+        stored = JSON.parse(
+          window.localStorage.getItem(PALETTE_STORAGE_KEY) || "null"
+        );
+      } catch {
+        // Ignore malformed JSON – fall back to defaults.
+      }
+    }
+
     this.state = {
       files: [],
-      activePaletteId: "vibrant",
-      customPalettes: [],
+      activePaletteId: stored?.activePaletteId ?? "vibrant",
+      customPalettes: stored?.customPalettes ?? [],
     };
   }
 
@@ -26,6 +45,18 @@ export class MultiMidiManager {
     this.onStateChange = callback;
     // Immediately notify with current state
     this.notifyStateChange();
+  }
+
+  /**
+   * Subscribe to state changes. Returns an unsubscribe function.
+   */
+  public subscribe(cb: (state: MultiMidiState) => void): () => void {
+    this.listeners.push(cb);
+    // Emit current state immediately
+    cb(this.getState());
+    return () => {
+      this.listeners = this.listeners.filter((fn) => fn !== cb);
+    };
   }
 
   /**
@@ -137,14 +168,38 @@ export class MultiMidiManager {
   }
 
   /**
+   * Reorder files within the state array.
+   * @param sourceIndex - The current index of the file.
+   * @param targetIndex - The desired index after the move.
+   */
+  public reorderFiles(sourceIndex: number, targetIndex: number): void {
+    const { files } = this.state;
+    if (
+      sourceIndex === targetIndex ||
+      sourceIndex < 0 ||
+      targetIndex < 0 ||
+      sourceIndex >= files.length ||
+      targetIndex >= files.length
+    ) {
+      return;
+    }
+    const [moved] = files.splice(sourceIndex, 1);
+    files.splice(targetIndex, 0, moved);
+    this.notifyStateChange();
+  }
+
+  /**
    * Set active palette
    */
   public setActivePalette(paletteId: string): void {
+    // Do nothing if the palette is already active to avoid resetting colors
+    if (this.state.activePaletteId === paletteId) return;
+
     this.state.activePaletteId = paletteId;
-    // Reset color index
+    // Reset color index so that subsequent files start from the first color
     this.colorIndex = 0;
 
-    // Reassign colors to existing files
+    // Reassign colors to existing files so that they follow the newly selected palette
     const palette = this.getActivePalette();
     reassignEntryColors(this.state.files, palette);
 
@@ -156,6 +211,57 @@ export class MultiMidiManager {
    */
   public addCustomPalette(palette: ColorPalette): void {
     this.state.customPalettes.push(palette);
+    this.notifyStateChange();
+  }
+
+  /**
+   * Update an existing custom palette. Only applicable to user-defined palettes.
+   * If the palette is currently active, note that colors of existing files will be reassigned.
+   * @param id     Palette identifier
+   * @param patch  Partial properties to update (name and/or colors)
+   */
+  public updateCustomPalette(
+    id: string,
+    patch: Partial<Omit<ColorPalette, "id">>
+  ): void {
+    const idx = this.state.customPalettes.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+
+    this.state.customPalettes[idx] = {
+      ...this.state.customPalettes[idx],
+      ...patch,
+      id, // Ensure id stays unchanged
+    } as ColorPalette;
+
+    // If the updated palette is the active one, reassign colors
+    if (this.state.activePaletteId === id) {
+      this.colorIndex = 0;
+      reassignEntryColors(this.state.files, this.state.customPalettes[idx]);
+    }
+
+    this.notifyStateChange();
+  }
+
+  /**
+   * Remove a user-defined custom palette.
+   * If the palette is active, fall back to another palette and reassign colors.
+   */
+  public removeCustomPalette(id: string): void {
+    const idx = this.state.customPalettes.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+
+    // Remove palette from state
+    this.state.customPalettes.splice(idx, 1);
+
+    // If the removed palette was active, select a fallback palette
+    if (this.state.activePaletteId === id) {
+      this.state.activePaletteId =
+        this.state.customPalettes[0]?.id ?? DEFAULT_PALETTES[0].id;
+      // Reset color assignment so existing files use the new palette
+      this.colorIndex = 0;
+      reassignEntryColors(this.state.files, this.getActivePalette());
+    }
+
     this.notifyStateChange();
   }
 
@@ -215,6 +321,23 @@ export class MultiMidiManager {
   private notifyStateChange(): void {
     if (this.onStateChange) {
       this.onStateChange(this.getState());
+    }
+    this.listeners.forEach((l) => l(this.getState()));
+
+    // Persist palette-related state so that it survives reloads.
+    if (typeof window !== "undefined" && "localStorage" in window) {
+      try {
+        const payload = {
+          activePaletteId: this.state.activePaletteId,
+          customPalettes: this.state.customPalettes,
+        };
+        window.localStorage.setItem(
+          PALETTE_STORAGE_KEY,
+          JSON.stringify(payload)
+        );
+      } catch {
+        // Silently ignore storage quota / access errors.
+      }
     }
   }
 }

@@ -64,7 +64,7 @@ export function hsvToRgb(
     g1 = x;
   } else if (hh >= 1 && hh < 2) {
     r1 = x;
-    g1 = c; 
+    g1 = c;
   } else if (hh >= 2 && hh < 3) {
     g1 = c;
     b1 = x;
@@ -85,8 +85,8 @@ export function hsvToRgb(
   const gBase = (g1 + m) * 255;
   const bBase = (b1 + m) * 255;
 
-  // Lighten the colour slightly to avoid overly vivid tones.
-  const lightenFactor = 0.2; // 0 = original colour, 1 = pure white
+  // Lighten the color slightly to avoid overly vivid tones.
+  const lightenFactor = 0.2; // 0 = original color, 1 = pure white
   const r = Math.round(rBase + (255 - rBase) * lightenFactor);
   const g = Math.round(gBase + (255 - gBase) * lightenFactor);
   const b = Math.round(bBase + (255 - bBase) * lightenFactor);

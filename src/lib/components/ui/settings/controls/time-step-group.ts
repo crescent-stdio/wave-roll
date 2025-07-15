@@ -23,10 +23,7 @@ export function createTimeStepGroup(
   tsSuffix.textContent = "s";
   tsSuffix.style.cssText = tsLabel.style.cssText;
   const applyTS = () =>
-    applyTimeStep(
-      deps.pianoRoll?.setTimeStep,
-      parseFloat(tsInput.value)
-    );
+    applyTimeStep(deps.pianoRoll?.setTimeStep, parseFloat(tsInput.value));
   tsInput.addEventListener("change", applyTS);
   tsInput.addEventListener("blur", applyTS);
   tsGroup.appendChild(tsLabel);

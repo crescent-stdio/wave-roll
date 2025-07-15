@@ -73,7 +73,7 @@ export function createVolumeControl({
   input.value = "100";
   input.step = "1";
   input.style.cssText = `
-    width: 52px;
+    width: 40px;
     padding: 4px 6px;
     border: none;
     border-radius: 4px;
