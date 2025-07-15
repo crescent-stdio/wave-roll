@@ -58,7 +58,7 @@ export class FileManager {
    * @returns Array of visible file entries
    */
   getVisibleFiles(): MidiFileEntry[] {
-    return this.getAllFiles().filter((file) => file.isVisible);
+    return this.getAllFiles().filter((file) => file.isPianoRollVisible);
   }
 
   /**
@@ -103,7 +103,7 @@ export class FileManager {
     const file = this.midiManager
       .getState()
       .files.find((f: MidiFileEntry) => f.id === fileId);
-    if (file && file.isVisible !== isVisible) {
+    if (file && file.isPianoRollVisible !== isVisible) {
       this.midiManager.toggleVisibility(fileId);
     }
   }

@@ -4,6 +4,7 @@ import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 import { attachButtonScale } from "@/core/controls/utils/button-scale";
 import { setupPlayButton } from "@/core/controls/utils/play-button";
 import { attachRepeatToggle } from "@/core/controls/utils/repeat-toggle";
+import { createIconButton } from "../utils/icon-button";
 import { UIComponentDependencies } from "../types";
 
 /**
@@ -59,41 +60,20 @@ export function createPlaybackControlsUI(
 
   dependencies.updatePlayButton = updatePlayButton;
 
-  /* ---------------- helper for small buttons ---------------- */
-  const mkBtn = (icon: string, onClick: () => void): HTMLButtonElement => {
-    const btn = document.createElement("button");
-    btn.innerHTML = icon;
-    btn.onclick = onClick;
-    btn.style.cssText = `
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      border: none;
-      border-radius: 8px;
-      background: transparent;
-      color: #495057;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-    `;
-    attachHoverBackground(btn);
-    return btn;
-  };
-
   /* restart */
-  const restartBtn = mkBtn(PLAYER_ICONS.restart, () => {
+  const restartBtn = createIconButton(PLAYER_ICONS.restart, () => {
     dependencies.audioPlayer?.seek(0);
     if (!dependencies.audioPlayer?.getState().isPlaying) {
       dependencies.audioPlayer?.play();
     }
     updatePlayButton();
   });
+  attachHoverBackground(restartBtn);
 
   /* repeat toggle */
-  const repeatBtn = mkBtn(PLAYER_ICONS.repeat, () => {});
+  const repeatBtn = createIconButton(PLAYER_ICONS.repeat, () => {});
   attachRepeatToggle(repeatBtn, dependencies.audioPlayer);
+  attachHoverBackground(repeatBtn);
 
   container.appendChild(restartBtn);
   container.appendChild(playBtn);

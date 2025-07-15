@@ -1073,6 +1073,11 @@ export class AudioPlayer implements AudioPlayerContainer {
         Tone.getTransport().start();
       }
 
+      // Re-trigger any notes that are currently sounding so they continue
+      // through the seek point. This prevents audible gaps immediately
+      // after muting/unmuting tracks (which recreates the AudioPlayer).
+      this.retriggerHeldNotes(clampedVisual);
+
       // Clear seeking flag after a short delay (50 ms). Then process any queued seek.
       setTimeout(() => {
         console.log("[AP.seek] end", {
@@ -1351,6 +1356,29 @@ export class AudioPlayer implements AudioPlayerContainer {
     const clamped = Math.max(-1, Math.min(1, pan));
     this.panner.pan.value = clamped;
     this.state.pan = clamped;
+  }
+
+  private retriggerHeldNotes(currentTime: number): void {
+    if (!this.sampler) return;
+
+    // Trigger any note whose onset is before the cursor and whose end is after it.
+    const EPS = 1e-3; // small epsilon to account for FP rounding
+    const now = Tone.now();
+    this.notes.forEach((note) => {
+      const noteStart = note.time;
+      const noteEnd = note.time + note.duration;
+      if (noteStart < currentTime - EPS && noteEnd > currentTime + EPS) {
+        const remaining = noteEnd - currentTime;
+        if (remaining > 0) {
+          this.sampler!.triggerAttackRelease(
+            note.name,
+            remaining,
+            now,
+            note.velocity
+          );
+        }
+      }
+    });
   }
 }
 

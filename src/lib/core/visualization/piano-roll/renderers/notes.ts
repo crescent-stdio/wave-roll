@@ -2,84 +2,71 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import { NoteData } from "@/lib/midi/types";
 
+// Cache-friendly note rendering.
+// ------------------------------------------------------------
+// • Re-use `PIXI.Graphics` objects instead of creating/destroying them each frame.
+// • As long as the note count stays the same we simply `clear → redraw`,
+//   which massively reduces GC pressure and WebGL upload cost.
+// ------------------------------------------------------------
+
 export function renderNotes(pianoRoll: PianoRoll): void {
-  // Clear existing note graphics
-  pianoRoll.noteGraphics.forEach((graphic: PIXI.Graphics) => {
-    pianoRoll.notesContainer.removeChild(graphic);
-    graphic.destroy();
-  });
-  pianoRoll.noteGraphics = [];
-
-  /* ------------------------------------------------------------------
-   * Previous implementation aggressively culled notes that were deemed
-   * outside the visible viewport, but an incorrect viewport calculation
-   * occasionally caused **all** notes to be skipped - resulting in an
-   * empty piano-roll even though the play-head was visible.
-   *
-   * Until a more robust dynamic-culling algorithm is re-introduced, we
-   * simply render every note and rely on Pixi’s internal viewport
-   * clipping for off-screen graphics. This guarantees that users always
-   * see the score, at the minor cost of rendering a few extra quads.
-   * ------------------------------------------------------------------ */
-
   const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
 
-  if (pianoRoll.notes.length > 0) {
-    // console.log(
-    //   "[renderNotes] initial note",
-    //   pianoRoll.notes[0].time,
-    //   pianoRoll.timeScale(pianoRoll.notes[0].time) * pianoRoll.state.zoomX +
-    //     pianoRoll.state.panX +
-    //     pianoKeysOffset
-    // );
+  // Pre-compute shared constants
+  const noteRange =
+    pianoRoll.options.noteRange.max - pianoRoll.options.noteRange.min;
+  const baseRowHeight = (pianoRoll.options.height - 40) / noteRange; // per-semitone height
+
+  // 1) Keep the Graphics pool size in sync with `notes.length` ------------
+  //    Create new instances if we don’t have enough; destroy surplus ones.
+  while (pianoRoll.noteGraphics.length < pianoRoll.notes.length) {
+    const g = new PIXI.Graphics();
+    pianoRoll.notesContainer.addChild(g);
+    pianoRoll.noteGraphics.push(g);
   }
 
-  pianoRoll.notes.forEach((note: NoteData, index: number) => {
+  while (pianoRoll.noteGraphics.length > pianoRoll.notes.length) {
+    const g = pianoRoll.noteGraphics.pop();
+    if (g) {
+      pianoRoll.notesContainer.removeChild(g);
+      g.destroy();
+    }
+  }
+
+  // 2) Update position & style --------------------------------------------
+  pianoRoll.notes.forEach((note: NoteData, idx: number) => {
+    // Horizontal position without `panX`; overall timeline offset is now
+    // applied by translating `notesContainer.x` once per frame in
+    // PianoRoll.render(). This avoids per-note coordinate re-calculation
+    // during continuous scrolling.
     const x =
-      pianoRoll.timeScale(note.time) * pianoRoll.state.zoomX +
-      pianoRoll.state.panX +
-      pianoKeysOffset;
+      pianoRoll.timeScale(note.time) * pianoRoll.state.zoomX + pianoKeysOffset;
     const y = pianoRoll.pitchScale(note.midi); // No Y zoom/pan
     const width = pianoRoll.timeScale(note.duration) * pianoRoll.state.zoomX;
+    const height = Math.max(1, baseRowHeight * 0.8);
 
-    // if (index === 0) {
-    //   if (index === 0) {
-    //     console.log("[renderNotes] first-x", x, "panX", pianoRoll.state.panX);
-    //   }
-    // }
+    const g = pianoRoll.noteGraphics[idx];
 
-    // Fixed note height calculation: no Y zoom
-    const noteRange =
-      pianoRoll.options.noteRange.max - pianoRoll.options.noteRange.min;
-    const baseRowHeight = (pianoRoll.options.height - 40) / noteRange; // Base height per semitone
-    const height = Math.max(1, baseRowHeight * 0.8); // 80% of row for spacing, no zoom
+    // Reset geometry
+    g.clear();
 
-    const noteGraphic = new PIXI.Graphics();
-
-    // Determine note color using custom renderer or default
+    // Determine color (custom renderer takes priority)
     const noteColor = pianoRoll.options.noteRenderer
-      ? pianoRoll.options.noteRenderer(note, index)
+      ? pianoRoll.options.noteRenderer(note, idx)
       : pianoRoll.options.noteColor;
 
-    // Note color based on velocity - clamp velocity ∈ [0,1] to avoid NaN alpha
     const velocity = isFinite(note.velocity)
       ? Math.max(0, Math.min(1, note.velocity))
       : 0.5;
-    const alpha = 0.3 + velocity * 0.7; // Scale alpha based on velocity
+    const alpha = 0.3 + velocity * 0.7;
 
-    // Draw filled rectangle
-    noteGraphic.rect(x, y - height / 2, width, height);
-    noteGraphic.fill({ color: noteColor, alpha });
-
-    // Note border
-    noteGraphic.rect(x, y - height / 2, width, height);
-    noteGraphic.stroke({
+    // Draw rectangle once, then apply fill and stroke.
+    g.rect(x, y - height / 2, width, height);
+    g.fill({ color: noteColor, alpha });
+    g.stroke({
       width: 1,
       color: noteColor,
       alpha: Math.min(1, alpha + 0.2),
     });
-
-    pianoRoll.notesContainer.addChild(noteGraphic);
-    pianoRoll.noteGraphics.push(noteGraphic);
   });
 }

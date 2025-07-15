@@ -30,13 +30,24 @@ export class PianoRoll {
   public state: PianoRollViewState;
   public options: Required<PianoRollConfig>;
 
+  /**
+   * Indicates whether the note layer needs a full geometry redraw. We set this
+   * flag to `true` whenever the underlying note data, zoom level, or canvas
+   * dimensions change. During regular playback the timeline scrolls by
+   * translating the `notesContainer` instead of erasing and re-drawing every
+   * individual note each frame, so we can skip heavy redraw work when this
+   * flag is `false`.
+   */
+  private needsNotesRedraw: boolean = true;
+
   // Scales for coordinate transformation
   public timeScale!: ScaleLinear<number, number>;
   public pitchScale!: ScaleLinear<number, number>;
 
   // Performance optimization
   private lastRenderTime = 0;
-  private renderThrottleMs = 16; // ~60fps
+  // private renderThrottleMs = 16; // ~60fps
+  private renderThrottleMs = 20; // ~50fps
 
   // Loop window (A-B) state
   public loopStart: number | null = null;
@@ -259,7 +270,18 @@ export class PianoRoll {
 
     renderPlayhead(this);
     renderGrid(this);
-    renderNotes(this);
+
+    // Only re-generate note geometry when required; otherwise we simply shift
+    // the container horizontally (pan) which is much cheaper than rebuilding
+    // thousands of Graphics paths every frame.
+    if (this.needsNotesRedraw) {
+      renderNotes(this);
+      this.needsNotesRedraw = false;
+    }
+
+    // Apply horizontal pan via container transform instead of per-note maths.
+    // (Vertical panning is disabled, see design notes.)
+    this.notesContainer.x = this.state.panX;
 
     // Ensure proper rendering order
     this.container.sortChildren();
@@ -272,6 +294,7 @@ export class PianoRoll {
     // console.log("[setNotes] incoming notes", notes.length);
     this.notes = notes;
     this.initializeScales(); // Recalculate scales based on new data
+    this.needsNotesRedraw = true; // geometry must be rebuilt
     this.render();
   }
 
@@ -307,10 +330,13 @@ export class PianoRoll {
       //   );
     }
 
-    // Force immediate render without throttling for seek operations
-    // This ensures visual feedback is instant when seeking
-    this.lastRenderTime = 0; // Reset throttle timer
-    this.render(); // Render immediately instead of requestRender()
+    // To avoid heavy full re-renders during regular playback we no longer
+    // call `render()` directly here. Instead we delegate to `requestRender()`,
+    // which respects the internal 16 ms throttle (≈60 FPS).
+    // For explicit seek operations the PianoRollManager may still call
+    // `render()` immediately, so this change is safe.
+
+    this.requestRender();
   }
 
   /**
@@ -346,6 +372,9 @@ export class PianoRoll {
     // });
     // Clamp pan within valid bounds
     clampPanX(this.timeScale, this.state);
+
+    // Changing zoom affects note width → full redraw required
+    this.needsNotesRedraw = true;
 
     this.requestRender();
   }
@@ -414,6 +443,7 @@ export class PianoRoll {
     // the ratio that was computed when the canvas width was near-zero.
     this.pxPerSecond = null;
     this.initializeScales();
+    this.needsNotesRedraw = true;
     this.requestRender();
   }
 
@@ -485,9 +515,17 @@ export class PianoRoll {
   }
 
   public computeTimeAtPlayhead(): number {
-    const time = this.timeScale.invert(-this.state.panX / this.state.zoomX);
-    // Clamp within timeline bounds
-    // return Math.max(0, Math.min(time, this.timeScale.domain()[1]));
+    // The playhead is visually fixed just after the piano-keys column. To
+    // translate its on-screen location back to a timeline position we must
+    // account for that static offset (60 px when the piano keys are shown).
+
+    const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
+
+    const time = this.timeScale.invert(
+      (-this.state.panX + pianoKeysOffset) / this.state.zoomX
+    );
+
+    // Clamp within timeline bounds to avoid negative times or overshoot.
     return clamp(time, 0, this.timeScale.domain()[1]);
   }
 }

@@ -38,9 +38,9 @@ export function setupUI(
   row.style.cssText = `
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
     justify-content: flex-start;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     overflow-x: auto;
   `;
 
@@ -48,7 +48,7 @@ export function setupUI(
   row.appendChild(createLoopControlsUI(deps));
   row.appendChild(createVolumeControlUI(deps));
   row.appendChild(createTempoControlUI(deps));
-  row.appendChild(createPanControlsUI(deps));
+  // row.appendChild(createPanControlsUI(deps));
   row.appendChild(createZoomControlsUI(deps));
   row.appendChild(createSettingsControlUI(deps));
 

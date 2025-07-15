@@ -90,24 +90,7 @@ export function createZoomControlsUI(
     zoomInput.value = "1.0";
   });
   resetBtn.title = "Reset Zoom";
-  resetBtn.style.cssText = `
-      width: 32px;
-      height: 32px;
-      padding: 0;
-      border: none;
-      border-radius: 8px;
-      background: transparent;
-      color: #495057;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.15s ease;
-    `;
-  resetBtn.addEventListener("click", () => {
-    dependencies.pianoRoll?.resetView?.();
-    zoomInput.value = "1.0";
-  });
+  // Styling and click behavior handled by createIconButton
 
   container.appendChild(zoomInput);
   container.appendChild(suffix);

@@ -2,6 +2,7 @@ import { PLAYER_ICONS } from "@/assets/player-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
 
 import { UIComponentDependencies } from "@/lib/components/ui";
+import { createIconButton } from "../utils/icon-button";
 
 /**
  * Manages file visibility and per-file audio controls.
@@ -21,7 +22,7 @@ export class FileToggleManager {
 
     // Title
     const title = document.createElement("h4");
-    title.textContent = "File Visibility";
+    title.textContent = "MIDI Files";
     title.style.cssText = `
       margin: 0 0 8px 0;
       font-size: 14px;
@@ -70,33 +71,11 @@ export class FileToggleManager {
       align-items: center;
       gap: 8px;
       padding: 6px 8px;
-      background: white;
-      border-radius: 4px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       border: 1px solid #dee2e6;
     `;
-
-    // Visibility toggle with eye icon
-    const visBtn = document.createElement("button");
-    visBtn.innerHTML = file.isVisible
-      ? PLAYER_ICONS.eye_open
-      : PLAYER_ICONS.eye_closed;
-    visBtn.style.cssText = `
-      width: 20px;
-      height: 20px;
-      padding: 0;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: ${file.isVisible ? "#495057" : "#adb5bd"};
-      transition: color 0.15s ease;
-    `;
-
-    visBtn.addEventListener("click", () => {
-      dependencies.midiManager.toggleVisibility(file.id);
-    });
 
     // Color indicator
     const colorIndicator = document.createElement("div");
@@ -113,33 +92,35 @@ export class FileToggleManager {
     fileName.style.cssText = `
       flex: 1;
       font-size: 14px;
-      color: ${file.isVisible ? "#343a40" : "#6c757d"};
+      color: ${file.isPianoRollVisible ? "#343a40" : "#6c757d"};
     `;
 
-    // Mute / Unmute toggle button
-    const muteBtn = document.createElement("button");
+    // Visibility toggle with eye icon (reusable button)
+    const visBtn = createIconButton(
+      file.isPianoRollVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
+      () => dependencies.midiManager.toggleVisibility(file.id),
+      "Toggle visibility",
+      { size: 24 }
+    );
+    visBtn.style.color = file.isPianoRollVisible ? "#495057" : "#adb5bd";
+    visBtn.style.border = "none";
+    visBtn.style.boxShadow = "none";
+
+    // Mute / Unmute toggle button (reusable button)
     let isMuted = file.isMuted;
-    muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
-    muteBtn.style.cssText = `
-      width: 20px;
-      height: 20px;
-      padding: 0;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #adb5bd;
-      transition: color 0.15s ease;
-    `;
-
-    muteBtn.addEventListener("click", () => {
-      dependencies.midiManager.toggleMute(file.id);
-      // Local state sync after manager toggles
-      isMuted = !isMuted;
-      muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
-    });
+    const muteBtn = createIconButton(
+      isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume,
+      () => {
+        dependencies.midiManager.toggleMute(file.id);
+        isMuted = !isMuted;
+        muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
+      },
+      "Mute / Unmute",
+      { size: 24 }
+    );
+    muteBtn.style.color = !file.isMuted ? "#495057" : "#adb5bd";
+    muteBtn.style.border = "none";
+    muteBtn.style.boxShadow = "none";
 
     // Stereo labels for clarity
     const labelL = document.createElement("span");

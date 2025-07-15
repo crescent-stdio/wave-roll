@@ -89,7 +89,16 @@ export class MultiMidiManager {
   public toggleVisibility(id: string): void {
     const file = this.state.files.find((f) => f.id === id);
     if (file) {
-      file.isVisible = !file.isVisible;
+      // Keep both visibility flags in sync so that UI and core logic
+      // referring to either property behave consistently. Historically
+      // the codebase used both `isVisible` (legacy UI components) and
+      // `isPianoRollVisible` (core engine). A desynchronised state meant
+      // that toggling visibility in the UI had no effect on rendering or
+      // audio. We therefore flip **both** properties together.
+
+      const newVisibility = !file.isPianoRollVisible;
+      file.isPianoRollVisible = newVisibility;
+      file.isVisible = newVisibility;
       this.notifyStateChange();
     }
   }
@@ -162,7 +171,7 @@ export class MultiMidiManager {
       [];
 
     this.state.files.forEach((file) => {
-      if (file.isVisible && file.parsedData) {
+      if (file.isPianoRollVisible && file.parsedData) {
         file.parsedData.notes.forEach((note) => {
           allNotes.push({
             note,
@@ -184,7 +193,7 @@ export class MultiMidiManager {
   public getTotalDuration(): number {
     let maxDuration = 0;
     this.state.files.forEach((file) => {
-      if (file.isVisible && file.parsedData) {
+      if (file.isPianoRollVisible && file.parsedData) {
         maxDuration = Math.max(maxDuration, file.parsedData.duration);
       }
     });

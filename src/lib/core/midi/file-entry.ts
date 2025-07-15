@@ -22,6 +22,7 @@ export function createMidiFileEntry(
     fileName,
     parsedData,
     isVisible: true,
+    isPianoRollVisible: true,
     color,
     isMuted: false,
   };

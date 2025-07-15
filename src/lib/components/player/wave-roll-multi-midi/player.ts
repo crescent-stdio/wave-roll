@@ -426,10 +426,23 @@ export class WaveRollMultiMidiPlayer {
     // Build notes for piano-roll (visible) and audio (all but muted)
     const coloredNotesVisible = this.getColoredNotes(state);
 
+    // --- Audio mixing --------------------------------------------------
+    const activeFileCount = state.files.filter(
+      (file: any) => file.parsedData && !file.isMuted
+    ).length;
+    const velocityScale = 1 / Math.max(1, activeFileCount);
+
     const audioNotes: NoteData[] = [];
     state.files.forEach((file: any) => {
       if (file.parsedData && !file.isMuted) {
-        audioNotes.push(...file.parsedData.notes);
+        // Clone each note and scale velocity to compensate for the number of
+        // concurrently sounding tracks.  This prevents the overall mix from
+        // becoming excessively loud when several MIDI files play together.
+        file.parsedData.notes.forEach((note: NoteData) => {
+          // Keep velocity within valid [0,1] range.
+          const scaledVel = Math.min(1, note.velocity * velocityScale);
+          audioNotes.push({ ...note, velocity: scaledVel });
+        });
       }
     });
 
@@ -454,7 +467,11 @@ export class WaveRollMultiMidiPlayer {
     };
 
     state.files.forEach((file: any, index: number) => {
-      if (!file.isVisible || !file.parsedData || !file.parsedData.notes) {
+      if (
+        !file.isPianoRollVisible ||
+        !file.parsedData ||
+        !file.parsedData.notes
+      ) {
         return;
       }
 
