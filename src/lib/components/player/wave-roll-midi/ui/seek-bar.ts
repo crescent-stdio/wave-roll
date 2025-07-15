@@ -183,7 +183,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
         top: 0;
         left: 0;
         margin: 0; /* Firefox default offset */
-        z-index: 2; /* Under loop overlay, above progress */
+        z-index: 4; /* Above loop overlay and markers */
       }
 
       /* WebKit track */

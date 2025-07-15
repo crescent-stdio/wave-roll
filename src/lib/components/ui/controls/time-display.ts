@@ -151,6 +151,7 @@ export function createTimeDisplayUI(
       cursor: pointer;
       left: 0%;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      z-index: 4;
     `;
 
   // Total time label
