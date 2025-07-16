@@ -1,6 +1,7 @@
 import { createSettingsModalSkeleton } from "./skeleton";
 import { UIComponentDependencies } from "../../types";
 import { ColorPalette } from "@/lib/core/midi/types";
+import { toHexColor } from "@/lib/core/utils/color";
 
 /**
  * Open the palette editor modal.
@@ -28,8 +29,8 @@ export function openPaletteEditorModal(
     mode === "clone" && palette
       ? `${palette.name} Copy`
       : (palette?.name ?? "");
-  const workingColors: string[] = (palette?.colors ?? [0xffffff]).map(
-    (c) => "#" + c.toString(16).padStart(6, "0")
+  const workingColors: string[] = (palette?.colors ?? [0x000000]).map((c) =>
+    toHexColor(c)
   );
 
   // ---------- Name input ----------
@@ -69,7 +70,7 @@ export function openPaletteEditorModal(
       const hexInput = document.createElement("input");
       hexInput.type = "text";
       hexInput.maxLength = 7; // including '#'
-      hexInput.placeholder = "#ffffff";
+      hexInput.placeholder = "#000000";
       hexInput.value = hex;
       hexInput.style.cssText =
         "width:70px;padding:2px 4px;font-size:10px;font-family:monospace;text-align:center;border:1px solid #ced4da;border-radius:4px;";

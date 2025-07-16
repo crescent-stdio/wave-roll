@@ -2,6 +2,7 @@ import { UIComponentDependencies } from "../../types";
 import { DEFAULT_PALETTE_ID, DEFAULT_PALETTES } from "@/lib/core/midi/palette";
 import { openPaletteEditorModal } from "../modal/palette-editor";
 import { PLAYER_ICONS } from "@/assets/player-icons";
+import { toHexColor } from "@/lib/core/utils/color";
 
 /**
  * Build an interactive palette selector with color previews.
@@ -14,11 +15,13 @@ export function createPaletteSelectorSection(
   wrapper.setAttribute("data-palette-selector", "true");
 
   const title = document.createElement("h3");
+  title.id = "palette-title";
   title.textContent = "Color Palette";
   title.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;";
 
   // Container for palette buttons
   const paletteGrid = document.createElement("div");
+  paletteGrid.id = "palette-grid";
   paletteGrid.style.cssText =
     "display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px;";
 
@@ -50,9 +53,9 @@ export function createPaletteSelectorSection(
     preview.style.cssText = "display:flex;gap:4px;flex-wrap:wrap;";
     palette.colors.forEach((col) => {
       const sw = document.createElement("div");
-      sw.style.cssText = `width:20px;height:20px;border-radius:3px;background:#${col
-        .toString(16)
-        .padStart(6, "0")}`;
+      sw.style.cssText = `width:20px;height:20px;border-radius:3px;background:${toHexColor(
+        col
+      )}`;
       preview.appendChild(sw);
     });
 
@@ -143,9 +146,9 @@ export function createPaletteSelectorSection(
     swatchRow.style.cssText = "display:flex;gap:2px;margin-bottom:4px;";
     palette.colors.slice(0, 8).forEach((col) => {
       const sw = document.createElement("div");
-      sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:#${col
-        .toString(16)
-        .padStart(6, "0")}`;
+      sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:${toHexColor(
+        col
+      )}`;
       swatchRow.appendChild(sw);
     });
 
@@ -167,69 +170,7 @@ export function createPaletteSelectorSection(
     btn.addEventListener("focus", showBar);
     btn.addEventListener("blur", hideBar);
 
-    // Only custom palettes can be edited
-    const isCustom = customPalettes.some((p) => p.id === palette.id);
-    let editIcon: HTMLElement | null = null;
-    let cloneIcon: HTMLElement | null = null;
-    if (isCustom) {
-      editIcon = document.createElement("span");
-      editIcon.innerHTML = PLAYER_ICONS.edit;
-      editIcon.style.cssText =
-        "width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;";
-      editIcon.onclick = (e) => {
-        e.stopPropagation();
-        openPaletteEditorModal(
-          deps,
-          palette as any,
-          () => {
-            // Re-render selector after editing
-            const newSection = createPaletteSelectorSection(deps);
-            wrapper.replaceWith(newSection);
-          },
-          "edit"
-        );
-      };
-      actionsBar.appendChild(editIcon);
-
-      // Delete icon (only for custom palettes)
-      const deleteIcon = document.createElement("span");
-      deleteIcon.innerHTML = PLAYER_ICONS.trash;
-      deleteIcon.style.cssText =
-        "width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;";
-      deleteIcon.onclick = (e) => {
-        e.stopPropagation();
-        if (
-          confirm(
-            `Delete palette \"${palette.name}\"? This action cannot be undone.`
-          )
-        ) {
-          deps.midiManager.removeCustomPalette(palette.id);
-          const newSection = createPaletteSelectorSection(deps);
-          wrapper.replaceWith(newSection);
-        }
-      };
-      actionsBar.appendChild(deleteIcon);
-    }
-
-    // Clone icon (available for all palettes)
-    cloneIcon = document.createElement("span");
-    cloneIcon.innerHTML = PLAYER_ICONS.duplicate;
-    cloneIcon.style.cssText =
-      "width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;";
-    cloneIcon.onclick = (e) => {
-      e.stopPropagation();
-      openPaletteEditorModal(
-        deps,
-        palette as any,
-        () => {
-          const newSection = createPaletteSelectorSection(deps);
-          wrapper.replaceWith(newSection);
-        },
-        "clone"
-      );
-    };
-    // Append clone icon before edit to match original order (duplicate then edit)
-    actionsBar.insertBefore(cloneIcon, actionsBar.firstChild);
+    // Small palette preview should remain uncluttered—no edit/duplicate icons here.
 
     btn.onclick = () => {
       if (deps.midiManager.getState().activePaletteId !== palette.id) {
@@ -244,29 +185,43 @@ export function createPaletteSelectorSection(
     };
 
     btn.style.position = "relative";
-    btn.append(swatchRow, label, actionsBar);
+    btn.append(swatchRow, label);
 
     paletteGrid.appendChild(btn);
   });
 
-  // Auto-expand the details view for the initial palette so that users immediately see palette information.
-  const initialPalette =
-    palettes.find((p) => p.id === activePaletteId) ?? palettes[0];
-  renderDetails(initialPalette);
-  // ---- Add custom palette ----
-  const addCustom = document.createElement("button");
-  addCustom.textContent = "+ New Palette";
-  addCustom.type = "button";
-  addCustom.style.cssText =
-    "margin-top:8px;padding:6px 8px;border:1px dashed #ced4da;border-radius:6px;background:#fff;cursor:pointer;font-size:12px;";
+  /* ------------------------------------------------------------------
+   * "New Palette" card (shown alongside palette previews)
+   * ------------------------------------------------------------------ */
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.style.cssText =
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border:1px dashed #ced4da;border-radius:6px;cursor:pointer;background:#fff;gap:4px;transition:background 0.2s;";
 
-  addCustom.onclick = () => {
+  const plusSign = document.createElement("span");
+  plusSign.textContent = "+";
+  plusSign.style.cssText = "font-size:20px;line-height:1;color:#495057;";
+
+  const plusLabel = document.createElement("span");
+  plusLabel.textContent = "New Palette";
+  plusLabel.style.cssText = "font-size:12px;color:#495057;";
+
+  addBtn.append(plusSign, plusLabel);
+
+  addBtn.onclick = () => {
     openPaletteEditorModal(deps, null, () => {
       const newSection = createPaletteSelectorSection(deps);
       wrapper.replaceWith(newSection);
     });
   };
 
-  wrapper.append(title, paletteGrid, detailsRow, addCustom);
+  paletteGrid.appendChild(addBtn);
+
+  // Auto-expand the details view for the initial palette so that users immediately see palette information.
+  const initialPalette =
+    palettes.find((p) => p.id === activePaletteId) ?? palettes[0];
+  renderDetails(initialPalette);
+
+  wrapper.append(title, paletteGrid, detailsRow);
   return wrapper;
 }

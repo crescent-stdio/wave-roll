@@ -48,8 +48,8 @@ export function createPlaybackControls(
   const playBtn = document.createElement("button");
   playBtn.innerHTML = PLAYER_ICONS.play;
   playBtn.style.cssText = `
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     padding: 0;
     border: none;
     border-radius: 8px;

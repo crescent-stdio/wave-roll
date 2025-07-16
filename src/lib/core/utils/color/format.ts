@@ -93,3 +93,13 @@ export function hsvToRgb(
 
   return [r, g, b];
 }
+
+/**
+ * Converts a numeric RGB color (e.g. 0xffaabb) to a 6-character hex string without the leading '#'.
+ * This utility centralises the `toString(16).padStart(6, '0')` pattern used across the codebase.
+ * @param value Color as a 24-bit integer (0xRRGGBB)
+ * @returns Lower-case hex string in the form "#ffaabb"
+ */
+export function toHexColor(value: number): string {
+  return "#" + value.toString(16).padStart(6, "0");
+}
