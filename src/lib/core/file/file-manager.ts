@@ -18,7 +18,7 @@ export class FileManager {
     return Loader.loadSampleFiles(this, files);
   }
 
-  /** Load a single MIDI file (local File 객체나 URL). */
+  /** Load a single MIDI file (local File object or URL). */
   async loadFile(
     input: MidiInput,
     options: FileLoadOptions = {}

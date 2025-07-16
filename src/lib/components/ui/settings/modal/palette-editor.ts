@@ -29,9 +29,23 @@ export function openPaletteEditorModal(
     mode === "clone" && palette
       ? `${palette.name} Copy`
       : (palette?.name ?? "");
-  const workingColors: string[] = (palette?.colors ?? [0x000000]).map((c) =>
-    toHexColor(c)
-  );
+  // Derive initial colors when creating a new palette.
+  // • Edit / Clone modes: start from the provided palette colors.
+  // • Create mode: use distinct colors already assigned to MIDI files (if any).
+  function getInitialColors(): number[] {
+    if (palette) return palette.colors;
+
+    const fileColors = deps.midiManager.getState().files.map((f) => f.color);
+
+    // Deduplicate while preserving original order so that the palette mirrors
+    // the colour order shown in the file list.
+    return fileColors.filter((c, idx) => fileColors.indexOf(c) === idx);
+  }
+
+  const workingColors: string[] =
+    getInitialColors().length > 0
+      ? getInitialColors().map((c) => toHexColor(c))
+      : [toHexColor(0x000000)];
 
   // ---------- Name input ----------
   const nameLabel = document.createElement("label");

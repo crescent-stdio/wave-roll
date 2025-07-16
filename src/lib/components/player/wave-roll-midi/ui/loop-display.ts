@@ -31,7 +31,6 @@ export function updateLoopDisplay({
   markerA,
   markerB,
 }: LoopDisplayDeps): void {
-  console.log("[LoopDisplay]", loopPoints);
   if (!loopRegion || !markerA || !markerB) {
     return; // Defensive - refs not yet ready.
   }

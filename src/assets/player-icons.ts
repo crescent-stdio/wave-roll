@@ -111,4 +111,13 @@ export const PLAYER_ICONS = {
     <path d="M5.5 3h5l-.5-1h-4z" />
     <path d="M4.5 4.75 5.3 14a1 1 0 0 0 1 .9h3.4a1 1 0 0 0 1-.9l.8-9.25Z" />
   </svg>`,
+
+  /** Palette icon for color picker */
+  palette: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <circle cx="8" cy="8" r="6" />
+    <circle cx="4" cy="4" r="1.5" fill="currentColor" />
+    <circle cx="12" cy="4" r="1.5" fill="currentColor" />
+    <circle cx="4" cy="12" r="1.5" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+  </svg>`,
 };

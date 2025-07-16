@@ -88,6 +88,13 @@ export class MultiMidiManager {
   }
 
   /**
+   * Reset color index to match current file count
+   */
+  private resetColorIndex(): void {
+    this.colorIndex = this.state.files.length;
+  }
+
+  /**
    * Add a MIDI file
    */
   public addMidiFile(
@@ -111,6 +118,7 @@ export class MultiMidiManager {
    */
   public removeMidiFile(id: string): void {
     this.state.files = this.state.files.filter((f) => f.id !== id);
+    this.resetColorIndex();
     this.notifyStateChange();
   }
 
@@ -203,6 +211,10 @@ export class MultiMidiManager {
     const palette = this.getActivePalette();
     reassignEntryColors(this.state.files, palette);
 
+    // After re-assigning, move the index forward so that the next added file
+    // continues from the subsequent colour instead of restarting at 0.
+    this.resetColorIndex();
+
     this.notifyStateChange();
   }
 
@@ -235,8 +247,11 @@ export class MultiMidiManager {
 
     // If the updated palette is the active one, reassign colors
     if (this.state.activePaletteId === id) {
+      // Reset index *before* reassigning so that colours align starting at 0,
+      // then advance to the current file count to avoid duplicates afterwards.
       this.colorIndex = 0;
       reassignEntryColors(this.state.files, this.state.customPalettes[idx]);
+      this.resetColorIndex();
     }
 
     this.notifyStateChange();
@@ -311,7 +326,7 @@ export class MultiMidiManager {
    */
   public clearAll(): void {
     this.state.files = [];
-    this.colorIndex = 0;
+    this.resetColorIndex();
     this.notifyStateChange();
   }
 
