@@ -2,6 +2,7 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import { ControlChangeEvent } from "@/lib/midi/types";
 import { getColorForFile } from "../utils/get-color-for-file";
+import { SUSTAIN_CONTROLLER } from "@/core/constants";
 
 export function renderSustains(pianoRoll: PianoRoll): void {
   const g = pianoRoll.sustainOverlay;
@@ -9,7 +10,7 @@ export function renderSustains(pianoRoll: PianoRoll): void {
 
   // 1) Gather sustain-pedal CC events (controller 64) grouped by fileId
   const sustainEvents = pianoRoll.controlChanges
-    .filter((cc) => cc.controller === 64)
+    .filter((cc) => cc.controller === SUSTAIN_CONTROLLER)
     .sort((a, b) => a.time - b.time);
 
   // Organise events per originating file so we can apply per-track colours.
