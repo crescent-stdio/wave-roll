@@ -493,23 +493,25 @@ export class AudioPlayer implements AudioPlayerContainer {
     // Create events, optionally windowed for A-B looping
     const events = this.notes
       .filter((note) => {
+        // When a custom loop window is active, keep any note that INTERSECTS
+        // [loopStartVisual, loopEndVisual).  This includes notes whose onset
+        // is earlier than the loop window but whose tail sustains into it.
         if (
           loopStartVisual !== undefined &&
           loopEndVisual !== undefined &&
           loopStartVisual !== null &&
           loopEndVisual !== null
         ) {
-          // Keep any note whose *onset* occurs inside the loop window.
-          // This allows very short A-B regions (\<= 한 음 길이) to still trigger sound.
           const noteStart = note.time;
-          return noteStart >= loopStartVisual && noteStart < loopEndVisual;
+          const noteEnd = note.time + note.duration;
+          return noteEnd > loopStartVisual && noteStart < loopEndVisual;
         }
+        // No custom loop – keep all notes.
         return true;
       })
       .map((note) => {
-        // Clamp duration so sustained notes don\'t bleed into the next cycle.
-        let duration = note.duration;
         let onset = note.time;
+        let duration = note.duration;
 
         if (
           loopStartVisual !== undefined &&
@@ -517,16 +519,27 @@ export class AudioPlayer implements AudioPlayerContainer {
           loopStartVisual !== null &&
           loopEndVisual !== null
         ) {
-          const maxTail = Math.max(0, loopEndVisual - onset);
-          duration = Math.min(duration, maxTail);
+          const loopStart = loopStartVisual;
+          const loopEnd = loopEndVisual;
+
+          const noteStart = note.time;
+          const noteEnd = note.time + note.duration;
+
+          // Calculate the actual audible region of the note INSIDE the loop.
+          const intersectStart = Math.max(noteStart, loopStart);
+          const intersectEnd = Math.min(noteEnd, loopEnd);
+
+          onset = intersectStart;
+          duration = Math.max(0, intersectEnd - intersectStart);
         }
 
+        // Convert absolute onset to time relative to the loop window (or 0).
         const relativeTime =
           loopStartVisual !== undefined && loopStartVisual !== null
             ? onset - loopStartVisual
             : onset;
 
-        // Ensure values are within valid range to avoid Tone.js errors
+        // Ensure safe, non-negative values to avoid Tone.js errors.
         const timeSafe = Math.max(0, relativeTime);
         const durationSafe = Math.max(0, duration);
 
@@ -1288,6 +1301,15 @@ export class AudioPlayer implements AudioPlayerContainer {
    * If only `start` is provided, the loop will extend to the end of the piece.
    */
   public setLoopPoints(start: number | null, end: number | null): void {
+    /**
+     * Skip when the requested loop configuration is identical to the one that
+     * is already active.  Re-creating the Tone.Part on every redundant call
+     * was leading to multiple overlapping playback instances whenever the UI
+     * repeatedly forwarded the same A–B window (e.g. during seek-bar updates).
+     */
+    if (start === this._loopStartVisual && end === this._loopEndVisual) {
+      return;
+    }
     // Clear looping if start is null ---------------------------------------
     if (start === null) {
       this._loopStartVisual = null;
@@ -1347,6 +1369,19 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     // Jump transport to start of loop window and sync state ------------
     transport.seconds = transportStart;
+    // Immediately release any voices that were triggered by the previous timeline so
+    // they don’t sustain over the newly looped playback.  Without this, long notes
+    // that began before the loop window can continue sounding in parallel with the
+    // freshly scheduled Part, causing audible doubling.
+    if (this.sampler && (this.sampler as any).releaseAll) {
+      (this.sampler as any).releaseAll();
+    }
+    this.trackSamplers.forEach(({ sampler }) => {
+      if ((sampler as any).releaseAll) {
+        (sampler as any).releaseAll();
+      }
+    });
+
     this.state.currentTime = start;
     this.pausedTime = transportStart;
 

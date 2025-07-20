@@ -28,6 +28,9 @@ export class PianoRoll {
   public overlapOverlay!: PIXI.Graphics;
   public overlapIntervals: NoteInterval[] = [];
 
+  // Tooltip element for note hover information
+  private tooltipDiv: HTMLDivElement | null = null;
+
   public playheadX: number = 0;
   public notes: NoteData[] = [];
   public noteGraphics: PIXI.Graphics[] = [];
@@ -136,6 +139,8 @@ export class PianoRoll {
     await instance.initializeApp(canvas);
     instance.initializeContainers();
     instance.initializeScales();
+    // Add tooltip overlay after containers are ready
+    instance.initializeTooltip(canvas);
     instance.setupInteraction();
     instance.render(); // Full render including playhead
     return instance;
@@ -214,6 +219,81 @@ export class PianoRoll {
     this.container.addChild(startLine);
     this.container.addChild(endLine);
     this.loopLines = { start: startLine, end: endLine };
+  }
+
+  private initializeTooltip(canvas: HTMLCanvasElement): void {
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    // Ensure parent has positioning context for absolute children
+    const computedStyle = window.getComputedStyle(parent);
+    if (computedStyle.position === "static") {
+      parent.style.position = "relative";
+    }
+
+    const div = document.createElement("div");
+    Object.assign(div.style, {
+      position: "absolute",
+      zIndex: "1000",
+      pointerEvents: "none",
+      background: "rgba(0, 0, 0, 0.8)",
+      color: "#ffffff",
+      padding: "4px 6px",
+      borderRadius: "4px",
+      fontSize: "12px",
+      lineHeight: "1.2",
+      whiteSpace: "nowrap",
+      display: "none",
+    });
+
+    parent.appendChild(div);
+    this.tooltipDiv = div;
+  }
+
+  /**
+   * Show tooltip populated with the given note information.
+   */
+  public showNoteTooltip(
+    note: NoteData,
+    event: PIXI.FederatedPointerEvent
+  ): void {
+    if (!this.tooltipDiv) return;
+
+    const endTime = note.time + note.duration;
+    this.tooltipDiv.innerHTML = `
+      <div><strong>${note.name}</strong></div>
+      <div>Pitch: ${note.pitch} (${note.midi})</div>
+      <div>Velocity: ${note.velocity.toFixed(2)}</div>
+      <div>Time: ${note.time.toFixed(2)}s – ${endTime.toFixed(2)}s</div>
+    `;
+    this.tooltipDiv.style.display = "block";
+    this.moveTooltip(event);
+  }
+
+  /** Update tooltip position to follow the pointer */
+  public moveTooltip(event: PIXI.FederatedPointerEvent): void {
+    if (!this.tooltipDiv) return;
+
+    const offset = 10;
+
+    const parent = this.tooltipDiv.parentElement;
+    if (!parent) return;
+
+    const parentRect = parent.getBoundingClientRect();
+
+    // Position tooltip relative to parent so it stays inside the same stacking context.
+    const x = event.clientX - parentRect.left + offset;
+    const y = event.clientY - parentRect.top + offset;
+
+    this.tooltipDiv.style.left = `${x}px`;
+    this.tooltipDiv.style.top = `${y}px`;
+  }
+
+  /** Hide the tooltip */
+  public hideTooltip(): void {
+    if (this.tooltipDiv) {
+      this.tooltipDiv.style.display = "none";
+    }
   }
 
   /**

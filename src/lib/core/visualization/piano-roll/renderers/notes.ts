@@ -26,6 +26,25 @@ export function renderNotes(pianoRoll: PianoRoll): void {
 
   while (pianoRoll.noteSprites.length < pianoRoll.notes.length) {
     const sprite = new PIXI.Sprite(baseTexture);
+    // Enable pointer interactions to show tooltip on hover
+    sprite.eventMode = "static"; // Pixi v8: enables hit-testing but non-draggable
+    sprite.cursor = "pointer";
+
+    // Pointer events for tooltip -----------------------------
+    sprite.on("pointerover", (e: PIXI.FederatedPointerEvent) => {
+      const noteData = (sprite as unknown as { noteData?: NoteData }).noteData;
+      if (noteData) {
+        pianoRoll.showNoteTooltip(noteData, e);
+      }
+    });
+
+    sprite.on("pointermove", (e: PIXI.FederatedPointerEvent) => {
+      pianoRoll.moveTooltip(e);
+    });
+
+    sprite.on("pointerout", () => {
+      pianoRoll.hideTooltip();
+    });
     pianoRoll.notesContainer.addChild(sprite);
     pianoRoll.noteSprites.push(sprite);
   }
@@ -59,6 +78,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       : pianoRoll.options.noteColor;
 
     sprite.tint = noteColor;
+
+    // Store current note data on the sprite for tooltip access
+    (sprite as unknown as { noteData?: NoteData }).noteData = note;
 
     const velocity = isFinite(note.velocity)
       ? Math.max(0, Math.min(1, note.velocity))
