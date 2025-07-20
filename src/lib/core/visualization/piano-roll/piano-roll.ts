@@ -197,7 +197,7 @@ export class PianoRoll {
     this.container.addChild(this.notesContainer);
 
     this.sustainContainer = new PIXI.Container();
-    this.sustainContainer.zIndex = 10;
+    this.sustainContainer.zIndex = 5;
     this.container.addChild(this.sustainContainer);
 
     // Overlay for sustain pedal (below notes to avoid covering them)

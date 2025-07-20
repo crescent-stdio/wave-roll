@@ -120,4 +120,8 @@ export const PLAYER_ICONS = {
     <circle cx="4" cy="12" r="1.5" fill="currentColor" />
     <circle cx="12" cy="12" r="1.5" fill="currentColor" />
   </svg>`,
+
+  sustain: `<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="pointer-events: none;">
+    <text x="8" y="12" text-anchor="middle" font-size="10" font-weight="bold" font-family="Arial">S</text>
+  </svg>`,
 };

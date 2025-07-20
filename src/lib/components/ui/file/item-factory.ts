@@ -77,7 +77,7 @@ export class FileItemFactory {
       item.style.boxShadow = "none";
     });
 
-    // order: color ▸ name ▸ (eye)
+    // order: color - name - (eye)
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
     item.appendChild(visBtn);

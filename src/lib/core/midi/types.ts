@@ -22,6 +22,8 @@ export interface MidiFileEntry {
   color: number; // PixiJS color
   /** Whether this file is muted (audio only, still visible in piano roll) */
   isMuted: boolean;
+  /** Whether sustain pedal overlay is visible in the piano roll */
+  isSustainVisible: boolean;
   error?: string;
 }
 

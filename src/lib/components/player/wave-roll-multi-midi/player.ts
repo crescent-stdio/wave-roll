@@ -456,7 +456,13 @@ export class WaveRollMultiMidiPlayer {
     // --------------------------------------------------------------
     const controlChanges: ControlChangeEvent[] = [];
     state.files.forEach((file: any) => {
-      if (!file.isPianoRollVisible || !file.parsedData?.controlChanges) return;
+      const sustainVisible = file.isSustainVisible ?? true;
+      if (
+        !file.isPianoRollVisible ||
+        !sustainVisible ||
+        !file.parsedData?.controlChanges
+      )
+        return;
       // Stamp each CC event with the originating fileId so the renderer can
       // apply consistent per-track colouring.
       file.parsedData.controlChanges.forEach((cc: ControlChangeEvent) => {

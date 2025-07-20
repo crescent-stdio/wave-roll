@@ -62,7 +62,7 @@ export function renderSustains(pianoRoll: PianoRoll): void {
     if (width <= 0) return;
 
     const color = getColorForFile(pianoRoll, fid, colorCache);
-    const alpha = 0.45; // allow multi-file overlays to accumulate visually
+    const alpha = 0.2;
 
     g.rect(x, 0, width, pianoRoll.options.height);
     g.fill({ color, alpha });

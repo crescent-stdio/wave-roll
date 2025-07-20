@@ -355,4 +355,16 @@ export class MultiMidiManager {
       }
     }
   }
+
+  /**
+   * Toggle sustain overlay visibility of a MIDI file (visualisation only)
+   */
+  public toggleSustainVisibility(id: string): void {
+    const file = this.state.files.find((f) => f.id === id);
+    if (file) {
+      // Default to true when undefined for backward compatibility
+      file.isSustainVisible = !(file.isSustainVisible ?? true);
+      this.notifyStateChange();
+    }
+  }
 }

@@ -105,6 +105,28 @@ export class FileToggleManager {
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
 
+    /* -------- sustain toggle -------- */
+    const sustainBtn = document.createElement("button");
+    const isSustainVisible = (file as any).isSustainVisible ?? true;
+    sustainBtn.innerHTML = (PLAYER_ICONS as any).sustain ?? "S";
+    sustainBtn.style.cssText = `
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${isSustainVisible ? "#495057" : "#adb5bd"};
+        transition: color 0.15s ease;
+      `;
+
+    sustainBtn.addEventListener("click", () => {
+      dependencies.midiManager.toggleSustainVisibility(file.id);
+    });
+
     // Mute / Unmute toggle button (reusable button)
     let isMuted = file.isMuted;
     const muteBtn = createIconButton(
@@ -181,15 +203,15 @@ export class FileToggleManager {
       }
     });
 
-    // Append elements in desired order
+    // order: color - name - vis - sustain - mute - pan - (eye)
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
     item.appendChild(visBtn);
+    item.appendChild(sustainBtn);
     item.appendChild(muteBtn);
     item.appendChild(labelL);
     item.appendChild(panSlider);
     item.appendChild(labelR);
-
     return item;
   }
 }
