@@ -84,9 +84,31 @@ export interface ParsedMidi {
   track: TrackData;
   /** Array of all notes in the piece */
   notes: NoteData[];
+  controlChanges: ControlChangeEvent[];
 }
 
 /**
  * Input type for MIDI file - can be either a URL string or a File object
  */
 export type MidiInput = string | File;
+
+/**
+ * Represents a MIDI Control Change (CC) event.
+ * Currently used to capture sustain-pedal (CC 64) on/off events, but can
+ * represent any controller number.
+ */
+export interface ControlChangeEvent {
+  /** Controller number (0–127). Sustain pedal is 64. */
+  controller: number;
+  /** Continuous controller value (0–1 when parsed by Tone.js). */
+  value: number;
+  /** Absolute time in seconds when the event occurs. */
+  time: number;
+  /** Absolute time in ticks when the event occurs. */
+  ticks: number;
+
+  /** Optional name of the controller. */
+  name?: string;
+  /** The ID of the source MIDI file this control change belongs to */
+  fileId?: string;
+}

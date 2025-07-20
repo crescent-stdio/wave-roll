@@ -93,7 +93,12 @@ class WaveRollMidiElement extends HTMLElement {
       };
 
       // Render the synchronized audio player + piano roll into this element
-      this.demo = await createWaveRollMidiPlayer(this, parsed.notes, options);
+      this.demo = await createWaveRollMidiPlayer(
+        this,
+        parsed.notes,
+        parsed.controlChanges,
+        options
+      );
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.setStatus(`Failed to load MIDI: ${msg}`, "#e53e3e");

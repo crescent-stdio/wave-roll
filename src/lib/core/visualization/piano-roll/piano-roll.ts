@@ -1,5 +1,5 @@
 import * as PIXI from "pixi.js";
-import { NoteData } from "@/lib/midi/types";
+import { ControlChangeEvent, NoteData } from "@/lib/midi/types";
 import { PianoRollConfig, PianoRollViewState } from "./types";
 import { createScales } from "@/lib/core/visualization/piano-roll/utils/scales";
 import {
@@ -11,6 +11,7 @@ import { onWheel } from "@/lib/core/visualization/piano-roll/interactions/wheel"
 import { renderPlayhead } from "@/lib/core/visualization/piano-roll/renderers/playhead";
 import { renderGrid } from "@/lib/core/visualization/piano-roll/renderers/grid";
 import { renderNotes } from "@/lib/core/visualization/piano-roll/renderers/notes";
+import { renderSustains } from "@/lib/core/visualization/piano-roll/renderers/sustains";
 import { clampPanX } from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
 import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
@@ -21,10 +22,13 @@ export class PianoRoll {
   public app: PIXI.Application;
   public container!: PIXI.Container;
   public notesContainer!: PIXI.Container;
+  public sustainContainer!: PIXI.Container;
   public playheadLine!: PIXI.Graphics;
   public backgroundGrid!: PIXI.Graphics;
   public loopOverlay!: PIXI.Graphics;
   public loopLines: { start: PIXI.Graphics; end: PIXI.Graphics } | null = null;
+  /** Semi-transparent overlay that visualizes sustain-pedal (CC64) regions */
+  public sustainOverlay!: PIXI.Graphics;
   public overlapOverlay!: PIXI.Graphics;
   public overlapIntervals: NoteInterval[] = [];
 
@@ -34,6 +38,7 @@ export class PianoRoll {
   public playheadX: number = 0;
   public notes: NoteData[] = [];
   public noteGraphics: PIXI.Graphics[] = [];
+  public controlChanges: ControlChangeEvent[] = [];
   /**
    * Sprite-based note objects used by the default renderer (Sprite batching).
    * We keep the original `noteGraphics` array for compatibility with the
@@ -190,6 +195,15 @@ export class PianoRoll {
     this.notesContainer = new PIXI.Container();
     this.notesContainer.zIndex = 10;
     this.container.addChild(this.notesContainer);
+
+    this.sustainContainer = new PIXI.Container();
+    this.sustainContainer.zIndex = 10;
+    this.container.addChild(this.sustainContainer);
+
+    // Overlay for sustain pedal (below notes to avoid covering them)
+    this.sustainOverlay = new PIXI.Graphics();
+    this.sustainOverlay.zIndex = -10; // ensure below note sprites
+    this.sustainContainer.addChild(this.sustainOverlay);
 
     // Playhead line (always on top)
     this.playheadLine = new PIXI.Graphics();
@@ -374,6 +388,9 @@ export class PianoRoll {
       renderNotes(this);
       this.needsNotesRedraw = false;
     }
+
+    // Redraw sustain-pedal overlay so it reflects current pan/zoom
+    renderSustains(this);
 
     // Apply horizontal pan via container transform instead of per-note maths.
     // (Vertical panning is disabled, see design notes.)
@@ -631,5 +648,12 @@ export class PianoRoll {
   public setOverlapRegions(overlaps: NoteInterval[]): void {
     this.overlapIntervals = overlaps;
     drawOverlapRegions(this, overlaps);
+  }
+
+  public setControlChanges(controlChanges: ControlChangeEvent[]): void {
+    this.controlChanges = controlChanges;
+    // Mark for full note-layer redraw so sustain overlay refreshes
+    this.needsNotesRedraw = true;
+    this.render();
   }
 }

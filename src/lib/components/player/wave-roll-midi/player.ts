@@ -11,7 +11,7 @@
  * small and easy to test.
  */
 
-import { NoteData } from "@/lib/midi/types";
+import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import {
   createAudioPlayer,
   PlayerOptions,
@@ -51,6 +51,7 @@ export class WaveRollMidiPlayer {
    * ---------------------------------------------------------------- */
   private readonly container: HTMLElement;
   private readonly notes: NoteData[];
+  private readonly controlChanges: ControlChangeEvent[];
   private readonly options: WaveRollMidiPlayerOptions;
 
   /* Core objects */
@@ -79,10 +80,12 @@ export class WaveRollMidiPlayer {
   constructor(
     container: HTMLElement,
     notes: NoteData[],
+    controlChanges: ControlChangeEvent[],
     options: WaveRollMidiPlayerOptions = {}
   ) {
     this.container = container;
     this.notes = notes;
+    this.controlChanges = controlChanges;
     this.options = {
       showVolumeControl: true,
       showTempoControl: true,
@@ -109,6 +112,9 @@ export class WaveRollMidiPlayer {
       this.notes,
       this.options.pianoRoll
     );
+
+    // Pass control-change events (e.g., sustain pedal) to the visualizer
+    this.pianoRoll.setControlChanges?.(this.controlChanges);
 
     /* AudioPlayer -------------------------------------------------- */
     this.audioPlayer = createAudioPlayer(
@@ -358,9 +364,15 @@ export class WaveRollMidiPlayer {
 export async function createWaveRollMidiPlayer(
   container: HTMLElement,
   notes: NoteData[],
+  controlChanges: ControlChangeEvent[],
   options?: WaveRollMidiPlayerOptions
 ): Promise<WaveRollMidiPlayer> {
-  const player = new WaveRollMidiPlayer(container, notes, options);
+  const player = new WaveRollMidiPlayer(
+    container,
+    notes,
+    controlChanges,
+    options
+  );
   await player.initialize();
   return player;
 }

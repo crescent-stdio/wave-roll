@@ -1,4 +1,4 @@
-import { NoteData } from "@/lib/midi/types";
+import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { PianoRollConfig, PianoRollInstance } from "./types";
 import { PianoRoll } from "./piano-roll";
 import { NoteInterval } from "@/lib/core/controls/utils/overlap";
@@ -65,6 +65,12 @@ export async function createPianoRoll(
      * Update the notes being displayed
      */
     setNotes: (newNotes: NoteData[]) => pianoRoll.setNotes(newNotes),
+
+    /**
+     * Update control-change events (e.g., sustain pedal)
+     */
+    setControlChanges: (cc: ControlChangeEvent[]) =>
+      pianoRoll.setControlChanges(cc),
 
     /**
      * Update current playback time

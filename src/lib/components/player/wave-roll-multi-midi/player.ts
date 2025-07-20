@@ -3,7 +3,7 @@
  * Refactored to use extracted modules and act as a coordination layer
  */
 
-import { NoteData } from "@/lib/midi/types";
+import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 
 import {
@@ -451,11 +451,34 @@ export class WaveRollMultiMidiPlayer {
       }
     });
 
+    // --------------------------------------------------------------
+    // Sustain-pedal CC events (64) for visible tracks
+    // --------------------------------------------------------------
+    const controlChanges: ControlChangeEvent[] = [];
+    state.files.forEach((file: any) => {
+      if (!file.isPianoRollVisible || !file.parsedData?.controlChanges) return;
+      // Stamp each CC event with the originating fileId so the renderer can
+      // apply consistent per-track colouring.
+      file.parsedData.controlChanges.forEach((cc: ControlChangeEvent) => {
+        controlChanges.push({ ...cc, fileId: file.id });
+      });
+    });
+    // Chronological order helps renderer build segments quicker
+    controlChanges.sort(
+      (a: ControlChangeEvent, b: ControlChangeEvent) => a.time - b.time
+    );
+
     // Update visualization engine
     this.visualizationEngine.updateVisualization(
       coloredNotesVisible,
       audioNotes
     );
+
+    // Push CC data to piano-roll so sustain overlay can render
+    const piano = this.visualizationEngine.getPianoRollInstance();
+    if (piano) {
+      piano.setControlChanges?.(controlChanges);
+    }
   }
 
   /**
@@ -480,8 +503,11 @@ export class WaveRollMultiMidiPlayer {
       const colorHex = toNumberColor(rawColor);
 
       file.parsedData.notes.forEach((note: any) => {
+        // Ensure the NoteData carries its originating fileId for later lookup
+        const taggedNote = { ...note, fileId: file.id } as NoteData;
+
         baseNotes.push({
-          note,
+          note: taggedNote,
           color: colorHex,
           fileId: file.id,
           isMuted: file.isMuted ?? false,

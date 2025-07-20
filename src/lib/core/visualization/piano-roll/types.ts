@@ -1,5 +1,5 @@
 import { NoteInterval } from "@/core/controls/utils/overlap";
-import { NoteData } from "@/lib/midi/types";
+import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 
 /**
  * Configuration options for the piano roll
@@ -62,6 +62,9 @@ export type PianoRollInstance = {
   onTimeChange: (callback: (time: number) => void) => void;
   setMinorTimeStep: (step: number) => void;
   getMinorTimeStep: () => number;
+
+  /** Update the set of Control Change events (e.g., sustain pedal) */
+  setControlChanges?: (controlChanges: ControlChangeEvent[]) => void;
 
   setOverlapRegions?: (overlaps: NoteInterval[]) => void;
 

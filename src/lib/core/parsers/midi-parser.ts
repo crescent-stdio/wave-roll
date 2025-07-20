@@ -7,6 +7,7 @@ import {
   MidiHeader,
   TempoEvent,
   TimeSignatureEvent,
+  ControlChangeEvent,
 } from "@/lib/midi/types";
 import {
   midiToNoteName,
@@ -103,6 +104,34 @@ function extractMidiHeader(midi: any): MidiHeader {
 }
 
 /**
+ * Extracts control change events (e.g., sustain-pedal CC 64) from a Tone.js
+ * MIDI track.
+ */
+function extractControlChanges(track: any): ControlChangeEvent[] {
+  // Tone.js represents controlChanges as Record<number, ToneControlChange[]>
+  const result: ControlChangeEvent[] = [];
+
+  // Iterate through each controller number available on the track.
+  for (const controllerStr of Object.keys(track.controlChanges ?? {})) {
+    const controller = Number(controllerStr);
+    const events = track.controlChanges[controllerStr];
+    if (!Array.isArray(events)) continue;
+
+    for (const evt of events) {
+      result.push({
+        controller: evt.number,
+        value: evt.value, // already normalized 0–1 in Tone.js
+        time: evt.time,
+        ticks: evt.ticks,
+        name: evt.name,
+        fileId: track.name,
+      });
+    }
+  }
+  return result;
+}
+
+/**
  * Converts Tone.js note data to our NoteData format
  * @param note - The Tone.js note object
  * @returns NoteData object in the specified format
@@ -176,7 +205,17 @@ export async function parseMidi(input: MidiInput): Promise<ParsedMidi> {
     // Step 6: Convert notes to our format
     const notes: NoteData[] = pianoTrack.notes.map(convertNote);
 
-    // Step 7: Calculate total duration
+    // Step 7: Extract control-change events (e.g., sustain pedal)
+    const pianoChannel = pianoTrack.channel ?? 0;
+
+    const controlChanges: ControlChangeEvent[] = midi.tracks
+      // Keep CC events that share the same channel as the piano track.
+      .filter((trk) => trk.channel === pianoChannel)
+      .flatMap((trk) => extractControlChanges(trk))
+      // Sort chronologically for convenience.
+      .sort((a, b) => a.time - b.time);
+
+    // Step 8: Calculate total duration
     const duration = midi.duration;
 
     return {
@@ -184,6 +223,7 @@ export async function parseMidi(input: MidiInput): Promise<ParsedMidi> {
       duration,
       track,
       notes,
+      controlChanges, // include CC events
     };
   } catch (error) {
     if (error instanceof Error) {

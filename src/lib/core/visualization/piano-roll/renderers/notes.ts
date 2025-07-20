@@ -2,6 +2,11 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import { NoteData } from "@/lib/midi/types";
 
+// Extend PIXI.Sprite to tag the originating note (for tooltips)
+interface NoteSprite extends PIXI.Sprite {
+  noteData?: NoteData;
+}
+
 /**
  * Default Sprite-based note renderer with automatic batching.
  *
@@ -25,14 +30,14 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   const baseTexture = PIXI.Texture.WHITE;
 
   while (pianoRoll.noteSprites.length < pianoRoll.notes.length) {
-    const sprite = new PIXI.Sprite(baseTexture);
+    const sprite = new PIXI.Sprite(baseTexture) as NoteSprite;
     // Enable pointer interactions to show tooltip on hover
     sprite.eventMode = "static"; // Pixi v8: enables hit-testing but non-draggable
     sprite.cursor = "pointer";
 
     // Pointer events for tooltip -----------------------------
     sprite.on("pointerover", (e: PIXI.FederatedPointerEvent) => {
-      const noteData = (sprite as unknown as { noteData?: NoteData }).noteData;
+      const noteData = sprite.noteData;
       if (noteData) {
         pianoRoll.showNoteTooltip(noteData, e);
       }
@@ -58,7 +63,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
 
   // 2) Update transform & style ------------------------------------------
   pianoRoll.notes.forEach((note: NoteData, idx: number) => {
-    const sprite = pianoRoll.noteSprites[idx];
+    const sprite = pianoRoll.noteSprites[idx] as NoteSprite;
 
     // Compute geometry once; container pan is applied globally elsewhere.
     const x =
@@ -80,8 +85,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     sprite.tint = noteColor;
 
     // Store current note data on the sprite for tooltip access
-    (sprite as unknown as { noteData?: NoteData }).noteData = note;
+    sprite.noteData = note;
 
+    // Default opacity scaled by note velocity
     const velocity = isFinite(note.velocity)
       ? Math.max(0, Math.min(1, note.velocity))
       : 0.5;

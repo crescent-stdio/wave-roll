@@ -8,7 +8,7 @@
  * - Visual state management
  */
 
-import { NoteData } from "@/lib/midi/types";
+import { ControlChangeEvent, NoteData } from "@/lib/midi/types";
 import { createPianoRoll } from "@/core/visualization/piano-roll";
 // (Overlap detection logic is handled upstream in the multi-MIDI player)
 
@@ -40,6 +40,7 @@ export interface ColoredNote {
  */
 export interface PianoRollInstance {
   setNotes(notes: NoteData[]): void;
+  setControlChanges?(controlChanges: ControlChangeEvent[]): void;
   setTime(time: number): void;
   zoomX?(scale: number): void;
   getState?(): { zoomX: number };
