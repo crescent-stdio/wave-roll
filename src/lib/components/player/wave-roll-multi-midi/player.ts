@@ -40,6 +40,10 @@ import {
   PianoRollManager,
 } from "@/core/playback";
 import { openSettingsModal } from "@/lib/components/ui/settings/modal";
+import {
+  computeNoteMetrics,
+  DEFAULT_TOLERANCES,
+} from "@/lib/evaluation/transcription";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -365,7 +369,20 @@ export class WaveRollMultiMidiPlayer {
     } else {
       await this.loadSampleFiles();
     }
+    console.log("this.midiManager.getState()", this.midiManager.getState());
 
+    const custom = { ...DEFAULT_TOLERANCES, onsetTolerance: 0.03 };
+    const ref = this.midiManager.getState().files[0].parsedData;
+    const est = this.midiManager.getState().files[1].parsedData;
+
+    /*
+     * Only compute metrics when both reference and estimated MIDI objects are
+     * available. The `computeNoteMetrics` utility expects full `ParsedMidi`
+     * objects, not just the `notes` arrays.
+     */
+    if (ref && est) {
+      console.log("computeNoteMetrics", computeNoteMetrics(ref, est, custom));
+    }
     // Kick-off continuous UI syncing (seek-bar, play button, etc.)
     // This used to be forgotten which meant the progress bar and icons
     // wouldn’t refresh when playback started via the keyboard.

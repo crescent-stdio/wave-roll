@@ -4,6 +4,10 @@ import { toHexColor } from "@/lib/core/utils/color";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { MidiFileEntry } from "@/core/midi";
 import { DEFAULT_PALETTES } from "@/lib/core/midi/palette";
+import {
+  computeNoteMetrics,
+  DEFAULT_TOLERANCES,
+} from "@/lib/evaluation/transcription";
 
 /**
  * Build the "MIDI Files" list section of the settings modal.
@@ -333,6 +337,5 @@ export function createFileList(
   if (typeof (dependencies.midiManager as any).subscribe === "function") {
     (dependencies.midiManager as any).subscribe(refreshFileList);
   }
-
   return filesSection;
 }

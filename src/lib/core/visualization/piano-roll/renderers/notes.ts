@@ -1,6 +1,10 @@
 import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import { NoteData } from "@/lib/midi/types";
+import {
+  computeNoteMetrics,
+  DEFAULT_TOLERANCES,
+} from "@/lib/evaluation/transcription";
 
 // Extend PIXI.Sprite to tag the originating note (for tooltips)
 interface NoteSprite extends PIXI.Sprite {

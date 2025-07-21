@@ -17,6 +17,7 @@ import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
 import { NoteInterval } from "@/lib/core/controls/utils/overlap";
+// (Note) Evaluation utilities removed – no longer required here
 
 export class PianoRoll {
   public app: PIXI.Application;
@@ -646,7 +647,10 @@ export class PianoRoll {
   }
 
   public setOverlapRegions(overlaps: NoteInterval[]): void {
+    // Persist for external access/debugging
     this.overlapIntervals = overlaps;
+
+    // Delegate actual rendering to dedicated helper
     drawOverlapRegions(this, overlaps);
   }
 
