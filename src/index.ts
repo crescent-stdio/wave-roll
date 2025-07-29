@@ -8,6 +8,12 @@ export { createPianoRoll } from "@/lib/core/visualization/piano-roll";
 // 2) Player demo helper used by the synchronized-player example
 export { createWaveRollMidiPlayer } from "./lib/components/player/wave-roll-midi/player";
 
+// 3) Evaluation helpers
+export {
+  computeNoteMetrics,
+  DEFAULT_TOLERANCES,
+} from "@/lib/evaluation/transcription";
+
 // ------------------------------------------------------------------
 // 3) Deprecated html-midi-player stubs
 // ------------------------------------------------------------------
@@ -48,7 +54,7 @@ export async function createMidiPlayer(
 }
 
 /**
- * Legacy helper that previously converted ArrayBuffer → base64 data-URL.
+ * Legacy helper that previously converted ArrayBuffer -> base64 data-URL.
  * Returns an empty string and logs a warning.
  */
 export function arrayBufferToDataUrl(_arrayBuffer: ArrayBuffer): string {

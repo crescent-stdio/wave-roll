@@ -11,6 +11,8 @@ export interface PianoRollConfig {
   height?: number;
   /** Background color as hex number */
   backgroundColor?: number;
+  /** Per-file note color as hex number */
+  fileNoteColor?: number;
   /** Note color as hex number */
   noteColor?: number;
   /** Current playback position color */

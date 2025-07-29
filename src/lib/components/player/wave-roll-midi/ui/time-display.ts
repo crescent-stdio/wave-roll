@@ -16,7 +16,7 @@ export interface ProgressDisplayRefs {
   progressIndicator?: HTMLElement | null;
   /** Function returning whether the user is currently dragging. */
   seeking?: () => boolean;
-  /** Converts seconds → HH:MM string (injected by caller). */
+  /** Converts seconds -> HH:MM string (injected by caller). */
   formatTime: (seconds: number) => string;
 }
 

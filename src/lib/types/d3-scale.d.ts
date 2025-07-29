@@ -21,7 +21,7 @@ declare module "d3-scale" {
 
     /**
      * Returns the domain value corresponding to the supplied range value.
-     * Commonly used for coordinate ↔︎ data conversions (e.g. x → time).
+     * Commonly used for coordinate ↔︎ data conversions (e.g. x -> time).
      */
     invert(value: Range): Domain;
   }

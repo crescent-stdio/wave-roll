@@ -50,9 +50,17 @@ export interface PanVolumeState {
 /**
  * Visual state for piano roll and note rendering
  */
+export type HighlightMode =
+  | "file"
+  | "highlight-simple"
+  | "highlight-blend"
+  | "highlight-exclusive";
+
 export interface VisualState {
   currentNoteColors: number[];
   zoomLevel: number;
+  /** Current note highlight mode for overlap visualisation */
+  highlightMode: HighlightMode;
 }
 
 /**

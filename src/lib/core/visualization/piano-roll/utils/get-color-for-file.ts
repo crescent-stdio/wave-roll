@@ -26,9 +26,16 @@ export function getColorForFile(
   for (let i = 0; i < pianoRoll.notes.length; i++) {
     const note = pianoRoll.notes[i];
     if (note.fileId === fid) {
-      const colour = pianoRoll.options.noteRenderer
-        ? pianoRoll.options.noteRenderer(note, i)
-        : pianoRoll.options.noteColor;
+      // If highlight mode changes per-note colours (simple / exclusive),
+      // fall back to the original per-file colour so sustain overlay
+      // stays consistent with the sidebar swatch.
+      const hl = (pianoRoll as any).highlightMode ?? "file";
+      const colour =
+        hl === "file"
+          ? pianoRoll.options.noteRenderer
+            ? pianoRoll.options.noteRenderer(note, i)
+            : pianoRoll.options.noteColor
+          : pianoRoll.options.noteColor; // original file colour
 
       cache[fid] = colour;
       return colour;
@@ -37,4 +44,8 @@ export function getColorForFile(
 
   // Fallback to the default note colour when no note matched the fileId.
   return (cache[fid] = pianoRoll.options.noteColor);
+}
+
+export function getOriginalColorForFile(pianoRoll: PianoRoll): number {
+  return pianoRoll.options.fileNoteColor ?? pianoRoll.options.noteColor;
 }

@@ -19,6 +19,7 @@ export interface MidiFileEntry {
   parsedData: ParsedMidi | null;
   isVisible: boolean;
   isPianoRollVisible: boolean;
+  fileColor: number;
   color: number; // PixiJS color
   /** Whether this file is muted (audio only, still visible in piano roll) */
   isMuted: boolean;

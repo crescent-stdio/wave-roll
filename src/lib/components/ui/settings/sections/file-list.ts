@@ -240,7 +240,7 @@ export function createFileList(
         row.style.outline = "none";
       });
 
-      // Prevent drag on the rest of the row – only the handle should initiate it.
+      // Prevent drag on the rest of the row - only the handle should initiate it.
       row.draggable = false;
 
       // Prevent drag on interactive elements
@@ -262,7 +262,7 @@ export function createFileList(
         row.style.outline = "none";
       });
 
-      // Handle drag over (handle) – allows dropping directly on the handle area
+      // Handle drag over (handle) - allows dropping directly on the handle area
       handle.addEventListener("dragover", (e) => {
         e.preventDefault();
         e.stopPropagation();

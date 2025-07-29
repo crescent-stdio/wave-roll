@@ -27,7 +27,7 @@ export class MultiMidiManager {
           window.localStorage.getItem(PALETTE_STORAGE_KEY) || "null"
         );
       } catch {
-        // Ignore malformed JSON – fall back to defaults.
+        // Ignore malformed JSON - fall back to defaults.
       }
     }
 

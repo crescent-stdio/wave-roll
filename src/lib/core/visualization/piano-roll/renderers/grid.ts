@@ -28,7 +28,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     pianoRoll.loopLines.end.removeChildren();
   }
 
-  // (Overlap overlay disabled – coloring handled per-note)
+  // (Overlap overlay disabled - coloring handled per-note)
 
   // Piano key background (if enabled)
   if (pianoRoll.options.showPianoKeys) {
@@ -208,5 +208,5 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     }
   }
 
-  // drawOverlapRegions disabled – overlap now indicated via note tinting
+  // drawOverlapRegions disabled - overlap now indicated via note tinting
 }

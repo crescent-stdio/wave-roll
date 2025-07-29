@@ -61,10 +61,10 @@ export function detectOverlappingNotes(
     for (let k = 1; k < ranges.length; k++) {
       const r = ranges[k];
       if (r.start < current.end) {
-        // Ranges overlap by a positive amount → extend
+        // Ranges overlap by a positive amount -> extend
         current.end = Math.max(current.end, r.end);
       } else {
-        // Touching (r.start === current.end) or separated → keep separate
+        // Touching (r.start === current.end) or separated -> keep separate
         merged.push(current);
         current = { ...r };
       }

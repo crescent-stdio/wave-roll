@@ -17,7 +17,7 @@ import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
 import { NoteInterval } from "@/lib/core/controls/utils/overlap";
-// (Note) Evaluation utilities removed – no longer required here
+// (Note) Evaluation utilities removed - no longer required here
 
 export class PianoRoll {
   public app: PIXI.Application;
@@ -279,7 +279,7 @@ export class PianoRoll {
       <div><strong>${note.name}</strong></div>
       <div>Pitch: ${note.pitch} (${note.midi})</div>
       <div>Velocity: ${note.velocity.toFixed(2)}</div>
-      <div>Time: ${note.time.toFixed(2)}s – ${endTime.toFixed(2)}s</div>
+      <div>Time: ${note.time.toFixed(2)}s - ${endTime.toFixed(2)}s</div>
     `;
     this.tooltipDiv.style.display = "block";
     this.moveTooltip(event);
@@ -487,7 +487,7 @@ export class PianoRoll {
     // Clamp pan within valid bounds
     clampPanX(this.timeScale, this.state);
 
-    // Changing zoom affects note width → full redraw required
+    // Changing zoom affects note width -> full redraw required
     this.needsNotesRedraw = true;
 
     this.requestRender();
@@ -632,15 +632,13 @@ export class PianoRoll {
   }
 
   public computeTimeAtPlayhead(): number {
-    // The playhead is visually fixed just after the piano-keys column. To
-    // translate its on-screen location back to a timeline position we must
-    // account for that static offset (60 px when the piano keys are shown).
+    // The playhead is visually fixed just after the piano-keys column. Because
+    // `setTime()` keeps that column anchored by translating the full timeline
+    // by `panX = -time * pxPerSecond`, converting the current translation
+    // back to seconds is straightforward: simply undo the scaling applied by
+    // `timeScale` and the current zoom level.
 
-    const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
-
-    const time = this.timeScale.invert(
-      (-this.state.panX + pianoKeysOffset) / this.state.zoomX
-    );
+    const time = this.timeScale.invert(-this.state.panX / this.state.zoomX);
 
     // Clamp within timeline bounds to avoid negative times or overshoot.
     return clamp(time, 0, this.timeScale.domain()[1]);

@@ -1,12 +1,16 @@
 import { PianoRollInstance } from "@/core/visualization/piano-roll";
 import { VisualizationEngine } from "@/core/visualization";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
+import { StateManager } from "@/core/state";
 
 export interface UIComponentDependencies {
   midiManager: MultiMidiManager;
   /** Active visualization engine exposing playback controls. */
   audioPlayer: VisualizationEngine | null;
   pianoRoll: PianoRollInstance | null;
+
+  /** Global application state manager */
+  stateManager: StateManager;
 
   filePanStateHandlers: Record<string, (pan: number | null) => void>;
   filePanValues: Record<string, number>;

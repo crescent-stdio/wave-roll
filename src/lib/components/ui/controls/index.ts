@@ -8,6 +8,7 @@ import { createPanControlsUI } from "./pan";
 import { createZoomControlsUI } from "./zoom";
 import { createTimeDisplayUI } from "./time-display";
 import { createSettingsControlUI } from "./settings";
+import { createHighlightModeGroup } from "../settings/controls/highlight-mode-group";
 
 /**
  * Assemble all UI sub-controls and inject them into the given containers.
@@ -50,6 +51,7 @@ export function setupUI(
   row.appendChild(createTempoControlUI(deps));
   // row.appendChild(createPanControlsUI(deps));
   row.appendChild(createZoomControlsUI(deps));
+  row.appendChild(createHighlightModeGroup(deps));
   row.appendChild(createSettingsControlUI(deps));
 
   controlsContainer.appendChild(row);

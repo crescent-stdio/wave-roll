@@ -58,7 +58,7 @@ export class UILayoutManager {
     elements.mainContainer.appendChild(elements.sidebarContainer);
     elements.mainContainer.appendChild(elements.playerContainer);
 
-    // Sidebar visible by default → show it
+    // Sidebar visible by default -> show it
     elements.sidebarContainer.style.transform = "translateX(0)";
 
     // Sidebar visible by default, add padding initially
@@ -140,7 +140,7 @@ export class UILayoutManager {
 
     container.appendChild(elements.mainContainer);
 
-    /* ---------- window resize → resize PixiJS canvas ---------- */
+    /* ---------- window resize -> resize PixiJS canvas ---------- */
     const handleWindowResize = () => {
       const pr = dependencies.pianoRoll as any;
       if (pr?.resize) {

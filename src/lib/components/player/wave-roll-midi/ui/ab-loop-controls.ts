@@ -79,14 +79,14 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       [pointA, pointB] = [pointB, pointA];
     }
     applyLoopToPlayer();
-    // Seek-bar will refresh via applyLoopToPlayer → updateSeekBar
+    // Seek-bar will refresh via applyLoopToPlayer -> updateSeekBar
   }
 
   function applyLoopToPlayer() {
-    // Compute loop points in seconds → percent conversion happens only when
+    // Compute loop points in seconds -> percent conversion happens only when
     // dispatching the `wr-loop-update` event.
 
-    // forward to seek-bar overlay via public getter → handled by Player loop
+    // forward to seek-bar overlay via public getter -> handled by Player loop
     // forward to piano-roll shading
     pianoRoll.setLoopWindow?.(pointA, pointB);
 

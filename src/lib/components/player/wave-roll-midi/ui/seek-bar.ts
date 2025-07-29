@@ -119,7 +119,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     el.id = id;
     el.className = "wr-marker";
     el.style.background = color; // box bg
-    el.style.color = color; // currentColor → stem uses this
+    el.style.color = color; // currentColor -> stem uses this
 
     // Inner span to keep label text white
     const span = document.createElement("span");

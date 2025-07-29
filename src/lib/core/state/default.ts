@@ -47,6 +47,7 @@ export const DEFAULT_PAN_VOLUME_STATE: PanVolumeState = {
 export const DEFAULT_VISUAL_STATE: VisualState = {
   currentNoteColors: [],
   zoomLevel: DEFAULT_STATE_CONFIG.defaultZoomLevel,
+  highlightMode: "file",
 };
 
 export const DEFAULT_APP_STATE: AppState = {

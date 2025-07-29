@@ -1,4 +1,5 @@
 import * as PIXI from "pixi.js";
+// BLEND_MODES isn’t exposed in the public typings, fall back to `any` access
 import { PianoRoll } from "../piano-roll";
 import { NoteData } from "@/lib/midi/types";
 import {
@@ -96,5 +97,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       ? Math.max(0, Math.min(1, note.velocity))
       : 0.5;
     sprite.alpha = 0.3 + velocity * 0.7;
+
+    // Apply additive blending when the global highlight mode requests it
+    const hl = (pianoRoll as any).highlightMode ?? "file";
+    sprite.blendMode = hl === "highlight-blend" ? "add" : ("normal" as any);
   });
 }

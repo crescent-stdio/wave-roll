@@ -506,7 +506,7 @@ export class AudioPlayer implements AudioPlayerContainer {
           const noteEnd = note.time + note.duration;
           return noteEnd > loopStartVisual && noteStart < loopEndVisual;
         }
-        // No custom loop – keep all notes.
+        // No custom loop - keep all notes.
         return true;
       })
       .map((note) => {
@@ -779,6 +779,14 @@ export class AudioPlayer implements AudioPlayerContainer {
     if (!this.isInitialized) {
       await this.initializeAudio();
     }
+
+    // Ensure that **all** Tone.js buffers (including any samplers created
+    // after the first initialization, e.g. when loading new MIDI tracks)
+    // are fully loaded before we attempt to start playback.  Without this
+    // guard, `triggerAttackRelease()` may be invoked on a Sampler whose
+    // underlying `Tone.Buffer` objects are still pending, leading to the
+    // runtime error "buffer is either not set or not loaded".
+    await Tone.loaded();
 
     const transport = Tone.getTransport();
 
@@ -1305,7 +1313,7 @@ export class AudioPlayer implements AudioPlayerContainer {
      * Skip when the requested loop configuration is identical to the one that
      * is already active.  Re-creating the Tone.Part on every redundant call
      * was leading to multiple overlapping playback instances whenever the UI
-     * repeatedly forwarded the same A–B window (e.g. during seek-bar updates).
+     * repeatedly forwarded the same A-B window (e.g. during seek-bar updates).
      */
     if (start === this._loopStartVisual && end === this._loopEndVisual) {
       return;

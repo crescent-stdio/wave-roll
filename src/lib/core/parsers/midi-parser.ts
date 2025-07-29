@@ -120,7 +120,7 @@ function extractControlChanges(track: any): ControlChangeEvent[] {
     for (const evt of events) {
       result.push({
         controller: evt.number,
-        value: evt.value, // already normalized 0–1 in Tone.js
+        value: evt.value, // already normalized 0-1 in Tone.js
         time: evt.time,
         ticks: evt.ticks,
         name: evt.name,

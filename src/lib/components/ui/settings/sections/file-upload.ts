@@ -23,7 +23,7 @@ export function createFileUploadSection(
   input.multiple = true;
   input.style.cssText = "display:block;margin-bottom:8px;font-size:14px;";
 
-  // Status label – updated after each upload.
+  // Status label - updated after each upload.
   const status = document.createElement("span");
   status.style.cssText = "font-size:12px;color:#6c757d;";
 

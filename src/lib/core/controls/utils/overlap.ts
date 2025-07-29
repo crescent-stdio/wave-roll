@@ -25,7 +25,7 @@ export function overlapping(tracks: Track[]): NoteInterval[] {
 
   // 1) Collect start / end events from visible tracks only.
   for (const track of tracks) {
-    if (track.visible === false) continue; // hidden → skip
+    if (track.visible === false) continue; // hidden -> skip
 
     for (const { start, end } of track.intervals) {
       if (end <= start) continue; // ignore invalid / zero-length ranges
@@ -50,11 +50,11 @@ export function overlapping(tracks: Track[]): NoteInterval[] {
     const prevActive = active;
     active += delta;
 
-    // Transition into an overlap region (≥2 active → start)
+    // Transition into an overlap region (≥2 active -> start)
     if (prevActive < 2 && active >= 2) {
       currentStart = time;
     }
-    // Transition out of an overlap region (became <2 active → end)
+    // Transition out of an overlap region (became <2 active -> end)
     else if (prevActive >= 2 && active < 2 && currentStart !== null) {
       if (time > currentStart) {
         overlaps.push({ start: currentStart, end: time });

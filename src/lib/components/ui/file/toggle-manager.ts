@@ -189,7 +189,7 @@ export class FileToggleManager {
       }
     });
 
-    // Double-click → reset to center (0)
+    // Double-click -> reset to center (0)
     panSlider.addEventListener("dblclick", () => {
       if (dependencies.filePanValues) {
         dependencies.filePanValues[file.id] = 0;

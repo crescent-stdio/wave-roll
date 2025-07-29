@@ -63,7 +63,7 @@ export function createZoomControlsUI(
     }
   });
 
-  // Wheel over zoomInput → adjust ±0.1 steps; preventDefault() requires passive: false
+  // Wheel over zoomInput -> adjust ±0.1 steps; preventDefault() requires passive: false
   zoomInput.addEventListener(
     "wheel",
     (e) => {

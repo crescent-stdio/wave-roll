@@ -98,9 +98,9 @@ export type MidiInput = string | File;
  * represent any controller number.
  */
 export interface ControlChangeEvent {
-  /** Controller number (0–127). Sustain pedal is 64. */
+  /** Controller number (0-127). Sustain pedal is 64. */
   controller: number;
-  /** Continuous controller value (0–1 when parsed by Tone.js). */
+  /** Continuous controller value (0-1 when parsed by Tone.js). */
   value: number;
   /** Absolute time in seconds when the event occurs. */
   time: number;

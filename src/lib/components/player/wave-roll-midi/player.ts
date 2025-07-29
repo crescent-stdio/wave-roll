@@ -184,6 +184,7 @@ export class WaveRollMidiPlayer {
      * ---------------------------------------------------------- */
     const deps: UIComponentDependencies = {
       midiManager: null as unknown as any,
+      stateManager: null as unknown as any,
       audioPlayer: this.audioPlayer as any,
       pianoRoll: this.pianoRoll as any,
       filePanStateHandlers: {},
@@ -206,7 +207,7 @@ export class WaveRollMidiPlayer {
         }
       },
       updatePlayButton: null,
-      updateMuteState: () => {},
+      updateMuteState: (_shouldMute: boolean) => {},
       openSettingsModal: () => {},
       formatTime,
     };

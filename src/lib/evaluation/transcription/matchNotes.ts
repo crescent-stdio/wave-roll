@@ -6,7 +6,7 @@ import { ParsedMidi } from "@/lib/midi/types";
  * Result of a note-level matching operation.
  */
 export interface NoteMatchResult {
-  /** Pairs of matched reference–estimated indices */
+  /** Pairs of matched reference-estimated indices */
   matches: Array<{
     ref: number;
     est: number;
@@ -26,9 +26,9 @@ export interface NoteMatchResult {
  * the heuristic used by `mir_eval.transcription.match_notes`.
  *
  * A reference and estimated note are considered a match when:
- * – their onsets differ by at most `onsetTolerance` seconds.
- * – their pitches (in MIDI) differ by at most `pitchTolerance`.
- * – their offsets differ by at most `offsetRatioTolerance × referenceDuration`.
+ * - their onsets differ by at most `onsetTolerance` seconds.
+ * - their pitches (in MIDI) differ by at most `pitchTolerance`.
+ * - their offsets differ by at most `offsetRatioTolerance x referenceDuration`.
  *
  * Each reference (estimated) note can be matched to at most one estimated
  * (reference) note.  The algorithm iterates over the estimated notes in order

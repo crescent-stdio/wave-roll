@@ -166,7 +166,7 @@ export function createTimeDisplayUI(
   totalTimeLabel.textContent = "00:00";
 
   // Assemble seek bar
-  // Maintain correct stacking order: progress (0) → loopRegion (1) → handle (>1) → markers (3)
+  // Maintain correct stacking order: progress (0) -> loopRegion (1) -> handle (>1) -> markers (3)
   seekBarContainer.appendChild(progressBar);
   seekBarContainer.appendChild(loopRegion);
   seekBarContainer.appendChild(seekHandle);

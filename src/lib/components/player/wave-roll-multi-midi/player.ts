@@ -184,7 +184,14 @@ export class WaveRollMultiMidiPlayer {
       this.updateFileToggleSection();
     });
 
-    // Register global keyboard listener (Space → Play/Pause) only once
+    // NEW: react to visual state changes such as highlight-mode updates
+    this.stateManager.onStateChange(() => {
+      // Avoid redundant work during batch loading as above
+      if (this.stateManager.getUIState().isBatchLoading) return;
+      this.updateVisualization();
+    });
+
+    // Register global keyboard listener (Space -> Play/Pause) only once
     const GLOBAL_KEY = "_waveRollSpaceHandler" as const;
     if (!(window as any)[GLOBAL_KEY]) {
       (window as any)[GLOBAL_KEY] = this.handleKeyDown.bind(this);
@@ -218,6 +225,7 @@ export class WaveRollMultiMidiPlayer {
         // before it had created its internal AudioPlayer.
         audioPlayer: this.visualizationEngine,
         pianoRoll: this.visualizationEngine.getPianoRollInstance() as any,
+        stateManager: this.stateManager,
         filePanStateHandlers: filePanStateHandlersRef,
         filePanValues: filePanValuesRef,
         muteDueNoLR: uiState.muteDueNoLR,
@@ -233,7 +241,7 @@ export class WaveRollMultiMidiPlayer {
         formatTime: (seconds: number) => formatTime(seconds),
       };
 
-      // After creation, convert seconds → % once we know duration.
+      // After creation, convert seconds -> % once we know duration.
       const durationSec = playbackState.duration;
       if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps.loopPoints = {
@@ -247,13 +255,14 @@ export class WaveRollMultiMidiPlayer {
       this.uiDeps.audioPlayer = this.visualizationEngine;
       this.uiDeps.pianoRoll =
         this.visualizationEngine.getPianoRollInstance() as any;
+      this.uiDeps.stateManager = this.stateManager;
       this.uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       this.uiDeps.filePanValues = filePanValuesRef;
       this.uiDeps.muteDueNoLR = uiState.muteDueNoLR;
       this.uiDeps.lastVolumeBeforeMute = uiState.lastVolumeBeforeMute;
       this.uiDeps.minorTimeStep = uiState.minorTimeStep;
 
-      // Convert loopPoints (seconds) → % for seek-bar visualisation
+      // Convert loopPoints (seconds) -> % for seek-bar visualisation
       const durationSec = playbackState.duration;
       if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps.loopPoints = {
@@ -500,6 +509,34 @@ export class WaveRollMultiMidiPlayer {
     // Push CC data to piano-roll so sustain overlay can render
     const piano = this.visualizationEngine.getPianoRollInstance();
     if (piano) {
+      // ------------------------------------------------------------
+      // Provide original per-file colours (sidebar swatch) so that
+      // sustain overlays can stay consistent even when highlight
+      // modes recolour the notes.
+      // ------------------------------------------------------------
+      const fileColors: Record<string, number> = {};
+      state.files.forEach((f: any) => {
+        if (f.color !== undefined) {
+          fileColors[f.id] =
+            typeof f.color === "number"
+              ? f.color
+              : parseInt(String(f.color).replace("#", ""), 16);
+        }
+      });
+
+      // Assign colour map before pushing CC events so the sustain renderer
+      // can access it during the imminent render triggered by
+      // `setControlChanges()`.
+      (piano as any).fileColors = fileColors;
+
+      // Pass current highlight mode to the renderer so it can adjust
+      // blendMode. Set this _before_ pushing CC events so the upcoming
+      // render cycle can pick up the correct mode immediately.
+      (piano as any).highlightMode =
+        this.stateManager.getState().visual.highlightMode;
+
+      // Finally, push CC data to piano-roll which will trigger a re-render of
+      // the sustain overlay using the freshly injected colour map.
       piano.setControlChanges?.(controlChanges);
     }
   }
@@ -513,93 +550,110 @@ export class WaveRollMultiMidiPlayer {
     const toNumberColor = (c: string | number): number =>
       typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
 
-    /* ------------------------------------------------------------------
-     * 1) Collect visible notes with their per-file base color
-     * ------------------------------------------------------------------ */
+    // 1) Base notes -------------------------------------------------------
     const baseNotes: ColoredNote[] = [];
-
-    state.files.forEach((file: any, index: number) => {
+    state.files.forEach((file: any, idx: number) => {
       if (!file.isPianoRollVisible || !file.parsedData?.notes) return;
 
-      const rawColor =
-        file.color ?? fallbackColors[index % fallbackColors.length];
-      const colorHex = toNumberColor(rawColor);
+      const raw = file.color ?? fallbackColors[idx % fallbackColors.length];
+      const baseColor = toNumberColor(raw);
 
-      file.parsedData.notes.forEach((note: any) => {
-        // Ensure the NoteData carries its originating fileId for later lookup
-        const taggedNote = { ...note, fileId: file.id } as NoteData;
-
+      file.parsedData.notes.forEach((n: any) => {
         baseNotes.push({
-          note: taggedNote,
-          color: colorHex,
+          note: { ...n, fileId: file.id } as NoteData,
+          color: baseColor,
           fileId: file.id,
           isMuted: file.isMuted ?? false,
         });
       });
     });
 
-    /* ------------------------------------------------------------------
-     * 2) Analyse overlaps (pitch & time) between *different* files
-     * ------------------------------------------------------------------ */
-    const overlappingMap = detectOverlappingNotes(baseNotes);
-    const overlapColorHex = toNumberColor(COLOR_OVERLAP);
+    if (baseNotes.length === 0) return [];
 
-    /* ------------------------------------------------------------------
-     * 3) Split notes so that only the true intersection is tinted with the
-     *    overlap color. Each original note can therefore generate:
-     *      • 0..N non-overlapping segments (base color)
-     *      • N   overlapping  segments (overlap color)
-     * ------------------------------------------------------------------ */
-    const finalNotes: ColoredNote[] = [];
+    const highlightMode =
+      this.stateManager.getState().visual.highlightMode ?? "file";
 
-    baseNotes.forEach((original, idx) => {
-      const ranges = overlappingMap.get(idx) ?? [];
+    // Plain per-file colouring -> return early ---------------------------
+    if (highlightMode === "file") {
+      return baseNotes;
+    }
+
+    // 2) Overlap analysis -------------------------------------------------
+    const overlaps = detectOverlappingNotes(baseNotes);
+
+    // Utility functions ---------------------------------------------------
+    // Darker neutral gray so the highlight stands out more
+    const NEUTRAL_GRAY = 0x444444;
+    const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
+
+    const mix = (a: number, b: number, r = 0.5): number => {
+      const ar = (a >> 16) & 0xff,
+        ag = (a >> 8) & 0xff,
+        ab = a & 0xff;
+      const br = (b >> 16) & 0xff,
+        bg = (b >> 8) & 0xff,
+        bb = b & 0xff;
+      const rr = Math.round(ar * (1 - r) + br * r);
+      const rg = Math.round(ag * (1 - r) + bg * r);
+      const rb = Math.round(ab * (1 - r) + bb * r);
+      return (rr << 16) | (rg << 8) | rb;
+    };
+
+    const overlapColor = (base: number): number => {
+      switch (highlightMode) {
+        case "highlight-simple":
+          // Increase blend ratio for a stronger contrast
+          return mix(base, 0xffff99, 0.85);
+        case "highlight-blend":
+          // Make overlap colour even more pronounced
+          return mix(base, HIGHLIGHT, 0.8);
+        case "highlight-exclusive":
+          // return HIGHLIGHT;
+          return mix(base, HIGHLIGHT, 0.8);
+        default:
+          return base;
+      }
+    };
+
+    const baseColorVariant = (base: number): number =>
+      highlightMode === "highlight-exclusive" ? NEUTRAL_GRAY : base;
+
+    // 3) Split into segments --------------------------------------------
+    const result: ColoredNote[] = [];
+
+    baseNotes.forEach((orig, idx) => {
+      const ranges = overlaps.get(idx) ?? [];
 
       if (ranges.length === 0) {
-        // No overlaps → keep the original note as-is
-        finalNotes.push(original);
+        result.push({ ...orig, color: baseColorVariant(orig.color) });
         return;
       }
 
-      // Ensure ranges are sorted & merged (detectOverlappingNotes already
-      // merges adjoining ranges but we sort just in case).
       const sorted = [...ranges].sort((a, b) => a.start - b.start);
+      let cursor = orig.note.time;
+      const end = orig.note.time + orig.note.duration;
 
-      let cursor = original.note.time;
-      const endTime = original.note.time + original.note.duration;
-
-      const pushSegment = (start: number, duration: number, color: number) => {
-        if (duration <= 0) return;
-        finalNotes.push({
-          note: {
-            ...original.note,
-            time: start,
-            duration,
-          },
-          color,
-          fileId: original.fileId,
-          isMuted: original.isMuted,
+      const push = (start: number, dur: number, col: number) => {
+        if (dur <= 0) return;
+        result.push({
+          note: { ...orig.note, time: start, duration: dur },
+          color: col,
+          fileId: orig.fileId,
+          isMuted: orig.isMuted,
         });
       };
 
-      sorted.forEach(({ start, end }) => {
-        // 3a) non-overlap segment before this range
-        pushSegment(cursor, start - cursor, original.color);
-
-        // 3b) the actual overlap segment
-        pushSegment(start, end - start, overlapColorHex);
-
-        cursor = Math.max(cursor, end);
+      sorted.forEach(({ start, end: e }) => {
+        push(cursor, start - cursor, baseColorVariant(orig.color));
+        push(start, e - start, overlapColor(orig.color));
+        cursor = Math.max(cursor, e);
       });
 
-      // 3c) tail of the note after the last overlap
-      pushSegment(cursor, endTime - cursor, original.color);
+      push(cursor, end - cursor, baseColorVariant(orig.color));
     });
 
-    // Sort by start-time to keep deterministic sprite order
-    finalNotes.sort((a, b) => a.note.time - b.note.time);
-
-    return finalNotes;
+    result.sort((a, b) => a.note.time - b.note.time);
+    return result;
   }
   /**
    * Set up file toggle section
@@ -836,14 +890,14 @@ export class WaveRollMultiMidiPlayer {
     const state = audioPlayer.getState();
 
     if (state?.isPlaying) {
-      // Currently playing → pause
+      // Currently playing -> pause
       deps.audioPlayer?.pause();
       // Clear debounce shortly after pausing so we can resume quickly
       setTimeout(() => {
         this.isTogglingPlayback = false;
       }, 100);
     } else {
-      // Currently paused → play via space-bar
+      // Currently paused -> play via space-bar
 
       audioPlayer
         .play()
