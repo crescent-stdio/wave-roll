@@ -21,6 +21,7 @@ export function onWheel(event: WheelEvent, pianoRoll: PianoRoll): void {
     return;
   }
 
+  // Default: zoomX (horizontal time zoom)
   if (deltaY < 0) {
     pianoRoll.zoomX(zoomFactor, anchorX);
   } else {

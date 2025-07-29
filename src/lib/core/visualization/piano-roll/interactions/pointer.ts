@@ -1,6 +1,6 @@
 import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
-import { clampPanX } from "../utils/clamp-pan";
+import { clampPanX, clampPanY } from "../utils/clamp-pan";
 
 export function onPointerDown(
   event: MouseEvent | TouchEvent,
@@ -22,10 +22,20 @@ export function onPointerMove(
   event.preventDefault();
   const pos = getPointerPosition(event, pianoRoll.app);
   const deltaX = pos.x - pianoRoll.state.lastPointerPos.x;
-  // const deltaY = pos.y - this.state.lastPointerPos.y; // Remove Y-axis panning
+  const deltaY = pos.y - pianoRoll.state.lastPointerPos.y;
 
-  pianoRoll.state.panX += deltaX;
-  clampPanX(pianoRoll.timeScale, pianoRoll.state);
+  const altPressed = (event as MouseEvent).altKey === true;
+
+  if (altPressed) {
+    // Only vertical panning when Alt/Option is held.
+    pianoRoll.state.panY += deltaY;
+    clampPanY(pianoRoll.pitchScale, pianoRoll.state, pianoRoll.options.height);
+  } else {
+    // Regular drag → horizontal panning only.
+    pianoRoll.state.panX += deltaX;
+    clampPanX(pianoRoll.timeScale, pianoRoll.state);
+  }
+
   pianoRoll.state.lastPointerPos = pos;
 
   // Update currentTime based on new panX so external UI can stay in sync.

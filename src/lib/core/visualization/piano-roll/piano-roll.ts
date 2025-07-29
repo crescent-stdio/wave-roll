@@ -12,7 +12,10 @@ import { renderPlayhead } from "@/lib/core/visualization/piano-roll/renderers/pl
 import { renderGrid } from "@/lib/core/visualization/piano-roll/renderers/grid";
 import { renderNotes } from "@/lib/core/visualization/piano-roll/renderers/notes";
 import { renderSustains } from "@/lib/core/visualization/piano-roll/renderers/sustains";
-import { clampPanX } from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
+import {
+  clampPanX,
+  clampPanY,
+} from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
 import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
@@ -393,9 +396,17 @@ export class PianoRoll {
     // Redraw sustain-pedal overlay so it reflects current pan/zoom
     renderSustains(this);
 
-    // Apply horizontal pan via container transform instead of per-note maths.
-    // (Vertical panning is disabled, see design notes.)
+    // Apply horizontal & vertical pan via container transforms so we avoid
+    // recalculating geometry for thousands of notes on every scroll.
     this.notesContainer.x = this.state.panX;
+    this.notesContainer.y = this.state.panY;
+
+    // Keep sustain & overlap overlays aligned with the notes layer.
+    this.sustainContainer.x = this.state.panX;
+    this.sustainContainer.y = this.state.panY;
+
+    this.overlapOverlay.x = this.state.panX;
+    this.overlapOverlay.y = this.state.panY;
 
     // Ensure proper rendering order
     this.container.sortChildren();
@@ -503,6 +514,9 @@ export class PianoRoll {
     if (newZoom === oldZoom) return;
     this.state.zoomY = newZoom;
 
+    // Ensure panY remains within bounds after zoom change
+    clampPanY(this.pitchScale, this.state, this.options.height);
+
     // Changing vertical zoom affects note height & grid spacing → full redraw
     this.needsNotesRedraw = true;
     this.requestRender();
@@ -513,8 +527,11 @@ export class PianoRoll {
    */
   public pan(deltaX: number, deltaY: number): void {
     this.state.panX = this.state.panX + deltaX;
+    this.state.panY = this.state.panY + deltaY;
+
     clampPanX(this.timeScale, this.state);
-    // this.state.panY += deltaY; // Y-axis panning disabled
+    clampPanY(this.pitchScale, this.state, this.options.height);
+
     this.requestRender();
   }
 
@@ -525,7 +542,9 @@ export class PianoRoll {
     this.state.zoomX = 1;
     this.state.zoomY = 1;
     this.state.panX = 0;
+    this.state.panY = 0;
     clampPanX(this.timeScale, this.state);
+    clampPanY(this.pitchScale, this.state, this.options.height);
     this.requestRender();
   }
 
