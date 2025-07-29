@@ -30,6 +30,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   const noteRange =
     pianoRoll.options.noteRange.max - pianoRoll.options.noteRange.min;
   const baseRowHeight = (pianoRoll.options.height - 40) / noteRange;
+  const zoomY = pianoRoll.state.zoomY;
 
   // 1) Ensure Sprite pool size matches notes.length -----------------------
   const baseTexture = PIXI.Texture.WHITE;
@@ -73,9 +74,11 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     // Compute geometry once; container pan is applied globally elsewhere.
     const x =
       pianoRoll.timeScale(note.time) * pianoRoll.state.zoomX + pianoKeysOffset;
-    const y = pianoRoll.pitchScale(note.midi);
+    const yBase = pianoRoll.pitchScale(note.midi);
+    const canvasMid = pianoRoll.options.height / 2;
+    const y = (yBase - canvasMid) * zoomY + canvasMid;
     const width = pianoRoll.timeScale(note.duration) * pianoRoll.state.zoomX;
-    const height = Math.max(1, baseRowHeight * 0.8);
+    const height = Math.max(1, baseRowHeight * 0.8 * zoomY);
 
     sprite.x = x;
     sprite.y = y - height / 2;

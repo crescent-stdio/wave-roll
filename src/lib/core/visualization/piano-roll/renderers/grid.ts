@@ -48,7 +48,9 @@ export function renderGrid(pianoRoll: PianoRoll): void {
       midi <= pianoRoll.options.noteRange.max;
       midi++
     ) {
-      const y = pianoRoll.pitchScale(midi); // * this.state.zoomY + this.state.panY; // No Y zoom/pan
+      const yBase = pianoRoll.pitchScale(midi);
+      const canvasMid = pianoRoll.options.height / 2;
+      const y = (yBase - canvasMid) * pianoRoll.state.zoomY + canvasMid;
       // const isBlackKey = [1, 3, 6, 8, 10].includes(midi % 12);
 
       pianoRoll.backgroundGrid.moveTo(0, y);

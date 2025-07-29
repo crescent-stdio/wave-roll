@@ -494,20 +494,18 @@ export class PianoRoll {
   }
 
   /**
-   * Zoom in/out on Y axis (pitch) - DISABLED
+   * Zoom in/out on Y axis (pitch)
    */
   public zoomY(factor: number): void {
-    // Y-axis zoom is disabled to maintain fixed height
-    this.state.zoomY *= factor;
-    this.state.zoomY = Math.max(0.1, Math.min(5, this.state.zoomY));
+    if (factor === 1) return;
+    const oldZoom = this.state.zoomY;
+    const newZoom = Math.max(0.2, Math.min(5, oldZoom * factor));
+    if (newZoom === oldZoom) return;
+    this.state.zoomY = newZoom;
 
-    const noteRange = this.options.noteRange.max - this.options.noteRange.min;
-    const rowHeight =
-      ((this.options.height - 40) / noteRange) * this.state.zoomY;
-
-    // Y-axis zoom is disabled
-
-    // this.requestRender();
+    // Changing vertical zoom affects note height & grid spacing → full redraw
+    this.needsNotesRedraw = true;
+    this.requestRender();
   }
 
   /**
@@ -525,7 +523,7 @@ export class PianoRoll {
    */
   public resetView(): void {
     this.state.zoomX = 1;
-    // this.state.zoomY = 1; // Y zoom stays at 1
+    this.state.zoomY = 1;
     this.state.panX = 0;
     clampPanX(this.timeScale, this.state);
     this.requestRender();

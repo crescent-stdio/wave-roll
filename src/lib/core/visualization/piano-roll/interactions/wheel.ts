@@ -11,6 +11,16 @@ export function onWheel(event: WheelEvent, pianoRoll: PianoRoll): void {
   const usePointerAnchor = event.ctrlKey || event.metaKey;
   const anchorX = usePointerAnchor ? event.offsetX : undefined;
 
+  // Alt/Option + wheel => vertical (pitch) zoom for intuitive interaction
+  if (event.altKey) {
+    if (deltaY < 0) {
+      pianoRoll.zoomY(zoomFactor);
+    } else {
+      pianoRoll.zoomY(1 / zoomFactor);
+    }
+    return;
+  }
+
   if (deltaY < 0) {
     pianoRoll.zoomX(zoomFactor, anchorX);
   } else {
