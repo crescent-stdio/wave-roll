@@ -15,11 +15,14 @@ export default defineConfig({
       entry: resolve(__dirname, "src/index.ts"),
       name: "WaveRoll",
       fileName: (format) => `wave-roll.${format}.js`,
+      formats: ['es', 'umd']
     },
     rollupOptions: {
       external: [],
       output: {
         globals: {},
+        // Ensure UMD build works in browsers
+        assetFileNames: 'wave-roll.[ext]',
       },
     },
   },

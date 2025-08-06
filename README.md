@@ -1,5 +1,7 @@
 # Wave Roll
 
+![Wave Roll](https://github.com/crescent-stdio/wave-roll/blob/main/wave-roll.png)
+
 A modern web component for visualizing and comparing multiple MIDI files with synchronized piano roll display, designed specifically for Music Information Retrieval (MIR) research and analysis.
 
 ![npm version](https://img.shields.io/npm/v/wave-roll)
@@ -16,13 +18,35 @@ A modern web component for visualizing and comparing multiple MIDI files with sy
 
 ## Installation
 
+### NPM
+
 ```bash
 npm install wave-roll
+```
+
+### CDN
+
+You can use Wave Roll directly from a CDN without any build process:
+
+#### ES Module (Recommended)
+
+```html
+<script type="module">
+  import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
+</script>
+```
+
+#### UMD (Traditional Script Tag)
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.umd.js"></script>
 ```
 
 ## Usage
 
 ### As a Web Component
+
+#### Using NPM Package
 
 ```html
 <!DOCTYPE html>
@@ -34,12 +58,83 @@ npm install wave-roll
 </head>
 <body>
   <wave-roll
-  style="width: 100%; height: 600px;"
-  files='[
-    {"path": "path/to/baseline.mid", "name": "Baseline"},
-    {"path": "path/to/model1.mid", "name": "Model 1"},
-    {"path": "path/to/model2.mid", "name": "Model 2"}
-  ]'>
+    style="width: 100%; height: 600px;"
+    files='[
+      {"path": "path/to/baseline.mid", "name": "Baseline"},
+      {"path": "path/to/model1.mid", "name": "Model 1"},
+      {"path": "path/to/model2.mid", "name": "Model 2"}
+    ]'>
+  </wave-roll>
+</body>
+</html>
+```
+
+#### Using CDN (ES Module)
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="module">
+    import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
+  </script>
+</head>
+<body>
+  <wave-roll
+    style="width: 100%; height: 600px;"
+    files='[
+      {"path": "https://example.com/baseline.mid", "name": "Baseline"},
+      {"path": "https://example.com/model1.mid", "name": "Model 1"},
+      {"path": "https://example.com/model2.mid", "name": "Model 2"}
+    ]'>
+  </wave-roll>
+</body>
+</html>
+```
+
+#### Using CDN (Traditional Script)
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.umd.js"></script>
+</head>
+<body>
+  <wave-roll
+    style="width: 100%; height: 600px;"
+    files='[
+      {"path": "https://example.com/baseline.mid", "name": "Baseline"},
+      {"path": "https://example.com/model1.mid", "name": "Model 1"},
+      {"path": "https://example.com/model2.mid", "name": "Model 2"}
+    ]'>
+  </wave-roll>
+</body>
+</html>
+```
+
+### GitHub Pages Usage
+
+For GitHub Pages deployment, you can use the CDN directly:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wave Roll Demo</title>
+  <script type="module">
+    import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
+  </script>
+</head>
+<body>
+  <wave-roll
+    style="width: 100%; height: 600px;"
+    files='[
+      {"path": "./midi/example1.mid", "name": "Example 1"},
+      {"path": "./midi/example2.mid", "name": "Example 2"}
+    ]'>
   </wave-roll>
 </body>
 </html>
