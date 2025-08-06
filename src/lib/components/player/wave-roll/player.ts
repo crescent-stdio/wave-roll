@@ -861,10 +861,7 @@ export class WaveRollPlayer {
   private handleKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return; // Ignore auto-repeat
 
-    // We only handle the Space key here
-    if (!(event.code === "Space" || event.key === " ")) return;
-
-    // Skip if focus is on an interactive element that already consumes Space
+    // Skip if focus is on an interactive element
     const target = event.target as HTMLElement | null;
     if (
       target instanceof HTMLInputElement ||
@@ -876,6 +873,41 @@ export class WaveRollPlayer {
     ) {
       return;
     }
+
+    // Handle A key - Set loop start point
+    if (event.key === "a" || event.key === "A") {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // Trigger the A button click in the AB loop controls
+      const abLoopElement = this.playerContainer.querySelector('.ab-loop-controls');
+      if (abLoopElement) {
+        const aButton = abLoopElement.querySelector('button:nth-child(2)') as HTMLButtonElement;
+        if (aButton) {
+          aButton.click();
+        }
+      }
+      return;
+    }
+
+    // Handle B key - Set loop end point
+    if (event.key === "b" || event.key === "B") {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // Trigger the B button click in the AB loop controls
+      const abLoopElement = this.playerContainer.querySelector('.ab-loop-controls');
+      if (abLoopElement) {
+        const bButton = abLoopElement.querySelector('button:nth-child(3)') as HTMLButtonElement;
+        if (bButton) {
+          bButton.click();
+        }
+      }
+      return;
+    }
+
+    // Handle Space key for play/pause
+    if (!(event.code === "Space" || event.key === " ")) return;
 
     event.preventDefault();
     event.stopPropagation();

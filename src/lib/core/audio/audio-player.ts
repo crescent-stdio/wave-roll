@@ -85,8 +85,9 @@ export interface AudioPlayerContainer {
    * Set custom A-B loop points (in seconds).
    * Passing `null` for both parameters clears the loop.
    * If only `start` is provided, the loop will extend to the end of the piece.
+   * @param preservePosition - If true, maintains current position when setting loop points
    */
-  setLoopPoints(start: number | null, end: number | null): void;
+  setLoopPoints(start: number | null, end: number | null, preservePosition?: boolean): void;
 
   /** Get current player state */
   getState(): AudioPlayerState;
@@ -297,36 +298,20 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Part so that notes are heard on each pass.
    */
   private handleTransportLoop = (): void => {
-    console.warn("[LoopEvent]", {
-      iteration: this._loopCounter,
-      transportSec: Tone.getTransport().seconds.toFixed(3),
-      loopStart: this._loopStartVisual,
-      loopEnd: this._loopEndVisual,
-      currentVisual: this.state.currentTime.toFixed(3),
-    });
     if (!this.part) {
       return;
     }
 
     this._loopCounter += 1;
-    const transport = Tone.getTransport();
-
-    // console.log("[Loop]", {
-    //   iteration: this._loopCounter,
-    //   transportSeconds: transport.seconds.toFixed(3),
-    //   loopStart: transport.loopStart,
-    //   loopEnd: transport.loopEnd,
-    // });
 
     // Cancel any notes which were scheduled for the previous cycle.
-    // Using a very small delay prevents race conditions where cancel/stop
-    // occurs at the exact same AudioContext time as the new scheduling.
-    const NOW = "+0";
-    this.part.stop(NOW);
-    this.part.cancel(NOW);
+    // Use immediate timing to ensure clean transition
+    this.part.stop("+0");
+    this.part.cancel("+0");
 
-    // Restart the Part at the very beginning of its window (offset 0).
-    this.part.start(NOW, 0);
+    // Restart the Part immediately at the beginning of its window
+    // This ensures continuous playback without gaps
+    this.part.start("+0", 0);
 
     // Also synchronise the visual playhead immediately.
     const visualStart =
@@ -482,6 +467,10 @@ export class AudioPlayer implements AudioPlayerContainer {
             "https://tonejs.github.io/audio/salamander/",
         }).connect(panner);
 
+        // Apply cached volume to the new sampler
+        const currentVolume = this.state?.volume ?? this.options.volume;
+        sampler.volume.value = Tone.gainToDb(currentVolume);
+
         // Apply any cached pan value
         const cachedPan = (this as any).state?.pan ?? 0;
         panner.pan.value = cachedPan;
@@ -586,6 +575,8 @@ export class AudioPlayer implements AudioPlayerContainer {
     }, events);
 
     this.part.humanize = false;
+    // Part should never loop itself - Transport handles all looping
+    // This prevents duplicate note scheduling
     this.part.loop = false;
 
     // Set up transport callbacks
@@ -1308,7 +1299,7 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Passing `null` for both parameters clears the loop.
    * If only `start` is provided, the loop will extend to the end of the piece.
    */
-  public setLoopPoints(start: number | null, end: number | null): void {
+  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
     /**
      * Skip when the requested loop configuration is identical to the one that
      * is already active.  Re-creating the Tone.Part on every redundant call
@@ -1355,18 +1346,27 @@ export class AudioPlayer implements AudioPlayerContainer {
     const transport = Tone.getTransport();
 
     // --- Rebuild Part relative to loop window ----------------------------
+    const wasPlaying = this.state.isPlaying;
+    const currentPosition = this.state.currentTime;
+    const shouldPreservePosition = preservePosition && currentPosition >= start && currentPosition <= end;
+    
     if (this.sampler) {
       if (this.part) {
-        this.part.stop();
-        this.part.cancel();
+        // Immediately stop and clean up the old part to prevent overlap
+        this.part.stop("+0");
+        this.part.cancel("+0");
         this.part.dispose();
+        this.part = null;
       }
+      
+      // Create new part with loop window
       this.setupNotePart(start, end);
+      
       // Only the Transport is set to loop. Leaving the Part non-looping avoids
       // duplicate scheduling (Part + Transport) that caused silent or mangled
       // playback after the first iteration of an A-B loop.
       if (this.part) {
-        this.part.loop = false;
+        (this.part as Tone.Part).loop = false;
       }
     }
 
@@ -1375,29 +1375,41 @@ export class AudioPlayer implements AudioPlayerContainer {
     transport.loopStart = transportStart;
     transport.loopEnd = transportEnd;
 
-    // Jump transport to start of loop window and sync state ------------
-    transport.seconds = transportStart;
-    // Immediately release any voices that were triggered by the previous timeline so
-    // they don’t sustain over the newly looped playback.  Without this, long notes
-    // that began before the loop window can continue sounding in parallel with the
-    // freshly scheduled Part, causing audible doubling.
-    if (this.sampler && (this.sampler as any).releaseAll) {
-      (this.sampler as any).releaseAll();
+    // Handle position based on whether we should preserve it
+    if (shouldPreservePosition) {
+      // Keep current position if within loop bounds
+      const currentTransportTime = (currentPosition * this.originalTempo) / this.state.tempo;
+      transport.seconds = currentTransportTime;
+      this.pausedTime = currentTransportTime;
+      // Don't change this.state.currentTime as it's already correct
+    } else {
+      // Jump to start of loop window
+      transport.seconds = transportStart;
+      this.pausedTime = transportStart;
+      this.state.currentTime = start;
     }
-    this.trackSamplers.forEach(({ sampler }) => {
-      if ((sampler as any).releaseAll) {
-        (sampler as any).releaseAll();
+    
+    // Only release voices when jumping to a new position (not preserving position)
+    // This prevents cutting off sounds when just updating the loop during playback
+    if (!shouldPreservePosition) {
+      // Release any voices that were triggered by the previous timeline
+      if (this.sampler && (this.sampler as any).releaseAll) {
+        (this.sampler as any).releaseAll();
       }
-    });
-
-    this.state.currentTime = start;
-    this.pausedTime = transportStart;
+      this.trackSamplers.forEach(({ sampler }) => {
+        if ((sampler as any).releaseAll) {
+          (sampler as any).releaseAll();
+        }
+      });
+    }
 
     // (Re)start Part from beginning of its window when playing ----------
-    if (this.state.isPlaying && this.part) {
-      // Ensure any previous scheduling is cleared
-      this.part.stop();
-      this.part.start("+0", 0);
+    if (wasPlaying && this.part) {
+      // Calculate offset based on current position
+      const offset = shouldPreservePosition ? currentPosition - start : 0;
+      // Immediately restart the part at the correct offset
+      this.part.stop("+0");
+      this.part.start("+0", Math.max(0, offset));
     }
   }
 

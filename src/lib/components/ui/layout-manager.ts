@@ -123,7 +123,7 @@ export class UILayoutManager {
      * Keyboard shortcut: press "b" to toggle the sidebar.
      * ---------------------------------------------------------- */
     window.addEventListener("keydown", (e) => {
-      const isBKey = e.key.toLowerCase() === "b";
+      const isBKey = e.key.toLowerCase() === "m";
       const hasModifier = e.metaKey || e.ctrlKey || e.altKey || e.shiftKey;
       const isTypingTarget =
         e.target instanceof HTMLInputElement ||
