@@ -1,6 +1,6 @@
 # WaveRoll
 
-<img src="https://github.com/crescent-stdio/wave-roll/wave-roll.png" alt="WaveRoll" width="40%">
+<img src="./wave-roll.png" alt="WaveRoll" width="60%"/>
 
 WaveRoll is an interactive JavaScript library that enables comparative visualization and synchronized playback of multiple MIDI piano rolls in the browser. 
 
