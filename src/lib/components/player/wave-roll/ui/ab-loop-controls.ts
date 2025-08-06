@@ -70,7 +70,15 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
 
   /* ---------- helpers ---------- */
   function setPoint(kind: "A" | "B") {
-    const t = audioPlayer.getState().currentTime;
+    const state = audioPlayer.getState();
+    const t = state.currentTime;
+    
+    console.log(`[AB-Loop] Setting point ${kind}:`, {
+      currentTime: t,
+      duration: state.duration,
+      percent: (t / state.duration) * 100
+    });
+    
     if (kind === "A") pointA = t;
     else pointB = t;
 
@@ -130,6 +138,15 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
         ? null
         : ({ prev: toPct(start), next: toPct(end) } as const);
 
+    console.log("[AB-Loop] Sending loop update:", {
+      pointA,
+      pointB,
+      start,
+      end,
+      loopWindow,
+      duration: state.duration
+    });
+
     // Bubble event so parent player updates seek-bar
     root.dispatchEvent(
       new CustomEvent("wr-loop-update", {
@@ -168,54 +185,4 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   };
 
   return { element: root, getLoopPoints, clear };
-}
-function updateA(
-  audioPlayer: AudioPlayerContainer,
-  btnA: HTMLButtonElement,
-  btnB: HTMLButtonElement,
-  pointA: number | null,
-  pointB: number | null
-) {
-  const state = audioPlayer.getState();
-  if (state) {
-    // Update A point with current playback time
-    pointA = state.currentTime;
-
-    // If A is after B, swap to maintain chronological order
-    if (pointB !== null && pointA > pointB) {
-      [pointA, pointB] = [pointB, pointA];
-    }
-
-    // Visual update - active style for A
-    btnA.style.background = COLOR_A;
-    btnA.style.color = "white";
-    btnA.style.fontWeight = "800";
-    btnA.style.boxShadow = `inset 0 0 0 2px ${COLOR_A}`;
-    btnA.dataset.active = "true";
-
-    // Preserve existing B marker if already set; otherwise keep B inactive
-    if (pointB === null) {
-      btnB.style.background = "transparent";
-      btnB.style.color = "#495057";
-      btnB.style.fontWeight = "600";
-      btnB.style.boxShadow = "none";
-      delete btnB.dataset.active;
-    }
-
-    // Re-render seek bar
-    updateSeekBar();
-
-    // Legacy: was used to move the piano-roll playhead immediately.
-    // Component has been deprecated so we skip this step here.
-  }
-}
-
-// -----------------------------------------------------------------
-// NOTE: This legacy component is no longer wired into the player UI.
-// We provide minimal stubs so the file still compiles without errors.
-// -----------------------------------------------------------------
-
-// Placeholder no-op so TypeScript finds a definition.
-function updateSeekBar(): void {
-  /* no-op - legacy UI component */
 }

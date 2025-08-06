@@ -2,6 +2,7 @@ import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
 import { UIComponentDependencies } from "../types";
 import { clamp } from "@/core/utils";
 import { updateLoopDisplay } from "@/lib/components/player/wave-roll/ui/loop-display";
+import { createMarker } from "../../player/wave-roll/ui/marker";
 
 /**
  * Create a time display element.
@@ -109,7 +110,11 @@ export function createTimeDisplayUI(
     document.head.appendChild(style);
   }
 
-  const createMarker = (label: string, color: string, id: string) => {
+  const _deprecatedCreateMarker = (
+    label: string,
+    color: string,
+    id: string
+  ) => {
     const el = document.createElement("div");
     el.id = id;
     el.className = "wr-marker";
@@ -125,8 +130,8 @@ export function createTimeDisplayUI(
     return el;
   };
 
-  const markerA = createMarker("A", COLOR_A, "wr-seekbar-marker-a");
-  const markerB = createMarker("B", COLOR_B, "wr-seekbar-marker-b");
+  const markerA = createMarker("A", COLOR_A, "wr-seekbar-marker-a", 14);
+  const markerB = createMarker("B", COLOR_B, "wr-seekbar-marker-b", 14);
 
   // Progress bar
   const progressBar = document.createElement("div");
@@ -318,7 +323,9 @@ export function createTimeDisplayUI(
     // we can forward directly.
     const shouldShowLoopMarkers = state.duration > 0;
     updateLoopDisplay({
-      loopPoints: shouldShowLoopMarkers ? (dependencies.loopPoints ?? null) as any : null,
+      loopPoints: shouldShowLoopMarkers
+        ? ((dependencies.loopPoints ?? null) as any)
+        : null,
       loopRegion,
       markerA,
       markerB,

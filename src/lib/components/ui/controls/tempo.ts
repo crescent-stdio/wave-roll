@@ -28,7 +28,7 @@ export function createTempoControlUI(
   input.max = "400";
   input.value = "120";
   input.style.cssText = `
-      width: 80px;
+      width: 48px;
       padding: 4px 8px;
       border: none;
       border-radius: 4px;

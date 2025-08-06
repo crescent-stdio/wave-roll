@@ -1,22 +1,19 @@
 # WaveRoll
 
 <div style="text-align: center;">
-  <img src="./wave-roll.png" alt="WaveRoll" width="50%"/>
+  <img src="./wave-roll-logo.png" alt="WaveRoll" width="50%"/>
 </div>
 
-WaveRoll is an interactive JavaScript library that enables comparative visualization and synchronized playback of multiple MIDI piano rolls in the browser. 
+> **WaveRoll** is an interactive [JavaScript library](https://www.npmjs.com/package/wave-roll) that enables comparative visualization and synchronized playback of multiple MIDI piano rolls in the browser. 
 
 ![NPM Version](https://img.shields.io/npm/v/wave-roll)
 ![NPM License](https://img.shields.io/npm/l/wave-roll)
 
-You can try the web demo [here](https://crescent-stdio.github.io/wave-roll/).
+![Screenshot of WaveRoll](./wave-roll.png)
 
-## Features
+- You can try the web demo at [crescent-stdio.github.io/wave-roll](https://crescent-stdio.github.io/wave-roll/).
+- NPM package: [npmjs.com/package/wave-roll](https://www.npmjs.com/package/wave-roll)
 
-- 🎹 **Multi-MIDI Visualization**: Display and compare multiple MIDI files simultaneously
-- 🎨 **Customizable Colors**: Automatic color assignment with customizable palettes
-- 🔄 **A-B Loop Playback**: Set loop points for focused analysis
-- 🎛️ **Advanced Controls**: Tempo adjustment, volume control, pan control per file
 
 ## Installation
 

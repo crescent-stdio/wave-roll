@@ -2,6 +2,7 @@ import { clamp } from "@/core/utils";
 import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { updateLoopDisplay } from "./loop-display";
 import { COLOR_A, COLOR_B } from "@/lib/core/constants";
+import { createMarker } from "./marker";
 
 /** Loop window expressed in percentage (0-100) relative to the full track. */
 export interface LoopWindow {
@@ -77,81 +78,9 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   barWrap.appendChild(loopRegion);
 
   /* -------------------------------------------------------------
-   * Markers A / B (label + small stem) reusable CSS
+   * Markers A / B are created using the shared createMarker function
+   * which handles CSS injection and styling
    * ----------------------------------------------------------- */
-  const markerCssId = "wr-marker-css";
-  if (!document.getElementById(markerCssId)) {
-    const style = document.createElement("style");
-    style.id = markerCssId;
-    style.textContent = `
-      .wr-marker {
-        position: absolute;
-        top: -24px;
-        transform: translateX(-50%);
-        font-family: monospace;
-        font-size: 11px;
-        font-weight: 600;
-        padding: 2px 4px;
-        border-radius: 4px 4px 0 0;
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-        z-index: 3;
-      }
-      .wr-marker::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 2px;
-        height: 30px; /* reach down to progress bar */
-        background: currentColor;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  const createMarker = (label: string, color: string, id: string) => {
-    const el = document.createElement("div");
-    el.id = id;
-    // Base class so the full CSS (including ::after stem) is applied when
-    // available. However, we also inline critical positioning styles so the
-    // marker renders correctly even if the class-based stylesheet is stripped
-    // during tree-shaking or optimisation in production builds.
-    el.className = "wr-marker";
-
-    /* --- Fallback inline styles ----------------------------------------- */
-    el.style.position = "absolute";
-    el.style.top = "-24px"; /* sits above the 8px bar */
-    el.style.transform = "translateX(-50%)";
-    el.style.fontFamily = "monospace";
-    el.style.fontSize = "11px";
-    el.style.fontWeight = "600";
-    el.style.padding = "2px 4px";
-    el.style.borderRadius = "4px 4px 0 0";
-    el.style.pointerEvents = "none";
-    el.style.zIndex = "3";
-
-    /* --- Dynamic colours ------------------------------------------------ */
-    // Background needs to match currentColor so the ::after stem inherits the
-    // same hue. We therefore set both properties.
-    el.style.background = color; // label background
-    el.style.color = color; // stem colour via currentColor
-
-    // Keep hidden until the corresponding loop point is set
-    el.style.display = "none";
-
-    // Label text (white on coloured background)
-    const span = document.createElement("span");
-    span.textContent = label;
-    span.style.color = "#ffffff";
-    el.appendChild(span);
-
-    return el;
-  };
 
   const markerA = createMarker("A", COLOR_A, "wr-seekbar-marker-a");
   const markerB = createMarker("B", COLOR_B, "wr-seekbar-marker-b");
@@ -172,7 +101,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
       });
       return;
     }
-    
+
     // Map to LoopDisplay format (a/b in percent)
     const loopPoints = loop ? { a: loop.prev, b: loop.next } : null;
 

@@ -1,6 +1,6 @@
 {
   "name": "wave-roll",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "JavaScript Library for Comparative MIDI Piano-Roll Visualization",
   "main": "dist/wave-roll.umd.js",
   "module": "dist/wave-roll.es.js",
