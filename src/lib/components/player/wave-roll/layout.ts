@@ -1,6 +1,6 @@
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
 import { UIElements, UIComponentDependencies } from "@/lib/components/ui";
-import { WaveRollMultiMidiPlayerOptions } from "./types";
+import { WaveRollPlayerOptions } from "./types";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
 // NOTE: setupUI is intentionally imported in player after piano-roll initialisation.
 // createAudioPlayer is not required here.
@@ -33,7 +33,7 @@ export function setupLayout(
   // errors when they are accessed before being ready.
 }
 
-export function createDefaultConfig(): WaveRollMultiMidiPlayerOptions {
+export function createDefaultConfig(): WaveRollPlayerOptions {
   return {
     audioController: {
       defaultVolume: 0.7,

@@ -1,7 +1,7 @@
-import { WaveRollMultiMidiPlayer } from "./player";
+import { WaveRollPlayer } from "./player";
 
 /**
- * Web Component <wave-roll-multi-midi>
+ * Web Component <wave-roll>
  *
  * Accepts a `files` attribute containing either:
  * 1. A JSON array of objects: [{ "path": "./music.mid", "displayName": "My Song" }, ...]
@@ -11,9 +11,9 @@ import { WaveRollMultiMidiPlayer } from "./player";
  * The component initialises a full-featured multi-track player + piano-roll
  * once the MIDI data has been parsed.
  */
-class WaveRollMultiMidiElement extends HTMLElement {
+class WaveRollElement extends HTMLElement {
   /** Underlying demo instance */
-  private demo: WaveRollMultiMidiPlayer | null = null;
+  private demo: WaveRollPlayer | null = null;
 
   /** Cache last parsed files attribute so we can detect changes */
   private lastFilesAttr: string | null = null;
@@ -96,11 +96,11 @@ class WaveRollMultiMidiElement extends HTMLElement {
 
     try {
       this.setStatus("Loading MIDI files…");
-      this.demo = await createWaveRollMultiMidiPlayer(this, files);
+      this.demo = await createWaveRollPlayer(this, files);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.setStatus(`Failed to load MIDI files: ${msg}`, "#e53e3e");
-      console.error("<wave-roll-multi-midi> error:", error);
+      console.error("<wave-roll> error:", error);
     }
   }
 
@@ -114,17 +114,17 @@ class WaveRollMultiMidiElement extends HTMLElement {
 }
 
 // Register element once
-if (!customElements.get("wave-roll-multi-midi")) {
-  customElements.define("wave-roll-multi-midi", WaveRollMultiMidiElement);
+if (!customElements.get("wave-roll")) {
+  customElements.define("wave-roll", WaveRollElement);
 }
 
-export { WaveRollMultiMidiElement };
+export { WaveRollElement };
 
-export async function createWaveRollMultiMidiPlayer(
+export async function createWaveRollPlayer(
   container: HTMLElement,
   files: Array<{ path: string; displayName?: string }>
-): Promise<WaveRollMultiMidiPlayer> {
-  const player = new WaveRollMultiMidiPlayer(container, files);
+): Promise<WaveRollPlayer> {
+  const player = new WaveRollPlayer(container, files);
   await player.initialize();
   return player;
 }

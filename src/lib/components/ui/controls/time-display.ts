@@ -1,7 +1,7 @@
 import { COLOR_PRIMARY, COLOR_A, COLOR_B } from "@/lib/core/constants";
 import { UIComponentDependencies } from "../types";
 import { clamp } from "@/core/utils";
-import { updateLoopDisplay } from "@/lib/components/player/wave-roll-midi/ui/loop-display";
+import { updateLoopDisplay } from "@/lib/components/player/wave-roll/ui/loop-display";
 
 /**
  * Create a time display element.

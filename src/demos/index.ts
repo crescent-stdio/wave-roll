@@ -1,5 +1,3 @@
-import "../lib/components/player/wave-roll-multi-midi/element";
-import "../lib/components/player/wave-roll-midi/element";
+import "@/lib/components/player/wave-roll/element";
 
-export { createWaveRollMultiMidiPlayer } from "../lib/components/player/wave-roll-multi-midi/element";
-export { createWaveRollMidiPlayer } from "../lib/components/player/wave-roll-midi/player";
+export { createWaveRollPlayer } from "@/lib/components/player/wave-roll/player";

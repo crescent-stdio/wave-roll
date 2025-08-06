@@ -6,7 +6,7 @@
 export { createPianoRoll } from "@/lib/core/visualization/piano-roll";
 
 // 2) Player demo helper used by the synchronized-player example
-export { createWaveRollMidiPlayer } from "./lib/components/player/wave-roll-midi/player";
+export { createWaveRollPlayer } from "@/lib/components/player/wave-roll/player";
 
 // 3) Evaluation helpers
 export {
@@ -29,39 +29,6 @@ export interface MidiPlayerOptions {
   className?: string;
   width?: string;
   height?: string;
-}
-
-/**
- * No-op replacement for the removed html-midi-player dependency.
- * It simply shows an informational message and returns.
- */
-export async function createMidiPlayer(
-  container: HTMLElement,
-  _input: unknown,
-  _options: MidiPlayerOptions = {}
-): Promise<void> {
-  console.warn(
-    "[wave-roll] createMidiPlayer is deprecated - html-midi-player has been removed. " +
-      "Please migrate to <wave-roll-midi> or createAudioPlayer + createPianoRoll."
-  );
-
-  if (container) {
-    container.innerHTML =
-      '<div style="text-align:center;padding:16px;color:#666;">' +
-      "Interactive MIDI player is no longer available." +
-      "</div>";
-  }
-}
-
-/**
- * Legacy helper that previously converted ArrayBuffer -> base64 data-URL.
- * Returns an empty string and logs a warning.
- */
-export function arrayBufferToDataUrl(_arrayBuffer: ArrayBuffer): string {
-  console.warn(
-    "[wave-roll] arrayBufferToDataUrl is deprecated and returns an empty string."
-  );
-  return "";
 }
 
 /**

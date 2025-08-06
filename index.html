@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="data:," />
-    <title>Multi MIDI Demo - WaveRoll</title>
+    <title>WaveRoll - MIDI Visualizer</title>
     <style>
       * {
         margin: 0;
@@ -39,29 +38,6 @@
         font-weight: 600;
         color: #1d1d1f;
       }
-
-      #demo-container {
-        flex: 1;
-        padding: 20px;
-      }
-
-      .loading {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        font-size: 18px;
-        color: #86868b;
-      }
-
-      .error {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        color: #dc3545;
-        font-size: 18px;
-      }
     </style>
   </head>
   <body>
@@ -69,14 +45,14 @@
       <header>
         <h1>WaveRoll - MIDI Visualizer</h1>
       </header>
-      <wave-roll-multi-midi
+      <wave-roll
         style="height: calc(100vh - 80px); display: block; width: 100%"
         files='[
         { "path": "./src/sample_midi/bytedance-liszt.mid", "displayName": "Bytedance Liszt" },
         { "path": "./src/sample_midi/Transkun-liszt.mid", "displayName": "Transkun Liszt" },
         { "path": "./src/sample_midi/basicpitch-liszt.mid", "displayName": "Basic Pitch Liszt" }
         ]'
-      ></wave-roll-multi-midi>
+      ></wave-roll>
       <!-- { "path": "./src/sample_midi/MusicToMidi-liszt.mid", "displayName": "MusicToMidi Liszt" }, -->
 
       <!-- Load the custom element definition -->

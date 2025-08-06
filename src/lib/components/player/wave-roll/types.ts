@@ -1,6 +1,6 @@
 import { AudioControllerConfig, PianoRollConfig } from "@/core/playback";
 
-export interface WaveRollMultiMidiPlayerOptions {
+export interface WaveRollPlayerOptions {
   /** Configuration for the underlying AudioController */
   audioController: Partial<AudioControllerConfig>;
   /** Default settings for the piano-roll visualisation */

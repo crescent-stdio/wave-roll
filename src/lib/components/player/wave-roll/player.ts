@@ -1,8 +1,15 @@
 /**
- * MultiMidiDemo - Orchestrator for multiple MIDI files with visualization
- * Refactored to use extracted modules and act as a coordination layer
+ * WaveRollPlayer - an integrated Audio + Piano-roll component.
+ *
+ * * Responsibilities*
+ *   1. Build AudioPlayer + PianoRoll core objects.
+ *   2. Compose UI controls (playback, loop, volume, tempo, …).
+ *   3. Maintain a lightweight update-loop to keep UI <-> audio <-> piano-roll in sync.
+ *
+ * The class itself **owns no UI-implementation details**: every visual control
+ * is imported from `lib/components/ui/**`. That keeps the orchestration layer
+ * small and easy to test.
  */
-
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 
@@ -15,7 +22,7 @@ import {
 import { detectOverlappingNotes } from "@/lib/core/utils/midi/overlap";
 
 import { MidiFileItemList } from "@/lib/core/file/types";
-import { WaveRollMultiMidiPlayerOptions } from "./types";
+import { WaveRollPlayerOptions } from "./types";
 import { createDefaultConfig, setupLayout } from "./layout";
 import {
   ColoredNote,
@@ -48,7 +55,7 @@ import {
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
  */
-export class WaveRollMultiMidiPlayer {
+export class WaveRollPlayer {
   private container: HTMLElement;
   private midiManager: MultiMidiManager;
   public pianoRollManager: PianoRollManager | null = null;
@@ -86,7 +93,7 @@ export class WaveRollMultiMidiPlayer {
   private pianoRollContainer!: HTMLElement;
 
   // Configuration
-  private config: WaveRollMultiMidiPlayerOptions;
+  private config: WaveRollPlayerOptions;
 
   // Store initial files for initialization
   private initialFileItemList: MidiFileItemList = [];
@@ -948,11 +955,11 @@ export class WaveRollMultiMidiPlayer {
 /**
  * Factory function to create multi MIDI demo
  */
-export async function createWaveRollMultiMidiPlayer(
+export async function createWaveRollPlayer(
   container: HTMLElement,
   files: Array<{ path: string; displayName?: string }> = []
-): Promise<WaveRollMultiMidiPlayer> {
-  const demo = new WaveRollMultiMidiPlayer(container, files);
+): Promise<WaveRollPlayer> {
+  const demo = new WaveRollPlayer(container, files);
   await demo.initialize();
   return demo;
 }
