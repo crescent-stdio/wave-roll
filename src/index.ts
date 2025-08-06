@@ -14,6 +14,10 @@ export {
   DEFAULT_TOLERANCES,
 } from "@/lib/evaluation/transcription";
 
+// 4) Register Web Component
+import "./web-component";
+export { WaveRollElement } from "./web-component";
+
 // ------------------------------------------------------------------
 // 3) Deprecated html-midi-player stubs
 // ------------------------------------------------------------------

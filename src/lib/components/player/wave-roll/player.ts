@@ -385,7 +385,7 @@ export class WaveRollPlayer {
     } else {
       await this.loadSampleFiles();
     }
-    console.log("this.midiManager.getState()", this.midiManager.getState());
+    // console.log("this.midiManager.getState()", this.midiManager.getState());
 
     const custom = { ...DEFAULT_TOLERANCES, onsetTolerance: 0.03 };
     const ref = this.midiManager.getState().files[0].parsedData;
@@ -397,7 +397,7 @@ export class WaveRollPlayer {
      * objects, not just the `notes` arrays.
      */
     if (ref && est) {
-      console.log("computeNoteMetrics", computeNoteMetrics(ref, est, custom));
+      // console.log("computeNoteMetrics", computeNoteMetrics(ref, est, custom));
     }
     // Kick-off continuous UI syncing (seek-bar, play button, etc.)
     // This used to be forgotten which meant the progress bar and icons
@@ -875,36 +875,107 @@ export class WaveRollPlayer {
     }
 
     // Handle A key - Set loop start point
-    if (event.key === "a" || event.key === "A") {
-      event.preventDefault();
-      event.stopPropagation();
-      
-      // Trigger the A button click in the AB loop controls
-      const abLoopElement = this.playerContainer.querySelector('.ab-loop-controls');
-      if (abLoopElement) {
-        const aButton = abLoopElement.querySelector('button:nth-child(2)') as HTMLButtonElement;
-        if (aButton) {
-          aButton.click();
-        }
-      }
-      return;
-    }
+    // if (event.key === "a" || event.key === "A") {
+    //   event.preventDefault();
+    //   event.stopPropagation();
 
-    // Handle B key - Set loop end point
-    if (event.key === "b" || event.key === "B") {
-      event.preventDefault();
-      event.stopPropagation();
-      
-      // Trigger the B button click in the AB loop controls
-      const abLoopElement = this.playerContainer.querySelector('.ab-loop-controls');
-      if (abLoopElement) {
-        const bButton = abLoopElement.querySelector('button:nth-child(3)') as HTMLButtonElement;
-        if (bButton) {
-          bButton.click();
-        }
-      }
-      return;
-    }
+    //   // Get current playback position and set as loop point A
+    //   const state = this.visualizationEngine?.getState();
+    //   if (state && state.duration > 0) {
+    //     const currentTime = state.currentTime;
+
+    //     // Get current loop points
+    //     const loopPoints = this.stateManager.getState().loopPoints;
+    //     let pointA = currentTime;
+    //     let pointB = loopPoints.b;
+
+    //     // Ensure A <= B
+    //     if (pointB !== null && pointA > pointB) {
+    //       [pointA, pointB] = [pointB, pointA];
+    //     }
+
+    //     // Set the loop points
+    //     this.visualizationEngine.setLoopPoints(pointA, pointB);
+
+    //     // Convert to percentages for UI
+    //     const percentA = (pointA / state.duration) * 100;
+    //     const percentB = pointB !== null ? (pointB / state.duration) * 100 : null;
+
+    //     // Update UI dependencies
+    //     const deps = this.getUIDependencies();
+    //     (deps as any).loopPoints = { a: percentA, b: percentB };
+
+    //     // Force seekbar update
+    //     deps.updateSeekBar?.({
+    //       currentTime: state.currentTime,
+    //       duration: state.duration,
+    //     } as any);
+
+    //     // Also dispatch event for other UI components
+    //     const loopEvent = new CustomEvent("wr-loop-update", {
+    //       detail: {
+    //         loopWindow: { prev: percentA, next: percentB }
+    //       },
+    //       bubbles: true
+    //     });
+    //     this.playerContainer.dispatchEvent(loopEvent);
+    //   }
+    //   return;
+    // }
+
+    // // Handle B key - Set loop end point
+    // if (event.key === "b" || event.key === "B") {
+    //   event.preventDefault();
+    //   event.stopPropagation();
+
+    //   // Get current playback position and set as loop point B
+    //   const state = this.visualizationEngine?.getState();
+    //   if (state && state.duration > 0) {
+    //     const currentTime = state.currentTime;
+
+    //     // Get current loop points
+    //     const loopPoints = this.stateManager.getState().loopPoints;
+    //     let pointA = loopPoints.a;
+    //     let pointB = currentTime;
+
+    //     // If A is not set, only set B
+    //     if (pointA === null) {
+    //       pointA = 0;
+    //     }
+
+    //     // Ensure A <= B
+    //     if (pointB < pointA) {
+    //       [pointA, pointB] = [pointB, pointA];
+    //     }
+
+    //     // Set the loop points
+    //     this.visualizationEngine.setLoopPoints(pointA, pointB);
+
+    //     // Convert to percentages for UI
+    //     const percentA = (pointA / state.duration) * 100;
+    //     const percentB = (pointB / state.duration) * 100;
+
+    //     // Update UI dependencies
+    //     const deps = this.getUIDependencies();
+    //     (deps as any).loopPoints = { a: percentA, b: percentB };
+
+    //     // Force seekbar update
+    //     deps.updateSeekBar?.({
+    //       currentTime: state.currentTime,
+    //       duration: state.duration,
+    //     } as any);
+
+    //     // Also dispatch event for other UI components
+    //     const loopEvent = new CustomEvent("wr-loop-update", {
+    //       detail: {
+    //         loopWindow: { prev: percentA, next: percentB }
+    //       },
+    //       bubbles: true
+    //     });
+    //     this.playerContainer.dispatchEvent(loopEvent);
+    //   }
+    //   return;
+    // }
 
     // Handle Space key for play/pause
     if (!(event.code === "Space" || event.key === " ")) return;

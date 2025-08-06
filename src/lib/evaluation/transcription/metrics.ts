@@ -24,7 +24,7 @@ export function computeNoteMetrics(
     options
   );
 
-  console.log("matchResult.matches", matchResult.matches);
+  // console.log("matchResult.matches", matchResult.matches);
 
   const numCorrect = matchResult.matches.length;
   const numRef = reference.notes.length;

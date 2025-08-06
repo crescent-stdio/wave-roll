@@ -138,7 +138,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
 
   // Helper to sync loop overlay + piano-roll marker -------------------------
   const updateLoopOverlay = (loop: LoopWindow | null, duration: number) => {
-    console.log("[SeekBar] overlay", { loop, duration });
+    // console.log("[SeekBar] overlay", { loop, duration });
     // Map to LoopDisplay format (a/b in percent)
     const loopPoints = loop ? { a: loop.prev, b: loop.next } : null;
 
@@ -271,11 +271,11 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   let isDragging = false;
 
   slider.addEventListener("pointerdown", (e: PointerEvent) => {
-    console.log("%c[SB] down", "color:#2b90d9", {
-      pct: slider.value,
-      seconds:
-        (Number(slider.value) / 100) * (audioPlayer?.getState().duration ?? 0),
-    });
+    // console.log("%c[SB] down", "color:#2b90d9", {
+    //   pct: slider.value,
+    //   seconds:
+    //     (Number(slider.value) / 100) * (audioPlayer?.getState().duration ?? 0),
+    // });
 
     isDragging = true;
     slider.setPointerCapture(e.pointerId);
@@ -314,7 +314,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   // While dragging, simply update the visuals (thumb + time label) without
   // invoking expensive seek logic on every `input` event.
   slider.addEventListener("input", () => {
-    console.log("%c[SB] input", "color:#2b90d9", { pct: slider.value });
+    // console.log("%c[SB] input", "color:#2b90d9", { pct: slider.value });
     const pct = Number(slider.value); // 0-100
     const pct01 = pct / 100;
     const durationSec = audioPlayer?.getState().duration ?? 0;
@@ -350,7 +350,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     }
     update.prev = current;
 
-    console.log("[SeekBar.update]", current.toFixed(3));
+    // console.log("[SeekBar.update]", current.toFixed(3));
 
     labelCurrent.textContent = formatTime(current);
     labelTotal.textContent = formatTime(duration);
@@ -378,11 +378,11 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
 
     /* loop overlay */
     updateLoopOverlay(loop, duration);
-    console.log("[SeekBar.update] end", {
-      current: current.toFixed(3),
-      duration: duration.toFixed(3),
-      loop: loop,
-    });
+    // console.log("[SeekBar.update] end", {
+    //   current: current.toFixed(3),
+    //   duration: duration.toFixed(3),
+    //   loop: loop,
+    // });
   };
 
   return { element: root, update };
