@@ -1,11 +1,11 @@
 # WaveRoll
 
-![WaveRoll](https://github.com/crescent-stdio/wave-roll/blob/main/wave-roll.png)
+<img src="https://github.com/crescent-stdio/wave-roll/wave-roll.png" alt="WaveRoll" width="40%">
 
-A modern web component for visualizing and comparing multiple MIDI files with synchronized piano roll display, designed specifically for Music Information Retrieval (MIR) research and analysis.
+WaveRoll is an interactive JavaScript library that enables comparative visualization and synchronized playback of multiple MIDI piano rolls in the browser. 
 
-![npm version](https://img.shields.io/npm/v/wave-roll)
-![license](https://img.shields.io/npm/l/wave-roll)
+![NPM Version](https://img.shields.io/npm/v/wave-roll)
+![NPM License](https://img.shields.io/npm/l/wave-roll)
 
 ## Features
 
@@ -22,31 +22,7 @@ A modern web component for visualizing and comparing multiple MIDI files with sy
 npm install wave-roll
 ```
 
-### CDN
-
-You can use WaveRoll directly from a CDN without any build process:
-
-#### ES Module (Recommended)
-You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/test-esm-cdn.html).
-
-```html
-<script type="module">
-  import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
-</script>
-```
-
-#### UMD (Traditional Script Tag)
-You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-umd.html).
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.umd.js"></script>
-```
-
-## Usage
-
-### As a Web Component
-
-#### Using NPM Package
+### Usage
 
 ```html
 <!DOCTYPE html>
@@ -69,7 +45,8 @@ You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-
 </html>
 ```
 
-#### Using CDN (ES Module)
+### Using CDN (ES Module)
+You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/test-esm-cdn.html).
 
 ```html
 <!DOCTYPE html>
@@ -92,7 +69,8 @@ You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-
 </html>
 ```
 
-#### Using CDN (Traditional Script)
+### Using UMD CDN (Traditional Script)
+You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-umd.html).
 
 ```html
 <!DOCTYPE html>
@@ -174,8 +152,8 @@ function MidiComparison() {
 
 ```typescript
 interface MidiFile {
-path: string;  // URL or path to the MIDI file
-name: string;  // Display name for the file
+  path: string;  // URL or path to the MIDI file
+  name: string;  // Display name for the file
 }
 ```
 
@@ -185,9 +163,9 @@ name: string;  // Display name for the file
 Click the A button to set the start point and B button to set the end point. The selected region will loop continuously during playback.
 
 ### Per-File Controls
-- **Mute**: Silence individual MIDI files while keeping them visible
-- **Solo**: Play only the selected file
-- **Color**: Customize the color for each file
+- **Visible**: Show/hide individual MIDI files
+- **Sustain**: Play only the selected file
+- **Mute/Unmute**: Silence individual MIDI files while keeping them visible
 - **Pan**: Adjust stereo positioning (-100 to +100)
 
 ### Tempo Control

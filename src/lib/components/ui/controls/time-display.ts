@@ -115,6 +115,7 @@ export function createTimeDisplayUI(
     el.className = "wr-marker";
     el.style.background = color;
     el.style.color = color; // stem color via currentColor
+    el.style.display = "none"; // Initially hidden until loop points are set
 
     const span = document.createElement("span");
     span.textContent = label;
@@ -310,12 +311,14 @@ export function createTimeDisplayUI(
     /* ---------------------------------------------------------
      *   Loop overlay & markers
      * ------------------------------------------------------- */
+    // Only show loop markers if we have a valid duration (i.e., files are loaded)
     // Map dependency format (a/b in seconds or percent) to percent units.
     // Here, dependencies.loopPoints follows { a:?, b:? } where the values are
     // percentages [0-100] (this is what loop-controls dispatches). Therefore
     // we can forward directly.
+    const shouldShowLoopMarkers = state.duration > 0;
     updateLoopDisplay({
-      loopPoints: (dependencies.loopPoints ?? null) as any,
+      loopPoints: shouldShowLoopMarkers ? (dependencies.loopPoints ?? null) as any : null,
       loopRegion,
       markerA,
       markerB,

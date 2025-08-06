@@ -379,25 +379,31 @@ export class WaveRollPlayer {
     );
     uiElements.fileToggleContainer = this.fileToggleContainer;
 
-    // Load initial files
+    // Load initial files if provided
     if (this.initialFileItemList.length > 0) {
       await this.loadSampleFiles(this.initialFileItemList);
     } else {
-      await this.loadSampleFiles();
+      // Don't load default files - just update UI to show empty state
+      this.updateSidebar();
+      this.updateFileToggleSection();
     }
     // console.log("this.midiManager.getState()", this.midiManager.getState());
 
-    const custom = { ...DEFAULT_TOLERANCES, onsetTolerance: 0.03 };
-    const ref = this.midiManager.getState().files[0].parsedData;
-    const est = this.midiManager.getState().files[1].parsedData;
+    // Only compute metrics if we have at least 2 files
+    const files = this.midiManager.getState().files;
+    if (files.length >= 2) {
+      const custom = { ...DEFAULT_TOLERANCES, onsetTolerance: 0.03 };
+      const ref = files[0].parsedData;
+      const est = files[1].parsedData;
 
-    /*
-     * Only compute metrics when both reference and estimated MIDI objects are
-     * available. The `computeNoteMetrics` utility expects full `ParsedMidi`
-     * objects, not just the `notes` arrays.
-     */
-    if (ref && est) {
-      // console.log("computeNoteMetrics", computeNoteMetrics(ref, est, custom));
+      /*
+       * Only compute metrics when both reference and estimated MIDI objects are
+       * available. The `computeNoteMetrics` utility expects full `ParsedMidi`
+       * objects, not just the `notes` arrays.
+       */
+      if (ref && est) {
+        // console.log("computeNoteMetrics", computeNoteMetrics(ref, est, custom));
+      }
     }
     // Kick-off continuous UI syncing (seek-bar, play button, etc.)
     // This used to be forgotten which meant the progress bar and icons

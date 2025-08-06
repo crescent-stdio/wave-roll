@@ -20,16 +20,56 @@ export class FileToggleManager {
       margin-top: 12px;
     `;
 
+    // Title and settings button container
+    const headerContainer = document.createElement("div");
+    headerContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    `;
+    
     // Title
     const title = document.createElement("h4");
     title.textContent = "MIDI Files";
     title.style.cssText = `
-      margin: 0 0 8px 0;
+      margin: 0;
       font-size: 14px;
       font-weight: 600;
       color: #495057;
     `;
-    fileToggleContainer.appendChild(title);
+    
+    // MIDI Settings button with file icon
+    const midiSettingsBtn = document.createElement("button");
+    midiSettingsBtn.innerHTML = `${PLAYER_ICONS.file} <span>Settings</span>`;
+    midiSettingsBtn.style.cssText = `
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      background: #e9ecef;
+      color: #495057;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    `;
+    
+    midiSettingsBtn.addEventListener("mouseenter", () => {
+      midiSettingsBtn.style.background = "#dee2e6";
+    });
+    midiSettingsBtn.addEventListener("mouseleave", () => {
+      midiSettingsBtn.style.background = "#e9ecef";
+    });
+    midiSettingsBtn.addEventListener("click", () => {
+      dependencies.openSettingsModal();
+    });
+    
+    headerContainer.appendChild(title);
+    headerContainer.appendChild(midiSettingsBtn);
+    fileToggleContainer.appendChild(headerContainer);
 
     // File controls container
     const fileControlsContainer = document.createElement("div");

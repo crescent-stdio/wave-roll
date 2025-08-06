@@ -117,11 +117,34 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   const createMarker = (label: string, color: string, id: string) => {
     const el = document.createElement("div");
     el.id = id;
+    // Base class so the full CSS (including ::after stem) is applied when
+    // available. However, we also inline critical positioning styles so the
+    // marker renders correctly even if the class-based stylesheet is stripped
+    // during tree-shaking or optimisation in production builds.
     el.className = "wr-marker";
-    el.style.background = color; // box bg
-    el.style.color = color; // currentColor -> stem uses this
 
-    // Inner span to keep label text white
+    /* --- Fallback inline styles ----------------------------------------- */
+    el.style.position = "absolute";
+    el.style.top = "-24px"; /* sits above the 8px bar */
+    el.style.transform = "translateX(-50%)";
+    el.style.fontFamily = "monospace";
+    el.style.fontSize = "11px";
+    el.style.fontWeight = "600";
+    el.style.padding = "2px 4px";
+    el.style.borderRadius = "4px 4px 0 0";
+    el.style.pointerEvents = "none";
+    el.style.zIndex = "3";
+
+    /* --- Dynamic colours ------------------------------------------------ */
+    // Background needs to match currentColor so the ::after stem inherits the
+    // same hue. We therefore set both properties.
+    el.style.background = color; // label background
+    el.style.color = color; // stem colour via currentColor
+
+    // Keep hidden until the corresponding loop point is set
+    el.style.display = "none";
+
+    // Label text (white on coloured background)
     const span = document.createElement("span");
     span.textContent = label;
     span.style.color = "#ffffff";
@@ -139,6 +162,17 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   // Helper to sync loop overlay + piano-roll marker -------------------------
   const updateLoopOverlay = (loop: LoopWindow | null, duration: number) => {
     // console.log("[SeekBar] overlay", { loop, duration });
+    // Don't show loop markers when there's no valid duration (no files loaded)
+    if (duration <= 0) {
+      updateLoopDisplay({
+        loopPoints: null,
+        loopRegion,
+        markerA,
+        markerB,
+      });
+      return;
+    }
+    
     // Map to LoopDisplay format (a/b in percent)
     const loopPoints = loop ? { a: loop.prev, b: loop.next } : null;
 

@@ -80,22 +80,18 @@ class WaveRollElement extends HTMLElement {
 
     // Parse files attribute
     const filesAttr = this.getAttribute('files');
-    if (!filesAttr) return;
-
-    let files;
-    try {
-      files = JSON.parse(filesAttr);
-    } catch (e) {
-      console.error('Invalid files attribute:', e);
-      return;
+    
+    let files = [];
+    if (filesAttr) {
+      try {
+        files = JSON.parse(filesAttr);
+      } catch (e) {
+        console.error('Invalid files attribute:', e);
+        return;
+      }
     }
 
-    if (!Array.isArray(files) || files.length === 0) {
-      console.warn('No files provided to wave-roll component');
-      return;
-    }
-
-    // Create new player
+    // Always create the player, even with no files (shows empty state)
     try {
       this.player = await createWaveRollPlayer(this.container, files);
     } catch (e) {

@@ -23,7 +23,11 @@ export function setupLayout(
   pianoRollContainer.style.cssText = `
     width: 100%;
     height: 400px;
+    min-height: 400px;
     margin-bottom: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    position: relative;
   `;
   uiElements.playerContainer.appendChild(pianoRollContainer);
 
