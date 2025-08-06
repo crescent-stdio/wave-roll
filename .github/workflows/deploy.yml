@@ -26,11 +26,16 @@ jobs:
         with:
           node-version: "24.1.0"
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: Install dependencies
         run: pnpm install
 
       - name: Build library
-        run: npm run build
+        run: pnpm run build
 
       - name: Create deployment directory
         run: |
