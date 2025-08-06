@@ -1,6 +1,6 @@
-# Wave Roll
+# WaveRoll
 
-![Wave Roll](https://github.com/crescent-stdio/wave-roll/blob/main/wave-roll.png)
+![WaveRoll](https://github.com/crescent-stdio/wave-roll/blob/main/wave-roll.png)
 
 A modern web component for visualizing and comparing multiple MIDI files with synchronized piano roll display, designed specifically for Music Information Retrieval (MIR) research and analysis.
 
@@ -26,7 +26,7 @@ npm install wave-roll
 
 ### CDN
 
-You can use Wave Roll directly from a CDN without any build process:
+You can use WaveRoll directly from a CDN without any build process:
 
 #### ES Module (Recommended)
 
@@ -123,7 +123,7 @@ For GitHub Pages deployment, you can use the CDN directly:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wave Roll Demo</title>
+  <title>WaveRoll Demo</title>
   <script type="module">
     import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
   </script>
@@ -226,7 +226,7 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## Citation
 
-If you use Wave Roll in your research, please cite:
+If you use WaveRoll in your research, please cite:
 
 ```bibtex
 
