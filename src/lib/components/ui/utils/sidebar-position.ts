@@ -1,4 +1,4 @@
-export const SIDEBAR_WIDTH = 280;
+export const SIDEBAR_WIDTH = 300;
 export const SIDEBAR_GAP = 20; // matches flex gap between sidebar and player column
 export const ICON_BUTTON_MARGIN = 12; // margin from edge when sidebar hidden
 

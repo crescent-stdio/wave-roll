@@ -29,6 +29,7 @@ export class UILayoutManager {
       gap: 20px;
       height: 100%;
       min-height: 600px;
+      overflow: visible;
     `;
 
     /* sidebar (initially visible, absolute positioning so it doesn't occupy layout width) */
@@ -64,6 +65,18 @@ export class UILayoutManager {
     // Sidebar visible by default, add padding initially
     elements.mainContainer.style.paddingLeft = `${SIDEBAR_WIDTH + SIDEBAR_GAP}px`;
 
+    // Create a wrapper for the toggle button to ensure it's always visible
+    const toggleWrapper = document.createElement("div");
+    toggleWrapper.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 50px;
+      pointer-events: none;
+      z-index: 1000;
+    `;
+    
     // Hamburger button to toggle sidebar
     const toggleBtn = document.createElement("button");
     toggleBtn.innerHTML = PLAYER_ICONS.menu;
@@ -83,7 +96,7 @@ export class UILayoutManager {
       align-items: center;
       justify-content: center;
       padding: 0;
-      z-index: 10;
+      pointer-events: auto;
       transition: background 0.2s ease, left 0.3s ease;
     `;
 
@@ -136,7 +149,8 @@ export class UILayoutManager {
       }
     });
 
-    elements.mainContainer.appendChild(toggleBtn);
+    toggleWrapper.appendChild(toggleBtn);
+    elements.mainContainer.appendChild(toggleWrapper);
 
     container.appendChild(elements.mainContainer);
 
