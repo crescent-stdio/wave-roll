@@ -13,8 +13,6 @@ A modern web component for visualizing and comparing multiple MIDI files with sy
 - 🎨 **Customizable Colors**: Automatic color assignment with customizable palettes
 - 🔄 **A-B Loop Playback**: Set loop points for focused analysis
 - 🎛️ **Advanced Controls**: Tempo adjustment, volume control, pan control per file
-- 🎯 **Precision Seeking**: Frame-accurate seeking with visual feedback
-- 📊 **Overlap Detection**: Visual feedback for overlapping notes across files
 
 ## Installation
 
@@ -29,6 +27,7 @@ npm install wave-roll
 You can use WaveRoll directly from a CDN without any build process:
 
 #### ES Module (Recommended)
+You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/test-esm-cdn.html).
 
 ```html
 <script type="module">
@@ -37,6 +36,7 @@ You can use WaveRoll directly from a CDN without any build process:
 ```
 
 #### UMD (Traditional Script Tag)
+You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-umd.html).
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.umd.js"></script>
