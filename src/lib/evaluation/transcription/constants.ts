@@ -5,6 +5,8 @@ export interface TranscriptionToleranceOptions {
   pitchTolerance: number;
   /** Maximum allowed relative difference between reference note duration and estimated note duration. For example, 0.2 allows a 20 % deviation. */
   offsetRatioTolerance: number;
+  /** Minimum allowed offset tolerance in seconds (default: 50ms) */
+  offsetMinTolerance: number;
 }
 
 /**
@@ -17,4 +19,5 @@ export const DEFAULT_TOLERANCES: TranscriptionToleranceOptions = {
   onsetTolerance: 0.05, // 50 ms
   pitchTolerance: 0.5, // 50 cents -> 0.5 semitone
   offsetRatioTolerance: 0.2,
+  offsetMinTolerance: 0.05, // 50 ms
 };

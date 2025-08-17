@@ -50,6 +50,7 @@ import { openSettingsModal } from "@/lib/components/ui/settings/modal";
 import {
   computeNoteMetrics,
   DEFAULT_TOLERANCES,
+  matchNotes,
 } from "@/lib/evaluation/transcription";
 
 /**
@@ -571,9 +572,9 @@ export class WaveRollPlayer {
       const raw = file.color ?? fallbackColors[idx % fallbackColors.length];
       const baseColor = toNumberColor(raw);
 
-      file.parsedData.notes.forEach((n: any) => {
+      file.parsedData.notes.forEach((n: any, noteIdx: number) => {
         baseNotes.push({
-          note: { ...n, fileId: file.id } as NoteData,
+          note: { ...n, fileId: file.id, sourceIndex: noteIdx } as NoteData,
           color: baseColor,
           fileId: file.id,
           isMuted: file.isMuted ?? false,
@@ -589,6 +590,11 @@ export class WaveRollPlayer {
     // Plain per-file colouring -> return early ---------------------------
     if (highlightMode === "file") {
       return baseNotes;
+    }
+
+    // Check if this is an evaluation-based highlight mode
+    if (highlightMode.startsWith("eval-")) {
+      return this.getEvaluationColoredNotes(state, baseNotes, highlightMode);
     }
 
     // 2) Overlap analysis -------------------------------------------------
@@ -665,6 +671,193 @@ export class WaveRollPlayer {
       push(cursor, end - cursor, baseColorVariant(orig.color));
     });
 
+    result.sort((a, b) => a.note.time - b.note.time);
+    return result;
+  }
+
+  /**
+   * Get evaluation-based colored notes
+   */
+  private getEvaluationColoredNotes(
+    state: any,
+    baseNotes: ColoredNote[],
+    highlightMode: string
+  ): ColoredNote[] {
+    const evalState = this.stateManager.getState().evaluation;
+    
+    // Need reference and at least one estimated file
+    if (!evalState.refId || evalState.estIds.length === 0) {
+      return baseNotes;
+    }
+    
+    // Find reference and estimated files
+    const refFile = state.files.find((f: any) => f.id === evalState.refId);
+    const estFile = state.files.find((f: any) => f.id === evalState.estIds[0]);
+    
+    if (!refFile?.parsedData || !estFile?.parsedData) {
+      return baseNotes;
+    }
+    
+    // Get tolerances
+    const tolerances = {
+      onsetTolerance: evalState.onsetTolerance,
+      pitchTolerance: evalState.pitchTolerance,
+      offsetRatioTolerance: evalState.offsetRatioTolerance,
+      offsetMinTolerance: evalState.offsetMinTolerance,
+    };
+    
+    // Perform matching
+    const matchResult = matchNotes(
+      refFile.parsedData,
+      estFile.parsedData,
+      tolerances
+    );
+    
+    // Helper functions
+    const toNumberColor = (c: string | number): number =>
+      typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
+    
+    const NEUTRAL_GRAY = 0x444444;
+    const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
+    
+    const mix = (a: number, b: number, r = 0.5): number => {
+      const ar = (a >> 16) & 0xff,
+        ag = (a >> 8) & 0xff,
+        ab = a & 0xff;
+      const br = (b >> 16) & 0xff,
+        bg = (b >> 8) & 0xff,
+        bb = b & 0xff;
+      const rr = Math.round(ar * (1 - r) + br * r);
+      const rg = Math.round(ag * (1 - r) + bg * r);
+      const rb = Math.round(ab * (1 - r) + bb * r);
+      return (rr << 16) | (rg << 8) | rb;
+    };
+    
+    // Build a map of matched note pairs
+    const refMatchedIndices = new Set<number>();
+    const estMatchedIndices = new Set<number>();
+    const matchedPairs = new Map<string, { refIdx: number; estIdx: number }>();
+    
+    matchResult.matches.forEach(match => {
+      refMatchedIndices.add(match.ref);
+      estMatchedIndices.add(match.est);
+      matchedPairs.set(`ref-${match.ref}`, { refIdx: match.ref, estIdx: match.est });
+      matchedPairs.set(`est-${match.est}`, { refIdx: match.ref, estIdx: match.est });
+    });
+    
+    // Process notes based on highlight mode
+    const result: ColoredNote[] = [];
+    
+    baseNotes.forEach(coloredNote => {
+      const { note, fileId } = coloredNote;
+      const sourceIdx = note.sourceIndex ?? 0;
+      const isRef = fileId === evalState.refId;
+      const isEst = fileId === evalState.estIds[0];
+      
+      // Skip notes from other files
+      if (!isRef && !isEst) {
+        result.push(coloredNote);
+        return;
+      }
+      
+      // Get original file color
+      const fileColor = toNumberColor(
+        state.files.find((f: any) => f.id === fileId)?.color ?? COLOR_PRIMARY
+      );
+      
+      // Check if this note is matched
+      const key = isRef ? `ref-${sourceIdx}` : `est-${sourceIdx}`;
+      const matchPair = matchedPairs.get(key);
+      const isMatched = matchPair !== undefined;
+      
+      if (highlightMode === "eval-gt-missed-only") {
+        // Only highlight unmatched reference notes
+        if (isRef && !isMatched) {
+          result.push({ ...coloredNote, color: mix(fileColor, HIGHLIGHT, 0.8) });
+        } else {
+          result.push({ ...coloredNote, color: NEUTRAL_GRAY });
+        }
+      } else if (isMatched && matchPair) {
+        // Get the matched pair notes
+        const refNote = refFile.parsedData.notes[matchPair.refIdx];
+        const estNote = estFile.parsedData.notes[matchPair.estIdx];
+        
+        // Calculate intersection
+        const refOn = refNote.time;
+        const refOff = refNote.time + refNote.duration;
+        const estOn = estNote.time;
+        const estOff = estNote.time + estNote.duration;
+        
+        const intersectStart = Math.max(refOn, estOn);
+        const intersectEnd = Math.min(refOff, estOff);
+        
+        // Determine colors based on mode
+        const useGray = highlightMode.includes("-gray");
+        const isExclusive = highlightMode.includes("exclusive");
+        
+        const nonIntersectColor = useGray ? NEUTRAL_GRAY : fileColor;
+        const intersectColor = mix(fileColor, HIGHLIGHT, 0.8);
+        
+        // Split the note into segments
+        const noteStart = note.time;
+        const noteEnd = note.time + note.duration;
+        
+        if (intersectStart < intersectEnd && intersectStart < noteEnd && intersectEnd > noteStart) {
+          // Has intersection
+          const segments: Array<{ start: number; end: number; color: number }> = [];
+          
+          // Before intersection
+          if (noteStart < intersectStart) {
+            segments.push({
+              start: noteStart,
+              end: Math.min(intersectStart, noteEnd),
+              color: isExclusive ? intersectColor : nonIntersectColor
+            });
+          }
+          
+          // Intersection
+          const actualIntersectStart = Math.max(noteStart, intersectStart);
+          const actualIntersectEnd = Math.min(noteEnd, intersectEnd);
+          if (actualIntersectStart < actualIntersectEnd) {
+            segments.push({
+              start: actualIntersectStart,
+              end: actualIntersectEnd,
+              color: isExclusive ? nonIntersectColor : intersectColor
+            });
+          }
+          
+          // After intersection
+          if (intersectEnd < noteEnd) {
+            segments.push({
+              start: Math.max(intersectEnd, noteStart),
+              end: noteEnd,
+              color: isExclusive ? intersectColor : nonIntersectColor
+            });
+          }
+          
+          // Create colored notes for each segment
+          segments.forEach(seg => {
+            if (seg.end > seg.start) {
+              result.push({
+                note: { ...note, time: seg.start, duration: seg.end - seg.start },
+                color: seg.color,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+          });
+        } else {
+          // No intersection (shouldn't happen for matched notes)
+          result.push({ ...coloredNote, color: nonIntersectColor });
+        }
+      } else {
+        // Unmatched note
+        const useGray = highlightMode.includes("-gray");
+        const color = useGray ? NEUTRAL_GRAY : fileColor;
+        result.push({ ...coloredNote, color });
+      }
+    });
+    
     result.sort((a, b) => a.note.time - b.note.time);
     return result;
   }

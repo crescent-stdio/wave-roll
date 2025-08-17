@@ -54,13 +54,33 @@ export type HighlightMode =
   | "file"
   | "highlight-simple"
   | "highlight-blend"
-  | "highlight-exclusive";
+  | "highlight-exclusive"
+  | "eval-match-intersection-gray"
+  | "eval-match-intersection-own"
+  | "eval-exclusive-intersection-gray"
+  | "eval-exclusive-intersection-own"
+  | "eval-gt-missed-only";
 
 export interface VisualState {
   currentNoteColors: number[];
   zoomLevel: number;
   /** Current note highlight mode for overlap visualisation */
   highlightMode: HighlightMode;
+}
+
+/**
+ * Evaluation state for transcription evaluation
+ */
+export interface EvaluationState {
+  refId: string | null;
+  estIds: string[];
+  onsetTolerance: number;
+  pitchTolerance: number;
+  offsetRatioTolerance: number;
+  offsetMinTolerance: number;
+  anchor: "intersection" | "ref" | "est";
+  kOfN: number;
+  showLoopOnlyMetrics: boolean;
 }
 
 /**
@@ -73,6 +93,7 @@ export interface AppState {
   loopPoints: LoopPointsState;
   panVolume: PanVolumeState;
   visual: VisualState;
+  evaluation: EvaluationState;
 }
 
 /**

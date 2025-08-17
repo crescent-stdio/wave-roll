@@ -5,6 +5,7 @@ import { FileVisibilityState } from "./types";
 import { LoopPointsState } from "./types";
 import { PanVolumeState } from "./types";
 import { VisualState } from "./types";
+import { EvaluationState } from "./types";
 
 export const DEFAULT_STATE_CONFIG: StateManagerConfig = {
   defaultVolume: 0.7,
@@ -50,6 +51,18 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   highlightMode: "file",
 };
 
+export const DEFAULT_EVALUATION_STATE: EvaluationState = {
+  refId: null,
+  estIds: [],
+  onsetTolerance: 0.05,
+  pitchTolerance: 0.5,
+  offsetRatioTolerance: 0.2,
+  offsetMinTolerance: 0.05,
+  anchor: "intersection",
+  kOfN: 1,
+  showLoopOnlyMetrics: false,
+};
+
 export const DEFAULT_APP_STATE: AppState = {
   ui: DEFAULT_UI_STATE,
   playback: DEFAULT_PLAYBACK_STATE,
@@ -57,4 +70,5 @@ export const DEFAULT_APP_STATE: AppState = {
   loopPoints: DEFAULT_LOOP_POINTS_STATE,
   panVolume: DEFAULT_PAN_VOLUME_STATE,
   visual: DEFAULT_VISUAL_STATE,
+  evaluation: DEFAULT_EVALUATION_STATE,
 };

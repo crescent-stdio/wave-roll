@@ -2,6 +2,7 @@ import { UIComponentDependencies } from "../../types";
 import { createMinorStepGroup } from "../controls/minor-step-group";
 import { createTimeStepGroup } from "../controls/time-step-group";
 import { createHighlightModeGroup } from "../controls/highlight-mode-group";
+import { createOffsetMinToleranceGroup } from "../controls/offset-min-tolerance-group";
 
 /**
  * Open the Zoom / Grid Settings modal (time step & minor step).
@@ -59,12 +60,14 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   // Controls
   const tsGroup = createTimeStepGroup(deps);
   const mnGroup = createMinorStepGroup(deps);
+  const offsetTolGroup = createOffsetMinToleranceGroup(deps);
   const hlGroup = createHighlightModeGroup(deps);
 
   // Assemble modal
   modal.appendChild(header);
   modal.appendChild(tsGroup);
   modal.appendChild(mnGroup);
+  modal.appendChild(offsetTolGroup);
   modal.appendChild(hlGroup);
   overlay.appendChild(modal);
 

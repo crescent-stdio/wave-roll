@@ -28,7 +28,7 @@ export interface NoteMatchResult {
  * A reference and estimated note are considered a match when:
  * - their onsets differ by at most `onsetTolerance` seconds.
  * - their pitches (in MIDI) differ by at most `pitchTolerance`.
- * - their offsets differ by at most `offsetRatioTolerance x referenceDuration`.
+ * - their offsets differ by at most `max(offsetMinTolerance, offsetRatioTolerance x referenceDuration)`.
  *
  * Each reference (estimated) note can be matched to at most one estimated
  * (reference) note.  The algorithm iterates over the estimated notes in order
@@ -39,7 +39,7 @@ export function matchNotes(
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {}
 ): NoteMatchResult {
-  const { onsetTolerance, pitchTolerance, offsetRatioTolerance } = {
+  const { onsetTolerance, pitchTolerance, offsetRatioTolerance, offsetMinTolerance } = {
     ...DEFAULT_TOLERANCES,
     ...options,
   };
@@ -81,11 +81,12 @@ export function matchNotes(
       const pitchDiff = Math.abs(estPitch - refPitch);
       const offsetDiff = Math.abs(estOffset - refOffset);
       const refDuration = refOffset - refOnset;
+      const effectiveOffsetTol = Math.max(offsetMinTolerance, offsetRatioTolerance * refDuration);
 
       if (
         onsetDiff <= onsetTolerance &&
         pitchDiff <= pitchTolerance &&
-        offsetDiff <= offsetRatioTolerance * refDuration
+        offsetDiff <= effectiveOffsetTol
       ) {
         // Found a match
         refMatched[refIdx] = true;

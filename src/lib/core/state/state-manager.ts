@@ -90,6 +90,14 @@ export class StateManager {
     this.notify();
   }
 
+  /**
+   * Update evaluation state
+   */
+  public updateEvaluationState(updates: Partial<AppState["evaluation"]>): void {
+    this.state.evaluation = { ...this.state.evaluation, ...updates };
+    this.notify();
+  }
+
   /* ====== state synchronization utilities  ====== */
 
   /**

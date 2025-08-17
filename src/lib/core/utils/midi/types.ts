@@ -46,6 +46,8 @@ export interface NoteData {
   duration: number;
   /** The ID of the source MIDI file this note belongs to */
   fileId?: string;
+  /** Optional source index for note matching/mapping */
+  sourceIndex?: number;
 }
 
 /**

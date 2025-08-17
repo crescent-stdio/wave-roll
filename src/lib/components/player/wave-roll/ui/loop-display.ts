@@ -35,16 +35,16 @@ export function updateLoopDisplay({
     return; // Defensive - refs not yet ready.
   }
 
-  console.log("[Loop-Display] Updating markers:", loopPoints);
+  // console.log("[Loop-Display] Updating markers:", loopPoints);
 
   if (loopPoints && (loopPoints.a !== null || loopPoints.b !== null)) {
     /* ---------------------------------------------
      * Marker A
      * ------------------------------------------- */
     if (loopPoints.a !== null) {
-      markerA.style.display = "block"; 
+      markerA.style.display = "block";
       markerA.style.left = `${loopPoints.a}%`;
-      console.log(`[Loop-Display] Marker A positioned at ${loopPoints.a}%`);
+      // console.log(`[Loop-Display] Marker A positioned at ${loopPoints.a}%`);
     } else {
       markerA.style.display = "none";
     }
@@ -55,7 +55,7 @@ export function updateLoopDisplay({
     if (loopPoints.b !== null) {
       markerB.style.display = "block";
       markerB.style.left = `${loopPoints.b}%`;
-      console.log(`[Loop-Display] Marker B positioned at ${loopPoints.b}%`);
+      // console.log(`[Loop-Display] Marker B positioned at ${loopPoints.b}%`);
     } else {
       markerB.style.display = "none";
     }
