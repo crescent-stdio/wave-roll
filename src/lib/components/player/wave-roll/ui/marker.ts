@@ -63,7 +63,7 @@ function ensureGlobalMarkerCss(): void {
 /**
  * Create a loop marker element (label + coloured background + vertical stem).
  *
- * The returned element is hidden (`display:none`) by default – callers should
+ * The returned element is hidden (`display:none`) by default - callers should
  * toggle it to `block` once the corresponding loop point is set.
  */
 export function createMarker(

@@ -96,10 +96,11 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     sprite.noteData = note;
 
     // Default opacity scaled by note velocity
-    const velocity = isFinite(note.velocity)
-      ? Math.max(0, Math.min(1, note.velocity))
-      : 0.5;
-    sprite.alpha = 0.3 + velocity * 0.7;
+    // const velocity = isFinite(note.velocity)
+    //   ? Math.max(0, Math.min(1, note.velocity))
+    //   : 0.5;
+    // sprite.alpha = 0.3 + velocity * 0.7;
+    sprite.alpha = 1;
 
     // Apply additive blending when the global highlight mode requests it
     const hl = (pianoRoll as any).highlightMode ?? "file";

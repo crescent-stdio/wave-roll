@@ -157,7 +157,7 @@ export function createEvaluationSection(
     pitchTolerance:
       "Maximum allowed pitch difference (in semitones, MIDI notes) for a match.",
     offsetRatioTolerance:
-      "Maximum allowed relative offset difference: |est_end - ref_end| / ref_duration. For example, 0.2 allows a 20 % deviation.",
+      "Maximum allowed relative offset difference: |est_end - ref_end| / ref_duration. For example, 0.2 allows a 20% deviation.",
     offsetMinTolerance:
       "Minimum absolute offset tolerance (in seconds) to allow for very short notes.",
   };
@@ -213,7 +213,7 @@ export function createEvaluationSection(
     "display:flex;align-items:center;gap:6px;font-size:12px;";
   attachTip(
     anchorGroup,
-    "Select the time region used as the anchor for overlap/visualization (experimental)."
+    "Select the time region used as the anchor for overlap/visualization."
   );
 
   const anchorLabel = document.createElement("span");
@@ -221,17 +221,16 @@ export function createEvaluationSection(
   anchorLabel.style.cssText = "min-width:80px;font-weight:600;";
   attachTip(
     anchorLabel,
-    "Intersection: overlap only; \n Ref: reference span; \n Est: estimated span (experimental)."
+    "Intersection: overlap only; \n Ref: reference span; \n Est: estimated span."
   );
 
   const anchorSelect = document.createElement("select");
   anchorSelect.style.cssText =
     "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
   const anchorDescriptions: Record<"intersection" | "ref" | "est", string> = {
-    intersection:
-      "Use the overlapped region as the anchor for visualization (does not affect metrics).",
-    ref: "Use the reference note span as the anchor (does not affect metrics).",
-    est: "Use the estimated note span as the anchor (does not affect metrics).",
+    intersection: "Use the overlapped region as the anchor for visualization.",
+    ref: "Use the reference note span as the anchor.",
+    est: "Use the estimated note span as the anchor.",
   };
 
   ["intersection", "ref", "est"].forEach((anchor) => {
@@ -298,7 +297,7 @@ export function createEvaluationSection(
     "border:1px solid #ced4da;border-radius:6px;padding:8px;background:#f8f9fa;font-size:11px;font-family:monospace;";
   attachTip(
     metricsBox,
-    "Shows Precision, Recall, F1, and average overlap ratio for the selected files under current tolerances."
+    "Shows Precision, Recall, F1, and average overlap ratio for the selected files under current tolerances. Based on mir_eval.transcription."
   );
 
   const updateMetrics = () => {
@@ -319,7 +318,7 @@ export function createEvaluationSection(
       return;
     }
 
-    // For now, only use the first estimated file
+    // Use the first estimated file for metrics display
     const estId = state.estIds[0];
     const estFile = files.find((f) => f.id === estId);
 
