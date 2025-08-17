@@ -8,16 +8,22 @@ export function createHighlightModeGroup(
   deps: UIComponentDependencies
 ): HTMLDivElement {
   const group = document.createElement("div");
-  group.style.cssText =
-    "display:flex;align-items:center;gap:6px;font-size:12px;";
+  group.style.cssText = `display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 4px 12px;
+    border-radius: 8px;
+    `;
 
   const label = document.createElement("span");
-  label.textContent = "Highlight:";
-  label.style.cssText = "font-weight:600;";
+  label.textContent = "Show notes:";
+  label.style.cssText = `font-weight:600;`;
 
   const select = document.createElement("select");
-  select.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
+  select.style.cssText = `flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;`;
 
   const modes: HighlightMode[] = [
     "file",

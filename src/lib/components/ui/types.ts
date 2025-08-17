@@ -45,6 +45,8 @@ export interface UIComponentDependencies {
 
   /** Opens the zoom / grid settings modal. */
   openSettingsModal: () => void;
+  /** Opens the evaluation results modal. */
+  openEvaluationResultsModal: () => void;
 
   /** Utility to format seconds as `MM:SS`. */
   formatTime: (seconds: number) => string;

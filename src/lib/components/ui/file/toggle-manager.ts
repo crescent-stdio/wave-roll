@@ -28,7 +28,7 @@ export class FileToggleManager {
       justify-content: space-between;
       margin-bottom: 8px;
     `;
-    
+
     // Title
     const title = document.createElement("h4");
     title.textContent = "MIDI Files";
@@ -38,8 +38,15 @@ export class FileToggleManager {
       font-weight: 600;
       color: #495057;
     `;
-    
-    // MIDI Settings button with file icon
+
+    // MIDI Settings button and Evaluation Results button
+    const btnBar = document.createElement("div");
+    btnBar.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    `;
+
     const midiSettingsBtn = document.createElement("button");
     midiSettingsBtn.innerHTML = `${PLAYER_ICONS.file} <span>Settings</span>`;
     midiSettingsBtn.style.cssText = `
@@ -56,7 +63,6 @@ export class FileToggleManager {
       gap: 4px;
       transition: all 0.2s ease;
     `;
-    
     midiSettingsBtn.addEventListener("mouseenter", () => {
       midiSettingsBtn.style.background = "#dee2e6";
     });
@@ -66,9 +72,38 @@ export class FileToggleManager {
     midiSettingsBtn.addEventListener("click", () => {
       dependencies.openSettingsModal();
     });
-    
+
+    const evalResultsBtn = document.createElement("button");
+    evalResultsBtn.innerHTML = `${(PLAYER_ICONS as any).results ?? ""} <span>Evaluation Results</span>`;
+    evalResultsBtn.style.cssText = `
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      background: #e9ecef;
+      color: #495057;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    `;
+    evalResultsBtn.addEventListener("mouseenter", () => {
+      evalResultsBtn.style.background = "#dee2e6";
+    });
+    evalResultsBtn.addEventListener("mouseleave", () => {
+      evalResultsBtn.style.background = "#e9ecef";
+    });
+    evalResultsBtn.addEventListener("click", () => {
+      (dependencies as any).openEvaluationResultsModal?.();
+    });
+
+    btnBar.appendChild(midiSettingsBtn);
+    btnBar.appendChild(evalResultsBtn);
+
     headerContainer.appendChild(title);
-    headerContainer.appendChild(midiSettingsBtn);
+    headerContainer.appendChild(btnBar);
     fileToggleContainer.appendChild(headerContainer);
 
     // File controls container

@@ -43,7 +43,7 @@ export function createVolumeControlUI(
   slider.type = "range";
   slider.min = "0";
   slider.max = "100";
-  slider.value = "70";
+  slider.value = "100";
   slider.style.cssText = `
       width: 70px;
       -webkit-appearance: none;
@@ -60,7 +60,7 @@ export function createVolumeControlUI(
   input.type = "number";
   input.min = "0";
   input.max = "100";
-  input.value = "70";
+  input.value = "100";
   input.style.cssText = `
       width: 52px;
       padding: 4px 6px;
