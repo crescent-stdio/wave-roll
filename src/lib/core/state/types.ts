@@ -66,6 +66,8 @@ export interface VisualState {
   zoomLevel: number;
   /** Current note highlight mode for overlap visualisation */
   highlightMode: HighlightMode;
+  /** Minimum offset tolerance for visual/overlay purposes (Zoom/Grid settings) */
+  minOffsetTolerance: number;
 }
 
 /**
@@ -81,6 +83,8 @@ export interface EvaluationState {
   anchor: "intersection" | "ref" | "est";
   kOfN: number;
   showLoopOnlyMetrics: boolean;
+  /** When true, render the reference file notes above all others */
+  refOnTop: boolean;
 }
 
 /**

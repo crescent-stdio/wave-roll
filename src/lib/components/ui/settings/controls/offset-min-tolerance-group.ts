@@ -21,23 +21,22 @@ export function createOffsetMinToleranceGroup(
   input.style.cssText =
     "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
 
-  // Set initial value from state
-  const evalState = deps.stateManager.getState().evaluation;
-  input.value = String(evalState.offsetMinTolerance);
+  // Set initial value from visual state (separate from evaluation tolerances)
+  const visualState = deps.stateManager.getState().visual;
+  input.value = String(visualState.minOffsetTolerance);
 
   input.addEventListener("change", () => {
     const value = parseFloat(input.value);
     if (!isNaN(value) && value >= 0) {
-      deps.stateManager.updateEvaluationState({
-        offsetMinTolerance: value,
+      deps.stateManager.updateVisualState({
+        minOffsetTolerance: value,
       });
     }
   });
 
   // Listen for state changes to update input
   deps.stateManager.onStateChange(() => {
-    const currentValue =
-      deps.stateManager.getState().evaluation.offsetMinTolerance;
+    const currentValue = deps.stateManager.getState().visual.minOffsetTolerance;
     if (parseFloat(input.value) !== currentValue) {
       input.value = String(currentValue);
     }

@@ -48,10 +48,10 @@ export function renderNotesGraphics(pianoRoll: PianoRoll): void {
       ? pianoRoll.options.noteRenderer(note, idx)
       : pianoRoll.options.noteColor;
 
-    const velocity = isFinite(note.velocity)
-      ? Math.max(0, Math.min(1, note.velocity))
-      : 0.5;
-    const alpha = 0.3 + velocity * 0.7;
+    // Apply transparency only for GRAY notes to avoid overly dark appearance
+    // The neutral gray used across evaluation/highlight modes is 0x444444.
+    const NEUTRAL_GRAY_NOTE = 0x444444;
+    const alpha = noteColor === NEUTRAL_GRAY_NOTE ? 0.5 : 1;
 
     g.rect(x, y - height / 2, width, height);
     g.fill({ color: noteColor, alpha });

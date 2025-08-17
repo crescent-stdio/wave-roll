@@ -92,6 +92,12 @@ export const PLAYER_ICONS = {
     <line x1="1" y1="1" x2="15" y2="15" />
   </svg>`,
 
+  /** Push pin icon to mark reference file */
+  pin: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <circle cx="8" cy="4.25" r="2.25" />
+    <path d="M8 6.75v4.75 1" />
+    </svg>`,
+
   /** Pencil icon for edit actions */
   edit: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
     <path d="M11.207 2.793a1 1 0 0 1 1.414 0l.586.586a1 1 0 0 1 0 1.414l-8.25 8.25L3 14l.957-1.957 8.25-8.25z" />

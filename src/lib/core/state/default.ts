@@ -49,6 +49,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   currentNoteColors: [],
   zoomLevel: DEFAULT_STATE_CONFIG.defaultZoomLevel,
   highlightMode: "file",
+  minOffsetTolerance: 0.05,
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {
@@ -61,6 +62,7 @@ export const DEFAULT_EVALUATION_STATE: EvaluationState = {
   anchor: "intersection",
   kOfN: 1,
   showLoopOnlyMetrics: false,
+  refOnTop: false,
 };
 
 export const DEFAULT_APP_STATE: AppState = {

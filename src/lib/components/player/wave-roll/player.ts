@@ -694,9 +694,11 @@ export class WaveRollPlayer {
 
     // Find reference and estimated files
     const refFile = state.files.find((f: any) => f.id === evalState.refId);
-    const estFile = state.files.find((f: any) => f.id === evalState.estIds[0]);
+    const estFiles = (evalState.estIds || [])
+      .map((id: string) => state.files.find((f: any) => f.id === id))
+      .filter((f: any) => f && f.parsedData);
 
-    if (!refFile?.parsedData || !estFile?.parsedData) {
+    if (!refFile?.parsedData || estFiles.length === 0) {
       return baseNotes;
     }
 
@@ -707,13 +709,6 @@ export class WaveRollPlayer {
       offsetRatioTolerance: evalState.offsetRatioTolerance,
       offsetMinTolerance: evalState.offsetMinTolerance,
     };
-
-    // Perform matching
-    const matchResult = matchNotes(
-      refFile.parsedData,
-      estFile.parsedData,
-      tolerances
-    );
 
     // Helper functions
     const toNumberColor = (c: string | number): number =>
@@ -735,150 +730,216 @@ export class WaveRollPlayer {
       return (rr << 16) | (rg << 8) | rb;
     };
 
-    // Build a map of matched note pairs
-    const refMatchedIndices = new Set<number>();
-    const estMatchedIndices = new Set<number>();
-    const matchedPairs = new Map<string, { refIdx: number; estIdx: number }>();
+    // 1) Run matching for each estimated file and build indexes
+    const byRef = new Map<number, Array<{ estId: string; estIdx: number }>>();
+    const byEst = new Map<string, Map<number, number>>(); // estId -> (estIdx -> refIdx)
 
-    matchResult.matches.forEach((match) => {
-      refMatchedIndices.add(match.ref);
-      estMatchedIndices.add(match.est);
-      matchedPairs.set(`ref-${match.ref}`, {
-        refIdx: match.ref,
-        estIdx: match.est,
+    for (const estFile of estFiles) {
+      const estId: string = estFile.id;
+      const matchResult = matchNotes(
+        refFile.parsedData,
+        estFile.parsedData,
+        tolerances
+      );
+      if (!byEst.has(estId)) byEst.set(estId, new Map<number, number>());
+      const estMap = byEst.get(estId)!;
+      matchResult.matches.forEach((m) => {
+        if (!byRef.has(m.ref)) byRef.set(m.ref, []);
+        byRef.get(m.ref)!.push({ estId, estIdx: m.est });
+        estMap.set(m.est, m.ref);
       });
-      matchedPairs.set(`est-${match.est}`, {
-        refIdx: match.ref,
-        estIdx: match.est,
-      });
+    }
+
+    // 2) Build union of intersections per reference note across all estimates
+    type Range = { start: number; end: number };
+    const mergeRanges = (ranges: Range[]): Range[] => {
+      if (ranges.length === 0) return ranges;
+      ranges.sort((a, b) => a.start - b.start);
+      const out: Range[] = [];
+      let cur: Range = { ...ranges[0] };
+      for (let i = 1; i < ranges.length; i++) {
+        const r = ranges[i];
+        if (r.start <= cur.end) {
+          cur.end = Math.max(cur.end, r.end);
+        } else {
+          out.push(cur);
+          cur = { ...r };
+        }
+      }
+      out.push(cur);
+      return out;
+    };
+
+    const unionRangesByRef = new Map<number, Range[]>();
+    byRef.forEach((arr, refIdx) => {
+      const refNote = refFile.parsedData.notes[refIdx];
+      const refOn = refNote.time;
+      const refOff = refNote.time + refNote.duration;
+      const ranges: Range[] = [];
+      for (const { estId, estIdx } of arr) {
+        const estFile = estFiles.find((f: any) => f.id === estId);
+        if (!estFile) continue;
+        const estNote = estFile.parsedData.notes[estIdx];
+        const estOn = estNote.time;
+        const estOff = estNote.time + estNote.duration;
+        const s = Math.max(refOn, estOn);
+        const e = Math.min(refOff, estOff);
+        if (e > s) ranges.push({ start: s, end: e });
+      }
+      unionRangesByRef.set(refIdx, mergeRanges(ranges));
     });
 
-    // Process notes based on highlight mode
+    // 3) Process notes based on highlight mode
     const result: ColoredNote[] = [];
+    const useGrayGlobal = highlightMode.includes("-gray");
+    const isExclusiveGlobal = highlightMode.includes("exclusive");
 
     baseNotes.forEach((coloredNote) => {
       const { note, fileId } = coloredNote;
       const sourceIdx = note.sourceIndex ?? 0;
       const isRef = fileId === evalState.refId;
-      const isEst = fileId === evalState.estIds[0];
+      const isEst = evalState.estIds.includes(fileId);
 
-      // Skip notes from other files
+      // Non-evaluation files pass through
       if (!isRef && !isEst) {
         result.push(coloredNote);
         return;
       }
 
-      // Get original file color
       const fileColor = toNumberColor(
         state.files.find((f: any) => f.id === fileId)?.color ?? COLOR_PRIMARY
       );
 
-      // Check if this note is matched
-      const key = isRef ? `ref-${sourceIdx}` : `est-${sourceIdx}`;
-      const matchPair = matchedPairs.get(key);
-      const isMatched = matchPair !== undefined;
-
+      // eval-gt-missed-only: only highlight unmatched reference notes
       if (highlightMode === "eval-gt-missed-only") {
-        // Only highlight unmatched reference notes
-        if (isRef && !isMatched) {
-          result.push({
-            ...coloredNote,
-            color: mix(fileColor, HIGHLIGHT, 0.8),
-          });
+        if (isRef) {
+          const hasAnyMatch =
+            byRef.has(sourceIdx) && byRef.get(sourceIdx)!.length > 0;
+          const color = !hasAnyMatch
+            ? mix(fileColor, HIGHLIGHT, 0.8)
+            : NEUTRAL_GRAY;
+          result.push({ ...coloredNote, color });
         } else {
+          // Estimated notes are grayed out in this mode
           result.push({ ...coloredNote, color: NEUTRAL_GRAY });
         }
-      } else if (isMatched && matchPair) {
-        // Get the matched pair notes
-        const refNote = refFile.parsedData.notes[matchPair.refIdx];
-        const estNote = estFile.parsedData.notes[matchPair.estIdx];
+        return;
+      }
 
-        // Calculate intersection
-        const refOn = refNote.time;
-        const refOff = refNote.time + refNote.duration;
-        const estOn = estNote.time;
-        const estOff = estNote.time + estNote.duration;
+      const nonIntersectColor = useGrayGlobal ? NEUTRAL_GRAY : fileColor;
+      const intersectColor = mix(fileColor, HIGHLIGHT, 0.8);
+      const isExclusive = isExclusiveGlobal;
 
-        const intersectStart = Math.max(refOn, estOn);
-        const intersectEnd = Math.min(refOff, estOff);
+      // Helper to push segmented fragments
+      const pushSegment = (start: number, end: number, color: number) => {
+        const dur = end - start;
+        if (dur <= 0) return;
+        result.push({
+          note: { ...note, time: start, duration: dur },
+          color,
+          fileId: coloredNote.fileId,
+          isMuted: coloredNote.isMuted,
+        });
+      };
 
-        // Determine colors based on mode
-        const useGray = highlightMode.includes("-gray");
-        const isExclusive = highlightMode.includes("exclusive");
-
-        const nonIntersectColor = useGray ? NEUTRAL_GRAY : fileColor;
-        const intersectColor = mix(fileColor, HIGHLIGHT, 0.8);
-
-        // Split the note into segments
+      if (isRef) {
+        const ranges = (unionRangesByRef.get(sourceIdx) || []).slice();
         const noteStart = note.time;
         const noteEnd = note.time + note.duration;
 
-        if (
-          intersectStart < intersectEnd &&
-          intersectStart < noteEnd &&
-          intersectEnd > noteStart
-        ) {
-          // Has intersection
-          const segments: Array<{ start: number; end: number; color: number }> =
-            [];
+        if (ranges.length === 0) {
+          // Unmatched reference note in non-gt-only modes
+          result.push({ ...coloredNote, color: nonIntersectColor });
+          return;
+        }
 
-          // Before intersection
-          if (noteStart < intersectStart) {
-            segments.push({
-              start: noteStart,
-              end: Math.min(intersectStart, noteEnd),
-              color: isExclusive ? intersectColor : nonIntersectColor,
-            });
-          }
-
-          // Intersection
-          const actualIntersectStart = Math.max(noteStart, intersectStart);
-          const actualIntersectEnd = Math.min(noteEnd, intersectEnd);
-          if (actualIntersectStart < actualIntersectEnd) {
-            segments.push({
-              start: actualIntersectStart,
-              end: actualIntersectEnd,
-              color: isExclusive ? nonIntersectColor : intersectColor,
-            });
-          }
-
-          // After intersection
-          if (intersectEnd < noteEnd) {
-            segments.push({
-              start: Math.max(intersectEnd, noteStart),
-              end: noteEnd,
-              color: isExclusive ? intersectColor : nonIntersectColor,
-            });
-          }
-
-          // Create colored notes for each segment
-          segments.forEach((seg) => {
-            if (seg.end > seg.start) {
-              result.push({
-                note: {
-                  ...note,
-                  time: seg.start,
-                  duration: seg.end - seg.start,
-                },
-                color: seg.color,
-                fileId: coloredNote.fileId,
-                isMuted: coloredNote.isMuted,
-              });
+        // Segment by union of intersections
+        ranges.sort((a, b) => a.start - b.start);
+        let cursor = noteStart;
+        for (const r of ranges) {
+          const s = Math.max(noteStart, r.start);
+          const e = Math.min(noteEnd, r.end);
+          if (s < noteEnd && e > noteStart && s < e) {
+            if (cursor < s) {
+              pushSegment(
+                cursor,
+                s,
+                isExclusive ? intersectColor : nonIntersectColor
+              );
             }
-          });
+            pushSegment(
+              Math.max(s, noteStart),
+              Math.min(e, noteEnd),
+              isExclusive ? nonIntersectColor : intersectColor
+            );
+            cursor = Math.max(cursor, e);
+          }
+        }
+        if (cursor < noteEnd) {
+          pushSegment(
+            cursor,
+            noteEnd,
+            isExclusive ? intersectColor : nonIntersectColor
+          );
+        }
+        return;
+      }
+
+      if (isEst) {
+        const refIdx = byEst.get(fileId)?.get(sourceIdx);
+        if (refIdx === undefined) {
+          // Unmatched estimated note
+          result.push({ ...coloredNote, color: nonIntersectColor });
+          return;
+        }
+
+        const refNote = refFile.parsedData.notes[refIdx];
+        const refOn = refNote.time;
+        const refOff = refNote.time + refNote.duration;
+        const noteStart = note.time;
+        const noteEnd = note.time + note.duration;
+        const intersectStart = Math.max(refOn, noteStart);
+        const intersectEnd = Math.min(refOff, noteEnd);
+
+        if (intersectStart < intersectEnd) {
+          // before intersection
+          if (noteStart < intersectStart) {
+            pushSegment(
+              noteStart,
+              intersectStart,
+              isExclusive ? intersectColor : nonIntersectColor
+            );
+          }
+          // intersection
+          pushSegment(
+            intersectStart,
+            intersectEnd,
+            isExclusive ? nonIntersectColor : intersectColor
+          );
+          // after intersection
+          if (intersectEnd < noteEnd) {
+            pushSegment(
+              intersectEnd,
+              noteEnd,
+              isExclusive ? intersectColor : nonIntersectColor
+            );
+          }
         } else {
-          // No intersection (shouldn't happen for matched notes)
+          // no intersection (should not happen for matched)
           result.push({ ...coloredNote, color: nonIntersectColor });
         }
-      } else {
-        // Unmatched note
-        const useGray = highlightMode.includes("-gray");
-        const color = useGray ? NEUTRAL_GRAY : fileColor;
-        result.push({ ...coloredNote, color });
+        return;
       }
     });
 
     result.sort((a, b) => a.note.time - b.note.time);
+    // Optional: render reference notes on top by moving them to the end
+    if (evalState.refOnTop && evalState.refId) {
+      const refId = evalState.refId;
+      const nonRef = result.filter((n) => n.fileId !== refId);
+      const ref = result.filter((n) => n.fileId === refId);
+      return [...nonRef, ...ref];
+    }
     return result;
   }
   /**

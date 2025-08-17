@@ -500,6 +500,38 @@ export function createEvaluationSection(
   anchorGroup.append(anchorLabel, anchorSelect);
   kOfNGroup.append(kOfNLabel, kOfNInput);
 
+  // Ref-on-top toggle
+  const refOnTopRow = document.createElement("div");
+  refOnTopRow.style.cssText =
+    "display:flex;align-items:center;gap:6px;font-size:12px;";
+  attachTip(
+    refOnTopRow,
+    "When enabled, always render the reference (ground-truth) notes above all other files."
+  );
+
+  const refOnTopLabel = document.createElement("span");
+  refOnTopLabel.textContent = "Ref on top:";
+  refOnTopLabel.style.cssText = "min-width:80px;font-weight:600;";
+  attachTip(
+    refOnTopLabel,
+    "Render reference notes above others for clearer visibility in evaluation modes."
+  );
+
+  const refOnTopInput = document.createElement("input");
+  refOnTopInput.type = "checkbox";
+  refOnTopInput.checked = deps.stateManager.getState().evaluation.refOnTop;
+  refOnTopInput.addEventListener("change", () => {
+    deps.stateManager.updateEvaluationState({
+      refOnTop: refOnTopInput.checked,
+    });
+  });
+  attachTip(
+    refOnTopInput,
+    "If checked, reference notes are drawn last (on top)."
+  );
+
+  refOnTopRow.append(refOnTopLabel, refOnTopInput);
+
   section.append(
     header,
     refGroup,
@@ -507,6 +539,7 @@ export function createEvaluationSection(
     tolerancesGroup,
     anchorGroup,
     kOfNGroup,
+    refOnTopRow,
     metricsBox
   );
 

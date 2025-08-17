@@ -95,12 +95,10 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     // Store current note data on the sprite for tooltip access
     sprite.noteData = note;
 
-    // Default opacity scaled by note velocity
-    // const velocity = isFinite(note.velocity)
-    //   ? Math.max(0, Math.min(1, note.velocity))
-    //   : 0.5;
-    // sprite.alpha = 0.3 + velocity * 0.7;
-    sprite.alpha = 1;
+    // Apply transparency only for GRAY notes to avoid overly dark appearance
+    // The neutral gray used across evaluation/highlight modes is 0x444444.
+    const NEUTRAL_GRAY_NOTE = 0x444444;
+    sprite.alpha = noteColor === NEUTRAL_GRAY_NOTE ? 0.5 : 1;
 
     // Apply additive blending when the global highlight mode requests it
     const hl = (pianoRoll as any).highlightMode ?? "file";

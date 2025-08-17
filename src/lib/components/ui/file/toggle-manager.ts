@@ -130,6 +130,22 @@ export class FileToggleManager {
     fileControls.innerHTML = "";
     const state = dependencies.midiManager.getState();
 
+    // Ensure default reference file: if files exist and no ref is set,
+    // activate the top-most file as the reference for eval-* highlights.
+    const evalState = dependencies.stateManager.getState().evaluation;
+    const files = state.files;
+    const currentRef = evalState.refId;
+    const refStillExists = currentRef
+      ? files.some((f) => f.id === currentRef)
+      : false;
+    if (!currentRef && files.length > 0) {
+      dependencies.stateManager.updateEvaluationState({ refId: files[0].id });
+    } else if (currentRef && !refStillExists) {
+      dependencies.stateManager.updateEvaluationState({
+        refId: files.length > 0 ? files[0].id : null,
+      });
+    }
+
     state.files.forEach((file: MidiFileEntry) => {
       const fileControl = this.createFileToggleItem(file, dependencies);
       fileControls.appendChild(fileControl);
@@ -179,6 +195,43 @@ export class FileToggleManager {
     visBtn.style.color = file.isPianoRollVisible ? "#495057" : "#adb5bd";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
+
+    // Reference pin toggle (eval ref)
+    const currentEval = dependencies.stateManager.getState().evaluation;
+    const isRef = currentEval.refId === file.id;
+    const pinBtn = createIconButton(
+      (PLAYER_ICONS as any).pin ?? "",
+      () => {
+        const evalState = dependencies.stateManager.getState().evaluation;
+        const nextRef = evalState.refId === file.id ? null : file.id;
+        dependencies.stateManager.updateEvaluationState({ refId: nextRef });
+
+        // Optimistically update all pin buttons in the current list so
+        // the visual state reflects the new ref immediately without a
+        // full re-render cycle.
+        const container = item.parentElement; // #file-controls
+        if (container) {
+          const buttons = Array.from(
+            container.querySelectorAll<HTMLButtonElement>(
+              "button[data-role=ref-pin]"
+            )
+          );
+          buttons.forEach((btn) => {
+            const fid = btn.getAttribute("data-file-id");
+            const active = nextRef !== null && fid === nextRef;
+            btn.style.color = active ? "#0d6efd" : "#adb5bd";
+            btn.title = active ? "Unset as reference" : "Set as reference";
+          });
+        }
+      },
+      isRef ? "Unset as reference" : "Set as reference",
+      { size: 24 }
+    );
+    pinBtn.style.color = isRef ? "#0d6efd" : "#adb5bd";
+    pinBtn.style.border = "none";
+    pinBtn.style.boxShadow = "none";
+    pinBtn.setAttribute("data-role", "ref-pin");
+    pinBtn.setAttribute("data-file-id", file.id);
 
     /* -------- sustain toggle -------- */
     const sustainBtn = document.createElement("button");
@@ -278,9 +331,10 @@ export class FileToggleManager {
       }
     });
 
-    // order: color - name - vis - sustain - mute - pan - (eye)
+    // order: color - name - vis - pin - sustain - mute - pan - (eye)
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
+    item.appendChild(pinBtn);
     item.appendChild(visBtn);
     item.appendChild(sustainBtn);
     item.appendChild(muteBtn);
