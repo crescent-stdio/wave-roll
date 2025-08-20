@@ -18,6 +18,8 @@ import {
   COLOR_A,
   COLOR_B,
   COLOR_OVERLAP,
+  COLOR_EVAL_HIGHLIGHT,
+  COLOR_EVAL_EXCLUSIVE,
 } from "@/lib/core/constants";
 import { detectOverlappingNotes } from "@/lib/core/utils/midi/overlap";
 
@@ -33,6 +35,7 @@ import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
 import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
 import { formatTime } from "@/core/utils";
+import { mixColorsOklch } from "@/core/utils/color";
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
 import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
@@ -588,6 +591,7 @@ export class WaveRollPlayer {
 
     const highlightMode =
       this.stateManager.getState().visual.highlightMode ?? "file";
+    // this.stateManager.getState().visual.highlightMode ?? "highlight-blend";
 
     // Plain per-file colouring -> return early ---------------------------
     if (highlightMode === "file") {
@@ -607,30 +611,17 @@ export class WaveRollPlayer {
     const NEUTRAL_GRAY = 0x444444;
     const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
 
-    const mix = (a: number, b: number, r = 0.5): number => {
-      const ar = (a >> 16) & 0xff,
-        ag = (a >> 8) & 0xff,
-        ab = a & 0xff;
-      const br = (b >> 16) & 0xff,
-        bg = (b >> 8) & 0xff,
-        bb = b & 0xff;
-      const rr = Math.round(ar * (1 - r) + br * r);
-      const rg = Math.round(ag * (1 - r) + bg * r);
-      const rb = Math.round(ab * (1 - r) + bb * r);
-      return (rr << 16) | (rg << 8) | rb;
-    };
-
     const overlapColor = (base: number): number => {
       switch (highlightMode) {
         case "highlight-simple":
           // Increase blend ratio for a stronger contrast
-          return mix(base, 0xffff99, 0.85);
+          return mixColorsOklch(base, 0xffff99, 0.85);
         case "highlight-blend":
           // Make overlap colour even more pronounced
-          return mix(base, HIGHLIGHT, 0.8);
+          return mixColorsOklch(base, HIGHLIGHT, 0.8);
         case "highlight-exclusive":
           // return HIGHLIGHT;
-          return mix(base, HIGHLIGHT, 0.8);
+          return mixColorsOklch(base, HIGHLIGHT, 0.8);
         default:
           return base;
       }
@@ -717,19 +708,6 @@ export class WaveRollPlayer {
     const NEUTRAL_GRAY = 0x444444;
     const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
 
-    const mix = (a: number, b: number, r = 0.5): number => {
-      const ar = (a >> 16) & 0xff,
-        ag = (a >> 8) & 0xff,
-        ab = a & 0xff;
-      const br = (b >> 16) & 0xff,
-        bg = (b >> 8) & 0xff,
-        bb = b & 0xff;
-      const rr = Math.round(ar * (1 - r) + br * r);
-      const rg = Math.round(ag * (1 - r) + bg * r);
-      const rb = Math.round(ab * (1 - r) + bb * r);
-      return (rr << 16) | (rg << 8) | rb;
-    };
-
     // 1) Run matching for each estimated file and build indexes
     const byRef = new Map<number, Array<{ estId: string; estIdx: number }>>();
     const byEst = new Map<string, Map<number, number>>(); // estId -> (estIdx -> refIdx)
@@ -771,11 +749,16 @@ export class WaveRollPlayer {
     };
 
     const unionRangesByRef = new Map<number, Range[]>();
+    // For AND aggregation: keep per-est single intersection to compute a global intersection A(r)
+    const singleIntersectionByRef: Map<number, Array<Range>> = new Map();
+    // Track whether a ref has matches from all selected estimates
+    const allMatchedByRef = new Map<number, boolean>();
     byRef.forEach((arr, refIdx) => {
       const refNote = refFile.parsedData.notes[refIdx];
       const refOn = refNote.time;
       const refOff = refNote.time + refNote.duration;
       const ranges: Range[] = [];
+      const singles: Range[] = [];
       for (const { estId, estIdx } of arr) {
         const estFile = estFiles.find((f: any) => f.id === estId);
         if (!estFile) continue;
@@ -784,15 +767,60 @@ export class WaveRollPlayer {
         const estOff = estNote.time + estNote.duration;
         const s = Math.max(refOn, estOn);
         const e = Math.min(refOff, estOff);
-        if (e > s) ranges.push({ start: s, end: e });
+        if (e > s) {
+          const range = { start: s, end: e };
+          ranges.push(range);
+          singles.push(range);
+        }
       }
       unionRangesByRef.set(refIdx, mergeRanges(ranges));
+      if (singles.length > 0) singleIntersectionByRef.set(refIdx, singles);
+      // We'll fill allMatchedByRef after we know selectedEstCount below
+    });
+
+    // Compute AND intersection A(r) per reference as a single range (or empty)
+    const andRangeByRef = new Map<number, Range | null>();
+    const selectedEstCount = estFiles.length;
+    byRef.forEach((arr, refIdx) => {
+      // Require matches from all selected estimates to form A(r)
+      const hasAll = arr.length >= selectedEstCount;
+      allMatchedByRef.set(refIdx, hasAll);
+      if (!hasAll) {
+        andRangeByRef.set(refIdx, null);
+        return;
+      }
+      const singles = singleIntersectionByRef.get(refIdx) || [];
+      if (singles.length < selectedEstCount) {
+        andRangeByRef.set(refIdx, null);
+        return;
+      }
+      // Intersection across all I_k: [max(starts), min(ends)]
+      let start = -Infinity;
+      let end = Infinity;
+      for (const r of singles) {
+        start = Math.max(start, r.start);
+        end = Math.min(end, r.end);
+      }
+      if (end > start) {
+        andRangeByRef.set(refIdx, { start, end });
+      } else {
+        andRangeByRef.set(refIdx, null);
+      }
     });
 
     // 3) Process notes based on highlight mode
     const result: ColoredNote[] = [];
     const useGrayGlobal = highlightMode.includes("-gray");
     const isExclusiveGlobal = highlightMode.includes("exclusive");
+
+    // Derive comparison aggregation mode without changing public types:
+    // - pair: when exactly one estimated file is selected
+    // - aggregate-and: when kOfN equals the number of selected estimates
+    // - aggregate-or: otherwise (default)
+    const estCount = estFiles.length;
+    const kOfN = this.stateManager.getState().evaluation.kOfN;
+    const aggregationMode: "pair" | "and" | "or" =
+      estCount <= 1 ? "pair" : kOfN >= estCount ? "and" : "or";
 
     baseNotes.forEach((coloredNote) => {
       const { note, fileId } = coloredNote;
@@ -816,9 +844,19 @@ export class WaveRollPlayer {
           const hasAnyMatch =
             byRef.has(sourceIdx) && byRef.get(sourceIdx)!.length > 0;
           const color = !hasAnyMatch
-            ? mix(fileColor, HIGHLIGHT, 0.8)
+            ? useGrayGlobal
+              ? fileColor
+              : fileColor
             : NEUTRAL_GRAY;
-          result.push({ ...coloredNote, color });
+          result.push({
+            ...coloredNote,
+            note: {
+              ...note,
+              isEvalHighlightSegment: !hasAnyMatch,
+              evalSegmentKind: !hasAnyMatch ? "exclusive" : undefined,
+            },
+            color,
+          });
         } else {
           // Estimated notes are grayed out in this mode
           result.push({ ...coloredNote, color: NEUTRAL_GRAY });
@@ -827,15 +865,27 @@ export class WaveRollPlayer {
       }
 
       const nonIntersectColor = useGrayGlobal ? NEUTRAL_GRAY : fileColor;
-      const intersectColor = mix(fileColor, HIGHLIGHT, 0.8);
+      // Do not change color for highlight; rely on hatch overlay for visibility
+      const intersectColor = fileColor;
       const isExclusive = isExclusiveGlobal;
 
       // Helper to push segmented fragments
-      const pushSegment = (start: number, end: number, color: number) => {
+      const pushSegment = (
+        start: number,
+        end: number,
+        color: number,
+        flags?: { isEval?: boolean; kind?: "intersection" | "exclusive" }
+      ) => {
         const dur = end - start;
         if (dur <= 0) return;
         result.push({
-          note: { ...note, time: start, duration: dur },
+          note: {
+            ...note,
+            time: start,
+            duration: dur,
+            isEvalHighlightSegment: flags?.isEval ?? false,
+            evalSegmentKind: flags?.kind,
+          },
           color,
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -843,20 +893,79 @@ export class WaveRollPlayer {
       };
 
       if (isRef) {
-        const ranges = (unionRangesByRef.get(sourceIdx) || []).slice();
+        const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice();
         const noteStart = note.time;
         const noteEnd = note.time + note.duration;
 
-        if (ranges.length === 0) {
-          // Unmatched reference note in non-gt-only modes
+        // Determine highlight ranges for reference depending on aggregation and mode
+        if (aggregationMode === "and") {
+          const aRange = andRangeByRef.get(sourceIdx) || null;
+          const hasAll = allMatchedByRef.get(sourceIdx) === true;
+          if (!aRange) {
+            // If not all matched -> non-highlight. If all matched but A(r) is empty -> full exclusive highlight, otherwise non-exclusive has no highlight.
+            if (isExclusive && hasAll) {
+              pushSegment(noteStart, noteEnd, intersectColor, {
+                isEval: true,
+                kind: "exclusive",
+              });
+            } else {
+              result.push({ ...coloredNote, color: nonIntersectColor });
+            }
+            return;
+          }
+
+          // Segment using A(r)
+          const s = Math.max(noteStart, aRange.start);
+          const e = Math.min(noteEnd, aRange.end);
+          if (noteStart < s) {
+            pushSegment(
+              noteStart,
+              s,
+              isExclusive ? intersectColor : nonIntersectColor,
+              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
+            );
+          }
+          pushSegment(
+            s,
+            e,
+            isExclusive ? nonIntersectColor : intersectColor,
+            !isExclusive ? { isEval: true, kind: "intersection" } : undefined
+          );
+          if (e < noteEnd) {
+            pushSegment(
+              e,
+              noteEnd,
+              isExclusive ? intersectColor : nonIntersectColor,
+              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
+            );
+          }
+          return;
+        }
+
+        // pair / or -> use union of intersections U(r)
+        if (unionRanges.length === 0) {
+          // No matches
+          if (isExclusive) {
+            if (aggregationMode === "pair") {
+              // Pair: r \ I_k where I_k is empty => full note highlighted
+              pushSegment(noteStart, noteEnd, intersectColor, {
+                isEval: true,
+                kind: "exclusive",
+              });
+              return;
+            }
+            // OR: only highlight exclusive when there was any match
+            result.push({ ...coloredNote, color: nonIntersectColor });
+            return;
+          }
+          // Match-intersection modes: non-highlight
           result.push({ ...coloredNote, color: nonIntersectColor });
           return;
         }
 
-        // Segment by union of intersections
-        ranges.sort((a, b) => a.start - b.start);
+        unionRanges.sort((a, b) => a.start - b.start);
         let cursor = noteStart;
-        for (const r of ranges) {
+        for (const r of unionRanges) {
           const s = Math.max(noteStart, r.start);
           const e = Math.min(noteEnd, r.end);
           if (s < noteEnd && e > noteStart && s < e) {
@@ -864,13 +973,15 @@ export class WaveRollPlayer {
               pushSegment(
                 cursor,
                 s,
-                isExclusive ? intersectColor : nonIntersectColor
+                isExclusive ? intersectColor : nonIntersectColor,
+                isExclusive ? { isEval: true, kind: "exclusive" } : undefined
               );
             }
             pushSegment(
               Math.max(s, noteStart),
               Math.min(e, noteEnd),
-              isExclusive ? nonIntersectColor : intersectColor
+              isExclusive ? nonIntersectColor : intersectColor,
+              !isExclusive ? { isEval: true, kind: "intersection" } : undefined
             );
             cursor = Math.max(cursor, e);
           }
@@ -889,7 +1000,14 @@ export class WaveRollPlayer {
         const refIdx = byEst.get(fileId)?.get(sourceIdx);
         if (refIdx === undefined) {
           // Unmatched estimated note
-          result.push({ ...coloredNote, color: nonIntersectColor });
+          if (isExclusive) {
+            // e_k \ I_k where I_k is empty => full note highlighted
+            const noteStart = note.time;
+            const noteEnd = note.time + note.duration;
+            pushSegment(noteStart, noteEnd, intersectColor);
+          } else {
+            result.push({ ...coloredNote, color: nonIntersectColor });
+          }
           return;
         }
 
@@ -902,26 +1020,55 @@ export class WaveRollPlayer {
         const intersectEnd = Math.min(refOff, noteEnd);
 
         if (intersectStart < intersectEnd) {
+          // For match-intersection modes under AND aggregation, limit to I_k ∩ A(r)
+          if (!isExclusive && aggregationMode === "and") {
+            const aRange = andRangeByRef.get(refIdx) || null;
+            if (!aRange) {
+              // No A(r): est note remains non-highlighted entirely
+              result.push({ ...coloredNote, color: nonIntersectColor });
+              return;
+            }
+            const hlStart = Math.max(intersectStart, aRange.start);
+            const hlEnd = Math.min(intersectEnd, aRange.end);
+            // before I_k ∩ A(r)
+            if (noteStart < hlStart) {
+              pushSegment(noteStart, hlStart, nonIntersectColor);
+            }
+            // I_k ∩ A(r)
+            if (hlStart < hlEnd) {
+              pushSegment(hlStart, hlEnd, intersectColor);
+            }
+            // after
+            if (hlEnd < noteEnd) {
+              pushSegment(hlEnd, noteEnd, nonIntersectColor);
+            }
+            return;
+          }
+
+          // Default: use pair/OR behaviour with I_k
           // before intersection
           if (noteStart < intersectStart) {
             pushSegment(
               noteStart,
               intersectStart,
-              isExclusive ? intersectColor : nonIntersectColor
+              isExclusive ? intersectColor : nonIntersectColor,
+              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
             );
           }
           // intersection
           pushSegment(
             intersectStart,
             intersectEnd,
-            isExclusive ? nonIntersectColor : intersectColor
+            isExclusive ? nonIntersectColor : intersectColor,
+            !isExclusive ? { isEval: true, kind: "intersection" } : undefined
           );
           // after intersection
           if (intersectEnd < noteEnd) {
             pushSegment(
               intersectEnd,
               noteEnd,
-              isExclusive ? intersectColor : nonIntersectColor
+              isExclusive ? intersectColor : nonIntersectColor,
+              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
             );
           }
         } else {

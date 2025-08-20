@@ -27,9 +27,9 @@ export function createHighlightModeGroup(
 
   const modes: HighlightMode[] = [
     "file",
-    "highlight-simple",
+    // "highlight-simple",
     "highlight-blend",
-    "highlight-exclusive",
+    // "highlight-exclusive",
     "eval-match-intersection-gray",
     "eval-match-intersection-own",
     "eval-exclusive-intersection-gray",

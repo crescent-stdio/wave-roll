@@ -146,6 +146,28 @@ export class FileToggleManager {
       });
     }
 
+    // Ensure default estimated files: if none selected and multiple files exist,
+    // auto-select the first non-ref file.
+    const latestEval = dependencies.stateManager.getState().evaluation;
+    if (latestEval.estIds.length === 0 && files.length > 1) {
+      const refCandidate = latestEval.refId ?? files[0].id;
+      const defaultEst = files.find((f) => f.id !== refCandidate);
+      if (defaultEst) {
+        dependencies.stateManager.updateEvaluationState({
+          estIds: [defaultEst.id],
+        });
+      }
+    }
+
+    // Sanitize: ensure refId is not inside estIds
+    {
+      const sEval = dependencies.stateManager.getState().evaluation;
+      if (sEval.refId && sEval.estIds.includes(sEval.refId)) {
+        const filtered = sEval.estIds.filter((id) => id !== sEval.refId);
+        dependencies.stateManager.updateEvaluationState({ estIds: filtered });
+      }
+    }
+
     state.files.forEach((file: MidiFileEntry) => {
       const fileControl = this.createFileToggleItem(file, dependencies);
       fileControls.appendChild(fileControl);
@@ -204,7 +226,13 @@ export class FileToggleManager {
       () => {
         const evalState = dependencies.stateManager.getState().evaluation;
         const nextRef = evalState.refId === file.id ? null : file.id;
-        dependencies.stateManager.updateEvaluationState({ refId: nextRef });
+        const nextEstIds = nextRef
+          ? evalState.estIds.filter((id) => id !== nextRef)
+          : evalState.estIds.slice();
+        dependencies.stateManager.updateEvaluationState({
+          refId: nextRef,
+          estIds: nextEstIds,
+        });
 
         // Optimistically update all pin buttons in the current list so
         // the visual state reflects the new ref immediately without a
@@ -222,6 +250,29 @@ export class FileToggleManager {
             btn.style.color = active ? "#0d6efd" : "#adb5bd";
             btn.title = active ? "Unset as reference" : "Set as reference";
           });
+
+          // Also optimistically refresh est-toggle buttons to reflect
+          // the new ref (ref cannot be an estimated file).
+          const estButtons = Array.from(
+            container.querySelectorAll<HTMLButtonElement>(
+              "button[data-role=est-toggle]"
+            )
+          );
+          estButtons.forEach((btn) => {
+            const fid = btn.getAttribute("data-file-id") || "";
+            const isRefBtn = nextRef !== null && fid === nextRef;
+            const isActive = nextEstIds.includes(fid);
+            btn.style.color = isActive ? "#198754" : "#adb5bd";
+            btn.title = isActive ? "Unset as estimated" : "Set as estimated";
+            if (isRefBtn) {
+              btn.style.opacity = "0.5";
+              btn.style.pointerEvents = "none";
+              btn.title = "Cannot set Reference as Estimated";
+            } else {
+              btn.style.opacity = "1";
+              btn.style.pointerEvents = "auto";
+            }
+          });
         }
       },
       isRef ? "Unset as reference" : "Set as reference",
@@ -232,6 +283,64 @@ export class FileToggleManager {
     pinBtn.style.boxShadow = "none";
     pinBtn.setAttribute("data-role", "ref-pin");
     pinBtn.setAttribute("data-file-id", file.id);
+
+    /* -------- estimation toggle (eval estIds) -------- */
+    const isEst = currentEval.estIds.includes(file.id);
+    const estBtn = createIconButton(
+      (PLAYER_ICONS as any).est ?? "E",
+      () => {
+        const evalState = dependencies.stateManager.getState().evaluation;
+        if (evalState.refId === file.id) {
+          return; // Do not allow marking ref as estimated
+        }
+        const already = evalState.estIds.includes(file.id);
+        const next = already
+          ? evalState.estIds.filter((id) => id !== file.id)
+          : [...evalState.estIds, file.id];
+        const filtered = evalState.refId
+          ? next.filter((id) => id !== evalState.refId)
+          : next;
+        dependencies.stateManager.updateEvaluationState({ estIds: filtered });
+
+        // Optimistically update all est buttons
+        const container = item.parentElement; // #file-controls
+        if (container) {
+          const buttons = Array.from(
+            container.querySelectorAll<HTMLButtonElement>(
+              "button[data-role=est-toggle]"
+            )
+          );
+          const refId = dependencies.stateManager.getState().evaluation.refId;
+          buttons.forEach((btn) => {
+            const fid = btn.getAttribute("data-file-id") || "";
+            const active = filtered.includes(fid);
+            const isRefBtn = refId !== null && fid === refId;
+            btn.style.color = active ? "#198754" : "#adb5bd";
+            btn.title = active ? "Unset as estimated" : "Set as estimated";
+            if (isRefBtn) {
+              btn.style.opacity = "0.5";
+              btn.style.pointerEvents = "none";
+              btn.title = "Cannot set Reference as Estimated";
+            } else {
+              btn.style.opacity = "1";
+              btn.style.pointerEvents = "auto";
+            }
+          });
+        }
+      },
+      isEst ? "Unset as estimated" : "Set as estimated",
+      { size: 24 }
+    );
+    estBtn.style.color = isEst ? "#198754" : "#adb5bd";
+    estBtn.style.border = "none";
+    estBtn.style.boxShadow = "none";
+    estBtn.setAttribute("data-role", "est-toggle");
+    estBtn.setAttribute("data-file-id", file.id);
+    if (isRef) {
+      estBtn.style.opacity = "0.5";
+      estBtn.style.pointerEvents = "none";
+      estBtn.title = "Cannot set Reference as Estimated";
+    }
 
     /* -------- sustain toggle -------- */
     const sustainBtn = document.createElement("button");
@@ -331,10 +440,11 @@ export class FileToggleManager {
       }
     });
 
-    // order: color - name - vis - pin - sustain - mute - pan - (eye)
+    // order: color - name - pin - est - vis - sustain - mute - pan - (eye)
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
     item.appendChild(pinBtn);
+    item.appendChild(estBtn);
     item.appendChild(visBtn);
     item.appendChild(sustainBtn);
     item.appendChild(muteBtn);

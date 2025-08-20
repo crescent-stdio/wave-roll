@@ -48,6 +48,10 @@ export interface NoteData {
   fileId?: string;
   /** Optional source index for note matching/mapping */
   sourceIndex?: number;
+  /** Mark this rendered fragment as an evaluation highlight segment */
+  isEvalHighlightSegment?: boolean;
+  /** Highlighted segment kind for evaluation: intersection or exclusive */
+  evalSegmentKind?: "intersection" | "exclusive";
 }
 
 /**
