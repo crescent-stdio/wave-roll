@@ -528,6 +528,9 @@ export class WaveRollPlayer {
     // Push CC data to piano-roll so sustain overlay can render
     const piano = this.visualizationEngine.getPianoRollInstance();
     if (piano) {
+      // Get the actual PianoRoll instance for internal property access
+      const pianoInstance = (piano as any)._instance;
+      
       // ------------------------------------------------------------
       // Provide original per-file colours (sidebar swatch) so that
       // sustain overlays can stay consistent even when highlight
@@ -546,13 +549,48 @@ export class WaveRollPlayer {
       // Assign colour map before pushing CC events so the sustain renderer
       // can access it during the imminent render triggered by
       // `setControlChanges()`.
-      (piano as any).fileColors = fileColors;
+      if (pianoInstance) {
+        (pianoInstance as any).fileColors = fileColors;
+      }
+
+      // Provide lightweight file metadata for tooltips so we can render
+      // a readable label that shows the file group and display name
+      // alongside a colour swatch.
+      const evalState = this.stateManager.getState().evaluation;
+      const fileInfoMap: Record<
+        string,
+        { displayName: string; fileName: string; kind: string; color: number }
+      > = {};
+      state.files.forEach((f: any) => {
+        const displayName = f.displayName || f.fileName || f.id;
+        const isRef = evalState?.refId === f.id;
+        const isEst = Array.isArray(evalState?.estIds)
+          ? evalState.estIds.includes(f.id)
+          : false;
+        const kind = isRef ? "Reference" : isEst ? "Estimate" : "MIDI";
+        const color =
+          fileColors[f.id] ??
+          (typeof f.color === "number"
+            ? f.color
+            : parseInt(String(f.color ?? 0).replace("#", ""), 16));
+        fileInfoMap[f.id] = {
+          displayName,
+          fileName: f.fileName ?? "",
+          kind,
+          color,
+        };
+      });
+      if (pianoInstance) {
+        (pianoInstance as any).fileInfoMap = fileInfoMap;
+      }
 
       // Pass current highlight mode to the renderer so it can adjust
       // blendMode. Set this _before_ pushing CC events so the upcoming
       // render cycle can pick up the correct mode immediately.
-      (piano as any).highlightMode =
-        this.stateManager.getState().visual.highlightMode;
+      if (pianoInstance) {
+        (pianoInstance as any).highlightMode =
+          this.stateManager.getState().visual.highlightMode;
+      }
 
       // Finally, push CC data to piano-roll which will trigger a re-render of
       // the sustain overlay using the freshly injected colour map.

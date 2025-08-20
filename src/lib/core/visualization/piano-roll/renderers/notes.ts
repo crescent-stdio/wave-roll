@@ -20,6 +20,7 @@ let WR_HATCH_TEXTURE_CACHE: Record<"up" | "down", PIXI.Texture> = {
 // Extend PIXI.Sprite to tag the originating note (for tooltips)
 interface NoteSprite extends PIXI.Sprite {
   noteData?: NoteData;
+  labelText?: PIXI.Text;
 }
 
 /**

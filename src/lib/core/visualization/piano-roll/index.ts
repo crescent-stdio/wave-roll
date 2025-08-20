@@ -148,6 +148,12 @@ export async function createPianoRoll(
 
     /** Resize the PixiJS renderer */
     resize: (width: number, height?: number) => pianoRoll.resize(width, height),
+    
+    /**
+     * Get the underlying PianoRoll instance for direct access
+     * This is needed for setting internal properties like fileInfoMap
+     */
+    _instance: pianoRoll,
   };
 }
 

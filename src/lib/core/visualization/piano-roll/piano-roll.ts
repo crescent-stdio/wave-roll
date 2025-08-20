@@ -269,6 +269,26 @@ export class PianoRoll {
   }
 
   /**
+   * Find all notes at the given time and pitch position
+   */
+  private findNotesAtPosition(time: number, pitch: number): NoteData[] {
+    const matchingNotes: NoteData[] = [];
+    const tolerance = 0.5; // Half a semitone tolerance for pitch matching
+    
+    for (const note of this.notes) {
+      // Check if the time falls within the note's duration
+      if (time >= note.time && time <= note.time + note.duration) {
+        // Check if the pitch matches (with tolerance)
+        if (Math.abs(note.midi - pitch) <= tolerance) {
+          matchingNotes.push(note);
+        }
+      }
+    }
+    
+    return matchingNotes;
+  }
+
+  /**
    * Show tooltip populated with the given note information.
    */
   public showNoteTooltip(
@@ -277,12 +297,62 @@ export class PianoRoll {
   ): void {
     if (!this.tooltipDiv) return;
 
+    // Calculate the time and pitch from the mouse position
+    const pianoKeysOffset = this.options.showPianoKeys ? 60 : 0;
+    const localX = event.global.x - pianoKeysOffset - this.state.panX;
+    const time = this.timeScale.invert(localX / this.state.zoomX);
+    
+    // Find all notes at this position
+    const notesAtPosition = this.findNotesAtPosition(time, note.midi);
+    
+    const fileInfoMap = (this as any).fileInfoMap as
+      | Record<string, { displayName: string; fileName: string; kind: string; color: number }>
+      | undefined;
+
+    // Group notes by unique file IDs
+    const fileInfos: Map<string, { info: any; notes: NoteData[] }> = new Map();
+    
+    for (const n of notesAtPosition) {
+      if (n.fileId && fileInfoMap) {
+        const info = fileInfoMap[n.fileId];
+        if (info) {
+          if (!fileInfos.has(n.fileId)) {
+            fileInfos.set(n.fileId, { info, notes: [] });
+          }
+          fileInfos.get(n.fileId)!.notes.push(n);
+        }
+      }
+    }
+
+    // Build tooltip content with all file information
+    const header = `${note.name} (${note.midi})`;
+    
+    let fileLines = "";
+    if (fileInfos.size > 0) {
+      const sortedFiles = Array.from(fileInfos.entries()).sort((a, b) => {
+        // Sort by kind priority: Reference first, then Estimate, then MIDI
+        const kindOrder: Record<string, number> = { "Reference": 0, "Estimate": 1, "MIDI": 2 };
+        const orderA = kindOrder[a[1].info.kind] ?? 3;
+        const orderB = kindOrder[b[1].info.kind] ?? 3;
+        return orderA - orderB;
+      });
+      
+      fileLines = sortedFiles.map(([fileId, { info, notes }]) => {
+        const swatch = `<span style="display:inline-block;width:12px;height:12px;background:#${info.color
+          .toString(16)
+          .padStart(6, "0")};border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(255,255,255,0.3);"></span>`;
+        return `<div style="margin-top:4px;display:flex;align-items:center;">${swatch}<span style="font-weight:500;">${info.kind}: ${info.displayName}</span></div>`;
+      }).join("");
+    }
+
+    // Use the first note's time info for display
     const endTime = note.time + note.duration;
+
     this.tooltipDiv.innerHTML = `
-      <div><strong>${note.name}</strong></div>
-      <div>Pitch: ${note.pitch} (${note.midi})</div>
-      <div>Velocity: ${note.velocity.toFixed(2)}</div>
-      <div>Time: ${note.time.toFixed(2)}s - ${endTime.toFixed(2)}s</div>
+      <div><strong>${header}</strong></div>
+      ${fileLines}
+      <div style="margin-top:4px;color:rgba(255,255,255,0.9);">Time: ${note.time.toFixed(2)}s - ${endTime.toFixed(2)}s</div>
+      <div style="color:rgba(255,255,255,0.9);">Velocity: ${note.velocity.toFixed(2)}</div>
     `;
     this.tooltipDiv.style.display = "block";
     this.moveTooltip(event);
