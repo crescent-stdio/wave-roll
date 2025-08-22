@@ -18,6 +18,8 @@ export interface SampleFileConfig {
   path: string;
   /** Optional display name for the file */
   displayName?: string;
+  /** Optional file type (defaults to "midi") */
+  type?: "midi" | "audio";
 }
 
 /**
@@ -30,6 +32,8 @@ export interface SampleAudioFileConfig {
   displayName?: string;
   /** Optional waveform color */
   color?: number;
+  /** Optional file type (defaults to "audio") */
+  type?: "midi" | "audio";
 }
 /**
  * Interface for file validation result
@@ -52,6 +56,7 @@ export interface FileInputOptions {
 export interface MidiFileItem {
   path: string;
   displayName?: string;
+  type?: "midi" | "audio";
 }
 
 export type MidiFileItemList = Array<MidiFileItem>;

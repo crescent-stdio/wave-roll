@@ -102,7 +102,11 @@ export class WaveRollPlayer {
   private config: WaveRollPlayerOptions;
 
   // Store initial files for initialization
-  private initialFileItemList: MidiFileItemList = [];
+  private initialFileItemList: Array<{
+    path: string;
+    displayName?: string;
+    type?: "midi" | "audio";
+  }> = [];
 
   // Cached UI dependencies object so that UIComponents can write on it and we can read back
   private uiDeps: UIComponentDependencies | null = null;
@@ -112,7 +116,11 @@ export class WaveRollPlayer {
 
   constructor(
     container: HTMLElement,
-    initialFileItemList: MidiFileItemList = []
+    initialFileItemList: Array<{
+      path: string;
+      displayName?: string;
+      type?: "midi" | "audio";
+    }> = []
   ) {
     this.container = container;
     this.midiManager = new MultiMidiManager();
@@ -396,14 +404,6 @@ export class WaveRollPlayer {
     }
     // console.log("this.midiManager.getState()", this.midiManager.getState());
 
-    // Load default sample audio after UI is ready
-    try {
-      if (DEFAULT_SAMPLE_AUDIO_FILES && DEFAULT_SAMPLE_AUDIO_FILES.length > 0) {
-        await this.fileManager.loadSampleAudioFiles(DEFAULT_SAMPLE_AUDIO_FILES);
-        this.updateFileToggleSection();
-      }
-    } catch {}
-
     // Only compute metrics if we have at least 2 files
     const files = this.midiManager.getState().files;
     if (files.length >= 2) {
@@ -447,14 +447,30 @@ export class WaveRollPlayer {
    * Load sample MIDI files
    */
   private async loadSampleFiles(
-    files: Array<{ path: string; displayName?: string }> = []
+    files: Array<{
+      path: string;
+      displayName?: string;
+      type?: "midi" | "audio";
+    }> = []
   ): Promise<void> {
     this.stateManager.updateUIState({ isBatchLoading: true });
 
     const fileList = files.length > 0 ? files : DEFAULT_SAMPLE_FILES;
 
+    // Separate files by type
+    const midiFiles = fileList.filter((f) => !f.type || f.type === "midi");
+    const audioFiles = fileList.filter((f) => f.type === "audio");
+
     try {
-      await this.fileManager.loadSampleFiles(fileList);
+      // Load MIDI files
+      if (midiFiles.length > 0) {
+        await this.fileManager.loadSampleFiles(midiFiles);
+      }
+
+      // Load audio files
+      if (audioFiles.length > 0) {
+        await this.fileManager.loadSampleAudioFiles(audioFiles);
+      }
     } catch (error) {
       console.error("Error loading sample files:", error);
     } finally {

@@ -4,12 +4,13 @@ import { WaveRollPlayer } from "./player";
  * Web Component <wave-roll>
  *
  * Accepts a `files` attribute containing either:
- * 1. A JSON array of objects: [{ "path": "./music.mid", "displayName": "My Song" }, ...]
+ * 1. A JSON array of objects: [{ "path": "./music.mid", "type": "midi", "displayName": "My Song" }, ...]
+ *    - type: "midi" (default) or "audio"
  * 2. A comma-separated list where each entry is "path|displayName".
- *    Example: "./a.mid|Track A, ./b.mid|Track B" (displayName is optional).
+ *    Example: "./a.mid|Track A, ./b.mid|Track B" (displayName is optional, type defaults to "midi").
  *
  * The component initialises a full-featured multi-track player + piano-roll
- * once the MIDI data has been parsed.
+ * once the MIDI/audio data has been parsed.
  */
 class WaveRollElement extends HTMLElement {
   /** Underlying demo instance */
@@ -54,6 +55,7 @@ class WaveRollElement extends HTMLElement {
   private parseFilesAttribute(attr: string | null): Array<{
     path: string;
     displayName?: string;
+    type?: "midi" | "audio";
   }> {
     if (!attr) return [];
 
@@ -70,7 +72,11 @@ class WaveRollElement extends HTMLElement {
     // Fallback: comma-separated list "path|name,path2|name2"
     return attr.split(",").map((part) => {
       const [p, n] = part.split("|");
-      return { path: p.trim(), displayName: n ? n.trim() : undefined };
+      // Infer type from extension if not specified
+      const path = p.trim();
+      const ext = path.split('.').pop()?.toLowerCase();
+      const type = (ext === 'wav' || ext === 'mp3' || ext === 'ogg' || ext === 'flac') ? "audio" as const : "midi" as const;
+      return { path, displayName: n ? n.trim() : undefined, type };
     });
   }
 
@@ -95,11 +101,11 @@ class WaveRollElement extends HTMLElement {
     this.destroyDemo();
 
     try {
-      this.setStatus("Loading MIDI files…");
+      this.setStatus("Loading files…");
       this.demo = await createWaveRollPlayer(this, files);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      this.setStatus(`Failed to load MIDI files: ${msg}`, "#e53e3e");
+      this.setStatus(`Failed to load files: ${msg}`, "#e53e3e");
       console.error("<wave-roll> error:", error);
     }
   }
@@ -122,7 +128,7 @@ export { WaveRollElement };
 
 export async function createWaveRollPlayer(
   container: HTMLElement,
-  files: Array<{ path: string; displayName?: string }>
+  files: Array<{ path: string; displayName?: string; type?: "midi" | "audio" }>
 ): Promise<WaveRollPlayer> {
   const player = new WaveRollPlayer(container, files);
   await player.initialize();
