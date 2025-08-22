@@ -28,7 +28,8 @@ export function createScales(
     Pick<PianoRollConfig, "width" | "height" | "noteRange" | "showPianoKeys">
   >,
   currentPxPerSecond: number | null = null,
-  TARGET_VISIBLE_SECONDS = 8
+  TARGET_VISIBLE_SECONDS = 8,
+  reservedBottomPx: number = 0
 ): Scales {
   // 1. Determine the track's total length.
   const maxTime =
@@ -52,7 +53,9 @@ export function createScales(
   const pitchScale = scaleLinear<number, number>()
     .domain([options.noteRange.min, options.noteRange.max])
     // Invert Y axis so low notes sit near the bottom edge.
-    .range([options.height - 20, 20]);
+    // Reserve a bottom band (e.g., waveform area) so the piano-roll usable range
+    // never overlaps with that reserved region.
+    .range([options.height - 20 - reservedBottomPx, 20]);
 
   return { timeScale, pitchScale, pxPerSecond };
 }

@@ -40,7 +40,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   // Pre-compute constants for vertical sizing
   const noteRange =
     pianoRoll.options.noteRange.max - pianoRoll.options.noteRange.min;
-  const baseRowHeight = (pianoRoll.options.height - 40) / noteRange;
+  // Derive row height from pitchScale range so it automatically respects
+  // reserved bottom space (e.g., waveform band) configured in createScales.
+  const pitchMinY = pianoRoll.pitchScale(pianoRoll.options.noteRange.min);
+  const pitchMaxY = pianoRoll.pitchScale(pianoRoll.options.noteRange.max);
+  const usablePitchSpanPx = Math.abs(pitchMinY - pitchMaxY);
+  const baseRowHeight = usablePitchSpanPx / Math.max(1, noteRange);
   const zoomY = pianoRoll.state.zoomY;
 
   // 1) Ensure Sprite pool size matches notes.length -----------------------

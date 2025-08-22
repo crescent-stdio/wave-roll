@@ -38,6 +38,8 @@ export class PianoRoll {
   /** Semi-transparent overlay that visualizes sustain-pedal (CC64) regions */
   public sustainOverlay!: PIXI.Graphics;
   public overlapOverlay!: PIXI.Graphics;
+  /** Mask to clip notes/sustains so they never overlap the waveform band */
+  public notesMask!: PIXI.Graphics;
   public overlapIntervals: NoteInterval[] = [];
 
   // Tooltip element for note hover information
@@ -125,6 +127,14 @@ export class PianoRoll {
   }
 
   private initializeScales(): void {
+    // Reserve bottom pixels for waveform band so pitch scale never maps into it
+    const bandPadding = 6;
+    const bandHeight = Math.max(
+      24,
+      Math.min(96, Math.floor(this.options.height * 0.22))
+    );
+    const reservedBottomPx = bandPadding + bandHeight;
+
     const { timeScale, pitchScale, pxPerSecond } = createScales(
       this.notes,
       {
@@ -133,7 +143,9 @@ export class PianoRoll {
         noteRange: this.options.noteRange,
         showPianoKeys: this.options.showPianoKeys,
       },
-      this.pxPerSecond // pass previous value if any
+      this.pxPerSecond,
+      8,
+      reservedBottomPx
     );
 
     this.timeScale = timeScale;
@@ -216,9 +228,16 @@ export class PianoRoll {
     this.notesContainer.zIndex = 10;
     this.container.addChild(this.notesContainer);
 
+    // Mask that clips out the bottom waveform band area from the notes/sustains
+    this.notesMask = new PIXI.Graphics();
+    this.container.addChild(this.notesMask);
+    this.notesContainer.mask = this.notesMask;
+
     this.sustainContainer = new PIXI.Container();
     this.sustainContainer.zIndex = 5;
     this.container.addChild(this.sustainContainer);
+    // Apply same mask so sustain overlays also avoid the waveform area
+    this.sustainContainer.mask = this.notesMask;
 
     // Overlay for sustain pedal (below notes to avoid covering them)
     this.sustainOverlay = new PIXI.Graphics();
@@ -487,6 +506,20 @@ export class PianoRoll {
   public render(): void {
     // Update playhead first so that its computed X position is available
     // to background and note layers (e.g., pianoKeys shading uses playheadX).
+
+    // Update mask for notes/sustains prior to drawing
+    {
+      const bandPadding = 6;
+      const bandHeight = Math.max(
+        24,
+        Math.min(96, Math.floor(this.options.height * 0.22))
+      );
+      const reservedBottomPx = bandPadding + bandHeight;
+      const usableHeight = Math.max(0, this.options.height - reservedBottomPx);
+      this.notesMask.clear();
+      this.notesMask.rect(0, 0, this.options.width, usableHeight);
+      this.notesMask.fill({ color: 0xffffff, alpha: 1 });
+    }
 
     renderPlayhead(this);
     renderGrid(this);

@@ -51,7 +51,10 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
     // Draw subtle vertical separator at the edge between keys and timeline
     pianoRoll.backgroundGrid.moveTo(pianoKeysWidth + 0.5, 0);
-    pianoRoll.backgroundGrid.lineTo(pianoKeysWidth + 0.5, pianoRoll.options.height);
+    pianoRoll.backgroundGrid.lineTo(
+      pianoKeysWidth + 0.5,
+      pianoRoll.options.height
+    );
     pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.6 });
 
     // Draw piano key lines
@@ -268,14 +271,30 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
         // Bottom band placement
         const bandPadding = 6; // px
-        const bandHeight = Math.max(24, Math.min(96, Math.floor(height * 0.22)));
+        const bandHeight = Math.max(
+          24,
+          Math.min(96, Math.floor(height * 0.22))
+        );
         const bandTop = height - bandHeight - bandPadding;
         const bandMidY = bandTop + bandHeight * 0.5;
 
         // Draw a subtle horizontal separator between piano-roll grid and waveform band
         pianoRoll.backgroundGrid.moveTo(0, bandTop - 1);
         pianoRoll.backgroundGrid.lineTo(pianoRoll.options.width, bandTop - 1);
-        pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.5 });
+        pianoRoll.backgroundGrid.stroke({
+          width: 1,
+          color: 0x999999,
+          alpha: 0.5,
+        });
+
+        // Fill a faint background for the waveform band to visually separate it
+        pianoRoll.waveformLayer.rect(
+          pianoKeysOffset,
+          bandTop,
+          Math.max(0, pianoRoll.options.width - pianoKeysOffset),
+          bandHeight
+        );
+        pianoRoll.waveformLayer.fill({ color: 0x000000, alpha: 0.04 });
 
         for (let t = t0; t <= t1; t += step) {
           const x =
@@ -285,13 +304,15 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
           const p = api.sampleAtTime(t); // returns { min: number, max: number, color: number }
           if (!p) continue;
-          const ampMax = Math.max(0, Math.min(1, p.max));
-          const ampMin = Math.max(0, Math.min(1, p.min));
-          const halfHMax = bandHeight * 0.5 * ampMax;
-          const halfHMin = bandHeight * 0.5 * ampMin;
+          // Use symmetric amplitude around midline for a canonical waveform look
+          const amp = Math.max(
+            Math.max(0, Math.min(1, p.max)),
+            Math.max(0, Math.min(1, p.min))
+          );
+          const halfH = bandHeight * 0.5 * amp;
 
-          pianoRoll.waveformLayer.moveTo(x, bandMidY - halfHMax);
-          pianoRoll.waveformLayer.lineTo(x, bandMidY + halfHMin);
+          pianoRoll.waveformLayer.moveTo(x, bandMidY - halfH);
+          pianoRoll.waveformLayer.lineTo(x, bandMidY + halfH);
           pianoRoll.waveformLayer.stroke({
             width: 1,
             color: p.color ?? 0x10b981,
@@ -299,22 +320,39 @@ export function renderGrid(pianoRoll: PianoRoll): void {
           });
         }
 
-        // Also draw a compact waveform inside the piano-keys column (left of playhead)
-        if (pianoRoll.options.showPianoKeys && (pianoRoll as any).waveformKeysLayer) {
-          const keysLayer = (pianoRoll as any).waveformKeysLayer as PIXI.Graphics;
-          const keysBandHeight = Math.max(18, Math.min(64, Math.floor(height * 0.18)));
-          const keysBandTop = height - keysBandHeight - bandPadding;
-          const keysBandMidY = keysBandTop + keysBandHeight * 0.5;
+        // Also draw the same-scale waveform inside the piano-keys column (left of playhead)
+        if (
+          pianoRoll.options.showPianoKeys &&
+          (pianoRoll as any).waveformKeysLayer
+        ) {
+          const keysLayer = (pianoRoll as any)
+            .waveformKeysLayer as PIXI.Graphics;
+          // Use identical dimensions as the main bottom waveform band for seamless continuity
+          const keysBandHeight = bandHeight;
+          const keysBandTop = bandTop;
+          const keysBandMidY = bandMidY;
 
           // Fill a subtle background behind keys waveform to improve contrast
-          keysLayer.rect(0, keysBandTop, pianoRoll.playheadX, keysBandHeight);
-          keysLayer.fill({ color: 0x000000, alpha: 0.05 });
+          keysLayer.rect(
+            0,
+            keysBandTop,
+            Math.max(0, pianoRoll.playheadX),
+            keysBandHeight
+          );
+          // pianoRoll.waveformLayer.rect(
+          //   pianoKeysOffset,
+          //   bandTop,
+          //   Math.max(0, pianoRoll.options.width - pianoKeysOffset),
+          //   bandHeight
+          // );
+          keysLayer.fill({ color: 0x000000, alpha: 0.04 });
 
           // Compute time range that maps to the keys area [0, playheadX)
           const tKeys0 = Math.max(
             0,
             pianoRoll.timeScale.invert(
-              (0 - pianoKeysOffset - pianoRoll.state.panX) / pianoRoll.state.zoomX
+              (0 - pianoKeysOffset - pianoRoll.state.panX) /
+                pianoRoll.state.zoomX
             )
           );
           const tKeys1 = Math.min(
@@ -335,14 +373,20 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
             const p = api.sampleAtTime(t);
             if (!p) continue;
-            const ampMax = Math.max(0, Math.min(1, p.max));
-            const ampMin = Math.max(0, Math.min(1, p.min));
-            const halfHMax = keysBandHeight * 0.5 * ampMax;
-            const halfHMin = keysBandHeight * 0.5 * ampMin;
+            // Symmetric amplitude for the compact keys waveform as well
+            const amp = Math.max(
+              Math.max(0, Math.min(1, p.max)),
+              Math.max(0, Math.min(1, p.min))
+            );
+            const halfH = keysBandHeight * 0.5 * amp;
 
-            keysLayer.moveTo(xKeys, keysBandMidY - halfHMax);
-            keysLayer.lineTo(xKeys, keysBandMidY + halfHMin);
-            keysLayer.stroke({ width: 1, color: p.color ?? 0x0ea5e9, alpha: 0.8 });
+            keysLayer.moveTo(xKeys, keysBandMidY - halfH);
+            keysLayer.lineTo(xKeys, keysBandMidY + halfH);
+            keysLayer.stroke({
+              width: 1,
+              color: p.color ?? 0x10b981,
+              alpha: 0.7,
+            });
           }
         }
       }
