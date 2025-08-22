@@ -38,6 +38,7 @@ import { formatTime } from "@/core/utils";
 import { mixColorsOklch } from "@/core/utils/color";
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
 import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
+import { DEFAULT_SAMPLE_AUDIO_FILES } from "@/core/file/constants";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
 import { setupUI } from "@/lib/components/ui/controls";
 import { setupFileToggleSection } from "./layout";
@@ -395,6 +396,14 @@ export class WaveRollPlayer {
     }
     // console.log("this.midiManager.getState()", this.midiManager.getState());
 
+    // Load default sample audio after UI is ready
+    try {
+      if (DEFAULT_SAMPLE_AUDIO_FILES && DEFAULT_SAMPLE_AUDIO_FILES.length > 0) {
+        await this.fileManager.loadSampleAudioFiles(DEFAULT_SAMPLE_AUDIO_FILES);
+        this.updateFileToggleSection();
+      }
+    } catch {}
+
     // Only compute metrics if we have at least 2 files
     const files = this.midiManager.getState().files;
     if (files.length >= 2) {
@@ -530,7 +539,7 @@ export class WaveRollPlayer {
     if (piano) {
       // Get the actual PianoRoll instance for internal property access
       const pianoInstance = (piano as any)._instance;
-      
+
       // ------------------------------------------------------------
       // Provide original per-file colours (sidebar swatch) so that
       // sustain overlays can stay consistent even when highlight

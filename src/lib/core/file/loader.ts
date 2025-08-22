@@ -1,8 +1,9 @@
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import type { MidiInput } from "@/lib/midi/types";
 import { DEFAULT_SAMPLE_FILES } from "./constants";
-import { FileLoadOptions, SampleFileConfig } from "./types";
+import { FileLoadOptions, SampleFileConfig, SampleAudioFileConfig } from "./types";
 import { FileManager } from "./file-manager";
+import { addAudioFileFromUrl } from "@/lib/core/waveform/register";
 
 /**
  * Load sample MIDI files
@@ -100,4 +101,40 @@ export async function loadMultipleFiles(
   }
 
   return loadedFileIds;
+}
+
+/**
+ * Load a single audio file (URL string only for now)
+ */
+export async function loadAudioFile(
+  fileManager: FileManager,
+  input: string | File,
+  options: FileLoadOptions & { color?: number } = {}
+): Promise<string | null> {
+  try {
+    const url = typeof input === "string" ? input : URL.createObjectURL(input);
+    const displayName = options.displayName || (typeof input === "string" ? input : input.name);
+
+    // Register in AudioFiles store and kick off waveform decoding lazily
+    const id = await addAudioFileFromUrl(fileManager, url, displayName, options.color);
+    return id;
+  } catch (error) {
+    console.error(`Failed to load audio file:`, error);
+    return null;
+  }
+}
+
+/**
+ * Load default sample audio files
+ */
+export async function loadSampleAudioFiles(
+  fileManager: FileManager,
+  files: SampleAudioFileConfig[] = []
+): Promise<void> {
+  fileManager.isBatchLoading = true;
+  const list = files.length > 0 ? files : [];
+  for (const f of list) {
+    await loadAudioFile(fileManager, f.path, { displayName: f.displayName, color: f.color });
+  }
+  fileManager.isBatchLoading = false;
 }

@@ -34,3 +34,9 @@ export const generateMidiFileId = () => generateUniqueId("midi");
  */
 export const generateCoreFileId = (fileName: string) =>
   generateUniqueId(fileName.replace(/\.[^/.]+$/, ""));
+
+/**
+ * Generate a globally‑unique ID for an audio file entry (wav/mp3).
+ * Pattern: `audio-<unixMs>-<randomBase36>`
+ */
+export const generateAudioFileId = () => generateUniqueId("audio");

@@ -29,6 +29,10 @@ export class PianoRoll {
   public sustainContainer!: PIXI.Container;
   public playheadLine!: PIXI.Graphics;
   public backgroundGrid!: PIXI.Graphics;
+  /** Waveform overlay layer (rendered below the grid) */
+  public waveformLayer!: PIXI.Graphics;
+  /** Waveform overlay drawn above the piano-keys area so it shows left of playhead */
+  public waveformKeysLayer!: PIXI.Graphics;
   public loopOverlay!: PIXI.Graphics;
   public loopLines: { start: PIXI.Graphics; end: PIXI.Graphics } | null = null;
   /** Semi-transparent overlay that visualizes sustain-pedal (CC64) regions */
@@ -189,6 +193,18 @@ export class PianoRoll {
     this.backgroundGrid = new PIXI.Graphics();
     this.backgroundGrid.zIndex = 1;
     this.container.addChild(this.backgroundGrid);
+
+    // Waveform layer (below grid)
+    this.waveformLayer = new PIXI.Graphics();
+    this.waveformLayer.zIndex = 0;
+    this.container.addChild(this.waveformLayer);
+
+    // Waveform layer shown above piano-keys fill so it is visible left of playhead
+    this.waveformKeysLayer = new PIXI.Graphics();
+    // Keep it below notes and loop overlays, but above background grid fill
+    // Use the same zIndex as labels but add before them so labels stay on top
+    this.waveformKeysLayer.zIndex = 2;
+    this.container.addChild(this.waveformKeysLayer);
 
     // Container for time grid labels (kept separate to avoid addChild on Graphics)
     this.backgroundLabelContainer = new PIXI.Container();

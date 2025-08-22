@@ -13,6 +13,7 @@ export class FileToggleManager {
     dependencies: UIComponentDependencies
   ): HTMLElement {
     const fileToggleContainer = document.createElement("div");
+    fileToggleContainer.setAttribute("data-role", "file-toggle");
     fileToggleContainer.style.cssText = `
       background: #f8f9fa;
       padding: 12px;
@@ -29,9 +30,9 @@ export class FileToggleManager {
       margin-bottom: 8px;
     `;
 
-    // Title
+    // Title (general section header, not specific to MIDI or WAV)
     const title = document.createElement("h4");
-    title.textContent = "MIDI Files";
+    title.textContent = "Files";
     title.style.cssText = `
       margin: 0;
       font-size: 14px;
@@ -106,7 +107,39 @@ export class FileToggleManager {
     headerContainer.appendChild(btnBar);
     fileToggleContainer.appendChild(headerContainer);
 
-    // File controls container
+    // --- WAV/MP3 section header ---
+    const audioHeader = document.createElement("h4");
+    audioHeader.textContent = "WAV Files";
+    audioHeader.style.cssText = `
+      margin: 12px 0 8px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #495057;
+    `;
+    fileToggleContainer.appendChild(audioHeader);
+
+    // Audio controls container
+    const audioControlsContainer = document.createElement("div");
+    audioControlsContainer.id = "audio-controls";
+    audioControlsContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    `;
+    fileToggleContainer.appendChild(audioControlsContainer);
+
+    // Insert explicit MIDI section header after WAV section
+    const midiHeader = document.createElement("h4");
+    midiHeader.textContent = "MIDI Files";
+    midiHeader.style.cssText = `
+      margin: 12px 0 8px 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: #495057;
+    `;
+    fileToggleContainer.appendChild(midiHeader);
+
+    // File controls container (MIDI) - placed after WAV section
     const fileControlsContainer = document.createElement("div");
     fileControlsContainer.id = "file-controls";
     fileControlsContainer.style.cssText = `
@@ -172,6 +205,18 @@ export class FileToggleManager {
       const fileControl = this.createFileToggleItem(file, dependencies);
       fileControls.appendChild(fileControl);
     });
+
+    // Audio controls refresh
+    const audioControls = fileToggleContainer.querySelector(
+      "#audio-controls"
+    ) as HTMLElement | null;
+    if (audioControls) {
+      audioControls.innerHTML = "";
+      const audioList = (window as any)._waveRollAudio?.getFiles?.() ?? [];
+      for (const a of audioList) {
+        audioControls.appendChild(this.createAudioToggleItem(a, dependencies));
+      }
+    }
   }
 
   static createFileToggleItem(
@@ -447,6 +492,124 @@ export class FileToggleManager {
     item.appendChild(estBtn);
     item.appendChild(visBtn);
     item.appendChild(sustainBtn);
+    item.appendChild(muteBtn);
+    item.appendChild(labelL);
+    item.appendChild(panSlider);
+    item.appendChild(labelR);
+    return item;
+  }
+
+  // --- Audio (WAV/MP3) toggle item ---
+  static createAudioToggleItem(
+    audio: {
+      id: string;
+      displayName: string;
+      color: number;
+      isVisible: boolean;
+      isMuted: boolean;
+      pan: number;
+    },
+    dependencies: UIComponentDependencies
+  ): HTMLElement {
+    const item = document.createElement("div");
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      border: 1px solid #dee2e6;
+    `;
+
+    const colorIndicator = document.createElement("div");
+    colorIndicator.style.cssText = `
+      width: 12px;
+      height: 12px;
+      background: #${audio.color.toString(16).padStart(6, "0")};
+    `;
+
+    const name = document.createElement("span");
+    name.textContent = audio.displayName;
+    name.style.cssText = `
+      flex: 1;
+      font-size: 14px;
+      color: ${audio.isVisible ? "#343a40" : "#6c757d"};
+    `;
+
+    // Visibility toggle (waveform overlay)
+    const visBtn = createIconButton(
+      audio.isVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
+      () => {
+        (window as any)._waveRollAudio?.toggleVisibility?.(audio.id);
+        const container = item.closest(
+          '[data-role="file-toggle"]'
+        ) as HTMLElement | null;
+        if (container) {
+          FileToggleManager.updateFileToggleSection(container, dependencies);
+        }
+      },
+      "Toggle waveform visibility",
+      { size: 24 }
+    );
+    visBtn.style.color = audio.isVisible ? "#495057" : "#adb5bd";
+    visBtn.style.border = "none";
+    visBtn.style.boxShadow = "none";
+
+    // Mute toggle
+    let isMuted = audio.isMuted;
+    const muteBtn = createIconButton(
+      isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume,
+      () => {
+        (window as any)._waveRollAudio?.toggleMute?.(audio.id);
+        isMuted = !isMuted;
+        muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
+      },
+      "Mute / Unmute audio",
+      { size: 24 }
+    );
+    muteBtn.style.color = !isMuted ? "#495057" : "#adb5bd";
+    muteBtn.style.border = "none";
+    muteBtn.style.boxShadow = "none";
+
+    // Pan slider
+    const labelL = document.createElement("span");
+    labelL.textContent = "L";
+    labelL.style.cssText = `font-size: 12px; color: #6c757d;`;
+    const labelR = document.createElement("span");
+    labelR.textContent = "R";
+    labelR.style.cssText = `font-size: 12px; color: #6c757d;`;
+
+    const panSlider = document.createElement("input");
+    panSlider.type = "range";
+    panSlider.min = "-100";
+    panSlider.max = "100";
+    panSlider.step = "1";
+    panSlider.value = String((audio.pan ?? 0) * 100);
+    panSlider.title = "Pan (L • R)";
+    panSlider.style.cssText = `
+      width: 80px;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #e9ecef;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+    `;
+    panSlider.addEventListener("input", () => {
+      const pan = parseFloat(panSlider.value) / 100;
+      (window as any)._waveRollAudio?.setPan?.(audio.id, pan);
+    });
+    panSlider.addEventListener("dblclick", () => {
+      (window as any)._waveRollAudio?.setPan?.(audio.id, 0);
+      panSlider.value = "0";
+    });
+
+    item.appendChild(colorIndicator);
+    item.appendChild(name);
+    item.appendChild(visBtn);
     item.appendChild(muteBtn);
     item.appendChild(labelL);
     item.appendChild(panSlider);

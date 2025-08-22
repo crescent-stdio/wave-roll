@@ -85,8 +85,10 @@ export function renderNotes(pianoRoll: PianoRoll): void {
 
     ctx.stroke();
     const tex = PIXI.Texture.from(canvas);
-    tex.baseTexture.wrapMode =
-      (PIXI as any).WRAP_MODES?.REPEAT ?? (PIXI as any).WRAP_MODES; // Pixi v7/v8 compat
+    // Pixi v8: use Texture.source.style.addressMode = 'repeat'
+    if ((tex as any).source?.style) {
+      (tex as any).source.style.addressMode = "repeat";
+    }
     WR_HATCH_TEXTURE_CACHE[direction] = tex;
     return tex;
   }
@@ -117,7 +119,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     // Ensure hatch overlay pool matches sprite pool
     const hatchSprites = ((pianoRoll as any).hatchSprites ??=
       []) as PIXI.TilingSprite[];
-    const overlay = new PIXI.TilingSprite(getHatchTexture("up"), 1, 1);
+    // Pixi v8: TilingSprite accepts an options object
+    const overlay = new (PIXI as any).TilingSprite({
+      texture: getHatchTexture("up"),
+      width: 1,
+      height: 1,
+    }) as PIXI.TilingSprite;
     overlay.visible = false;
     overlay.alpha = 0.55;
     overlay.tint = parseInt(COLOR_EVAL_HIGHLIGHT.replace("#", ""), 16);

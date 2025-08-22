@@ -14,6 +14,13 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   // Remove any previously added children (e.g., text labels) and clear drawings
   pianoRoll.backgroundGrid.removeChildren();
   pianoRoll.backgroundGrid.clear();
+  // Also clear waveform layer so it re-renders cleanly each frame
+  if (pianoRoll.waveformLayer) {
+    pianoRoll.waveformLayer.clear();
+  }
+  if ((pianoRoll as any).waveformKeysLayer) {
+    (pianoRoll as any).waveformKeysLayer.clear();
+  }
 
   // Clear loop overlay & lines before redrawing
   pianoRoll.loopOverlay.clear();
@@ -41,6 +48,11 @@ export function renderGrid(pianoRoll: PianoRoll): void {
       pianoRoll.options.height
     );
     pianoRoll.backgroundGrid.fill({ color: 0xf0f0f0 });
+
+    // Draw subtle vertical separator at the edge between keys and timeline
+    pianoRoll.backgroundGrid.moveTo(pianoKeysWidth + 0.5, 0);
+    pianoRoll.backgroundGrid.lineTo(pianoKeysWidth + 0.5, pianoRoll.options.height);
+    pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.6 });
 
     // Draw piano key lines
     for (
@@ -211,4 +223,131 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   }
 
   // drawOverlapRegions disabled - overlap now indicated via note tinting
+
+  // -------------------------------------------------------------
+  // Waveform overlay (if available)
+  // Draw on the dedicated waveformLayer so it stays beneath the grid.
+  // A lightweight visualization: vertical min/max bars per peak column mapped to time.
+  // Render as a bottom band so it appears "below" the piano-roll grid content while
+  // remaining synchronized with pan/zoom.
+  try {
+    const api = (window as any)._waveRollAudio;
+    if (api?.getVisiblePeaks) {
+      const peaksPayload = api.getVisiblePeaks();
+      if (peaksPayload && peaksPayload.length > 0) {
+        const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
+        const height = pianoRoll.options.height;
+
+        // To avoid overdraw, sample at most one bar per pixel
+        const pixelsPerSecond = pianoRoll.timeScale(1) * pianoRoll.state.zoomX;
+        const secondsPerPixel = 1 / pixelsPerSecond;
+
+        // Clear previous waveform drawing
+        pianoRoll.waveformLayer.clear();
+        if ((pianoRoll as any).waveformKeysLayer) {
+          (pianoRoll as any).waveformKeysLayer.clear();
+        }
+
+        // Compute visible time range based on current pan/zoom
+        const t0 = Math.max(
+          0,
+          pianoRoll.timeScale.invert(
+            (-pianoRoll.state.panX - pianoKeysOffset) / pianoRoll.state.zoomX
+          )
+        );
+        const t1 = Math.min(
+          pianoRoll.timeScale.domain()[1],
+          pianoRoll.timeScale.invert(
+            (pianoRoll.options.width - pianoKeysOffset - pianoRoll.state.panX) /
+              pianoRoll.state.zoomX
+          )
+        );
+
+        // Choose step ~ 1px in time
+        const step = Math.max(secondsPerPixel, 0.005);
+
+        // Bottom band placement
+        const bandPadding = 6; // px
+        const bandHeight = Math.max(24, Math.min(96, Math.floor(height * 0.22)));
+        const bandTop = height - bandHeight - bandPadding;
+        const bandMidY = bandTop + bandHeight * 0.5;
+
+        // Draw a subtle horizontal separator between piano-roll grid and waveform band
+        pianoRoll.backgroundGrid.moveTo(0, bandTop - 1);
+        pianoRoll.backgroundGrid.lineTo(pianoRoll.options.width, bandTop - 1);
+        pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.5 });
+
+        for (let t = t0; t <= t1; t += step) {
+          const x =
+            pianoRoll.timeScale(t) * pianoRoll.state.zoomX +
+            pianoRoll.state.panX +
+            pianoKeysOffset;
+
+          const p = api.sampleAtTime(t); // returns { min: number, max: number, color: number }
+          if (!p) continue;
+          const ampMax = Math.max(0, Math.min(1, p.max));
+          const ampMin = Math.max(0, Math.min(1, p.min));
+          const halfHMax = bandHeight * 0.5 * ampMax;
+          const halfHMin = bandHeight * 0.5 * ampMin;
+
+          pianoRoll.waveformLayer.moveTo(x, bandMidY - halfHMax);
+          pianoRoll.waveformLayer.lineTo(x, bandMidY + halfHMin);
+          pianoRoll.waveformLayer.stroke({
+            width: 1,
+            color: p.color ?? 0x10b981,
+            alpha: 0.7,
+          });
+        }
+
+        // Also draw a compact waveform inside the piano-keys column (left of playhead)
+        if (pianoRoll.options.showPianoKeys && (pianoRoll as any).waveformKeysLayer) {
+          const keysLayer = (pianoRoll as any).waveformKeysLayer as PIXI.Graphics;
+          const keysBandHeight = Math.max(18, Math.min(64, Math.floor(height * 0.18)));
+          const keysBandTop = height - keysBandHeight - bandPadding;
+          const keysBandMidY = keysBandTop + keysBandHeight * 0.5;
+
+          // Fill a subtle background behind keys waveform to improve contrast
+          keysLayer.rect(0, keysBandTop, pianoRoll.playheadX, keysBandHeight);
+          keysLayer.fill({ color: 0x000000, alpha: 0.05 });
+
+          // Compute time range that maps to the keys area [0, playheadX)
+          const tKeys0 = Math.max(
+            0,
+            pianoRoll.timeScale.invert(
+              (0 - pianoKeysOffset - pianoRoll.state.panX) / pianoRoll.state.zoomX
+            )
+          );
+          const tKeys1 = Math.min(
+            pianoRoll.timeScale.domain()[1],
+            pianoRoll.timeScale.invert(
+              (pianoRoll.playheadX - pianoKeysOffset - pianoRoll.state.panX) /
+                pianoRoll.state.zoomX
+            )
+          );
+
+          for (let t = tKeys0; t <= tKeys1; t += step) {
+            const xKeys =
+              pianoRoll.timeScale(t) * pianoRoll.state.zoomX +
+              pianoRoll.state.panX +
+              pianoKeysOffset;
+
+            if (xKeys < 0 || xKeys >= pianoRoll.playheadX) continue;
+
+            const p = api.sampleAtTime(t);
+            if (!p) continue;
+            const ampMax = Math.max(0, Math.min(1, p.max));
+            const ampMin = Math.max(0, Math.min(1, p.min));
+            const halfHMax = keysBandHeight * 0.5 * ampMax;
+            const halfHMin = keysBandHeight * 0.5 * ampMin;
+
+            keysLayer.moveTo(xKeys, keysBandMidY - halfHMax);
+            keysLayer.lineTo(xKeys, keysBandMidY + halfHMin);
+            keysLayer.stroke({ width: 1, color: p.color ?? 0x0ea5e9, alpha: 0.8 });
+          }
+        }
+      }
+    }
+  } catch (_err) {
+    // Ignore waveform errors to keep grid robust
+  }
 }

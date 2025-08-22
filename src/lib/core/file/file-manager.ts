@@ -8,6 +8,7 @@ import { MidiFileEntry } from "@/lib/midi/types";
 export class FileManager {
   public midiManager: MultiMidiManager;
   public isBatchLoading = false;
+  /** Lazy audio files registry lives under `window._waveRollAudio` to keep surface minimal */
 
   constructor(midiManager: MultiMidiManager) {
     this.midiManager = midiManager;
@@ -32,6 +33,21 @@ export class FileManager {
     options: FileLoadOptions = {}
   ): Promise<string[]> {
     return Loader.loadMultipleFiles(this, files, options);
+  }
+
+  /** Load a single audio file (wav/mp3) */
+  async loadAudioFile(
+    input: string | File,
+    options: FileLoadOptions & { color?: number } = {}
+  ): Promise<string | null> {
+    return Loader.loadAudioFile(this, input, options);
+  }
+
+  /** Load sample audio files */
+  async loadSampleAudioFiles(
+    files: { path: string; displayName?: string; color?: number }[] = []
+  ): Promise<void> {
+    return Loader.loadSampleAudioFiles(this, files as any);
   }
 
   /* ==READ-ONLY== */

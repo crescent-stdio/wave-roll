@@ -87,7 +87,11 @@ export interface AudioPlayerContainer {
    * If only `start` is provided, the loop will extend to the end of the piece.
    * @param preservePosition - If true, maintains current position when setting loop points
    */
-  setLoopPoints(start: number | null, end: number | null, preservePosition?: boolean): void;
+  setLoopPoints(
+    start: number | null,
+    end: number | null,
+    preservePosition?: boolean
+  ): void;
 
   /** Get current player state */
   getState(): AudioPlayerState;
@@ -135,6 +139,13 @@ export class AudioPlayer implements AudioPlayerContainer {
   private syncScheduler: number | null = null;
   /** Global panner for legacy single-sampler path */
   private panner: Tone.Panner | null = null;
+  /** Map of audioId -> { player, panner, url } for waveform playback */
+  private audioPlayers: Map<
+    string,
+    { player: Tone.Player; panner: Tone.Panner; url: string }
+  > = new Map();
+  /** Currently selected active audio id (from window._waveRollAudio) */
+  private activeAudioId: string | null = null;
 
   /** Token that identifies the *current* sync-scheduler. Incrementing this
    *  value invalidates callbacks created by any previous scheduler. */
@@ -298,7 +309,7 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Part so that notes are heard on each pass.
    */
   private handleTransportLoop = (): void => {
-    if (!this.part) {
+    if (!this.part && !this.isAudioActive()) {
       return;
     }
 
@@ -306,12 +317,16 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     // Cancel any notes which were scheduled for the previous cycle.
     // Use immediate timing to ensure clean transition
-    this.part.stop("+0");
-    this.part.cancel("+0");
+    if (this.part) {
+      this.part.stop("+0");
+      this.part.cancel("+0");
+    }
 
     // Restart the Part immediately at the beginning of its window
     // This ensures continuous playback without gaps
-    this.part.start("+0", 0);
+    if (this.part && !this.isAudioActive()) {
+      this.part.start("+0", 0);
+    }
 
     // Also synchronise the visual playhead immediately.
     const visualStart =
@@ -320,6 +335,11 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     // Keep internal state aligned.
     this.state.currentTime = visualStart;
+
+    // Restart external audio at A
+    if (this.isAudioActive()) {
+      this.startActiveAudioAt(visualStart);
+    }
   };
 
   constructor(
@@ -584,6 +604,141 @@ export class AudioPlayer implements AudioPlayerContainer {
   }
 
   /**
+   * Build/refresh Tone.Player instances from global audio registry (window._waveRollAudio)
+   * and select the first visible & unmuted item as the active audio source.
+   */
+  private setupAudioPlayersFromRegistry(): void {
+    try {
+      const api = (window as any)._waveRollAudio;
+      if (!api?.getFiles) return;
+
+      const items = api.getFiles() as Array<{
+        id: string;
+        url: string;
+        isVisible: boolean;
+        isMuted: boolean;
+        pan: number;
+        audioBuffer?: AudioBuffer;
+      }>;
+
+      const keepIds = new Set(items.map((i) => i.id));
+      // Dispose players removed from registry
+      this.audioPlayers.forEach((_v, id) => {
+        if (!keepIds.has(id)) {
+          const entry = this.audioPlayers.get(id)!;
+          entry.player.dispose();
+          entry.panner.dispose();
+          this.audioPlayers.delete(id);
+        }
+      });
+
+      // Create/refresh players
+      for (const it of items) {
+        if (!this.audioPlayers.has(it.id)) {
+          const panner = new Tone.Panner(it.pan ?? 0).toDestination();
+          const player = new Tone.Player({
+            url: it.url,
+            autostart: false,
+          }).connect(panner);
+          player.volume.value = Tone.gainToDb(
+            this.state?.volume ?? this.options.volume
+          );
+          this.audioPlayers.set(it.id, { player, panner, url: it.url });
+        } else {
+          const entry = this.audioPlayers.get(it.id)!;
+          entry.panner.pan.value = Math.max(-1, Math.min(1, it.pan ?? 0));
+          if (entry.url !== it.url) {
+            entry.player.dispose();
+            entry.url = it.url;
+            entry.player = new Tone.Player({
+              url: it.url,
+              autostart: false,
+            }).connect(entry.panner);
+            entry.player.volume.value = Tone.gainToDb(
+              this.state?.volume ?? this.options.volume
+            );
+          }
+        }
+      }
+
+      // Preserve current active id if it remains eligible after a mute/visibility toggle
+      const previousActiveId = this.activeAudioId;
+      const eligible = items.filter((i) => i.isVisible && !i.isMuted);
+      if (previousActiveId && eligible.some((i) => i.id === previousActiveId)) {
+        this.activeAudioId = previousActiveId;
+      } else {
+        const active = eligible[0] || null;
+        this.activeAudioId = active ? active.id : null;
+      }
+
+      // Update duration if audio provides a longer timeline
+      const audioDurations = items
+        .map((i) => i.audioBuffer?.duration || 0)
+        .filter((d) => d > 0);
+      if (audioDurations.length > 0) {
+        const maxAudioDur = Math.max(...audioDurations);
+        if (maxAudioDur > this.state.duration) {
+          this.state.duration = maxAudioDur;
+        }
+      }
+    } catch {
+      // registry not present -> ignore
+    }
+  }
+
+  private isAudioActive(): boolean {
+    return (
+      this.activeAudioId !== null && this.audioPlayers.has(this.activeAudioId)
+    );
+  }
+
+  private stopAllAudioPlayers(): void {
+    this.audioPlayers.forEach(({ player }) => {
+      try {
+        player.stop("+0");
+      } catch {}
+    });
+  }
+
+  private startActiveAudioAt(offsetSeconds: number): void {
+    if (!this.isAudioActive()) return;
+    const entry = this.audioPlayers.get(this.activeAudioId!)!;
+    // If the underlying buffer is not yet loaded, defer start until it is.
+    const buffer: any = (entry.player as any).buffer;
+    if (!buffer || buffer.loaded === false) {
+      try {
+        const maybePromise = (entry.player as any).load?.(entry.url);
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise
+            .then(() => {
+              try {
+                entry.player.stop("+0");
+              } catch {}
+              try {
+                entry.player.start("+0", Math.max(0, offsetSeconds));
+                entry.player.volume.value = Tone.gainToDb(this.state.volume);
+              } catch {}
+            })
+            .catch(() => {
+              // Silently ignore; a subsequent play/loop will retry
+            });
+        }
+      } catch {
+        // Ignore; a later attempt will retry once buffer is ready
+      }
+      return;
+    }
+
+    try {
+      entry.player.stop("+0");
+    } catch {}
+    try {
+      entry.player.start("+0", Math.max(0, offsetSeconds));
+      entry.player.volume.value = Tone.gainToDb(this.state.volume);
+    } catch {}
+  }
+
+  /**
    * Set up transport event callbacks
    */
   private setupTransportCallbacks(): void {
@@ -830,6 +985,11 @@ export class AudioPlayer implements AudioPlayerContainer {
     if (this.state.isPlaying) return;
 
     try {
+      // Ensure external audio registry is considered on play
+      this.setupAudioPlayersFromRegistry();
+      // New Tone.Player instances may have been created above; ensure all buffers
+      // (including Players) are fully loaded before attempting to start them.
+      await Tone.loaded();
       // Resume from paused position or start from beginning
       if (this.pausedTime > 0) {
         Tone.getTransport().seconds = this.pausedTime;
@@ -840,7 +1000,11 @@ export class AudioPlayer implements AudioPlayerContainer {
         // we end up starting the Part midway through its event list which causes the
         // very first loop iteration to play silently.
 
-        if (this.part && Tone.getTransport().state !== "started") {
+        if (
+          this.part &&
+          Tone.getTransport().state !== "started" &&
+          !this.isAudioActive()
+        ) {
           // Ensure Part is stopped before starting to avoid duplicate scheduling
           this.part.stop();
 
@@ -853,19 +1017,37 @@ export class AudioPlayer implements AudioPlayerContainer {
 
           this.part.start("+0", offsetForPart);
         }
+
+        if (this.isAudioActive()) {
+          // Start external audio aligned with current visual position
+          this.startActiveAudioAt(this.state.currentTime);
+        }
       } else {
-        // Start from the beginning - explicitly set transport to 0
-        Tone.getTransport().seconds = 0;
-        this.state.currentTime = 0;
+        // No explicit pausedTime captured (e.g., toggled sources while still playing).
+        // Prefer resuming from the last known visual position if available.
+        const resumeVisual =
+          this.state.currentTime > 0 ? this.state.currentTime : 0;
+        const resumeTransport =
+          (resumeVisual * this.originalTempo) / this.state.tempo;
 
-        // Immediately update piano roll to 0 position
-        this.pianoRoll.setTime(0);
+        Tone.getTransport().seconds = resumeTransport;
+        this.pausedTime = resumeTransport;
 
-        if (this.part) {
+        // Immediately update piano roll so visual and transport agree
+        this.pianoRoll.setTime(resumeVisual);
+
+        if (this.part && !this.isAudioActive()) {
           // Ensure part is stopped before starting
           this.part.stop();
-          // Using non-null assertion to satisfy TS and schedule immediately at audio context time
-          (this.part as Tone.Part).start("+0", 0);
+          const offsetForPart =
+            this._loopStartVisual !== null && this._loopEndVisual !== null
+              ? Math.max(0, resumeVisual - this._loopStartVisual)
+              : resumeTransport;
+          (this.part as Tone.Part).start("+0", offsetForPart);
+        }
+
+        if (this.isAudioActive()) {
+          this.startActiveAudioAt(resumeVisual);
         }
       }
 
@@ -917,6 +1099,9 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     // Update piano roll to freeze at current position
     this.pianoRoll.setTime(this.state.currentTime);
+
+    // Stop any external audio player
+    this.stopAllAudioPlayers();
   }
 
   /**
@@ -982,7 +1167,7 @@ export class AudioPlayer implements AudioPlayerContainer {
 
       // Queue Part to begin exactly when the transport resumes.
       // If loop active, Part events are relative to loopStart (offset 0).
-      if (this.part) {
+      if (this.part && !this.isAudioActive()) {
         // Align Part start with the exact Transport `startTime` so that the
         // first note is rendered in the same audio frame in which the
         // Transport begins playback. This prevents the ~50 ms latency that
@@ -992,6 +1177,11 @@ export class AudioPlayer implements AudioPlayerContainer {
 
       // Start the global transport at the calculated AudioContext `startTime`.
       transport.start(startTime, transportStart);
+
+      // Start external audio at loop start / beginning
+      if (this.isAudioActive()) {
+        this.startActiveAudioAt(visualStart);
+      }
 
       // Immediately resume sync tracking once transport actually starts
       setTimeout(() => {
@@ -1148,7 +1338,7 @@ export class AudioPlayer implements AudioPlayerContainer {
         }
       }
 
-      if (this.part) {
+      if (this.part && !this.isAudioActive()) {
         const offsetForPart =
           this._loopStartVisual !== null ? 0 : transportSeconds;
         this.part.start("+0", offsetForPart);
@@ -1162,6 +1352,11 @@ export class AudioPlayer implements AudioPlayerContainer {
       // through the seek point. This prevents audible gaps immediately
       // after muting/unmuting tracks (which recreates the AudioPlayer).
       this.retriggerHeldNotes(clampedVisual);
+
+      // Align external audio with new position
+      if (this.isAudioActive()) {
+        this.startActiveAudioAt(clampedVisual);
+      }
 
       // Clear seeking flag after a short delay (50 ms). Then process any queued seek.
       setTimeout(() => {
@@ -1238,6 +1433,11 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     // Ensure future initialization uses the latest volume (e.g., muted before first play)
     this.options.volume = clamped;
+
+    // External audio players volume sync
+    this.audioPlayers.forEach(({ player }) => {
+      player.volume.value = db;
+    });
   }
 
   /**
@@ -1299,7 +1499,11 @@ export class AudioPlayer implements AudioPlayerContainer {
    * Passing `null` for both parameters clears the loop.
    * If only `start` is provided, the loop will extend to the end of the piece.
    */
-  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
+  public setLoopPoints(
+    start: number | null,
+    end: number | null,
+    preservePosition: boolean = false
+  ): void {
     /**
      * Skip when the requested loop configuration is identical to the one that
      * is already active.  Re-creating the Tone.Part on every redundant call
@@ -1348,8 +1552,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     // --- Rebuild Part relative to loop window ----------------------------
     const wasPlaying = this.state.isPlaying;
     const currentPosition = this.state.currentTime;
-    const shouldPreservePosition = preservePosition && currentPosition >= start && currentPosition <= end;
-    
+    const shouldPreservePosition =
+      preservePosition && currentPosition >= start && currentPosition <= end;
+
     if (this.sampler) {
       if (this.part) {
         // Immediately stop and clean up the old part to prevent overlap
@@ -1358,10 +1563,10 @@ export class AudioPlayer implements AudioPlayerContainer {
         this.part.dispose();
         this.part = null;
       }
-      
+
       // Create new part with loop window
       this.setupNotePart(start, end);
-      
+
       // Only the Transport is set to loop. Leaving the Part non-looping avoids
       // duplicate scheduling (Part + Transport) that caused silent or mangled
       // playback after the first iteration of an A-B loop.
@@ -1378,7 +1583,8 @@ export class AudioPlayer implements AudioPlayerContainer {
     // Handle position based on whether we should preserve it
     if (shouldPreservePosition) {
       // Keep current position if within loop bounds
-      const currentTransportTime = (currentPosition * this.originalTempo) / this.state.tempo;
+      const currentTransportTime =
+        (currentPosition * this.originalTempo) / this.state.tempo;
       transport.seconds = currentTransportTime;
       this.pausedTime = currentTransportTime;
       // Don't change this.state.currentTime as it's already correct
@@ -1388,7 +1594,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       this.pausedTime = transportStart;
       this.state.currentTime = start;
     }
-    
+
     // Only release voices when jumping to a new position (not preserving position)
     // This prevents cutting off sounds when just updating the loop during playback
     if (!shouldPreservePosition) {
@@ -1492,13 +1698,29 @@ export class AudioPlayer implements AudioPlayerContainer {
       panner.dispose();
     });
     this.trackSamplers.clear();
+
+    // Dispose external audio players
+    this.audioPlayers.forEach(({ player, panner }) => {
+      try {
+        player.dispose();
+      } catch {}
+      try {
+        panner.dispose();
+      } catch {}
+    });
+    this.audioPlayers.clear();
   }
 
   /**
    * Set stereo pan value (-1 left, 0 center, 1 right)
    */
   public setPan(pan: number): void {
-    if (!this.panner && this.trackSamplers.size === 0) return;
+    if (
+      !this.panner &&
+      this.trackSamplers.size === 0 &&
+      this.audioPlayers.size === 0
+    )
+      return;
 
     const clamped = Math.max(-1, Math.min(1, pan));
 
@@ -1513,6 +1735,11 @@ export class AudioPlayer implements AudioPlayerContainer {
     });
 
     this.state.pan = clamped;
+
+    // External audio player panners
+    this.audioPlayers.forEach(({ panner }) => {
+      panner.pan.value = clamped;
+    });
   }
 
   /**

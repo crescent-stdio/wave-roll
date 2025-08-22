@@ -19,6 +19,18 @@ export interface SampleFileConfig {
   /** Optional display name for the file */
   displayName?: string;
 }
+
+/**
+ * Audio sample file configuration (wav/mp3)
+ */
+export interface SampleAudioFileConfig {
+  /** Path to the audio file */
+  path: string;
+  /** Optional display name for the file */
+  displayName?: string;
+  /** Optional waveform color */
+  color?: number;
+}
 /**
  * Interface for file validation result
  */
