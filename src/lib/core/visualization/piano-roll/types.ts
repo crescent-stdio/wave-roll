@@ -72,4 +72,7 @@ export type PianoRollInstance = {
 
   /** Resize the visualizer to a new width/height */
   resize: (width: number, height?: number) => void;
+  
+  /** Internal reference to the PianoRoll instance */
+  _instance?: any;
 };

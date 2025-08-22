@@ -12,22 +12,14 @@
  */
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
-
-import {
-  COLOR_PRIMARY,
-  COLOR_A,
-  COLOR_B,
-  COLOR_OVERLAP,
-  COLOR_EVAL_HIGHLIGHT,
-  COLOR_EVAL_EXCLUSIVE,
-} from "@/lib/core/constants";
-import { detectOverlappingNotes } from "@/lib/core/utils/midi/overlap";
-
 import { MidiFileItemList } from "@/lib/core/file/types";
 import { WaveRollPlayerOptions } from "./types";
-import { createDefaultConfig, setupLayout } from "./layout";
 import {
-  ColoredNote,
+  createDefaultConfig,
+  setupLayout,
+  setupFileToggleSection,
+} from "./layout";
+import {
   VisualizationEngine,
   DEFAULT_PIANO_ROLL_CONFIG,
 } from "@/core/visualization";
@@ -35,13 +27,9 @@ import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
 import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
 import { formatTime } from "@/core/utils";
-import { mixColorsOklch } from "@/core/utils/color";
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
-import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
-import { DEFAULT_SAMPLE_AUDIO_FILES } from "@/core/file/constants";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
 import { setupUI } from "@/lib/components/ui/controls";
-import { setupFileToggleSection } from "./layout";
 import { AudioPlayerContainer } from "@/core/audio";
 import {
   CorePlaybackEngine,
@@ -50,13 +38,17 @@ import {
   PianoRollConfig,
   PianoRollManager,
 } from "@/core/playback";
-import { openSettingsModal } from "@/lib/components/ui/settings/modal";
-import { openEvaluationResultsModal } from "@/lib/components/ui/settings/modal/evaluation-results";
 import {
   computeNoteMetrics,
   DEFAULT_TOLERANCES,
-  matchNotes,
 } from "@/lib/evaluation/transcription";
+import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
+
+// Import new handler modules
+import { VisualizationHandler } from "./visualization-handler";
+import { UIUpdater } from "./ui-updater";
+import { KeyboardHandler } from "./keyboard-handler";
+import { FileLoader } from "./file-loader";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -111,8 +103,11 @@ export class WaveRollPlayer {
   // Cached UI dependencies object so that UIComponents can write on it and we can read back
   private uiDeps: UIComponentDependencies | null = null;
 
-  // Prevent rapid toggle issues
-  private isTogglingPlayback = false;
+  // Handler modules
+  private visualizationHandler!: VisualizationHandler;
+  private uiUpdater!: UIUpdater;
+  private keyboardHandler!: KeyboardHandler;
+  private fileLoader!: FileLoader;
 
   constructor(
     container: HTMLElement,
@@ -197,7 +192,30 @@ export class WaveRollPlayer {
 
     this.corePlaybackEngine = coreEngine;
 
-    // Set up state change listener
+    // Handlers are created below; listeners will be attached afterwards
+
+    // Initialize handler modules
+    this.visualizationHandler = new VisualizationHandler(
+      this.midiManager,
+      this.stateManager,
+      this.visualizationEngine
+    );
+    this.uiUpdater = new UIUpdater(
+      this.stateManager,
+      this.visualizationEngine,
+      this.midiManager,
+      { updateInterval: this.config.ui.updateInterval }
+    );
+    this.keyboardHandler = new KeyboardHandler();
+    this.fileLoader = new FileLoader(this.stateManager, this.fileManager);
+
+    // Setup keyboard listener
+    this.keyboardHandler.setupKeyboardListener(
+      () => this.getUIDependencies(),
+      () => this.startUpdateLoop()
+    );
+
+    // Now that handlers are ready, set up state change listeners
     this.midiManager.setOnStateChange(() => {
       if (this.stateManager.getUIState().isBatchLoading) return;
       this.updateVisualization();
@@ -205,19 +223,11 @@ export class WaveRollPlayer {
       this.updateFileToggleSection();
     });
 
-    // NEW: react to visual state changes such as highlight-mode updates
+    // React to visual state changes such as highlight-mode updates
     this.stateManager.onStateChange(() => {
-      // Avoid redundant work during batch loading as above
       if (this.stateManager.getUIState().isBatchLoading) return;
       this.updateVisualization();
     });
-
-    // Register global keyboard listener (Space -> Play/Pause) only once
-    const GLOBAL_KEY = "_waveRollSpaceHandler" as const;
-    if (!(window as any)[GLOBAL_KEY]) {
-      (window as any)[GLOBAL_KEY] = this.handleKeyDown.bind(this);
-      document.addEventListener("keydown", (window as any)[GLOBAL_KEY]);
-    }
   }
 
   /**
@@ -440,7 +450,7 @@ export class WaveRollPlayer {
    * Update sidebar with current files
    */
   private updateSidebar(): void {
-    UILayoutManager.updateSidebar(this.sidebarContainer, this.midiManager);
+    this.uiUpdater.updateSidebar(this.sidebarContainer);
   }
 
   /**
@@ -453,705 +463,25 @@ export class WaveRollPlayer {
       type?: "midi" | "audio";
     }> = []
   ): Promise<void> {
-    this.stateManager.updateUIState({ isBatchLoading: true });
-
-    const fileList = files.length > 0 ? files : DEFAULT_SAMPLE_FILES;
-
-    // Separate files by type
-    const midiFiles = fileList.filter((f) => !f.type || f.type === "midi");
-    const audioFiles = fileList.filter((f) => f.type === "audio");
-
-    try {
-      // Load MIDI files
-      if (midiFiles.length > 0) {
-        await this.fileManager.loadSampleFiles(midiFiles);
-      }
-
-      // Load audio files
-      if (audioFiles.length > 0) {
-        await this.fileManager.loadSampleAudioFiles(audioFiles);
-      }
-    } catch (error) {
-      console.error("Error loading sample files:", error);
-    } finally {
-      this.stateManager.updateUIState({ isBatchLoading: false });
-      this.updateVisualization();
-      this.updateSidebar();
-      this.updateFileToggleSection();
-    }
+    await this.fileLoader.loadSampleFiles(files, {
+      onComplete: () => {
+        this.updateVisualization();
+        this.updateSidebar();
+        this.updateFileToggleSection();
+      },
+    });
   }
 
   /**
    * Update visualization
    */
   private updateVisualization(): void {
-    // We only need the piano-roll to be ready here; the AudioPlayer will be
-    // lazily created by `VisualizationEngine.updateVisualization()` as soon
-    // as it receives the first batch of notes. Checking the full
-    // `VisualizationEngine.isInitialized()` would erroneously wait for the
-    // audio player, creating a circular dependency (it can’t exist until we
-    // call this method). Hence, we guard only against an un-initialised
-    // piano-roll instance.
-    if (!this.visualizationEngine?.getPianoRollInstance()) {
+    if (!this.visualizationHandler) {
       return;
     }
-
-    const state = this.midiManager.getState();
-
-    // Build notes for piano-roll (visible) and audio (all but muted)
-    const coloredNotesVisible = this.getColoredNotes(state);
-
-    // --- Audio mixing --------------------------------------------------
-    const activeFileCount = state.files.filter(
-      (file: any) => file.parsedData && !file.isMuted
-    ).length;
-    const velocityScale = 1 / Math.max(1, activeFileCount);
-
-    const audioNotes: NoteData[] = [];
-    state.files.forEach((file: any) => {
-      if (file.parsedData && !file.isMuted) {
-        // Clone each note and scale velocity to compensate for the number of
-        // concurrently sounding tracks.  This prevents the overall mix from
-        // becoming excessively loud when several MIDI files play together.
-        file.parsedData.notes.forEach((note: NoteData) => {
-          // Keep velocity within valid [0,1] range.
-          const scaledVel = Math.min(1, note.velocity * velocityScale);
-          audioNotes.push({ ...note, velocity: scaledVel, fileId: file.id });
-        });
-      }
-    });
-
-    // --------------------------------------------------------------
-    // Sustain-pedal CC events (64) for visible tracks
-    // --------------------------------------------------------------
-    const controlChanges: ControlChangeEvent[] = [];
-    state.files.forEach((file: any) => {
-      const sustainVisible = file.isSustainVisible ?? true;
-      if (
-        !file.isPianoRollVisible ||
-        !sustainVisible ||
-        !file.parsedData?.controlChanges
-      )
-        return;
-      // Stamp each CC event with the originating fileId so the renderer can
-      // apply consistent per-track colouring.
-      file.parsedData.controlChanges.forEach((cc: ControlChangeEvent) => {
-        controlChanges.push({ ...cc, fileId: file.id });
-      });
-    });
-    // Chronological order helps renderer build segments quicker
-    controlChanges.sort(
-      (a: ControlChangeEvent, b: ControlChangeEvent) => a.time - b.time
-    );
-
-    // Update visualization engine
-    this.visualizationEngine.updateVisualization(
-      coloredNotesVisible,
-      audioNotes
-    );
-
-    // Push CC data to piano-roll so sustain overlay can render
-    const piano = this.visualizationEngine.getPianoRollInstance();
-    if (piano) {
-      // Get the actual PianoRoll instance for internal property access
-      const pianoInstance = (piano as any)._instance;
-
-      // ------------------------------------------------------------
-      // Provide original per-file colours (sidebar swatch) so that
-      // sustain overlays can stay consistent even when highlight
-      // modes recolour the notes.
-      // ------------------------------------------------------------
-      const fileColors: Record<string, number> = {};
-      state.files.forEach((f: any) => {
-        if (f.color !== undefined) {
-          fileColors[f.id] =
-            typeof f.color === "number"
-              ? f.color
-              : parseInt(String(f.color).replace("#", ""), 16);
-        }
-      });
-
-      // Assign colour map before pushing CC events so the sustain renderer
-      // can access it during the imminent render triggered by
-      // `setControlChanges()`.
-      if (pianoInstance) {
-        (pianoInstance as any).fileColors = fileColors;
-      }
-
-      // Provide lightweight file metadata for tooltips so we can render
-      // a readable label that shows the file group and display name
-      // alongside a colour swatch.
-      const evalState = this.stateManager.getState().evaluation;
-      const fileInfoMap: Record<
-        string,
-        { displayName: string; fileName: string; kind: string; color: number }
-      > = {};
-      state.files.forEach((f: any) => {
-        const displayName = f.displayName || f.fileName || f.id;
-        const isRef = evalState?.refId === f.id;
-        const isEst = Array.isArray(evalState?.estIds)
-          ? evalState.estIds.includes(f.id)
-          : false;
-        const kind = isRef ? "Reference" : isEst ? "Estimate" : "MIDI";
-        const color =
-          fileColors[f.id] ??
-          (typeof f.color === "number"
-            ? f.color
-            : parseInt(String(f.color ?? 0).replace("#", ""), 16));
-        fileInfoMap[f.id] = {
-          displayName,
-          fileName: f.fileName ?? "",
-          kind,
-          color,
-        };
-      });
-      if (pianoInstance) {
-        (pianoInstance as any).fileInfoMap = fileInfoMap;
-      }
-
-      // Pass current highlight mode to the renderer so it can adjust
-      // blendMode. Set this _before_ pushing CC events so the upcoming
-      // render cycle can pick up the correct mode immediately.
-      if (pianoInstance) {
-        (pianoInstance as any).highlightMode =
-          this.stateManager.getState().visual.highlightMode;
-      }
-
-      // Finally, push CC data to piano-roll which will trigger a re-render of
-      // the sustain overlay using the freshly injected colour map.
-      piano.setControlChanges?.(controlChanges);
-    }
+    this.visualizationHandler.updateVisualization();
   }
 
-  /**
-   * Get colored notes from MIDI state
-   */
-  private getColoredNotes(state: any): ColoredNote[] {
-    const fallbackColors = [COLOR_PRIMARY, COLOR_A, COLOR_B];
-
-    const toNumberColor = (c: string | number): number =>
-      typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
-
-    // 1) Base notes -------------------------------------------------------
-    const baseNotes: ColoredNote[] = [];
-    state.files.forEach((file: any, idx: number) => {
-      if (!file.isPianoRollVisible || !file.parsedData?.notes) return;
-
-      const raw = file.color ?? fallbackColors[idx % fallbackColors.length];
-      const baseColor = toNumberColor(raw);
-
-      file.parsedData.notes.forEach((n: any, noteIdx: number) => {
-        baseNotes.push({
-          note: { ...n, fileId: file.id, sourceIndex: noteIdx } as NoteData,
-          color: baseColor,
-          fileId: file.id,
-          isMuted: file.isMuted ?? false,
-        });
-      });
-    });
-
-    if (baseNotes.length === 0) return [];
-
-    const highlightMode =
-      this.stateManager.getState().visual.highlightMode ?? "file";
-    // this.stateManager.getState().visual.highlightMode ?? "highlight-blend";
-
-    // Plain per-file colouring -> return early ---------------------------
-    if (highlightMode === "file") {
-      return baseNotes;
-    }
-
-    // Check if this is an evaluation-based highlight mode
-    if (highlightMode.startsWith("eval-")) {
-      return this.getEvaluationColoredNotes(state, baseNotes, highlightMode);
-    }
-
-    // 2) Overlap analysis -------------------------------------------------
-    const overlaps = detectOverlappingNotes(baseNotes);
-
-    // Utility functions ---------------------------------------------------
-    // Darker neutral gray so the highlight stands out more
-    const NEUTRAL_GRAY = 0x444444;
-    const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
-
-    const overlapColor = (base: number): number => {
-      switch (highlightMode) {
-        case "highlight-simple":
-          // Increase blend ratio for a stronger contrast
-          return mixColorsOklch(base, 0xffff99, 0.85);
-        case "highlight-blend":
-          // Make overlap colour even more pronounced
-          return mixColorsOklch(base, HIGHLIGHT, 0.8);
-        case "highlight-exclusive":
-          // return HIGHLIGHT;
-          return mixColorsOklch(base, HIGHLIGHT, 0.8);
-        default:
-          return base;
-      }
-    };
-
-    const baseColorVariant = (base: number): number =>
-      highlightMode === "highlight-exclusive" ? NEUTRAL_GRAY : base;
-
-    // 3) Split into segments --------------------------------------------
-    const result: ColoredNote[] = [];
-
-    baseNotes.forEach((orig, idx) => {
-      const ranges = overlaps.get(idx) ?? [];
-
-      if (ranges.length === 0) {
-        result.push({ ...orig, color: baseColorVariant(orig.color) });
-        return;
-      }
-
-      const sorted = [...ranges].sort((a, b) => a.start - b.start);
-      let cursor = orig.note.time;
-      const end = orig.note.time + orig.note.duration;
-
-      const push = (start: number, dur: number, col: number) => {
-        if (dur <= 0) return;
-        result.push({
-          note: { ...orig.note, time: start, duration: dur },
-          color: col,
-          fileId: orig.fileId,
-          isMuted: orig.isMuted,
-        });
-      };
-
-      sorted.forEach(({ start, end: e }) => {
-        push(cursor, start - cursor, baseColorVariant(orig.color));
-        push(start, e - start, overlapColor(orig.color));
-        cursor = Math.max(cursor, e);
-      });
-
-      push(cursor, end - cursor, baseColorVariant(orig.color));
-    });
-
-    result.sort((a, b) => a.note.time - b.note.time);
-    return result;
-  }
-
-  /**
-   * Get evaluation-based colored notes
-   */
-  private getEvaluationColoredNotes(
-    state: any,
-    baseNotes: ColoredNote[],
-    highlightMode: string
-  ): ColoredNote[] {
-    const evalState = this.stateManager.getState().evaluation;
-
-    // Need reference and at least one estimated file
-    if (!evalState.refId || evalState.estIds.length === 0) {
-      return baseNotes;
-    }
-
-    // Find reference and estimated files
-    const refFile = state.files.find((f: any) => f.id === evalState.refId);
-    const estFiles = (evalState.estIds || [])
-      .map((id: string) => state.files.find((f: any) => f.id === id))
-      .filter((f: any) => f && f.parsedData);
-
-    if (!refFile?.parsedData || estFiles.length === 0) {
-      return baseNotes;
-    }
-
-    // Get tolerances
-    const tolerances = {
-      onsetTolerance: evalState.onsetTolerance,
-      pitchTolerance: evalState.pitchTolerance,
-      offsetRatioTolerance: evalState.offsetRatioTolerance,
-      offsetMinTolerance: evalState.offsetMinTolerance,
-    };
-
-    // Helper functions
-    const toNumberColor = (c: string | number): number =>
-      typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
-
-    const NEUTRAL_GRAY = 0x444444;
-    const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
-
-    // 1) Run matching for each estimated file and build indexes
-    const byRef = new Map<number, Array<{ estId: string; estIdx: number }>>();
-    const byEst = new Map<string, Map<number, number>>(); // estId -> (estIdx -> refIdx)
-
-    for (const estFile of estFiles) {
-      const estId: string = estFile.id;
-      const matchResult = matchNotes(
-        refFile.parsedData,
-        estFile.parsedData,
-        tolerances
-      );
-      if (!byEst.has(estId)) byEst.set(estId, new Map<number, number>());
-      const estMap = byEst.get(estId)!;
-      matchResult.matches.forEach((m) => {
-        if (!byRef.has(m.ref)) byRef.set(m.ref, []);
-        byRef.get(m.ref)!.push({ estId, estIdx: m.est });
-        estMap.set(m.est, m.ref);
-      });
-    }
-
-    // 2) Build union of intersections per reference note across all estimates
-    type Range = { start: number; end: number };
-    const mergeRanges = (ranges: Range[]): Range[] => {
-      if (ranges.length === 0) return ranges;
-      ranges.sort((a, b) => a.start - b.start);
-      const out: Range[] = [];
-      let cur: Range = { ...ranges[0] };
-      for (let i = 1; i < ranges.length; i++) {
-        const r = ranges[i];
-        if (r.start <= cur.end) {
-          cur.end = Math.max(cur.end, r.end);
-        } else {
-          out.push(cur);
-          cur = { ...r };
-        }
-      }
-      out.push(cur);
-      return out;
-    };
-
-    const unionRangesByRef = new Map<number, Range[]>();
-    // For AND aggregation: keep per-est single intersection to compute a global intersection A(r)
-    const singleIntersectionByRef: Map<number, Array<Range>> = new Map();
-    // Track whether a ref has matches from all selected estimates
-    const allMatchedByRef = new Map<number, boolean>();
-    byRef.forEach((arr, refIdx) => {
-      const refNote = refFile.parsedData.notes[refIdx];
-      const refOn = refNote.time;
-      const refOff = refNote.time + refNote.duration;
-      const ranges: Range[] = [];
-      const singles: Range[] = [];
-      for (const { estId, estIdx } of arr) {
-        const estFile = estFiles.find((f: any) => f.id === estId);
-        if (!estFile) continue;
-        const estNote = estFile.parsedData.notes[estIdx];
-        const estOn = estNote.time;
-        const estOff = estNote.time + estNote.duration;
-        const s = Math.max(refOn, estOn);
-        const e = Math.min(refOff, estOff);
-        if (e > s) {
-          const range = { start: s, end: e };
-          ranges.push(range);
-          singles.push(range);
-        }
-      }
-      unionRangesByRef.set(refIdx, mergeRanges(ranges));
-      if (singles.length > 0) singleIntersectionByRef.set(refIdx, singles);
-      // We'll fill allMatchedByRef after we know selectedEstCount below
-    });
-
-    // Compute AND intersection A(r) per reference as a single range (or empty)
-    const andRangeByRef = new Map<number, Range | null>();
-    const selectedEstCount = estFiles.length;
-    byRef.forEach((arr, refIdx) => {
-      // Require matches from all selected estimates to form A(r)
-      const hasAll = arr.length >= selectedEstCount;
-      allMatchedByRef.set(refIdx, hasAll);
-      if (!hasAll) {
-        andRangeByRef.set(refIdx, null);
-        return;
-      }
-      const singles = singleIntersectionByRef.get(refIdx) || [];
-      if (singles.length < selectedEstCount) {
-        andRangeByRef.set(refIdx, null);
-        return;
-      }
-      // Intersection across all I_k: [max(starts), min(ends)]
-      let start = -Infinity;
-      let end = Infinity;
-      for (const r of singles) {
-        start = Math.max(start, r.start);
-        end = Math.min(end, r.end);
-      }
-      if (end > start) {
-        andRangeByRef.set(refIdx, { start, end });
-      } else {
-        andRangeByRef.set(refIdx, null);
-      }
-    });
-
-    // 3) Process notes based on highlight mode
-    const result: ColoredNote[] = [];
-    const useGrayGlobal = highlightMode.includes("-gray");
-    const isExclusiveGlobal = highlightMode.includes("exclusive");
-
-    // Derive comparison aggregation mode without changing public types:
-    // - pair: when exactly one estimated file is selected
-    // - aggregate-and: when kOfN equals the number of selected estimates
-    // - aggregate-or: otherwise (default)
-    const estCount = estFiles.length;
-    const kOfN = this.stateManager.getState().evaluation.kOfN;
-    const aggregationMode: "pair" | "and" | "or" =
-      estCount <= 1 ? "pair" : kOfN >= estCount ? "and" : "or";
-
-    baseNotes.forEach((coloredNote) => {
-      const { note, fileId } = coloredNote;
-      const sourceIdx = note.sourceIndex ?? 0;
-      const isRef = fileId === evalState.refId;
-      const isEst = evalState.estIds.includes(fileId);
-
-      // Non-evaluation files pass through
-      if (!isRef && !isEst) {
-        result.push(coloredNote);
-        return;
-      }
-
-      const fileColor = toNumberColor(
-        state.files.find((f: any) => f.id === fileId)?.color ?? COLOR_PRIMARY
-      );
-
-      // eval-gt-missed-only: only highlight unmatched reference notes
-      if (highlightMode === "eval-gt-missed-only") {
-        if (isRef) {
-          const hasAnyMatch =
-            byRef.has(sourceIdx) && byRef.get(sourceIdx)!.length > 0;
-          const color = !hasAnyMatch
-            ? useGrayGlobal
-              ? fileColor
-              : fileColor
-            : NEUTRAL_GRAY;
-          result.push({
-            ...coloredNote,
-            note: {
-              ...note,
-              isEvalHighlightSegment: !hasAnyMatch,
-              evalSegmentKind: !hasAnyMatch ? "exclusive" : undefined,
-            },
-            color,
-          });
-        } else {
-          // Estimated notes are grayed out in this mode
-          result.push({ ...coloredNote, color: NEUTRAL_GRAY });
-        }
-        return;
-      }
-
-      const nonIntersectColor = useGrayGlobal ? NEUTRAL_GRAY : fileColor;
-      // Do not change color for highlight; rely on hatch overlay for visibility
-      const intersectColor = fileColor;
-      const isExclusive = isExclusiveGlobal;
-
-      // Helper to push segmented fragments
-      const pushSegment = (
-        start: number,
-        end: number,
-        color: number,
-        flags?: { isEval?: boolean; kind?: "intersection" | "exclusive" }
-      ) => {
-        const dur = end - start;
-        if (dur <= 0) return;
-        result.push({
-          note: {
-            ...note,
-            time: start,
-            duration: dur,
-            isEvalHighlightSegment: flags?.isEval ?? false,
-            evalSegmentKind: flags?.kind,
-          },
-          color,
-          fileId: coloredNote.fileId,
-          isMuted: coloredNote.isMuted,
-        });
-      };
-
-      if (isRef) {
-        const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice();
-        const noteStart = note.time;
-        const noteEnd = note.time + note.duration;
-
-        // Determine highlight ranges for reference depending on aggregation and mode
-        if (aggregationMode === "and") {
-          const aRange = andRangeByRef.get(sourceIdx) || null;
-          const hasAll = allMatchedByRef.get(sourceIdx) === true;
-          if (!aRange) {
-            // If not all matched -> non-highlight. If all matched but A(r) is empty -> full exclusive highlight, otherwise non-exclusive has no highlight.
-            if (isExclusive && hasAll) {
-              pushSegment(noteStart, noteEnd, intersectColor, {
-                isEval: true,
-                kind: "exclusive",
-              });
-            } else {
-              result.push({ ...coloredNote, color: nonIntersectColor });
-            }
-            return;
-          }
-
-          // Segment using A(r)
-          const s = Math.max(noteStart, aRange.start);
-          const e = Math.min(noteEnd, aRange.end);
-          if (noteStart < s) {
-            pushSegment(
-              noteStart,
-              s,
-              isExclusive ? intersectColor : nonIntersectColor,
-              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
-            );
-          }
-          pushSegment(
-            s,
-            e,
-            isExclusive ? nonIntersectColor : intersectColor,
-            !isExclusive ? { isEval: true, kind: "intersection" } : undefined
-          );
-          if (e < noteEnd) {
-            pushSegment(
-              e,
-              noteEnd,
-              isExclusive ? intersectColor : nonIntersectColor,
-              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
-            );
-          }
-          return;
-        }
-
-        // pair / or -> use union of intersections U(r)
-        if (unionRanges.length === 0) {
-          // No matches
-          if (isExclusive) {
-            if (aggregationMode === "pair") {
-              // Pair: r \ I_k where I_k is empty => full note highlighted
-              pushSegment(noteStart, noteEnd, intersectColor, {
-                isEval: true,
-                kind: "exclusive",
-              });
-              return;
-            }
-            // OR: only highlight exclusive when there was any match
-            result.push({ ...coloredNote, color: nonIntersectColor });
-            return;
-          }
-          // Match-intersection modes: non-highlight
-          result.push({ ...coloredNote, color: nonIntersectColor });
-          return;
-        }
-
-        unionRanges.sort((a, b) => a.start - b.start);
-        let cursor = noteStart;
-        for (const r of unionRanges) {
-          const s = Math.max(noteStart, r.start);
-          const e = Math.min(noteEnd, r.end);
-          if (s < noteEnd && e > noteStart && s < e) {
-            if (cursor < s) {
-              pushSegment(
-                cursor,
-                s,
-                isExclusive ? intersectColor : nonIntersectColor,
-                isExclusive ? { isEval: true, kind: "exclusive" } : undefined
-              );
-            }
-            pushSegment(
-              Math.max(s, noteStart),
-              Math.min(e, noteEnd),
-              isExclusive ? nonIntersectColor : intersectColor,
-              !isExclusive ? { isEval: true, kind: "intersection" } : undefined
-            );
-            cursor = Math.max(cursor, e);
-          }
-        }
-        if (cursor < noteEnd) {
-          pushSegment(
-            cursor,
-            noteEnd,
-            isExclusive ? intersectColor : nonIntersectColor
-          );
-        }
-        return;
-      }
-
-      if (isEst) {
-        const refIdx = byEst.get(fileId)?.get(sourceIdx);
-        if (refIdx === undefined) {
-          // Unmatched estimated note
-          if (isExclusive) {
-            // e_k \ I_k where I_k is empty => full note highlighted
-            const noteStart = note.time;
-            const noteEnd = note.time + note.duration;
-            pushSegment(noteStart, noteEnd, intersectColor);
-          } else {
-            result.push({ ...coloredNote, color: nonIntersectColor });
-          }
-          return;
-        }
-
-        const refNote = refFile.parsedData.notes[refIdx];
-        const refOn = refNote.time;
-        const refOff = refNote.time + refNote.duration;
-        const noteStart = note.time;
-        const noteEnd = note.time + note.duration;
-        const intersectStart = Math.max(refOn, noteStart);
-        const intersectEnd = Math.min(refOff, noteEnd);
-
-        if (intersectStart < intersectEnd) {
-          // For match-intersection modes under AND aggregation, limit to I_k ∩ A(r)
-          if (!isExclusive && aggregationMode === "and") {
-            const aRange = andRangeByRef.get(refIdx) || null;
-            if (!aRange) {
-              // No A(r): est note remains non-highlighted entirely
-              result.push({ ...coloredNote, color: nonIntersectColor });
-              return;
-            }
-            const hlStart = Math.max(intersectStart, aRange.start);
-            const hlEnd = Math.min(intersectEnd, aRange.end);
-            // before I_k ∩ A(r)
-            if (noteStart < hlStart) {
-              pushSegment(noteStart, hlStart, nonIntersectColor);
-            }
-            // I_k ∩ A(r)
-            if (hlStart < hlEnd) {
-              pushSegment(hlStart, hlEnd, intersectColor);
-            }
-            // after
-            if (hlEnd < noteEnd) {
-              pushSegment(hlEnd, noteEnd, nonIntersectColor);
-            }
-            return;
-          }
-
-          // Default: use pair/OR behaviour with I_k
-          // before intersection
-          if (noteStart < intersectStart) {
-            pushSegment(
-              noteStart,
-              intersectStart,
-              isExclusive ? intersectColor : nonIntersectColor,
-              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
-            );
-          }
-          // intersection
-          pushSegment(
-            intersectStart,
-            intersectEnd,
-            isExclusive ? nonIntersectColor : intersectColor,
-            !isExclusive ? { isEval: true, kind: "intersection" } : undefined
-          );
-          // after intersection
-          if (intersectEnd < noteEnd) {
-            pushSegment(
-              intersectEnd,
-              noteEnd,
-              isExclusive ? intersectColor : nonIntersectColor,
-              isExclusive ? { isEval: true, kind: "exclusive" } : undefined
-            );
-          }
-        } else {
-          // no intersection (should not happen for matched)
-          result.push({ ...coloredNote, color: nonIntersectColor });
-        }
-        return;
-      }
-    });
-
-    result.sort((a, b) => a.note.time - b.note.time);
-    // Optional: render reference notes on top by moving them to the end
-    if (evalState.refOnTop && evalState.refId) {
-      const refId = evalState.refId;
-      const nonRef = result.filter((n) => n.fileId !== refId);
-      const ref = result.filter((n) => n.fileId === refId);
-      return [...nonRef, ...ref];
-    }
-    return result;
-  }
   /**
    * Set up file toggle section
    */
@@ -1166,9 +496,7 @@ export class WaveRollPlayer {
    * Update file toggle section
    */
   private updateFileToggleSection(): void {
-    if (!this.fileToggleContainer) return;
-
-    FileToggleManager.updateFileToggleSection(
+    this.uiUpdater.updateFileToggleSection(
       this.fileToggleContainer,
       this.getUIDependencies()
     );
@@ -1178,156 +506,29 @@ export class WaveRollPlayer {
    * Start the update loop for UI synchronization
    */
   private startUpdateLoop(): void {
-    const updateInterval = this.config.ui.updateInterval;
-
-    // Track if we've seen non-zero time since playback started
-    let hasSeenNonZeroTime = false;
-
-    const updateLoop = () => {
-      // Keep UI dependency in sync with current visualization engine so
-      // updateSeekBar always queries the live audioPlayer instance.
-      if (this.uiDeps) {
-        this.uiDeps.audioPlayer = this.visualizationEngine;
-      }
-
-      // Get current state from visualization engine
-      const state = this.visualizationEngine.getState();
-      if (state) {
-        // Track when we see non-zero time
-        if (state.currentTime > 0) {
-          hasSeenNonZeroTime = true;
-        }
-
-        // Skip redundant 0-second frames that occur immediately after
-        // playback starts. These frames arrive before the audio transport
-        // advances and would reset the seek-bar back to 0 even though
-        // onVisualUpdate has already shown progress.
-        // Only skip if we haven't seen any non-zero time yet
-        if (state.isPlaying && state.currentTime === 0 && !hasSeenNonZeroTime) {
-          return;
-        }
-
-        // Reset tracking when playback stops
-        if (!state.isPlaying) {
-          hasSeenNonZeroTime = false;
-        }
-
-        this.updatePianoRoll();
-
-        // Update piano roll time position (handled by onVisualUpdate now)
-        // const pianoRollInstance =
-        //   this.visualizationEngine.getPianoRollInstance();
-        // if (pianoRollInstance) {
-        //   pianoRollInstance.setTime(state.currentTime);
-        // }
-
-        // Update seek bar with current state
-        if (this.uiDeps?.updateSeekBar) {
-          this.uiDeps.updateSeekBar({
-            currentTime: state.currentTime,
-            duration: state.duration,
-          } as any);
-        }
-
-        // Update time display
-        this.updateTimeDisplay(state.currentTime);
-      } else {
-        // Fallback if state is not available
-        this.updateSeekBar();
-        this.updateTimeDisplay();
-      }
-
-      // Keep play/pause button icon in sync with actual playback state
-      if (
-        this.uiDeps?.updatePlayButton &&
-        typeof this.uiDeps.updatePlayButton === "function"
-      ) {
-        this.uiDeps.updatePlayButton();
-      }
-    };
-
-    // Perform immediate update to avoid initial delay
-    updateLoop();
-
-    // Clear any existing update loop before starting new one
-    const existingLoopId = this.stateManager.getUIState().updateLoopId;
-    if (existingLoopId) {
-      clearInterval(existingLoopId);
-    }
-
-    const loopId = setInterval(updateLoop, updateInterval) as unknown as number;
-    this.stateManager.updateUIState({ updateLoopId: loopId });
-  }
-
-  private updatePianoRoll(): void {
-    const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
-    if (pianoRollInstance) {
-      pianoRollInstance.setTime(
-        this.visualizationEngine.getState().currentTime
-      );
-    }
+    this.uiUpdater.startUpdateLoop(this.uiDeps);
   }
   /**
    * Update seek bar
    */
   private updateSeekBar(): void {
-    // Forward the freshest playhead information to the UI. If the
-    // VisualizationEngine has recreated its underlying AudioPlayer, we may
-    // hold a stale reference inside `uiDeps`. Therefore we *always* query the
-    // engine directly and pass the data as an override so that the seek-bar
-    // remains perfectly in-sync without relying on periodic mutation loops.
-    if (
-      !this.uiDeps?.updateSeekBar ||
-      typeof this.uiDeps.updateSeekBar !== "function"
-    ) {
-      return;
-    }
-
-    const state = this.visualizationEngine.getState();
-    if (state) {
-      // Always pass explicit state to ensure seekbar is updated
-      this.uiDeps.updateSeekBar({
-        currentTime: state.currentTime,
-        duration: state.duration,
-      } as any);
-
-      // Also ensure piano roll is synced
-      const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
-      if (pianoRollInstance) {
-        pianoRollInstance.setTime(state.currentTime);
-      }
-    } else {
-      // Fallback to existing logic if state is unavailable (e.g., before first load)
-      this.uiDeps.updateSeekBar();
-    }
+    this.uiUpdater.updateSeekBar(this.uiDeps);
   }
 
   /**
    * Update play button
    */
   private updatePlayButton(): void {
-    // Always obtain the freshest dependency object so that audioPlayer reference
-    // is up-to-date even if the update loop hasn't run yet.
     const deps = this.getUIDependencies();
-    deps.updatePlayButton?.();
-    // Immediately refresh progress bar to reflect the latest playback position
-    deps.updateSeekBar?.();
-    // Debounce window before next toggle
-    setTimeout(() => {
-      this.isTogglingPlayback = false;
-    }, 100);
+    this.uiUpdater.updatePlayButton(deps);
+    this.keyboardHandler.resetTogglingState();
   }
 
   /**
    * Update time display
    */
   private updateTimeDisplay(overrideTime?: number): void {
-    const seconds =
-      overrideTime !== undefined
-        ? overrideTime
-        : this.stateManager.getState().playback.currentTime;
-
-    this.timeDisplay.textContent = formatTime(seconds);
+    this.uiUpdater.updateTimeDisplay(overrideTime, this.timeDisplay);
   }
 
   /**
@@ -1342,189 +543,27 @@ export class WaveRollPlayer {
    * Open settings modal
    */
   private openSettingsModal(): void {
-    openSettingsModal(this.getUIDependencies());
+    const deps = this.getUIDependencies();
+    if (deps) {
+      const {
+        openSettingsModal,
+      } = require("@/lib/components/ui/settings/modal");
+      openSettingsModal(deps);
+    }
   }
 
   /**
    * Open evaluation results modal
    */
   private openEvaluationResultsModal(): void {
-    openEvaluationResultsModal(this.getUIDependencies());
-  }
-
-  /**
-   * Setup keyboard listener
-   */
-  private handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat) return; // Ignore auto-repeat
-
-    // Skip if focus is on an interactive element
-    const target = event.target as HTMLElement | null;
-    if (
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target instanceof HTMLSelectElement ||
-      target instanceof HTMLAnchorElement ||
-      target?.getAttribute("role") === "button" ||
-      target?.isContentEditable
-    ) {
-      return;
-    }
-
-    // Handle A key - Set loop start point
-    // if (event.key === "a" || event.key === "A") {
-    //   event.preventDefault();
-    //   event.stopPropagation();
-
-    //   // Get current playback position and set as loop point A
-    //   const state = this.visualizationEngine?.getState();
-    //   if (state && state.duration > 0) {
-    //     const currentTime = state.currentTime;
-
-    //     // Get current loop points
-    //     const loopPoints = this.stateManager.getState().loopPoints;
-    //     let pointA = currentTime;
-    //     let pointB = loopPoints.b;
-
-    //     // Ensure A <= B
-    //     if (pointB !== null && pointA > pointB) {
-    //       [pointA, pointB] = [pointB, pointA];
-    //     }
-
-    //     // Set the loop points
-    //     this.visualizationEngine.setLoopPoints(pointA, pointB);
-
-    //     // Convert to percentages for UI
-    //     const percentA = (pointA / state.duration) * 100;
-    //     const percentB = pointB !== null ? (pointB / state.duration) * 100 : null;
-
-    //     // Update UI dependencies
-    //     const deps = this.getUIDependencies();
-    //     (deps as any).loopPoints = { a: percentA, b: percentB };
-
-    //     // Force seekbar update
-    //     deps.updateSeekBar?.({
-    //       currentTime: state.currentTime,
-    //       duration: state.duration,
-    //     } as any);
-
-    //     // Also dispatch event for other UI components
-    //     const loopEvent = new CustomEvent("wr-loop-update", {
-    //       detail: {
-    //         loopWindow: { prev: percentA, next: percentB }
-    //       },
-    //       bubbles: true
-    //     });
-    //     this.playerContainer.dispatchEvent(loopEvent);
-    //   }
-    //   return;
-    // }
-
-    // // Handle B key - Set loop end point
-    // if (event.key === "b" || event.key === "B") {
-    //   event.preventDefault();
-    //   event.stopPropagation();
-
-    //   // Get current playback position and set as loop point B
-    //   const state = this.visualizationEngine?.getState();
-    //   if (state && state.duration > 0) {
-    //     const currentTime = state.currentTime;
-
-    //     // Get current loop points
-    //     const loopPoints = this.stateManager.getState().loopPoints;
-    //     let pointA = loopPoints.a;
-    //     let pointB = currentTime;
-
-    //     // If A is not set, only set B
-    //     if (pointA === null) {
-    //       pointA = 0;
-    //     }
-
-    //     // Ensure A <= B
-    //     if (pointB < pointA) {
-    //       [pointA, pointB] = [pointB, pointA];
-    //     }
-
-    //     // Set the loop points
-    //     this.visualizationEngine.setLoopPoints(pointA, pointB);
-
-    //     // Convert to percentages for UI
-    //     const percentA = (pointA / state.duration) * 100;
-    //     const percentB = (pointB / state.duration) * 100;
-
-    //     // Update UI dependencies
-    //     const deps = this.getUIDependencies();
-    //     (deps as any).loopPoints = { a: percentA, b: percentB };
-
-    //     // Force seekbar update
-    //     deps.updateSeekBar?.({
-    //       currentTime: state.currentTime,
-    //       duration: state.duration,
-    //     } as any);
-
-    //     // Also dispatch event for other UI components
-    //     const loopEvent = new CustomEvent("wr-loop-update", {
-    //       detail: {
-    //         loopWindow: { prev: percentA, next: percentB }
-    //       },
-    //       bubbles: true
-    //     });
-    //     this.playerContainer.dispatchEvent(loopEvent);
-    //   }
-    //   return;
-    // }
-
-    // Handle Space key for play/pause
-    if (!(event.code === "Space" || event.key === " ")) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    // Debounce rapid toggling
-    if (this.isTogglingPlayback) return;
-    this.isTogglingPlayback = true;
-
-    // Always work off the freshest UI dependencies
     const deps = this.getUIDependencies();
-    const audioPlayer = deps.audioPlayer;
-
-    // Safety check - if no audioPlayer is available, bail out gracefully
-    if (!audioPlayer) {
-      this.isTogglingPlayback = false;
-      return;
+    if (deps) {
+      const {
+        openEvaluationResultsModal,
+      } = require("@/lib/components/ui/settings/modal/evaluation-results");
+      openEvaluationResultsModal(deps);
     }
-
-    const state = audioPlayer.getState();
-
-    if (state?.isPlaying) {
-      // Currently playing -> pause
-      deps.audioPlayer?.pause();
-      // Clear debounce shortly after pausing so we can resume quickly
-      setTimeout(() => {
-        this.isTogglingPlayback = false;
-      }, 100);
-    } else {
-      // Currently paused -> play via space-bar
-
-      audioPlayer
-        .play()
-        .then(() => {
-          // Playback has effectively started - refresh UI once.
-          this.startUpdateLoop();
-          deps.updatePlayButton?.();
-          deps.updateSeekBar?.();
-        })
-        .catch((error: any) => {
-          console.error("Failed to play:", error);
-        })
-        .finally(() => {
-          // Always release the debounce lock, even if play() fails
-          setTimeout(() => {
-            this.isTogglingPlayback = false;
-          }, 100);
-        });
-    }
-  };
+  }
 
   /**
    * Cleanup resources
@@ -1536,13 +575,8 @@ export class WaveRollPlayer {
       clearInterval(uiState.updateLoopId);
     }
 
-    // Remove global keyboard listener if it belongs to this instance
-    const GLOBAL_KEY = "_waveRollSpaceHandler" as const;
-    const handler = (window as any)[GLOBAL_KEY];
-    if (handler && handler === this.handleKeyDown.bind(this)) {
-      document.removeEventListener("keydown", handler);
-      delete (window as any)[GLOBAL_KEY];
-    }
+    // Cleanup keyboard handler
+    this.keyboardHandler.cleanup();
 
     // Dispose modules
     this.visualizationEngine.destroy();
