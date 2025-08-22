@@ -72,13 +72,13 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   function setPoint(kind: "A" | "B") {
     const state = audioPlayer.getState();
     const t = state.currentTime;
-    
-    console.log(`[AB-Loop] Setting point ${kind}:`, {
-      currentTime: t,
-      duration: state.duration,
-      percent: (t / state.duration) * 100
-    });
-    
+
+    // console.log(`[AB-Loop] Setting point ${kind}:`, {
+    //   currentTime: t,
+    //   duration: state.duration,
+    //   percent: (t / state.duration) * 100
+    // });
+
     if (kind === "A") pointA = t;
     else pointB = t;
 
@@ -138,14 +138,14 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
         ? null
         : ({ prev: toPct(start), next: toPct(end) } as const);
 
-    console.log("[AB-Loop] Sending loop update:", {
-      pointA,
-      pointB,
-      start,
-      end,
-      loopWindow,
-      duration: state.duration
-    });
+    // console.log("[AB-Loop] Sending loop update:", {
+    //   pointA,
+    //   pointB,
+    //   start,
+    //   end,
+    //   loopWindow,
+    //   duration: state.duration,
+    // });
 
     // Bubble event so parent player updates seek-bar
     root.dispatchEvent(

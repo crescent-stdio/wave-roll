@@ -1270,13 +1270,13 @@ export class AudioPlayer implements AudioPlayerContainer {
       seconds = Math.max(this._loopStartVisual, this._loopEndVisual - EPSILON);
     }
 
-    console.log(
-      "[AudioPlayer.seek] requested to",
-      this.state.currentTime.toFixed(3),
-      "s ->",
-      seconds.toFixed(3),
-      "s"
-    );
+    // console.log(
+    //   "[AudioPlayer.seek] requested to",
+    //   this.state.currentTime.toFixed(3),
+    //   "s ->",
+    //   seconds.toFixed(3),
+    //   "s"
+    // );
 
     // If a seek is already in progress, queue this request to run afterwards.
     if (this.operationState.isSeeking) {
@@ -1305,13 +1305,13 @@ export class AudioPlayer implements AudioPlayerContainer {
     this.state.currentTime = clampedVisual;
     this.pausedTime = transportSeconds;
 
-    console.log("[AP.seek] mid", {
-      transportSec: transportSeconds.toFixed(3),
-      visualSec: clampedVisual.toFixed(3),
-      pausedTime: this.pausedTime.toFixed(3),
-      currentTime: this.state.currentTime.toFixed(3),
-      isSeeking: this.operationState.isSeeking,
-    });
+    // console.log("[AP.seek] mid", {
+    //   transportSec: transportSeconds.toFixed(3),
+    //   visualSec: clampedVisual.toFixed(3),
+    //   pausedTime: this.pausedTime.toFixed(3),
+    //   currentTime: this.state.currentTime.toFixed(3),
+    //   isSeeking: this.operationState.isSeeking,
+    // });
     if (wasPlaying) {
       this.stopSyncScheduler();
 
@@ -1319,8 +1319,8 @@ export class AudioPlayer implements AudioPlayerContainer {
         this.part.stop();
         this.part.cancel();
       }
-      console.log("[AP.seek] wasPlaying", wasPlaying);
-      console.log("[AP.seek] state.currentTime", this.state.currentTime);
+      // console.log("[AP.seek] wasPlaying", wasPlaying);
+      // console.log("[AP.seek] state.currentTime", this.state.currentTime);
 
       Tone.getTransport().cancel();
 
@@ -1360,13 +1360,13 @@ export class AudioPlayer implements AudioPlayerContainer {
 
       // Clear seeking flag after a short delay (50 ms). Then process any queued seek.
       setTimeout(() => {
-        console.log("[AP.seek] end", {
-          transportSec: Tone.getTransport().seconds.toFixed(3),
-          pausedTime: this.pausedTime.toFixed(3),
-          currentTime: this.state.currentTime.toFixed(3),
-          isSeeking: this.operationState.isSeeking,
-        });
-        console.groupEnd();
+        // console.log("[AP.seek] end", {
+        //   transportSec: Tone.getTransport().seconds.toFixed(3),
+        //   pausedTime: this.pausedTime.toFixed(3),
+        //   currentTime: this.state.currentTime.toFixed(3),
+        //   isSeeking: this.operationState.isSeeking,
+        // });
+        // console.groupEnd();
 
         this.operationState.isSeeking = false;
 
@@ -1388,11 +1388,11 @@ export class AudioPlayer implements AudioPlayerContainer {
     } else {
       Tone.getTransport().seconds = transportSeconds;
 
-      console.log(
-        "[AudioPlayer.seek] paused Transport set to",
-        Tone.getTransport().seconds.toFixed(3),
-        "s"
-      );
+      // console.log(
+      //   "[AudioPlayer.seek] paused Transport set to",
+      //   Tone.getTransport().seconds.toFixed(3),
+      //   "s"
+      // );
       this.operationState.isSeeking = false;
     }
 

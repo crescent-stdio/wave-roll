@@ -116,6 +116,7 @@ export class FileToggleManager {
       font-weight: 600;
       color: #495057;
     `;
+    audioHeader.id = "audio-header";
     fileToggleContainer.appendChild(audioHeader);
 
     // Audio controls container
@@ -137,6 +138,7 @@ export class FileToggleManager {
       font-weight: 600;
       color: #495057;
     `;
+    midiHeader.id = "midi-header";
     fileToggleContainer.appendChild(midiHeader);
 
     // File controls container (MIDI) - placed after WAV section
@@ -162,6 +164,32 @@ export class FileToggleManager {
 
     fileControls.innerHTML = "";
     const state = dependencies.midiManager.getState();
+
+    // --- Show/Hide headers based on availability ---
+    const audioHeader = fileToggleContainer.querySelector(
+      "#audio-header"
+    ) as HTMLElement | null;
+    const midiHeader = fileToggleContainer.querySelector(
+      "#midi-header"
+    ) as HTMLElement | null;
+    const audioControls = fileToggleContainer.querySelector(
+      "#audio-controls"
+    ) as HTMLElement | null;
+
+    // Determine counts
+    const midiCount = state.files.length;
+    const audioList = (window as any)._waveRollAudio?.getFiles?.() ?? [];
+    const audioCount = Array.isArray(audioList) ? audioList.length : 0;
+
+    if (audioHeader) {
+      audioHeader.style.display = audioCount > 0 ? "" : "none";
+    }
+    if (audioControls) {
+      audioControls.style.display = audioCount > 0 ? "" : "none";
+    }
+    if (midiHeader) {
+      midiHeader.style.display = midiCount > 0 ? "" : "none";
+    }
 
     // Ensure default reference file: if files exist and no ref is set,
     // activate the top-most file as the reference for eval-* highlights.
@@ -207,12 +235,8 @@ export class FileToggleManager {
     });
 
     // Audio controls refresh
-    const audioControls = fileToggleContainer.querySelector(
-      "#audio-controls"
-    ) as HTMLElement | null;
     if (audioControls) {
       audioControls.innerHTML = "";
-      const audioList = (window as any)._waveRollAudio?.getFiles?.() ?? [];
       for (const a of audioList) {
         audioControls.appendChild(this.createAudioToggleItem(a, dependencies));
       }
