@@ -473,6 +473,7 @@ export class FileToggleManager {
 
     // Double-click -> reset to center (0)
     panSlider.addEventListener("dblclick", () => {
+      panSlider.value = "0"; // Update the slider UI to reflect the reset
       if (dependencies.filePanValues) {
         dependencies.filePanValues[file.id] = 0;
       }

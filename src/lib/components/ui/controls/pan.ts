@@ -53,6 +53,7 @@ export function createPanControlsUI(
 
   // Double-click -> reset to center (0)
   slider.addEventListener("dblclick", () => {
+    slider.value = "0"; // Update the slider UI to reflect the reset
     dependencies.audioPlayer?.setPan(0);
   });
 
