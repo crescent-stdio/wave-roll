@@ -32,7 +32,8 @@ export function createPedalElongateGroup(
   `;
 
   // Get initial state
-  const initialState = deps.stateManager?.getState().visual.pedalElongate ?? false;
+  const initialState =
+    deps.stateManager?.getState().visual.pedalElongate ?? false;
   checkbox.checked = initialState;
 
   // Label text
@@ -66,36 +67,39 @@ export function createPedalElongateGroup(
     color: #666;
     line-height: 1.4;
   `;
-  description.textContent = "When enabled, notes will be elongated based on sustain pedal (CC64) events in the MIDI file. Changing this setting will reprocess all loaded files.";
+  description.textContent =
+    "When enabled, notes will be elongated based on sustain pedal (CC64) events in the MIDI file. Changing this setting will reprocess all loaded files.";
 
   // Handle checkbox change
   checkbox.addEventListener("change", async () => {
     const isChecked = checkbox.checked;
-    
+
     // Update state
     deps.stateManager?.updateVisualState({ pedalElongate: isChecked });
-    
+
     // Show loading indicator
     loadingIndicator.style.display = "block";
     checkbox.disabled = true;
-    
+
     try {
       // Reparse all MIDI files with the new setting
       if (deps.midiManager) {
+        const threshold =
+          deps.stateManager?.getState().visual.pedalThreshold ?? 64;
         await deps.midiManager.reparseAllFiles(
-          { applyPedalElongate: isChecked },
+          {
+            applyPedalElongate: isChecked,
+            pedalThreshold: threshold,
+          },
           (current, total) => {
             loadingIndicator.textContent = `Reprocessing files... (${current}/${total})`;
           }
         );
-        
-        // Trigger visualization update if available
-        if (deps.visualizationEngine) {
-          await deps.visualizationEngine.updateFromMidiManager();
-        }
       }
-      
-      console.log(`Pedal elongate ${isChecked ? "enabled" : "disabled"} - files reprocessed`);
+
+      console.log(
+        `Pedal elongate ${isChecked ? "enabled" : "disabled"} - files reprocessed`
+      );
     } catch (error) {
       console.error("Failed to reprocess files:", error);
       // Revert checkbox on error

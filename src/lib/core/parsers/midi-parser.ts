@@ -151,177 +151,183 @@ function convertNote(note: any): NoteData {
 
 /**
  * Apply sustain pedal logic to elongate notes based on CC64 events.
- * Implements channel-aware sustain handling:
- * - CC64 >= 64: sustain on
- * - note_on(vel=0) ≡ note_off
+ * Implements threshold-based sustain handling:
+ * - CC64 >= threshold: sustain on
+ * - Sustain remains on until CC64 < threshold
  * - Same note re-issue closes previous instance
  * - sustain_off releases all held notes
  * 
  * @param notes - Original note data
  * @param controlChanges - Control change events including CC64
+ * @param threshold - Pedal threshold (0-127, default 64)
  * @param channel - Channel to process
  * @returns Modified notes with sustain applied
  */
 function applySustainPedal(
   notes: NoteData[],
   controlChanges: ControlChangeEvent[],
+  threshold: number = 64,
   channel: number = 0
 ): NoteData[] {
-  // Filter CC64 events for this channel
+  // If no notes, return empty
+  if (notes.length === 0) return [];
+  
+  // Convert threshold to normalized value (Tone.js uses 0-1)
+  const normalizedThreshold = threshold / 127;
+  
+  // Create note on/off events
+  interface NoteEvent {
+    time: number;
+    type: 'on' | 'off';
+    midi: number;
+    velocity: number;
+    noteIndex: number;
+  }
+  
+  const noteEvents: NoteEvent[] = [];
+  notes.forEach((note, idx) => {
+    noteEvents.push({
+      time: note.time,
+      type: 'on',
+      midi: note.midi,
+      velocity: note.velocity,
+      noteIndex: idx
+    });
+    noteEvents.push({
+      time: note.time + note.duration,
+      type: 'off',
+      midi: note.midi,
+      velocity: note.velocity,
+      noteIndex: idx
+    });
+  });
+  
+  // Sort events by time
+  noteEvents.sort((a, b) => {
+    if (a.time !== b.time) return a.time - b.time;
+    // Process note-offs before note-ons at the same time
+    if (a.type !== b.type) return a.type === 'off' ? -1 : 1;
+    return a.midi - b.midi;
+  });
+  
+  // Filter CC64 events
   const sustainEvents = controlChanges
     .filter(cc => cc.controller === 64)
     .map(cc => ({
       time: cc.time,
-      isOn: cc.value >= 0.5 // Tone.js normalizes to 0-1
-    }));
+      value: cc.value,
+      isOn: cc.value >= normalizedThreshold
+    }))
+    .sort((a, b) => a.time - b.time);
 
-  // Track sustain state over time
+  // Process events
   let sustainOn = false;
-  let sustainEventIdx = 0;
-
-  // Active notes: Map<noteNumber, {onset, velocity, originalDuration}>
-  const active = new Map<number, {onset: number, velocity: number, originalDuration: number}>();
+  let sustainIdx = 0;
   
-  // Sustained notes waiting for pedal release
-  const sustained = new Map<number, {onset: number, velocity: number, releaseTime: number}>();
+  // Active notes: Map<noteIndex, {onset, midi, velocity}>
+  const active = new Map<number, {onset: number; midi: number; velocity: number}>();
   
-  const processedNotes: NoteData[] = [];
-
-  // Sort notes by time, then by midi number
-  const sortedNotes = [...notes].sort((a, b) => {
-    if (a.time !== b.time) return a.time - b.time;
-    return a.midi - b.midi;
-  });
-
-  for (const note of sortedNotes) {
-    const noteOn = note.time;
-    const noteOff = note.time + note.duration;
-
-    // Update sustain state at note onset
-    while (sustainEventIdx < sustainEvents.length && 
-           sustainEvents[sustainEventIdx].time <= noteOn) {
-      const event = sustainEvents[sustainEventIdx];
+  // Sustained notes: Map<midi, {onset, velocity, noteIndex}>
+  const sustained = new Map<number, {onset: number; velocity: number; noteIndex: number}>();
+  
+  // Result notes with modified durations
+  const noteResults = new Map<number, NoteData>();
+  
+  for (const event of noteEvents) {
+    // Update sustain state up to this event time
+    while (sustainIdx < sustainEvents.length && sustainEvents[sustainIdx].time <= event.time) {
+      const wasOn = sustainOn;
+      sustainOn = sustainEvents[sustainIdx].isOn;
       
-      if (sustainOn && !event.isOn) {
-        // Pedal released: close all sustained notes
+      // When pedal released, end all sustained notes
+      if (wasOn && !sustainOn) {
+        const releaseTime = sustainEvents[sustainIdx].time;
         for (const [midi, data] of sustained) {
-          const elongatedNote = notes.find(n => 
-            n.midi === midi && 
-            Math.abs(n.time - data.onset) < 0.001
-          );
-          
-          if (elongatedNote) {
-            processedNotes.push({
-              ...elongatedNote,
-              duration: event.time - data.onset
-            });
-          }
+          const originalNote = notes[data.noteIndex];
+          noteResults.set(data.noteIndex, {
+            ...originalNote,
+            duration: releaseTime - data.onset
+          });
         }
         sustained.clear();
       }
-      
-      sustainOn = event.isOn;
-      sustainEventIdx++;
+      sustainIdx++;
     }
-
-    // Check if same note is already active or sustained
-    if (active.has(note.midi)) {
-      // Close previous instance at current onset
-      const prev = active.get(note.midi)!;
-      processedNotes.push({
-        ...note,
-        midi: note.midi,
-        time: prev.onset,
-        duration: noteOn - prev.onset,
-        velocity: prev.velocity
-      });
-      active.delete(note.midi);
-    } else if (sustained.has(note.midi)) {
-      // Close sustained instance
-      const prev = sustained.get(note.midi)!;
-      const originalNote = notes.find(n => 
-        n.midi === note.midi && 
-        Math.abs(n.time - prev.onset) < 0.001
-      );
-      
-      if (originalNote) {
-        processedNotes.push({
+    
+    if (event.type === 'on') {
+      // Note on
+      // Check if same note is already sustained
+      if (sustained.has(event.midi)) {
+        const prev = sustained.get(event.midi)!;
+        const originalNote = notes[prev.noteIndex];
+        noteResults.set(prev.noteIndex, {
           ...originalNote,
-          duration: noteOn - prev.onset
+          duration: event.time - prev.onset
         });
+        sustained.delete(event.midi);
       }
-      sustained.delete(note.midi);
-    }
-
-    // Start new note
-    active.set(note.midi, {
-      onset: noteOn,
-      velocity: note.velocity,
-      originalDuration: note.duration
-    });
-
-    // Process note release
-    // Find sustain state at note-off time
-    let sustainAtRelease = sustainOn;
-    let tempIdx = sustainEventIdx;
-    
-    while (tempIdx < sustainEvents.length && 
-           sustainEvents[tempIdx].time <= noteOff) {
-      sustainAtRelease = sustainEvents[tempIdx].isOn;
-      tempIdx++;
-    }
-
-    if (sustainAtRelease) {
-      // Move to sustained pool
-      sustained.set(note.midi, {
-        onset: noteOn,
-        velocity: note.velocity,
-        releaseTime: noteOff
+      
+      // Start new note
+      active.set(event.noteIndex, {
+        onset: event.time,
+        midi: event.midi,
+        velocity: event.velocity
       });
-      active.delete(note.midi);
+      
     } else {
-      // Normal release
-      processedNotes.push(note);
-      active.delete(note.midi);
+      // Note off
+      if (active.has(event.noteIndex)) {
+        const noteData = active.get(event.noteIndex)!;
+        active.delete(event.noteIndex);
+        
+        if (sustainOn) {
+          // Move to sustained
+          sustained.set(noteData.midi, {
+            onset: noteData.onset,
+            velocity: noteData.velocity,
+            noteIndex: event.noteIndex
+          });
+        } else {
+          // Normal release - use original duration
+          if (!noteResults.has(event.noteIndex)) {
+            noteResults.set(event.noteIndex, notes[event.noteIndex]);
+          }
+        }
+      }
     }
   }
-
+  
+  // Find the final time
+  let finalTime = Math.max(...notes.map(n => n.time + n.duration));
+  
   // Handle remaining sustained notes at end of file
-  const finalTime = Math.max(
-    ...notes.map(n => n.time + n.duration),
-    ...(sustainEvents.length > 0 ? [sustainEvents[sustainEvents.length - 1].time] : [0])
-  );
-
   for (const [midi, data] of sustained) {
-    const originalNote = notes.find(n => 
-      n.midi === midi && 
-      Math.abs(n.time - data.onset) < 0.001
-    );
-    
-    if (originalNote) {
-      processedNotes.push({
-        ...originalNote,
-        duration: finalTime - data.onset
-      });
+    const originalNote = notes[data.noteIndex];
+    noteResults.set(data.noteIndex, {
+      ...originalNote,
+      duration: finalTime - data.onset
+    });
+  }
+  
+  // Handle remaining active notes (shouldn't happen but safety check)
+  for (const [noteIdx, data] of active) {
+    if (!noteResults.has(noteIdx)) {
+      noteResults.set(noteIdx, notes[noteIdx]);
     }
   }
-
-  // Handle remaining active notes
-  for (const [midi, data] of active) {
-    const originalNote = notes.find(n => 
-      n.midi === midi && 
-      Math.abs(n.time - data.onset) < 0.001
-    );
-    
-    if (originalNote) {
-      processedNotes.push({
-        ...originalNote,
-        duration: finalTime - data.onset
-      });
+  
+  // Build final result array
+  const result: NoteData[] = [];
+  for (let i = 0; i < notes.length; i++) {
+    if (noteResults.has(i)) {
+      result.push(noteResults.get(i)!);
+    } else {
+      // If note wasn't processed, include original
+      result.push(notes[i]);
     }
   }
-
-  return processedNotes.sort((a, b) => {
+  
+  return result.sort((a, b) => {
     if (a.time !== b.time) return a.time - b.time;
     return a.midi - b.midi;
   });
@@ -355,7 +361,7 @@ function applySustainPedal(
  */
 export async function parseMidi(
   input: MidiInput,
-  options: { applyPedalElongate?: boolean } = {}
+  options: { applyPedalElongate?: boolean; pedalThreshold?: number } = {}
 ): Promise<ParsedMidi> {
   try {
     // Step 1: Load MIDI data based on input type
@@ -400,7 +406,8 @@ export async function parseMidi(
     if (options.applyPedalElongate && controlChanges.length > 0) {
       const sustainEvents = controlChanges.filter(cc => cc.controller === 64);
       if (sustainEvents.length > 0) {
-        notes = applySustainPedal(notes, controlChanges, pianoChannel);
+        const threshold = options.pedalThreshold ?? 64;
+        notes = applySustainPedal(notes, controlChanges, threshold, pianoChannel);
       }
     }
 

@@ -70,6 +70,8 @@ export interface VisualState {
   minOffsetTolerance: number;
   /** Whether to apply sustain pedal elongation when parsing MIDI */
   pedalElongate: boolean;
+  /** Threshold for sustain pedal detection (0-127, default 64) */
+  pedalThreshold: number;
 }
 
 /**

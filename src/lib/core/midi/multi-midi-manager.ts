@@ -375,7 +375,7 @@ export class MultiMidiManager {
    * Reparse all MIDI files with new settings (e.g., pedal elongate)
    */
   public async reparseAllFiles(
-    options: { applyPedalElongate?: boolean } = {},
+    options: { applyPedalElongate?: boolean; pedalThreshold?: number } = {},
     onProgress?: (current: number, total: number) => void
   ): Promise<void> {
     const total = this.state.files.length;

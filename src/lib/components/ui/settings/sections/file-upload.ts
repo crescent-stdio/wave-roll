@@ -35,8 +35,13 @@ export function createFileUploadSection(
 
     for (const file of files) {
       try {
-        const pedalElongate = deps.stateManager?.getState().visual.pedalElongate ?? false;
-        const parsed = await parseMidi(file, { applyPedalElongate: pedalElongate });
+        const state = deps.stateManager?.getState();
+        const pedalElongate = state?.visual.pedalElongate ?? false;
+        const pedalThreshold = state?.visual.pedalThreshold ?? 64;
+        const parsed = await parseMidi(file, { 
+          applyPedalElongate: pedalElongate,
+          pedalThreshold: pedalThreshold 
+        });
         deps.midiManager.addMidiFile(file.name, parsed, undefined, file);
       } catch (err) {
         // eslint-disable-next-line no-console

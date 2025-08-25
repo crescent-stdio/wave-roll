@@ -18,11 +18,16 @@ export async function loadSampleFiles(
   fileManager.isBatchLoading = true;
 
   const fileList = files.length > 0 ? files : DEFAULT_SAMPLE_FILES;
-  const pedalElongate = fileManager.stateManager?.getState().visual.pedalElongate ?? false;
+  const state = fileManager.stateManager?.getState();
+  const pedalElongate = state?.visual.pedalElongate ?? false;
+  const pedalThreshold = state?.visual.pedalThreshold ?? 64;
 
   for (const file of fileList) {
     try {
-      const parsedData = await parseMidi(file.path, { applyPedalElongate: pedalElongate });
+      const parsedData = await parseMidi(file.path, { 
+        applyPedalElongate: pedalElongate,
+        pedalThreshold: pedalThreshold 
+      });
       fileManager.midiManager.addMidiFile(
         file.path,
         parsedData,
@@ -50,8 +55,13 @@ export async function loadFile(
   options: FileLoadOptions = {}
 ): Promise<string | null> {
   try {
-    const pedalElongate = fileManager.stateManager?.getState().visual.pedalElongate ?? false;
-    const parsedData = await parseMidi(input, { applyPedalElongate: pedalElongate });
+    const state = fileManager.stateManager?.getState();
+    const pedalElongate = state?.visual.pedalElongate ?? false;
+    const pedalThreshold = state?.visual.pedalThreshold ?? 64;
+    const parsedData = await parseMidi(input, { 
+      applyPedalElongate: pedalElongate,
+      pedalThreshold: pedalThreshold 
+    });
     const fileName = typeof input === "string" ? input : input.name;
     const displayName = options.displayName || fileName;
 
@@ -84,11 +94,16 @@ export async function loadMultipleFiles(
   }
 
   const loadedFileIds: string[] = [];
-  const pedalElongate = fileManager.stateManager?.getState().visual.pedalElongate ?? false;
+  const state = fileManager.stateManager?.getState();
+  const pedalElongate = state?.visual.pedalElongate ?? false;
+  const pedalThreshold = state?.visual.pedalThreshold ?? 64;
 
   for (const file of files) {
     try {
-      const parsedData = await parseMidi(file, { applyPedalElongate: pedalElongate });
+      const parsedData = await parseMidi(file, { 
+        applyPedalElongate: pedalElongate,
+        pedalThreshold: pedalThreshold 
+      });
       const displayName = options.displayName || file.name;
       const fileId = fileManager.midiManager.addMidiFile(
         file.name,

@@ -51,6 +51,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   highlightMode: "file",
   minOffsetTolerance: 0.05,
   pedalElongate: false,
+  pedalThreshold: 64,
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {
