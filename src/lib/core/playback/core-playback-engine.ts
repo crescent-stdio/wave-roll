@@ -169,18 +169,16 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     if (prevState) {
       this.audioPlayer.setPan(prevState.pan);
 
-      // Restore loop points first, preserving current position
-      if (this.loopPoints.a !== null || this.loopPoints.b !== null) {
-        this.audioPlayer.setLoopPoints(this.loopPoints.a, this.loopPoints.b, true);
+      // IMPORTANT: Restore position BEFORE setting loop points
+      // This ensures preservePosition works correctly in setLoopPoints
+      if (prevState.currentTime >= 0) {
+        this.audioPlayer.seek(prevState.currentTime, false);
       }
 
-      // When in A-B loop mode, maintain position within the loop
-      // Otherwise restore the exact position
-      const shouldSeek = prevState.currentTime > 0;
-      if (shouldSeek) {
-        // If A-B loop is active and current position is valid, keep it
-        // This prevents jumping to point A when muting/unmuting
-        this.audioPlayer.seek(prevState.currentTime, false);
+      // Now restore loop points with preservePosition=true
+      // Since we've already restored the position, this will maintain it
+      if (this.loopPoints.a !== null || this.loopPoints.b !== null) {
+        this.audioPlayer.setLoopPoints(this.loopPoints.a, this.loopPoints.b, true);
       }
 
       // Resume playback if needed
