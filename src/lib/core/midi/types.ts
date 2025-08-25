@@ -25,6 +25,8 @@ export interface MidiFileEntry {
   isMuted: boolean;
   /** Whether sustain pedal overlay is visible in the piano roll */
   isSustainVisible: boolean;
+  /** Original file input (File or URL) for re-parsing */
+  originalInput?: File | string;
   error?: string;
 }
 

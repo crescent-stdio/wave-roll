@@ -2,6 +2,7 @@ import { NoteData, ParsedMidi } from "@/lib/midi/types";
 import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
+import { parseMidi } from "@/lib/core/parsers/midi-parser";
 
 const PALETTE_STORAGE_KEY = "waveRoll.paletteState";
 
@@ -100,13 +101,15 @@ export class MultiMidiManager {
   public addMidiFile(
     fileName: string,
     parsedData: ParsedMidi,
-    displayName?: string
+    displayName?: string,
+    originalInput?: File | string
   ): string {
     const entry: MidiFileEntry = createMidiFileEntry(
       fileName,
       parsedData,
       this.getNextColor(),
-      displayName
+      displayName,
+      originalInput || fileName
     );
     this.state.files.push(entry);
     this.notifyStateChange();
@@ -366,5 +369,37 @@ export class MultiMidiManager {
       file.isSustainVisible = !(file.isSustainVisible ?? true);
       this.notifyStateChange();
     }
+  }
+
+  /**
+   * Reparse all MIDI files with new settings (e.g., pedal elongate)
+   */
+  public async reparseAllFiles(
+    options: { applyPedalElongate?: boolean } = {},
+    onProgress?: (current: number, total: number) => void
+  ): Promise<void> {
+    const total = this.state.files.length;
+    let current = 0;
+
+    for (const file of this.state.files) {
+      if (file.originalInput && file.parsedData) {
+        try {
+          // Reparse the MIDI file with new options
+          const reparsedData = await parseMidi(file.originalInput, options);
+          file.parsedData = reparsedData;
+          
+          current++;
+          if (onProgress) {
+            onProgress(current, total);
+          }
+        } catch (error) {
+          console.error(`Failed to reparse ${file.fileName}:`, error);
+          file.error = `Failed to reparse: ${error}`;
+        }
+      }
+    }
+
+    // Notify state change after all files are reparsed
+    this.notifyStateChange();
   }
 }

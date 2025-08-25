@@ -35,8 +35,9 @@ export function createFileUploadSection(
 
     for (const file of files) {
       try {
-        const parsed = await parseMidi(file);
-        deps.midiManager.addMidiFile(file.name, parsed);
+        const pedalElongate = deps.stateManager?.getState().visual.pedalElongate ?? false;
+        const parsed = await parseMidi(file, { applyPedalElongate: pedalElongate });
+        deps.midiManager.addMidiFile(file.name, parsed, undefined, file);
       } catch (err) {
         // eslint-disable-next-line no-console
         console.error("Failed to parse MIDI", err);

@@ -150,6 +150,184 @@ function convertNote(note: any): NoteData {
 }
 
 /**
+ * Apply sustain pedal logic to elongate notes based on CC64 events.
+ * Implements channel-aware sustain handling:
+ * - CC64 >= 64: sustain on
+ * - note_on(vel=0) ≡ note_off
+ * - Same note re-issue closes previous instance
+ * - sustain_off releases all held notes
+ * 
+ * @param notes - Original note data
+ * @param controlChanges - Control change events including CC64
+ * @param channel - Channel to process
+ * @returns Modified notes with sustain applied
+ */
+function applySustainPedal(
+  notes: NoteData[],
+  controlChanges: ControlChangeEvent[],
+  channel: number = 0
+): NoteData[] {
+  // Filter CC64 events for this channel
+  const sustainEvents = controlChanges
+    .filter(cc => cc.controller === 64)
+    .map(cc => ({
+      time: cc.time,
+      isOn: cc.value >= 0.5 // Tone.js normalizes to 0-1
+    }));
+
+  // Track sustain state over time
+  let sustainOn = false;
+  let sustainEventIdx = 0;
+
+  // Active notes: Map<noteNumber, {onset, velocity, originalDuration}>
+  const active = new Map<number, {onset: number, velocity: number, originalDuration: number}>();
+  
+  // Sustained notes waiting for pedal release
+  const sustained = new Map<number, {onset: number, velocity: number, releaseTime: number}>();
+  
+  const processedNotes: NoteData[] = [];
+
+  // Sort notes by time, then by midi number
+  const sortedNotes = [...notes].sort((a, b) => {
+    if (a.time !== b.time) return a.time - b.time;
+    return a.midi - b.midi;
+  });
+
+  for (const note of sortedNotes) {
+    const noteOn = note.time;
+    const noteOff = note.time + note.duration;
+
+    // Update sustain state at note onset
+    while (sustainEventIdx < sustainEvents.length && 
+           sustainEvents[sustainEventIdx].time <= noteOn) {
+      const event = sustainEvents[sustainEventIdx];
+      
+      if (sustainOn && !event.isOn) {
+        // Pedal released: close all sustained notes
+        for (const [midi, data] of sustained) {
+          const elongatedNote = notes.find(n => 
+            n.midi === midi && 
+            Math.abs(n.time - data.onset) < 0.001
+          );
+          
+          if (elongatedNote) {
+            processedNotes.push({
+              ...elongatedNote,
+              duration: event.time - data.onset
+            });
+          }
+        }
+        sustained.clear();
+      }
+      
+      sustainOn = event.isOn;
+      sustainEventIdx++;
+    }
+
+    // Check if same note is already active or sustained
+    if (active.has(note.midi)) {
+      // Close previous instance at current onset
+      const prev = active.get(note.midi)!;
+      processedNotes.push({
+        ...note,
+        midi: note.midi,
+        time: prev.onset,
+        duration: noteOn - prev.onset,
+        velocity: prev.velocity
+      });
+      active.delete(note.midi);
+    } else if (sustained.has(note.midi)) {
+      // Close sustained instance
+      const prev = sustained.get(note.midi)!;
+      const originalNote = notes.find(n => 
+        n.midi === note.midi && 
+        Math.abs(n.time - prev.onset) < 0.001
+      );
+      
+      if (originalNote) {
+        processedNotes.push({
+          ...originalNote,
+          duration: noteOn - prev.onset
+        });
+      }
+      sustained.delete(note.midi);
+    }
+
+    // Start new note
+    active.set(note.midi, {
+      onset: noteOn,
+      velocity: note.velocity,
+      originalDuration: note.duration
+    });
+
+    // Process note release
+    // Find sustain state at note-off time
+    let sustainAtRelease = sustainOn;
+    let tempIdx = sustainEventIdx;
+    
+    while (tempIdx < sustainEvents.length && 
+           sustainEvents[tempIdx].time <= noteOff) {
+      sustainAtRelease = sustainEvents[tempIdx].isOn;
+      tempIdx++;
+    }
+
+    if (sustainAtRelease) {
+      // Move to sustained pool
+      sustained.set(note.midi, {
+        onset: noteOn,
+        velocity: note.velocity,
+        releaseTime: noteOff
+      });
+      active.delete(note.midi);
+    } else {
+      // Normal release
+      processedNotes.push(note);
+      active.delete(note.midi);
+    }
+  }
+
+  // Handle remaining sustained notes at end of file
+  const finalTime = Math.max(
+    ...notes.map(n => n.time + n.duration),
+    ...(sustainEvents.length > 0 ? [sustainEvents[sustainEvents.length - 1].time] : [0])
+  );
+
+  for (const [midi, data] of sustained) {
+    const originalNote = notes.find(n => 
+      n.midi === midi && 
+      Math.abs(n.time - data.onset) < 0.001
+    );
+    
+    if (originalNote) {
+      processedNotes.push({
+        ...originalNote,
+        duration: finalTime - data.onset
+      });
+    }
+  }
+
+  // Handle remaining active notes
+  for (const [midi, data] of active) {
+    const originalNote = notes.find(n => 
+      n.midi === midi && 
+      Math.abs(n.time - data.onset) < 0.001
+    );
+    
+    if (originalNote) {
+      processedNotes.push({
+        ...originalNote,
+        duration: finalTime - data.onset
+      });
+    }
+  }
+
+  return processedNotes.sort((a, b) => {
+    if (a.time !== b.time) return a.time - b.time;
+    return a.midi - b.midi;
+  });
+}
+
+/**
  * Parses a MIDI file and extracts musical data in the Tone.js format
  *
  * This function can load MIDI files from either a URL or a File object,
@@ -175,7 +353,10 @@ function convertNote(note: any): NoteData {
  * // console.log(`Notes: ${midiData.notes.length}`);
  * ```
  */
-export async function parseMidi(input: MidiInput): Promise<ParsedMidi> {
+export async function parseMidi(
+  input: MidiInput,
+  options: { applyPedalElongate?: boolean } = {}
+): Promise<ParsedMidi> {
   try {
     // Step 1: Load MIDI data based on input type
     let arrayBuffer: ArrayBuffer;
@@ -203,7 +384,7 @@ export async function parseMidi(input: MidiInput): Promise<ParsedMidi> {
     const track = extractTrackMetadata(pianoTrack, 0);
 
     // Step 6: Convert notes to our format
-    const notes: NoteData[] = pianoTrack.notes.map(convertNote);
+    let notes: NoteData[] = pianoTrack.notes.map(convertNote);
 
     // Step 7: Extract control-change events (e.g., sustain pedal)
     const pianoChannel = pianoTrack.channel ?? 0;
@@ -215,7 +396,15 @@ export async function parseMidi(input: MidiInput): Promise<ParsedMidi> {
       // Sort chronologically for convenience.
       .sort((a, b) => a.time - b.time);
 
-    // Step 8: Calculate total duration
+    // Step 8: Apply sustain pedal if requested
+    if (options.applyPedalElongate && controlChanges.length > 0) {
+      const sustainEvents = controlChanges.filter(cc => cc.controller === 64);
+      if (sustainEvents.length > 0) {
+        notes = applySustainPedal(notes, controlChanges, pianoChannel);
+      }
+    }
+
+    // Step 9: Calculate total duration
     const duration = midi.duration;
 
     return {

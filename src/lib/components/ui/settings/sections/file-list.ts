@@ -317,8 +317,9 @@ export function createFileList(
 
       for (const file of files) {
         try {
-          const parsed = await parseMidi(file);
-          dependencies.midiManager.addMidiFile(file.name, parsed);
+          const pedalElongate = dependencies.stateManager?.getState().visual.pedalElongate ?? false;
+          const parsed = await parseMidi(file, { applyPedalElongate: pedalElongate });
+          dependencies.midiManager.addMidiFile(file.name, parsed, undefined, file);
         } catch (err) {
           console.error("Failed to parse MIDI", err);
         }

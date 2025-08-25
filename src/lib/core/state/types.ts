@@ -68,6 +68,8 @@ export interface VisualState {
   highlightMode: HighlightMode;
   /** Minimum offset tolerance for visual/overlay purposes (Zoom/Grid settings) */
   minOffsetTolerance: number;
+  /** Whether to apply sustain pedal elongation when parsing MIDI */
+  pedalElongate: boolean;
 }
 
 /**

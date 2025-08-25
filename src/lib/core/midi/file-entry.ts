@@ -9,12 +9,14 @@ import { generateMidiFileId } from "@/lib/core/utils/id";
  * @param parsedData   Parsed result from @tonejs/midi (or equivalent).
  * @param color        Display color (integer RGB).
  * @param displayName  Optional user‑friendly name shown in UI.
+ * @param originalInput Original file input for re-parsing.
  */
 export function createMidiFileEntry(
   fileName: string,
   parsedData: ParsedMidi,
   color: number,
-  displayName?: string
+  displayName?: string,
+  originalInput?: File | string
 ): MidiFileEntry {
   return {
     id: generateMidiFileId(),
@@ -27,6 +29,7 @@ export function createMidiFileEntry(
     fileColor: color,
     color,
     isMuted: false,
+    originalInput,
   };
 }
 

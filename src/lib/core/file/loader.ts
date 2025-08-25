@@ -18,14 +18,16 @@ export async function loadSampleFiles(
   fileManager.isBatchLoading = true;
 
   const fileList = files.length > 0 ? files : DEFAULT_SAMPLE_FILES;
+  const pedalElongate = fileManager.stateManager?.getState().visual.pedalElongate ?? false;
 
   for (const file of fileList) {
     try {
-      const parsedData = await parseMidi(file.path);
+      const parsedData = await parseMidi(file.path, { applyPedalElongate: pedalElongate });
       fileManager.midiManager.addMidiFile(
         file.path,
         parsedData,
-        file.displayName
+        file.displayName,
+        file.path
       );
     } catch (error) {
       console.error(`Failed to load ${file.path}:`, error);
@@ -48,14 +50,16 @@ export async function loadFile(
   options: FileLoadOptions = {}
 ): Promise<string | null> {
   try {
-    const parsedData = await parseMidi(input);
+    const pedalElongate = fileManager.stateManager?.getState().visual.pedalElongate ?? false;
+    const parsedData = await parseMidi(input, { applyPedalElongate: pedalElongate });
     const fileName = typeof input === "string" ? input : input.name;
     const displayName = options.displayName || fileName;
 
     const fileId = fileManager.midiManager.addMidiFile(
       fileName,
       parsedData,
-      displayName
+      displayName,
+      input
     );
     return fileId;
   } catch (error) {
@@ -80,15 +84,17 @@ export async function loadMultipleFiles(
   }
 
   const loadedFileIds: string[] = [];
+  const pedalElongate = fileManager.stateManager?.getState().visual.pedalElongate ?? false;
 
   for (const file of files) {
     try {
-      const parsedData = await parseMidi(file);
+      const parsedData = await parseMidi(file, { applyPedalElongate: pedalElongate });
       const displayName = options.displayName || file.name;
       const fileId = fileManager.midiManager.addMidiFile(
         file.name,
         parsedData,
-        displayName
+        displayName,
+        file
       );
       loadedFileIds.push(fileId);
     } catch (error) {
