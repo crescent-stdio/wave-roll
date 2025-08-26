@@ -107,6 +107,12 @@ export interface AudioPlayerContainer {
 
   /** Set mute state for a specific file when multiple MIDI files are playing */
   setFileMute(fileId: string, mute: boolean): void;
+  
+  /** Set volume for a specific MIDI file */
+  setFileVolume(fileId: string, volume: number): void;
+  
+  /** Set volume for a specific WAV file */
+  setWavVolume(fileId: string, volume: number): void;
 
   // options: PlayerOptions;
 }
@@ -1794,6 +1800,54 @@ export class AudioPlayer implements AudioPlayerContainer {
    */
   public refreshAudioPlayers(): void {
     this.setupAudioPlayersFromRegistry();
+  }
+  
+  /**
+   * Set volume for a specific MIDI file (0-1)
+   */
+  public setFileVolume(fileId: string, volume: number): void {
+    const track = this.trackSamplers.get(fileId);
+    if (!track) {
+      return;
+    }
+    
+    // Apply volume to the sampler
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const db = Tone.gainToDb(clampedVolume * this.state.volume);
+    track.sampler.volume.value = db;
+    
+    // Update muted flag based on volume
+    track.muted = clampedVolume === 0;
+  }
+  
+  /**
+   * Set volume for a specific WAV file (0-1)
+   */
+  public setWavVolume(fileId: string, volume: number): void {
+    const entry = this.audioPlayers.get(fileId);
+    if (!entry) {
+      return;
+    }
+    
+    // Apply volume to the player
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const db = Tone.gainToDb(clampedVolume * this.state.volume);
+    entry.player.volume.value = db;
+    
+    // Update registry if available
+    try {
+      const api = (window as any)._waveRollAudio;
+      if (api?.getFiles) {
+        const files = api.getFiles();
+        const file = files.find((f: any) => f.id === fileId);
+        if (file) {
+          // Store volume in metadata (not affecting mute flag)
+          (file as any).volume = clampedVolume;
+        }
+      }
+    } catch {
+      // Registry not available
+    }
   }
 
   private retriggerHeldNotes(currentTime: number): void {

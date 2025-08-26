@@ -2,6 +2,7 @@ import { PianoRollInstance } from "@/core/visualization/piano-roll";
 import { VisualizationEngine } from "@/core/visualization";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 import { StateManager } from "@/core/state";
+import { SilenceDetector } from "@/core/playback/silence-detector";
 
 export interface UIComponentDependencies {
   midiManager: MultiMidiManager;
@@ -50,6 +51,9 @@ export interface UIComponentDependencies {
 
   /** Utility to format seconds as `MM:SS`. */
   formatTime: (seconds: number) => string;
+
+  /** Silence detector for auto-pause when all sources are muted/silent */
+  silenceDetector: SilenceDetector | null;
 }
 
 export interface UIElements {

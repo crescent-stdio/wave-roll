@@ -6,6 +6,7 @@ import { setupPlayButton } from "@/core/controls/utils/play-button";
 import { attachRepeatToggle } from "@/core/controls/utils/repeat-toggle";
 import { createIconButton } from "../utils/icon-button";
 import { UIComponentDependencies } from "../types";
+import { MasterVolumeControl } from "./master-volume";
 
 /**
  * Create a playback control element.
@@ -75,8 +76,35 @@ export function createPlaybackControlsUI(
   attachRepeatToggle(repeatBtn, dependencies.audioPlayer);
   attachHoverBackground(repeatBtn);
 
+  // Add master volume control
+  const masterVolumeControl = new MasterVolumeControl({
+    initialVolume: dependencies.audioPlayer?.getState().volume ?? 1.0,
+    onVolumeChange: (volume) => {
+      dependencies.audioPlayer?.setVolume(volume);
+      
+      // Check for auto-pause if all sources are silent
+      const silenceDetector = (dependencies as any).silenceDetector;
+      if (silenceDetector) {
+        silenceDetector.setMasterVolume(volume);
+      }
+    }
+  });
+
   container.appendChild(restartBtn);
   container.appendChild(playBtn);
   container.appendChild(repeatBtn);
+  
+  // Add separator
+  const separator = document.createElement("div");
+  separator.style.cssText = `
+    width: 1px;
+    height: 24px;
+    background: #dee2e6;
+    margin: 0 8px;
+  `;
+  container.appendChild(separator);
+  
+  container.appendChild(masterVolumeControl.getElement());
+  
   return container;
 }

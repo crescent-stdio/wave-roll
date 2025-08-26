@@ -3,6 +3,7 @@ import { MidiFileEntry } from "@/lib/core/midi";
 
 import { UIComponentDependencies } from "@/lib/components/ui";
 import { createIconButton } from "../utils/icon-button";
+import { FileVolumeControl } from "../controls/file-volume";
 
 /**
  * Manages file visibility and per-file audio controls.
@@ -433,21 +434,7 @@ export class FileToggleManager {
       dependencies.midiManager.toggleSustainVisibility(file.id);
     });
 
-    // Mute / Unmute toggle button (reusable button)
-    let isMuted = file.isMuted;
-    const muteBtn = createIconButton(
-      isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume,
-      () => {
-        dependencies.midiManager.toggleMute(file.id);
-        isMuted = !isMuted;
-        muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
-      },
-      "Mute / Unmute",
-      { size: 24 }
-    );
-    muteBtn.style.color = !file.isMuted ? "#495057" : "#adb5bd";
-    muteBtn.style.border = "none";
-    muteBtn.style.boxShadow = "none";
+    // Removed old mute button - now handled by volume control
 
     // Stereo labels for clarity
     const labelL = document.createElement("span");
@@ -510,14 +497,38 @@ export class FileToggleManager {
       }
     });
 
-    // order: color - name - pin - est - vis - sustain - mute - pan - (eye)
+    // Add volume control with integrated mute functionality
+    const volumeControl = new FileVolumeControl({
+      initialVolume: file.isMuted ? 0 : 1.0,
+      fileId: file.id,
+      lastNonZeroVolume: 1.0,
+      onVolumeChange: (volume) => {
+        // Update mute state based on volume
+        const shouldMute = volume === 0;
+        if (file.isMuted !== shouldMute) {
+          dependencies.midiManager.toggleMute(file.id);
+        }
+        
+        // Apply volume to the audio engine
+        const playerAny = dependencies.audioPlayer as any;
+        if (playerAny?.setFileVolume) {
+          playerAny.setFileVolume(file.id, volume);
+        }
+
+        // Update silence detector and auto-pause if all sources are silent
+        dependencies.silenceDetector?.setFileVolume?.(file.id, volume);
+        dependencies.silenceDetector?.checkSilence?.(dependencies.midiManager);
+      }
+    });
+
+    // order: color - name - pin - est - vis - sustain - volume - pan
     item.appendChild(colorIndicator);
     item.appendChild(fileName);
     item.appendChild(pinBtn);
     item.appendChild(estBtn);
     item.appendChild(visBtn);
     item.appendChild(sustainBtn);
-    item.appendChild(muteBtn);
+    item.appendChild(volumeControl.getElement());
     item.appendChild(labelL);
     item.appendChild(panSlider);
     item.appendChild(labelR);
@@ -582,27 +593,39 @@ export class FileToggleManager {
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
 
-    // Mute toggle
-    let isMuted = audio.isMuted;
-    const muteBtn = createIconButton(
-      isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume,
-      () => {
-        (window as any)._waveRollAudio?.toggleMute?.(audio.id);
-        isMuted = !isMuted;
-        muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
-        muteBtn.style.color = !isMuted ? "#495057" : "#adb5bd";
+    // Add volume control for WAV with integrated mute functionality
+    const volumeControl = new FileVolumeControl({
+      initialVolume: audio.isMuted ? 0 : 1.0,
+      fileId: audio.id,
+      lastNonZeroVolume: 1.0,
+      onVolumeChange: (volume) => {
+        // Update mute state based on volume
+        const shouldMute = volume === 0;
+        if ((window as any)._waveRollAudio) {
+          const api = (window as any)._waveRollAudio;
+          const files = api.getFiles?.() || [];
+          const file = files.find((f: any) => f.id === audio.id);
+          if (file && file.isMuted !== shouldMute) {
+            api.toggleMute?.(audio.id);
+          }
+        }
         
-        // Refresh audio players to apply mute state
+        // Apply volume to the audio player
+        const playerAny = dependencies.audioPlayer as any;
+        if (playerAny?.setWavVolume) {
+          playerAny.setWavVolume(audio.id, volume);
+        }
+        
+        // Refresh audio players
         if (dependencies.audioPlayer && (dependencies.audioPlayer as any).refreshAudioPlayers) {
           (dependencies.audioPlayer as any).refreshAudioPlayers();
         }
-      },
-      "Mute / Unmute audio",
-      { size: 24 }
-    );
-    muteBtn.style.color = !isMuted ? "#495057" : "#adb5bd";
-    muteBtn.style.border = "none";
-    muteBtn.style.boxShadow = "none";
+
+        // Update silence detector and auto-pause if all sources are silent
+        dependencies.silenceDetector?.setFileVolume?.(audio.id, volume);
+        dependencies.silenceDetector?.checkSilence?.(dependencies.midiManager);
+      }
+    });
 
     // Pan slider
     const labelL = document.createElement("span");
@@ -641,7 +664,7 @@ export class FileToggleManager {
     item.appendChild(colorIndicator);
     item.appendChild(name);
     item.appendChild(visBtn);
-    item.appendChild(muteBtn);
+    item.appendChild(volumeControl.getElement());
     item.appendChild(labelL);
     item.appendChild(panSlider);
     item.appendChild(labelR);

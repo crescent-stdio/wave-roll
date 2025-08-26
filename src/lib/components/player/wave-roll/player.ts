@@ -49,6 +49,7 @@ import { VisualizationHandler } from "./visualization-handler";
 import { UIUpdater } from "./ui-updater";
 import { KeyboardHandler } from "./keyboard-handler";
 import { FileLoader } from "./file-loader";
+import { SilenceDetector } from "@/core/playback/silence-detector";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -108,6 +109,7 @@ export class WaveRollPlayer {
   private uiUpdater!: UIUpdater;
   private keyboardHandler!: KeyboardHandler;
   private fileLoader!: FileLoader;
+  private silenceDetector: any; // SilenceDetector instance
 
   constructor(
     container: HTMLElement,
@@ -194,6 +196,22 @@ export class WaveRollPlayer {
 
     // Handlers are created below; listeners will be attached afterwards
 
+    // Initialize silence detector for auto-pause functionality
+    this.silenceDetector = new SilenceDetector({
+      autoResumeOnUnmute: false, // Don't auto-resume, require explicit play
+      onSilenceDetected: () => {
+        // Auto-pause when all sources are silent
+        if (this.corePlaybackEngine?.getState().isPlaying) {
+          console.log("Auto-pausing: all sources are silent");
+          this.corePlaybackEngine.pause();
+        }
+      },
+      onSoundDetected: () => {
+        // Could auto-resume here if autoResumeOnUnmute was true
+        console.log("Sound detected");
+      }
+    });
+
     // Initialize handler modules
     this.visualizationHandler = new VisualizationHandler(
       this.midiManager,
@@ -235,6 +253,12 @@ export class WaveRollPlayer {
           previousMuteStates.set(file.id, currMute);
         }
       });
+      
+      // Check if all sources are silent and auto-pause if needed
+      if (this.silenceDetector) {
+        const isSilent = this.silenceDetector.checkSilence(this.midiManager);
+        this.silenceDetector.setPlayingState(this.corePlaybackEngine?.getState().isPlaying || false);
+      }
       
       this.updateVisualization();
       this.updateSidebar();
@@ -289,6 +313,7 @@ export class WaveRollPlayer {
         openSettingsModal: () => this.openSettingsModal(),
         openEvaluationResultsModal: () => this.openEvaluationResultsModal(),
         formatTime: (seconds: number) => formatTime(seconds),
+        silenceDetector: this.silenceDetector,
       };
 
       // After creation, convert seconds -> % once we know duration.
