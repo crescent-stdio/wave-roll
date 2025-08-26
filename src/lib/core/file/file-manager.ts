@@ -4,14 +4,17 @@ import { SampleFileConfig } from "./types";
 import { MidiInput } from "@/lib/midi/types";
 import { FileLoadOptions } from "./types";
 import { MidiFileEntry } from "@/lib/midi/types";
+import { StateManager } from "@/core/state";
 
 export class FileManager {
   public midiManager: MultiMidiManager;
   public isBatchLoading = false;
   /** Lazy audio files registry lives under `window._waveRollAudio` to keep surface minimal */
+  public stateManager?: StateManager;
 
-  constructor(midiManager: MultiMidiManager) {
+  constructor(midiManager: MultiMidiManager, stateManager?: StateManager) {
     this.midiManager = midiManager;
+    this.stateManager = stateManager;
   }
 
   /** Load default or custom sample files. */

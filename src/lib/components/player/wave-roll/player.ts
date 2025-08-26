@@ -157,7 +157,7 @@ export class WaveRollPlayer {
     this.stateManager = new StateManager();
 
     // Initialize file manager
-    this.fileManager = new FileManager(this.midiManager);
+    this.fileManager = new FileManager(this.midiManager, this.stateManager);
 
     // Merge provided overrides with mandatory defaults to satisfy strict typing
     const pianoRollConfig: PianoRollConfig = {

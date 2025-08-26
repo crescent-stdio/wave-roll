@@ -141,10 +141,7 @@ export function createPedalThresholdGroup(
             }
           );
           
-          // Trigger visualization update if available
-          if (deps.visualizationEngine) {
-            await deps.visualizationEngine.updateFromMidiManager();
-          }
+          // Visualization will refresh via midiManager state change listener
         }
         
         console.log(`Pedal threshold set to ${value}`);
