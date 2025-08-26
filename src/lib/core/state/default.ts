@@ -43,6 +43,7 @@ export const DEFAULT_LOOP_POINTS_STATE: LoopPointsState = {
 export const DEFAULT_PAN_VOLUME_STATE: PanVolumeState = {
   filePanValues: {},
   filePanStateHandlers: {},
+  fileMuteStates: {},
 };
 
 export const DEFAULT_VISUAL_STATE: VisualState = {

@@ -38,6 +38,10 @@ export class StateManager {
   > {
     return this.state.panVolume.filePanStateHandlers;
   }
+  
+  public getFileMuteStatesRef(): Record<string, boolean> {
+    return this.state.panVolume.fileMuteStates;
+  }
 
   /* ====== state setters  ====== */
   /**
@@ -190,6 +194,21 @@ export class StateManager {
         handler(panValue);
       }
     );
+  }
+  
+  /**
+   * Set mute state for a file
+   */
+  public setFileMuteState(fileId: string, muted: boolean): void {
+    this.state.panVolume.fileMuteStates[fileId] = muted;
+    this.notify();
+  }
+  
+  /**
+   * Get mute state for a file
+   */
+  public getFileMuteState(fileId: string): boolean {
+    return this.state.panVolume.fileMuteStates[fileId] || false;
   }
 
   /* ====== loop points  ====== */

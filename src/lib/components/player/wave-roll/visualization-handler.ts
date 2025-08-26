@@ -40,20 +40,27 @@ export class VisualizationHandler {
     const coloredNotesVisible = this.getColoredNotes(state);
 
     // --- Audio mixing --------------------------------------------------
-    const activeFileCount = state.files.filter(
-      (file: any) => file.parsedData && !file.isMuted
+    // IMPORTANT: Include ALL files in audioNotes regardless of mute state
+    // This prevents audio player recreation when all MIDI tracks are muted
+    // The actual muting is handled at the sampler level via setFileMute
+    const totalFileCount = state.files.filter(
+      (file: any) => file.parsedData
     ).length;
-    const velocityScale = 1 / Math.max(1, activeFileCount);
+    const velocityScale = 1 / Math.max(1, totalFileCount);
 
     const audioNotes: NoteData[] = [];
     state.files.forEach((file: any) => {
-      if (file.parsedData && !file.isMuted) {
-        // Clone each note and scale velocity to compensate for the number of
-        // concurrently sounding tracks.
+      if (file.parsedData) {
+        // Include ALL notes, even from muted files
+        // Muting is handled by the audio player, not by excluding notes
         file.parsedData.notes.forEach((note: NoteData) => {
           // Keep velocity within valid [0,1] range.
           const scaledVel = Math.min(1, note.velocity * velocityScale);
-          audioNotes.push({ ...note, velocity: scaledVel, fileId: file.id });
+          audioNotes.push({ 
+            ...note, 
+            velocity: scaledVel, 
+            fileId: file.id
+          });
         });
       }
     });

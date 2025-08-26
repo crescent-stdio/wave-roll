@@ -590,6 +590,12 @@ export class FileToggleManager {
         (window as any)._waveRollAudio?.toggleMute?.(audio.id);
         isMuted = !isMuted;
         muteBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
+        muteBtn.style.color = !isMuted ? "#495057" : "#adb5bd";
+        
+        // Refresh audio players to apply mute state
+        if (dependencies.audioPlayer && (dependencies.audioPlayer as any).refreshAudioPlayers) {
+          (dependencies.audioPlayer as any).refreshAudioPlayers();
+        }
       },
       "Mute / Unmute audio",
       { size: 24 }

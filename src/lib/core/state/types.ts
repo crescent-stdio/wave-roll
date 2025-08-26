@@ -45,6 +45,7 @@ export interface LoopPointsState {
 export interface PanVolumeState {
   filePanValues: Record<string, number>;
   filePanStateHandlers: Record<string, (pan: number | null) => void>;
+  fileMuteStates: Record<string, boolean>;
 }
 
 /**

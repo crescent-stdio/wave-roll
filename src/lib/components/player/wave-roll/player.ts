@@ -200,6 +200,7 @@ export class WaveRollPlayer {
       this.stateManager,
       this.visualizationEngine
     );
+    
     this.uiUpdater = new UIUpdater(
       this.stateManager,
       this.visualizationEngine,
@@ -215,9 +216,26 @@ export class WaveRollPlayer {
       () => this.startUpdateLoop()
     );
 
+    // Track previous mute states to detect changes
+    const previousMuteStates = new Map<string, boolean>();
+    
     // Now that handlers are ready, set up state change listeners
     this.midiManager.setOnStateChange(() => {
       if (this.stateManager.getUIState().isBatchLoading) return;
+      
+      // Check for mute state changes and apply them via setFileMute
+      const state = this.midiManager.getState();
+      state.files.forEach((file: any) => {
+        const prevMute = previousMuteStates.get(file.id) || false;
+        const currMute = file.isMuted || false;
+        
+        if (prevMute !== currMute && this.corePlaybackEngine) {
+          // Apply mute change without recreating the audio player
+          this.corePlaybackEngine.setFileMute(file.id, currMute);
+          previousMuteStates.set(file.id, currMute);
+        }
+      });
+      
       this.updateVisualization();
       this.updateSidebar();
       this.updateFileToggleSection();

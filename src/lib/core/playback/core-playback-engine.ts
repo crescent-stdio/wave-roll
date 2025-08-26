@@ -118,9 +118,17 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Update audio with new notes
    */
   public async updateAudio(notes: NoteData[]): Promise<void> {
-    const signature = this.getNotesSignature(notes);
+    // Calculate signature based on file IDs present in notes, not the actual notes
+    // This prevents recreation when only mute states change
+    const fileIds = new Set<string>();
+    notes.forEach((note: any) => {
+      if (note.fileId) {
+        fileIds.add(note.fileId);
+      }
+    });
+    const signature = Array.from(fileIds).sort().join(',') + ':' + notes.length;
 
-    // Skip if notes haven't changed
+    // Skip if file structure hasn't changed
     if (signature === this.lastAudioSignature && this.audioPlayer) {
       return;
     }
@@ -197,7 +205,34 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       Object.entries(panValues).forEach(([fid, p]) => {
         (this.audioPlayer as any)?.setFilePan?.(fid, p);
       });
+      
+      // Apply stored per-file mute states (if any)
+      const muteStates = this.stateManager.getFileMuteStatesRef();
+      Object.entries(muteStates).forEach(([fid, muted]) => {
+        (this.audioPlayer as any)?.setFileMute?.(fid, muted);
+      });
     }
+    
+    // Also check notes for mute metadata (for initial load)
+    const fileMuteStates = new Map<string, boolean>();
+    notes.forEach((note: any) => {
+      if (note.fileId && !fileMuteStates.has(note.fileId)) {
+        // Check if this file is marked as muted in any of the notes
+        const isMuted = (note as any).muted === true;
+        if (isMuted) {
+          fileMuteStates.set(note.fileId, true);
+        }
+      }
+    });
+    
+    // Apply detected mute states
+    fileMuteStates.forEach((muted, fileId) => {
+      (this.audioPlayer as any)?.setFileMute?.(fileId, muted);
+      // Also persist to state manager
+      if (this.stateManager) {
+        this.stateManager.setFileMuteState(fileId, muted);
+      }
+    });
 
     // Sync with state manager if enabled
     if (this.config.enableStateSync && this.stateManager) {
@@ -327,6 +362,25 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     }
   }
 
+  /**
+   * Set mute state for a specific file track.
+   */
+  public setFileMute(fileId: string, mute: boolean): void {
+    (this.audioPlayer as any)?.setFileMute?.(fileId, mute);
+
+    // Persist in state manager so the value survives player recreation
+    if (this.config.enableStateSync && this.stateManager) {
+      this.stateManager.setFileMuteState(fileId, mute);
+    }
+  }
+  
+  /**
+   * Refresh WAV/audio players from registry (for mute state updates)
+   */
+  public refreshAudioPlayers(): void {
+    (this.audioPlayer as any)?.refreshAudioPlayers?.();
+  }
+
   public getState(): AudioPlayerState {
     if (!this.audioPlayer) {
       // Return last known state if available to prevent flickering
@@ -432,14 +486,16 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   private getNotesSignature(notes: NoteData[]): string {
     if (notes.length === 0) return "0";
 
-    const sorted = [...notes].sort((a, b) => {
-      if (a.time !== b.time) return a.time - b.time;
-      return a.midi - b.midi;
+    // Simple signature based on file IDs and note count
+    // This prevents recreation on mute/unmute
+    const fileIds = new Set<string>();
+    notes.forEach((note: any) => {
+      if (note.fileId) {
+        fileIds.add(note.fileId);
+      }
     });
-
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
-    return `${sorted.length}:${first.time}-${first.midi}:${last.time}-${last.midi}`;
+    
+    return Array.from(fileIds).sort().join(',') + ':' + notes.length;
   }
 
   /**

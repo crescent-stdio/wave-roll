@@ -105,6 +105,9 @@ export interface AudioPlayerContainer {
   /** Set stereo pan for a specific file when multiple MIDI files are playing */
   setFilePan(fileId: string, pan: number): void;
 
+  /** Set mute state for a specific file when multiple MIDI files are playing */
+  setFileMute(fileId: string, mute: boolean): void;
+
   // options: PlayerOptions;
 }
 
@@ -129,10 +132,10 @@ export class AudioPlayer implements AudioPlayerContainer {
   // Tone.js components
   /** Legacy single sampler (used for single-file players) */
   private sampler: Tone.Sampler | null = null;
-  /** Map of fileId -> {sampler, panner} for multi-file playback */
+  /** Map of fileId -> {sampler, panner, muted} for multi-file playback */
   private trackSamplers: Map<
     string,
-    { sampler: Tone.Sampler; panner: Tone.Panner }
+    { sampler: Tone.Sampler; panner: Tone.Panner; muted: boolean }
   > = new Map();
 
   private part: Tone.Part | null = null;
@@ -495,7 +498,7 @@ export class AudioPlayer implements AudioPlayerContainer {
         const cachedPan = (this as any).state?.pan ?? 0;
         panner.pan.value = cachedPan;
 
-        this.trackSamplers.set(fid, { sampler, panner });
+        this.trackSamplers.set(fid, { sampler, panner, muted: false });
       }
     });
 
@@ -578,6 +581,12 @@ export class AudioPlayer implements AudioPlayerContainer {
         return;
       }
 
+      // Check if the track is muted
+      // If muted, skip playing the note to avoid scheduling unnecessary events
+      if (track.muted) {
+        return;
+      }
+
       track.sampler.triggerAttackRelease(
         event.note,
         event.duration,
@@ -640,13 +649,18 @@ export class AudioPlayer implements AudioPlayerContainer {
             url: it.url,
             autostart: false,
           }).connect(panner);
-          player.volume.value = Tone.gainToDb(
-            this.state?.volume ?? this.options.volume
-          );
+          // Apply mute state to WAV player volume
+          const volumeValue = it.isMuted ? 0 : (this.state?.volume ?? this.options.volume);
+          player.volume.value = Tone.gainToDb(volumeValue);
           this.audioPlayers.set(it.id, { player, panner, url: it.url });
         } else {
           const entry = this.audioPlayers.get(it.id)!;
           entry.panner.pan.value = Math.max(-1, Math.min(1, it.pan ?? 0));
+          
+          // Update volume based on mute state
+          const volumeValue = it.isMuted ? 0 : (this.state?.volume ?? this.options.volume);
+          entry.player.volume.value = Tone.gainToDb(volumeValue);
+          
           if (entry.url !== it.url) {
             entry.player.dispose();
             entry.url = it.url;
@@ -654,22 +668,15 @@ export class AudioPlayer implements AudioPlayerContainer {
               url: it.url,
               autostart: false,
             }).connect(entry.panner);
-            entry.player.volume.value = Tone.gainToDb(
-              this.state?.volume ?? this.options.volume
-            );
+            entry.player.volume.value = Tone.gainToDb(volumeValue);
           }
         }
       }
 
-      // Preserve current active id if it remains eligible after a mute/visibility toggle
-      const previousActiveId = this.activeAudioId;
+      // No longer select a single "active" audio - all unmuted audios will play
+      // Keep activeAudioId for backward compatibility but it's not used for playback decisions
       const eligible = items.filter((i) => i.isVisible && !i.isMuted);
-      if (previousActiveId && eligible.some((i) => i.id === previousActiveId)) {
-        this.activeAudioId = previousActiveId;
-      } else {
-        const active = eligible[0] || null;
-        this.activeAudioId = active ? active.id : null;
-      }
+      this.activeAudioId = eligible.length > 0 ? eligible[0].id : null;
 
       // Update duration if audio provides a longer timeline
       const audioDurations = items
@@ -701,41 +708,57 @@ export class AudioPlayer implements AudioPlayerContainer {
   }
 
   private startActiveAudioAt(offsetSeconds: number): void {
-    if (!this.isAudioActive()) return;
-    const entry = this.audioPlayers.get(this.activeAudioId!)!;
-    // If the underlying buffer is not yet loaded, defer start until it is.
-    const buffer: any = (entry.player as any).buffer;
-    if (!buffer || buffer.loaded === false) {
-      try {
-        const maybePromise = (entry.player as any).load?.(entry.url);
-        if (maybePromise && typeof maybePromise.then === "function") {
-          maybePromise
-            .then(() => {
-              try {
-                entry.player.stop("+0");
-              } catch {}
-              try {
-                entry.player.start("+0", Math.max(0, offsetSeconds));
-                entry.player.volume.value = Tone.gainToDb(this.state.volume);
-              } catch {}
-            })
-            .catch(() => {
-              // Silently ignore; a subsequent play/loop will retry
-            });
+    // Start ALL unmuted WAV files, not just the "active" one
+    const api = (window as any)._waveRollAudio;
+    if (!api?.getFiles) return;
+    
+    const items = api.getFiles() as Array<{
+      id: string;
+      isVisible: boolean;
+      isMuted: boolean;
+    }>;
+    
+    // Play all visible and unmuted audio files
+    items.forEach(item => {
+      if (!item.isVisible || item.isMuted) return;
+      
+      const entry = this.audioPlayers.get(item.id);
+      if (!entry) return;
+      
+      // If the underlying buffer is not yet loaded, defer start until it is.
+      const buffer: any = (entry.player as any).buffer;
+      if (!buffer || buffer.loaded === false) {
+        try {
+          const maybePromise = (entry.player as any).load?.(entry.url);
+          if (maybePromise && typeof maybePromise.then === "function") {
+            maybePromise
+              .then(() => {
+                try {
+                  entry.player.stop("+0");
+                } catch {}
+                try {
+                  entry.player.start("+0", Math.max(0, offsetSeconds));
+                  // Volume is already set based on mute state in setupAudioPlayersFromRegistry
+                } catch {}
+              })
+              .catch(() => {
+                // Silently ignore; a subsequent play/loop will retry
+              });
+          }
+        } catch {
+          // Ignore; a later attempt will retry once buffer is ready
         }
-      } catch {
-        // Ignore; a later attempt will retry once buffer is ready
+        return;
       }
-      return;
-    }
 
-    try {
-      entry.player.stop("+0");
-    } catch {}
-    try {
-      entry.player.start("+0", Math.max(0, offsetSeconds));
-      entry.player.volume.value = Tone.gainToDb(this.state.volume);
-    } catch {}
+      try {
+        entry.player.stop("+0");
+      } catch {}
+      try {
+        entry.player.start("+0", Math.max(0, offsetSeconds));
+        // Volume is already set based on mute state in setupAudioPlayersFromRegistry
+      } catch {}
+    });
   }
 
   /**
@@ -1000,10 +1023,10 @@ export class AudioPlayer implements AudioPlayerContainer {
         // we end up starting the Part midway through its event list which causes the
         // very first loop iteration to play silently.
 
+        // Always start MIDI part if it exists
         if (
           this.part &&
-          Tone.getTransport().state !== "started" &&
-          !this.isAudioActive()
+          Tone.getTransport().state !== "started"
         ) {
           // Ensure Part is stopped before starting to avoid duplicate scheduling
           this.part.stop();
@@ -1018,10 +1041,8 @@ export class AudioPlayer implements AudioPlayerContainer {
           this.part.start("+0", offsetForPart);
         }
 
-        if (this.isAudioActive()) {
-          // Start external audio aligned with current visual position
-          this.startActiveAudioAt(this.state.currentTime);
-        }
+        // Always try to start WAV audio if available
+        this.startActiveAudioAt(this.state.currentTime);
       } else {
         // No explicit pausedTime captured (e.g., toggled sources while still playing).
         // Prefer resuming from the last known visual position if available.
@@ -1036,7 +1057,8 @@ export class AudioPlayer implements AudioPlayerContainer {
         // Immediately update piano roll so visual and transport agree
         this.pianoRoll.setTime(resumeVisual);
 
-        if (this.part && !this.isAudioActive()) {
+        // Always start MIDI part if it exists
+        if (this.part) {
           // Ensure part is stopped before starting
           this.part.stop();
           const offsetForPart =
@@ -1046,9 +1068,8 @@ export class AudioPlayer implements AudioPlayerContainer {
           (this.part as Tone.Part).start("+0", offsetForPart);
         }
 
-        if (this.isAudioActive()) {
-          this.startActiveAudioAt(resumeVisual);
-        }
+        // Always try to start WAV audio if available
+        this.startActiveAudioAt(resumeVisual);
       }
 
       Tone.getTransport().start();
@@ -1753,6 +1774,26 @@ export class AudioPlayer implements AudioPlayerContainer {
     const { panner } = this.trackSamplers.get(fileId)!;
     const clamped = Math.max(-1, Math.min(1, pan));
     panner.pan.value = clamped;
+  }
+
+  /**
+   * Set mute state for a specific file when multiple MIDI files are playing
+   */
+  public setFileMute(fileId: string, mute: boolean): void {
+    if (!this.trackSamplers.has(fileId)) {
+      // console.warn(`File ID "${fileId}" not found in trackSamplers.`);
+      return;
+    }
+    const track = this.trackSamplers.get(fileId)!;
+    // Set mute flag to control playback without recreating audio
+    track.muted = mute;
+  }
+  
+  /**
+   * Refresh WAV/audio players from registry (for mute state updates)
+   */
+  public refreshAudioPlayers(): void {
+    this.setupAudioPlayersFromRegistry();
   }
 
   private retriggerHeldNotes(currentTime: number): void {
