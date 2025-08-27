@@ -13,7 +13,7 @@ export function createHighlightModeGroup(
     gap:8px;
     font-size:12px;
     height: 48px;
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--panel-bg);
     padding: 4px 12px;
     border-radius: 8px;
     `;
@@ -23,7 +23,7 @@ export function createHighlightModeGroup(
   label.style.cssText = `font-weight:600;`;
 
   const select = document.createElement("select");
-  select.style.cssText = `flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;`;
+  select.style.cssText = `flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);`;
 
   const modes: HighlightMode[] = [
     "file",

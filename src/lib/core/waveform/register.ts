@@ -1,4 +1,5 @@
 import { generateAudioFileId } from "@/lib/core/utils/id";
+import { COLOR_WAVEFORM } from "@/lib/core/constants";
 
 interface RegisteredAudio {
   id: string;
@@ -65,6 +66,14 @@ function ensureAPI(): any {
         const a = store.items.find((x) => x.id === id);
         if (a) a.pan = Math.max(-1, Math.min(1, pan));
       },
+      updateDisplayName(id: string, name: string): void {
+        const a = store.items.find((x) => x.id === id);
+        if (a) a.displayName = name;
+      },
+      updateColor(id: string, color: number): void {
+        const a = store.items.find((x) => x.id === id);
+        if (a) a.color = color >>> 0;
+      },
       _store: store,
     };
 
@@ -85,7 +94,8 @@ export async function addAudioFileFromUrl(
     id,
     displayName: displayName || url.split("/").pop() || "Audio",
     url,
-    color: color ?? 0x10b981,
+    // Default neutral, high-contrast waveform stroke
+    color: color ?? parseInt(COLOR_WAVEFORM.replace("#", ""), 16),
     isVisible: true,
     isMuted: false,
     pan: 0,
@@ -110,5 +120,3 @@ export async function addAudioFileFromUrl(
 
   return id;
 }
-
-

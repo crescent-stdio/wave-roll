@@ -50,7 +50,7 @@ export class FileVolumeControl {
       width: ${options.size ?? 24}px;
       height: ${options.size ?? 24}px;
       transition: opacity 0.2s ease;
-      color: ${this.currentVolume > 0 ? "#495057" : "#adb5bd"};
+      color: ${this.currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)"};
     `;
     this.volumeBtn.setAttribute(
       "aria-label",
@@ -67,8 +67,8 @@ export class FileVolumeControl {
       left: 50%;
       transform: translateX(-50%);
       margin-bottom: 4px;
-      background: white;
-      border: 1px solid #dee2e6;
+      background: var(--surface);
+      border: 1px solid var(--ui-border);
       border-radius: 8px;
       padding: 8px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -87,7 +87,7 @@ export class FileVolumeControl {
     this.volumeDisplay.textContent = `${Math.round(this.currentVolume * 100)}%`;
     this.volumeDisplay.style.cssText = `
       font-size: 10px;
-      color: #495057;
+      color: var(--text-muted);
       font-weight: 600;
       user-select: none;
       margin-bottom: 4px;
@@ -123,7 +123,7 @@ export class FileVolumeControl {
       cursor: pointer;
       -webkit-appearance: none;
       appearance: none;
-      background: #dee2e6;
+      background: var(--ui-border);
       outline: none;
       border-radius: 2px;
     `;
@@ -259,7 +259,7 @@ export class FileVolumeControl {
 
   private updateSliderTrack(): void {
     const pct = this.currentVolume * 100;
-    const trackStyle = `linear-gradient(to right, #0d6efd 0%, #0d6efd ${pct}%, #dee2e6 ${pct}%, #dee2e6 100%)`;
+    const trackStyle = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--ui-border) ${pct}%, var(--ui-border) 100%)`;
     (this.slider as any).style.background = trackStyle;
   }
 
@@ -278,7 +278,7 @@ export class FileVolumeControl {
       "aria-label",
       `Volume: ${Math.round(this.currentVolume * 100)}%`
     );
-    this.volumeBtn.style.color = this.currentVolume > 0 ? "#495057" : "#adb5bd";
+    this.volumeBtn.style.color = this.currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     this.updateSliderTrack();
 
     if (this.onVolumeChange) {

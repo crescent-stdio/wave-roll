@@ -56,7 +56,7 @@ export const DEFAULT_PIANO_ROLL_CONFIG: PianoRollConfig = {
   width: 800,
   height: 400,
   backgroundColor: 0xffffff,
-  playheadColor: 0xff0000,
+  playheadColor: 0x1e40af,
   showPianoKeys: true,
   noteRange: { min: 21, max: 108 },
   minorTimeStep: 4,

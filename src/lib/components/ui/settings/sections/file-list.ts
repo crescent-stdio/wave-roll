@@ -71,7 +71,7 @@ export function createFileList(
       // Row wrapper
       const row = document.createElement("div");
       row.style.cssText =
-        "display:flex;align-items:center;gap:8px;background:#f8f9fa;padding:8px;border-radius:6px;";
+        "display:flex;align-items:center;gap:8px;background:var(--surface-alt);padding:8px;border-radius:6px;";
 
       // console.log("[file-list]", file.fileName, file.color);
       // Drag handle
@@ -84,7 +84,7 @@ export function createFileList(
       handle.draggable = true;
       handle.innerHTML = PLAYER_ICONS.menu;
       handle.style.cssText =
-        "cursor:grab;color:#6c757d;display:flex;align-items:center;justify-content:center;width:18px;user-select:none;";
+        "cursor:grab;color:var(--text-muted);display:flex;align-items:center;justify-content:center;width:18px;user-select:none;";
 
       // Prevent drag on other elements
       const preventDrag = (e: Event) => {
@@ -99,11 +99,31 @@ export function createFileList(
       colorPickerContainer.style.cssText =
         "position:relative;display:flex;align-items:center;";
 
-      // Visible swatch button
+      // Visible swatch button (uses onset-like shape)
       const swatchBtn = document.createElement("button");
       swatchBtn.type = "button";
       swatchBtn.title = "Click to change color";
-      swatchBtn.style.cssText = `width:24px;height:24px;border-radius:4px;border:1px solid #ced4da;cursor:pointer;background:${initialHex};position:relative;padding:0;`;
+      swatchBtn.style.cssText = `width:24px;height:24px;border-radius:4px;border:1px solid var(--ui-border);cursor:pointer;background:transparent;position:relative;padding:0;display:flex;align-items:center;justify-content:center;`;
+      const shapeHost = document.createElement("div");
+      shapeHost.style.cssText = `width:18px;height:18px;display:flex;align-items:center;justify-content:center;`;
+      const shapeKindForId = (id: string) => {
+        let h = 0;
+        for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+        const kinds = ["circle", "triangle", "diamond", "square"] as const;
+        return kinds[h % kinds.length];
+      };
+      const shapeSvg = (kind: string, color: string) => {
+        if (kind === "circle")
+          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"5\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+        if (kind === "triangle")
+          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 3 L13 13 L3 13 Z\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+        if (kind === "diamond")
+          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 2 L14 8 L8 14 L2 8 Z\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+        return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"10\" height=\"10\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+      };
+      const currentShape = shapeKindForId(file.id);
+      shapeHost.innerHTML = shapeSvg(currentShape, initialHex);
+      swatchBtn.appendChild(shapeHost);
 
       // Hidden native color input (for OS picker)
       const colorInput = document.createElement("input");
@@ -118,12 +138,12 @@ export function createFileList(
       paletteBtn.title = "Choose from palette";
       paletteBtn.innerHTML = PLAYER_ICONS.palette;
       paletteBtn.style.cssText =
-        "width:20px;height:20px;border:none;background:transparent;cursor:pointer;margin-left:4px;display:flex;align-items:center;justify-content:center;";
+        "width:20px;height:20px;border:none;background:transparent;cursor:pointer;margin-left:4px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);";
 
       // Palette dropdown
       const paletteDropdown = document.createElement("div");
       paletteDropdown.style.cssText =
-        "position:absolute;top:100%;left:0;background:white;border:1px solid #ced4da;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:1000;display:none;padding:8px;min-width:120px;";
+        "position:absolute;top:100%;left:0;background:var(--surface);border:1px solid var(--ui-border);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:1000;display:none;padding:8px;min-width:120px;";
 
       // Get current palette colors
       const currentPalette =
@@ -139,12 +159,12 @@ export function createFileList(
       palette.colors.forEach((color) => {
         const swatch = document.createElement("button");
         swatch.type = "button";
-        swatch.style.cssText = `width:20px;height:20px;border-radius:3px;border:1px solid #ced4da;background:${toHexColor(color)};cursor:pointer;margin:2px;`;
+        swatch.style.cssText = `width:20px;height:20px;border-radius:3px;border:1px solid var(--ui-border);background:${toHexColor(color)};cursor:pointer;margin:2px;`;
         swatch.title = `Select ${toHexColor(color)}`;
 
         swatch.onclick = () => {
           dependencies.midiManager.updateColor(file.id, color);
-          swatchBtn.style.background = toHexColor(color);
+          shapeHost.innerHTML = shapeSvg(currentShape, toHexColor(color));
           paletteDropdown.style.display = "none";
         };
 
@@ -176,8 +196,8 @@ export function createFileList(
           parseInt(hex.substring(1), 16)
         );
 
-        // Update swatch fill
-        swatchBtn.style.background = hex;
+        // Update swatch shape color
+        shapeHost.innerHTML = shapeSvg(currentShape, hex);
       };
 
       // Mount color input inside button (keeps DOM grouped)
@@ -197,13 +217,13 @@ export function createFileList(
         );
       };
       nameInput.style.cssText =
-        "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:4px;";
+        "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
 
       // Delete button
       const delBtn = document.createElement("button");
       delBtn.innerHTML = PLAYER_ICONS.trash;
       delBtn.style.cssText =
-        "border:none;background:transparent;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;";
+        "border:none;background:transparent;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);";
       delBtn.onclick = () => {
         if (confirm(`Delete ${file.displayName}?`)) {
           dependencies.midiManager.removeMidiFile(file.id);
@@ -254,7 +274,7 @@ export function createFileList(
         e.preventDefault();
         e.stopPropagation();
         // Highlight potential drop target for live feedback
-        row.style.outline = "2px dashed #3b82f6"; // Tailwind's blue-500
+        row.style.outline = "2px dashed var(--focus-ring)"; // focus color
       });
 
       // Clear highlight when leaving the row
@@ -266,7 +286,7 @@ export function createFileList(
       handle.addEventListener("dragover", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        row.style.outline = "2px dashed #3b82f6";
+        row.style.outline = "2px dashed var(--focus-ring)";
       });
 
       // Unified drop handler
@@ -301,7 +321,7 @@ export function createFileList(
     addBtn.type = "button";
     addBtn.textContent = "Add MIDI Files";
     addBtn.style.cssText =
-      "margin-top:12px;padding:8px;border:1px solid #ced4da;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;";
+      "margin-top:12px;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:14px;color:var(--text-primary);";
 
     const hiddenInput = document.createElement("input");
     hiddenInput.type = "file";

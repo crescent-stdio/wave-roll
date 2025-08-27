@@ -23,7 +23,7 @@ export function createMinorStepGroup(
     deps.pianoRoll?.getMinorTimeStep?.()?.toString() ??
     deps.minorTimeStep.toString();
   input.style.cssText =
-    "width:64px;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;text-align:center;";
+    "width:64px;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;text-align:center;background:var(--surface);color:var(--text-primary);";
 
   const suffix = document.createElement("span");
   suffix.textContent = "s";

@@ -2,6 +2,7 @@ import { createSettingsModalSkeleton } from "./skeleton";
 import { createModalHeader } from "./header";
 import { createFileList } from "../sections/file-list";
 import { createPaletteSelectorSection } from "../sections/palette-selector";
+import { createWaveListSection } from "../sections/wave-list";
 import { UIComponentDependencies } from "@/lib/components/ui";
 
 /**
@@ -20,13 +21,15 @@ export function openSettingsModal(deps: UIComponentDependencies): void {
   }
 
   // ---- Build modal content ----
-  const header = createModalHeader("MIDI Settings", () => overlay.remove());
+  const header = createModalHeader("Files & Palette", () => overlay.remove());
 
   // Append sections
   const paletteSection = createPaletteSelectorSection(deps);
+  const waveListSection = createWaveListSection(deps);
   const fileListSection = createFileList(deps);
   modal.appendChild(header);
   modal.appendChild(paletteSection);
+  modal.appendChild(waveListSection);
   modal.appendChild(fileListSection);
 
   // Close when clicking outside the modal panel.

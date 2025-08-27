@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
+import { COLOR_LOOP_SHADE, COLOR_LOOP_LINE_A, COLOR_LOOP_LINE_B } from "@/lib/core/constants";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
 export function renderGrid(pianoRoll: PianoRoll): void {
@@ -159,7 +160,30 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
   if (pianoRoll.loopLines) {
     const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
-    const lineWidth = 2;
+    let lineWidth = 3; // thicker for better visibility
+
+    const drawDashed = (
+      g: PIXI.Graphics,
+      x: number,
+      color: number,
+      segLen = 10,
+      gapLen = 6
+    ) => {
+      // Draw alternating segments from top to bottom
+      let y = 0;
+      while (y < pianoRoll.options.height) {
+        const y2 = Math.min(y + segLen, pianoRoll.options.height);
+        // Halo
+        g.moveTo(x, y);
+        g.lineTo(x, y2);
+        g.stroke({ width: lineWidth + 2, color: 0xffffff, alpha: 0.95 });
+        // Core
+        g.moveTo(x, y);
+        g.lineTo(x, y2);
+        g.stroke({ width: lineWidth, color, alpha: 1 });
+        y = y2 + gapLen;
+      }
+    };
 
     // Helper to draw a single vertical line + label
     const drawLine = (
@@ -168,13 +192,21 @@ export function renderGrid(pianoRoll: PianoRoll): void {
       color: number,
       label: string
     ) => {
+      // Default: solid line with halo (not dashed)
       g.moveTo(x, 0);
       g.lineTo(x, pianoRoll.options.height);
-      g.stroke({ width: lineWidth, color, alpha: 0.9 });
+      g.stroke({ width: lineWidth + 2, color: 0xffffff, alpha: 0.95 });
+      g.moveTo(x, 0);
+      g.lineTo(x, pianoRoll.options.height);
+      g.stroke({ width: lineWidth, color, alpha: 1 });
 
       const text = new PIXI.Text({
         text: label,
-        style: { fontSize: 10, fill: color, align: "center" },
+        style: {
+          fontSize: 11,
+          fill: color,
+          align: "center",
+        },
       });
       text.x = x + 2;
       text.y = 0;
@@ -190,12 +222,10 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         pianoRoll.state.panX +
         pianoKeysOffset;
 
-      drawLine(
-        pianoRoll.loopLines.start,
-        startX!,
-        0x00b894,
-        pianoRoll.loopStart.toFixed(1) + "s"
-      );
+      // A-line: longer dashes
+      const colA = parseInt(COLOR_LOOP_LINE_A.replace("#", ""), 16);
+      drawDashed(pianoRoll.loopLines.start, startX!, colA, 14, 8);
+      drawLine(pianoRoll.loopLines.start, startX!, colA, `A(${pianoRoll.loopStart.toFixed(1)}s)`);
     }
 
     if (pianoRoll.loopEnd !== null) {
@@ -204,24 +234,23 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         pianoRoll.state.panX +
         pianoKeysOffset;
 
-      drawLine(
-        pianoRoll.loopLines.end,
-        endX!,
-        0xff7f00,
-        pianoRoll.loopEnd.toFixed(1) + "s"
-      );
+      // B-line: denser short dashes (dotted look)
+      const colB = parseInt(COLOR_LOOP_LINE_B.replace("#", ""), 16);
+      drawDashed(pianoRoll.loopLines.end, endX!, colB, 2, 4);
+      drawLine(pianoRoll.loopLines.end, endX!, colB, `B(${pianoRoll.loopEnd.toFixed(1)}s)`);
     }
 
     // Draw translucent overlay only when both points are defined
     if (startX !== null && endX !== null) {
-      const overlayColor = 0xfff3cd; // light yellow
+      const overlayColor = parseInt(COLOR_LOOP_SHADE.replace("#", ""), 16);
       pianoRoll.loopOverlay.rect(
         startX,
         0,
         Math.max(0, endX - startX),
         pianoRoll.options.height
       );
-      pianoRoll.loopOverlay.fill({ color: overlayColor, alpha: 0.35 });
+      // Slightly lighter alpha to preserve note contrast while keeping region visible
+      pianoRoll.loopOverlay.fill({ color: overlayColor, alpha: 0.22 });
     }
   }
 
@@ -270,7 +299,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         const step = Math.max(secondsPerPixel, 0.005);
 
         // Bottom band placement
-        const bandPadding = 6; // px
+        const bandPadding = 0; // px – fill to bottom edge as requested
         const bandHeight = Math.max(
           24,
           Math.min(96, Math.floor(height * 0.22))
@@ -315,8 +344,8 @@ export function renderGrid(pianoRoll: PianoRoll): void {
           pianoRoll.waveformLayer.lineTo(x, bandMidY + halfH);
           pianoRoll.waveformLayer.stroke({
             width: 1,
-            color: p.color ?? 0x10b981,
-            alpha: 0.7,
+            color: p.color ?? 0x475569, /* slate-600 for neutral, accessible contrast */
+            alpha: 0.8,
           });
         }
 
@@ -384,8 +413,8 @@ export function renderGrid(pianoRoll: PianoRoll): void {
             keysLayer.lineTo(xKeys, keysBandMidY + halfH);
             keysLayer.stroke({
               width: 1,
-              color: p.color ?? 0x10b981,
-              alpha: 0.7,
+              color: p.color ?? 0x475569,
+              alpha: 0.8,
             });
           }
         }

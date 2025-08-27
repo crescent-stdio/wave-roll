@@ -100,7 +100,7 @@ export class PianoRoll {
       height: 400,
       backgroundColor: 0xffffff,
       noteColor: 0x4285f4,
-      playheadColor: 0xff4444,
+      playheadColor: 0x1e40af,
       showPianoKeys: true,
       noteRange: { min: 21, max: 108 }, // A0 to C8
       timeStep: 1,

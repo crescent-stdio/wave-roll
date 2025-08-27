@@ -34,7 +34,7 @@ export function openEvaluationResultsModal(
     max-width: 95%;
     max-height: 80vh;
     overflow-y: auto;
-    background: #fff;
+    background: var(--panel-bg);
     border-radius: 12px;
     padding: 24px;
     display: flex;
@@ -48,11 +48,11 @@ export function openEvaluationResultsModal(
     "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h2");
   title.textContent = "Evaluation Results";
-  title.style.cssText = "margin:0;font-size:20px;font-weight:700;";
+  title.style.cssText = "margin:0;font-size:20px;font-weight:700;color:var(--text-primary);";
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "✕";
   closeBtn.style.cssText =
-    "border:none;background:transparent;font-size:24px;cursor:pointer;color:#6c757d;";
+    "border:none;background:transparent;font-size:24px;cursor:pointer;color:var(--text-muted);";
   closeBtn.onclick = () => overlay.remove();
   header.appendChild(title);
   header.appendChild(closeBtn);
@@ -71,5 +71,4 @@ export function openEvaluationResultsModal(
 
   document.body.appendChild(overlay);
 }
-
 

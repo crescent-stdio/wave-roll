@@ -32,15 +32,15 @@ export class MasterVolumeControl extends FileVolumeControl {
         height: 36px;
         border-radius: 6px;
         transition: all 0.2s ease;
-        color: ${this.getVolume() > 0 ? '#495057' : '#adb5bd'};
+        color: ${this.getVolume() > 0 ? 'var(--text-muted)' : 'rgba(71,85,105,0.5)'};
       `;
       
       // Add hover effect
       button.addEventListener("mouseenter", () => {
-        button.style.background = "#dee2e6";
+        button.style.background = "var(--hover-surface)";
       });
       button.addEventListener("mouseleave", () => {
-        button.style.background = "#e9ecef";
+        button.style.background = "var(--surface)";
       });
       
       button.setAttribute("aria-label", `Master volume: ${Math.round(this.getVolume() * 100)}%`);
@@ -60,7 +60,7 @@ export class MasterVolumeControl extends FileVolumeControl {
       label.style.cssText = `
         font-size: 11px;
         font-weight: 600;
-        color: #6c757d;
+        color: var(--text-muted);
         margin-bottom: 4px;
         user-select: none;
       `;

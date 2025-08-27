@@ -34,7 +34,7 @@ export function createSettingsModalSkeleton(id = "multi-midi-settings-modal") {
     max-width: 95%;
     max-height: 80vh;
     overflow-y: auto;
-    background: #fff;
+    background: var(--panel-bg);
     border-radius: 12px;
     padding: 24px;
     display: flex;

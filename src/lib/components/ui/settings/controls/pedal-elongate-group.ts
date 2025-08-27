@@ -10,7 +10,7 @@ export function createPedalElongateGroup(
   const container = document.createElement("div");
   container.style.cssText = `
     padding: 12px 0;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--ui-border);
     position: relative;
   `;
 
@@ -42,7 +42,7 @@ export function createPedalElongateGroup(
   labelText.style.cssText = `
     font-size: 14px;
     font-weight: 500;
-    color: #333;
+    color: var(--text-primary);
   `;
 
   // Loading indicator (initially hidden)
@@ -53,7 +53,7 @@ export function createPedalElongateGroup(
     top: 12px;
     right: 0;
     font-size: 12px;
-    color: #007bff;
+    color: var(--accent);
     font-style: italic;
   `;
   loadingIndicator.textContent = "Reprocessing files...";
@@ -64,7 +64,7 @@ export function createPedalElongateGroup(
     margin-top: 8px;
     margin-left: 24px;
     font-size: 12px;
-    color: #666;
+    color: var(--text-muted);
     line-height: 1.4;
   `;
   description.textContent =

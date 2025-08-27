@@ -73,6 +73,8 @@ export interface VisualState {
   pedalElongate: boolean;
   /** Threshold for sustain pedal detection (0-127, default 64) */
   pedalThreshold: number;
+  /** Whether to show onset marker shapes over notes */
+  showOnsetMarkers: boolean;
 }
 
 /**

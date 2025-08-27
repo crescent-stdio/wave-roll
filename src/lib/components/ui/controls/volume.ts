@@ -16,7 +16,7 @@ export function createVolumeControlUI(
       align-items: center;
       gap: 10px;
       height: 48px;
-      background: rgba(255, 255, 255, 0.8);
+      background: var(--panel-bg);
       padding: 4px 12px;
       border-radius: 8px;
     `;
@@ -30,13 +30,14 @@ export function createVolumeControlUI(
       padding: 0;
       border: none;
       background: none;
-      color: #495057;
+      color: var(--text-muted);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: color 0.2s ease;
     `;
+  iconBtn.classList.add("wr-focusable");
 
   // Volume slider
   const slider = document.createElement("input");
@@ -49,11 +50,12 @@ export function createVolumeControlUI(
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
-      background: #e9ecef;
+      background: var(--track-bg);
       border-radius: 8px;
       outline: none;
       cursor: pointer;
     `;
+  slider.classList.add("wr-slider", "wr-focusable");
 
   // Volume input
   const input = document.createElement("input");
@@ -68,11 +70,11 @@ export function createVolumeControlUI(
       border-radius: 4px;
       font-size: 12px;
       font-weight: 600;
-      color: #007bff;
-      background: rgba(0, 123, 255, 0.08);
-      outline: none;
+      color: var(--accent);
+      background: rgba(37, 99, 235, 0.10);
       text-align: center;
     `;
+  input.classList.add("wr-focusable");
 
   // Volume control logic
   // Keep track of the last non-zero volume so double-click can restore it

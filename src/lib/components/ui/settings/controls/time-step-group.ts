@@ -18,7 +18,7 @@ export function createTimeStepGroup(
   tsInput.step = "0.1";
   const curStep = deps.pianoRoll?.getTimeStep?.() ?? 1;
   tsInput.value = curStep.toString();
-  tsInput.style.cssText = `width:64px;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;font-size:12px;text-align:center;`;
+  tsInput.style.cssText = `width:64px;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;font-size:12px;text-align:center;background:var(--surface);color:var(--text-primary);`;
   const tsSuffix = document.createElement("span");
   tsSuffix.textContent = "s";
   tsSuffix.style.cssText = tsLabel.style.cssText;

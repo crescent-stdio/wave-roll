@@ -36,7 +36,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   modal.style.cssText = `
     width: 320px;
     max-width: 90%;
-    background: #fff;
+    background: var(--panel-bg);
     border-radius: 10px;
     padding: 24px;
     display: flex;
@@ -49,12 +49,12 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   header.style.cssText =
     "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h3");
-  title.textContent = "Zoom / Grid Settings";
-  title.style.cssText = "margin:0;font-size:16px;font-weight:700;";
+  title.textContent = "View / Grid Settings";
+  title.style.cssText = "margin:0;font-size:16px;font-weight:700;color:var(--text-primary);";
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "✕";
   closeBtn.style.cssText =
-    "border:none;background:transparent;font-size:20px;cursor:pointer;color:#6c757d;";
+    "border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--text-muted);";
   closeBtn.onclick = () => overlay.remove();
   header.appendChild(title);
   header.appendChild(closeBtn);
@@ -67,8 +67,23 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   const pedalGroup = createPedalElongateGroup(deps);
   const pedalThresholdGroup = createPedalThresholdGroup(deps);
 
+  // Onset markers toggle (default false)
+  const onsetRow = document.createElement("div");
+  onsetRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+  const onsetLabel = document.createElement("label");
+  onsetLabel.textContent = "Show onset markers";
+  onsetLabel.style.cssText = "font-size:12px;font-weight:600;color:var(--text-primary);";
+  const onsetCheckbox = document.createElement("input");
+  onsetCheckbox.type = "checkbox";
+  onsetCheckbox.checked = deps.stateManager.getState().visual.showOnsetMarkers ?? false;
+  onsetCheckbox.addEventListener("change", () => {
+    deps.stateManager.updateVisualState({ showOnsetMarkers: onsetCheckbox.checked });
+  });
+  onsetRow.append(onsetCheckbox, onsetLabel);
+
   // Assemble modal
   modal.appendChild(header);
+  modal.appendChild(onsetRow);
   modal.appendChild(tsGroup);
   modal.appendChild(mnGroup);
   modal.appendChild(offsetTolGroup);

@@ -16,7 +16,7 @@ export class FileToggleManager {
     const fileToggleContainer = document.createElement("div");
     fileToggleContainer.setAttribute("data-role", "file-toggle");
     fileToggleContainer.style.cssText = `
-      background: #f8f9fa;
+      background: var(--surface-alt);
       padding: 12px;
       border-radius: 8px;
       margin-top: 12px;
@@ -38,7 +38,7 @@ export class FileToggleManager {
       margin: 0;
       font-size: 14px;
       font-weight: 600;
-      color: #495057;
+      color: var(--text-muted);
     `;
 
     // MIDI Settings button and Evaluation Results button
@@ -55,8 +55,8 @@ export class FileToggleManager {
       padding: 4px 8px;
       border: none;
       border-radius: 4px;
-      background: #e9ecef;
-      color: #495057;
+      background: var(--surface);
+      color: var(--text-muted);
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
@@ -66,10 +66,10 @@ export class FileToggleManager {
       transition: all 0.2s ease;
     `;
     midiSettingsBtn.addEventListener("mouseenter", () => {
-      midiSettingsBtn.style.background = "#dee2e6";
+      midiSettingsBtn.style.background = "var(--hover-surface)";
     });
     midiSettingsBtn.addEventListener("mouseleave", () => {
-      midiSettingsBtn.style.background = "#e9ecef";
+      midiSettingsBtn.style.background = "var(--surface)";
     });
     midiSettingsBtn.addEventListener("click", () => {
       dependencies.openSettingsModal();
@@ -81,8 +81,8 @@ export class FileToggleManager {
       padding: 4px 8px;
       border: none;
       border-radius: 4px;
-      background: #e9ecef;
-      color: #495057;
+      background: var(--surface);
+      color: var(--text-muted);
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
@@ -92,10 +92,10 @@ export class FileToggleManager {
       transition: all 0.2s ease;
     `;
     evalResultsBtn.addEventListener("mouseenter", () => {
-      evalResultsBtn.style.background = "#dee2e6";
+      evalResultsBtn.style.background = "var(--hover-surface)";
     });
     evalResultsBtn.addEventListener("mouseleave", () => {
-      evalResultsBtn.style.background = "#e9ecef";
+      evalResultsBtn.style.background = "var(--surface)";
     });
     evalResultsBtn.addEventListener("click", () => {
       (dependencies as any).openEvaluationResultsModal?.();
@@ -115,7 +115,7 @@ export class FileToggleManager {
       margin: 12px 0 8px 0;
       font-size: 14px;
       font-weight: 600;
-      color: #495057;
+      color: var(--text-muted);
     `;
     audioHeader.id = "audio-header";
     fileToggleContainer.appendChild(audioHeader);
@@ -137,7 +137,7 @@ export class FileToggleManager {
       margin: 12px 0 8px 0;
       font-size: 14px;
       font-weight: 600;
-      color: #495057;
+      color: var(--text-muted);
     `;
     midiHeader.id = "midi-header";
     fileToggleContainer.appendChild(midiHeader);
@@ -254,10 +254,10 @@ export class FileToggleManager {
       align-items: center;
       gap: 8px;
       padding: 6px 8px;
-      background: #f8f9fa;
+      background: var(--surface-alt);
       border-radius: 6px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--ui-border);
     `;
 
     // Color indicator
@@ -274,7 +274,7 @@ export class FileToggleManager {
     fileName.style.cssText = `
       flex: 1;
       font-size: 14px;
-      color: ${file.isPianoRollVisible ? "#343a40" : "#6c757d"};
+      color: ${file.isPianoRollVisible ? "var(--text-primary)" : "var(--text-muted)"};
     `;
 
     // Visibility toggle with eye icon (reusable button)
@@ -284,7 +284,7 @@ export class FileToggleManager {
       "Toggle visibility",
       { size: 24 }
     );
-    visBtn.style.color = file.isPianoRollVisible ? "#495057" : "#adb5bd";
+    visBtn.style.color = file.isPianoRollVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
 
@@ -317,7 +317,7 @@ export class FileToggleManager {
           buttons.forEach((btn) => {
             const fid = btn.getAttribute("data-file-id");
             const active = nextRef !== null && fid === nextRef;
-            btn.style.color = active ? "#0d6efd" : "#adb5bd";
+            btn.style.color = active ? "var(--accent)" : "rgba(71,85,105,0.5)";
             btn.title = active ? "Unset as reference" : "Set as reference";
           });
 
@@ -556,10 +556,10 @@ export class FileToggleManager {
       align-items: center;
       gap: 8px;
       padding: 6px 8px;
-      background: #f8f9fa;
+      background: var(--surface-alt);
       border-radius: 6px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--ui-border);
     `;
 
     const colorIndicator = document.createElement("div");
@@ -569,12 +569,13 @@ export class FileToggleManager {
       background: #${audio.color.toString(16).padStart(6, "0")};
     `;
 
+    // Read-only name (editing is available in Files & Palette modal)
     const name = document.createElement("span");
     name.textContent = audio.displayName;
     name.style.cssText = `
       flex: 1;
       font-size: 14px;
-      color: ${audio.isVisible ? "#343a40" : "#6c757d"};
+      color: ${audio.isVisible ? "var(--text-primary)" : "var(--text-muted)"};
     `;
 
     // Visibility toggle (waveform overlay)
@@ -592,9 +593,10 @@ export class FileToggleManager {
       "Toggle waveform visibility",
       { size: 24 }
     );
-    visBtn.style.color = audio.isVisible ? "#495057" : "#adb5bd";
+    visBtn.style.color = audio.isVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
+
 
     // Add volume control for WAV with integrated mute functionality
     const volumeControl = new FileVolumeControl({
@@ -636,10 +638,10 @@ export class FileToggleManager {
     // Pan slider
     const labelL = document.createElement("span");
     labelL.textContent = "L";
-    labelL.style.cssText = `font-size: 12px; color: #6c757d;`;
+    labelL.style.cssText = `font-size: 12px; color: var(--text-muted);`;
     const labelR = document.createElement("span");
     labelR.textContent = "R";
-    labelR.style.cssText = `font-size: 12px; color: #6c757d;`;
+    labelR.style.cssText = `font-size: 12px; color: var(--text-muted);`;
 
     const panSlider = document.createElement("input");
     panSlider.type = "range";
@@ -653,7 +655,7 @@ export class FileToggleManager {
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
-      background: #e9ecef;
+      background: var(--track-bg);
       border-radius: 8px;
       outline: none;
       cursor: pointer;

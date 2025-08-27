@@ -27,10 +27,10 @@ export const createIconButton = (
     width: ${size}px;
     height: ${size}px;
     padding: 0;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--ui-border);
     border-radius: 8px;
     background: transparent;
-    color: #495057;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -38,6 +38,7 @@ export const createIconButton = (
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   `;
+  button.classList.add("wr-focusable");
 
   /* ---------------- hover / active effects ---------------- */
   button.addEventListener("mouseenter", () => {

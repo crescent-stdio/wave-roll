@@ -15,9 +15,9 @@ export class FileItemFactory {
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
-      background: white;
+      background: var(--surface);
       border-radius: 6px;
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--ui-border);
       transition: all 0.2s ease;
     `;
 
@@ -37,7 +37,7 @@ export class FileItemFactory {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: ${isVisible ? "#495057" : "#adb5bd"};
+      color: ${isVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)"};
       transition: color 0.15s ease;
     `;
 
@@ -61,7 +61,7 @@ export class FileItemFactory {
     fileName.style.cssText = `
       flex: 1;
       font-size: 14px;
-      color: ${file.isVisible ? "#343a40" : "#6c757d"};
+      color: ${file.isVisible ? "var(--text-primary)" : "var(--text-muted)"};
       text-overflow: ellipsis;
       white-space: nowrap;
       max-width: 100%;
@@ -69,11 +69,11 @@ export class FileItemFactory {
 
     /* hover feedback */
     item.addEventListener("mouseenter", () => {
-      item.style.borderColor = "#0984e3";
+      item.style.borderColor = "var(--accent)";
       item.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.1)";
     });
     item.addEventListener("mouseleave", () => {
-      item.style.borderColor = "#dee2e6";
+      item.style.borderColor = "var(--ui-border)";
       item.style.boxShadow = "none";
     });
 

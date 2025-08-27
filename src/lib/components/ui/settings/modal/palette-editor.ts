@@ -58,7 +58,7 @@ export function openPaletteEditorModal(
   nameInput.value = workingName;
   nameInput.placeholder = "My palette";
   nameInput.style.cssText =
-    "width:100%;padding:6px 8px;border:1px solid #ced4da;border-radius:6px;margin-bottom:12px;";
+    "width:100%;padding:6px 8px;border:1px solid var(--ui-border);border-radius:6px;margin-bottom:12px;background:var(--surface);color:var(--text-primary);";
 
   // ---------- Color grid ----------
   const colorGrid = document.createElement("div");
@@ -78,7 +78,7 @@ export function openPaletteEditorModal(
       const cell = document.createElement("button");
       cell.type = "button";
       cell.title = "Click to change color, right-click to remove";
-      cell.style.cssText = `width:32px;height:32px;border-radius:4px;border:1px solid #ced4da;background:${hex};cursor:pointer;position:relative;`;
+      cell.style.cssText = `width:32px;height:32px;border-radius:4px;border:1px solid var(--ui-border);background:${hex};cursor:pointer;position:relative;`;
 
       // HEX text input (declared early so it is in scope for colorInput handler)
       const hexInput = document.createElement("input");
@@ -87,7 +87,7 @@ export function openPaletteEditorModal(
       hexInput.placeholder = "#000000";
       hexInput.value = hex;
       hexInput.style.cssText =
-        "width:70px;padding:2px 4px;font-size:10px;font-family:monospace;text-align:center;border:1px solid #ced4da;border-radius:4px;";
+        "width:70px;padding:2px 4px;font-size:10px;font-family:monospace;text-align:center;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
 
       // Hidden <input type="color"> used as native picker
       const colorInput = document.createElement("input");
@@ -138,7 +138,7 @@ export function openPaletteEditorModal(
   addColorBtn.type = "button";
   addColorBtn.textContent = "+ Add color";
   addColorBtn.style.cssText =
-    "padding:6px 8px;border:1px dashed #ced4da;border-radius:6px;background:#fff;font-size:12px;cursor:pointer;margin-bottom:16px;";
+    "padding:6px 8px;border:1px dashed var(--ui-border);border-radius:6px;background:var(--surface);font-size:12px;cursor:pointer;margin-bottom:16px;color:var(--text-primary);";
   addColorBtn.onclick = () => {
     workingColors.push("#000000");
     renderColorCells();
@@ -152,14 +152,14 @@ export function openPaletteEditorModal(
   cancelBtn.type = "button";
   cancelBtn.textContent = "Cancel";
   cancelBtn.style.cssText =
-    "padding:6px 12px;border:1px solid #ced4da;border-radius:6px;background:#fff;cursor:pointer;";
+    "padding:6px 12px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);cursor:pointer;color:var(--text-primary);";
   cancelBtn.onclick = () => overlay.remove();
 
   const saveBtn = document.createElement("button");
   saveBtn.type = "button";
   saveBtn.textContent = isEdit ? "Update" : "Create";
   saveBtn.style.cssText =
-    "padding:6px 12px;border:1px solid #495057;border-radius:6px;background:#495057;color:#fff;cursor:pointer;";
+    "padding:6px 12px;border:1px solid var(--accent-strong);border-radius:6px;background:var(--accent-strong);color:var(--on-accent);cursor:pointer;";
   saveBtn.onclick = () => {
     // Validate
     const name = nameInput.value.trim();

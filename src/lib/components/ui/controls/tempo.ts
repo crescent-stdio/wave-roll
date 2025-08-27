@@ -16,7 +16,7 @@ export function createTempoControlUI(
       align-items: center;
       gap: 8px;
       height: 48px;
-      background: rgba(255, 255, 255, 0.8);
+      background: var(--panel-bg);
       padding: 4px 12px;
       border-radius: 8px;
     `;
@@ -35,27 +35,27 @@ export function createTempoControlUI(
       border-radius: 4px;
       font-size: 13px;
       font-weight: 600;
-      color: ${COLOR_PRIMARY};
-      background: rgba(0, 123, 255, 0.08);
-      outline: none;
+      color: var(--accent);
+      background: rgba(37, 99, 235, 0.10);
       text-align: center;
     `;
+  input.classList.add("wr-focusable");
 
   const label = document.createElement("span");
   label.textContent = "%";
   label.style.cssText = `
       font-size: 12px;
       font-weight: 600;
-      color: #6c757d;
+      color: var(--text-muted);
     `;
 
   // Focus effects
   input.addEventListener("focus", () => {
-    input.style.background = "rgba(0, 123, 255, 0.12)";
+    input.style.background = "rgba(37, 99, 235, 0.12)";
   });
 
   input.addEventListener("blur", () => {
-    input.style.background = "rgba(0, 123, 255, 0.08)";
+    input.style.background = "rgba(37, 99, 235, 0.10)";
   });
 
   // Playback speed control logic

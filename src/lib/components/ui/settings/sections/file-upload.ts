@@ -25,7 +25,7 @@ export function createFileUploadSection(
 
   // Status label - updated after each upload.
   const status = document.createElement("span");
-  status.style.cssText = "font-size:12px;color:#6c757d;";
+  status.style.cssText = "font-size:12px;color:var(--text-muted);";
 
   input.onchange = async (e) => {
     const files = Array.from((e.target as HTMLInputElement).files || []);

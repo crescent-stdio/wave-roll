@@ -23,7 +23,8 @@ export function createPlaybackControlsUI(
     gap: 4px;
     align-items: center;
     height: 48px;
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--panel-bg);
+    color: var(--text-primary);
     padding: 4px;
     border-radius: 8px;
     position: relative;
@@ -39,8 +40,8 @@ export function createPlaybackControlsUI(
     padding: 0;
     border: none;
     border-radius: 8px;
-    background: ${COLOR_PRIMARY};
-    color: white;
+    background: var(--accent-strong);
+    color: var(--on-accent);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -48,6 +49,7 @@ export function createPlaybackControlsUI(
     transition: all 0.2s ease;
     position: relative;
   `;
+  playBtn.classList.add("wr-focusable");
 
   const updatePlayButton = setupPlayButton({
     playBtn,

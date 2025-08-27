@@ -26,13 +26,13 @@ export function createPedalThresholdGroup(
   label.style.cssText = `
     font-size: 14px;
     font-weight: 500;
-    color: #333;
+    color: var(--text-primary);
   `;
 
   const valueDisplay = document.createElement("span");
   valueDisplay.style.cssText = `
     font-size: 14px;
-    color: #666;
+    color: var(--text-muted);
     min-width: 35px;
     text-align: right;
   `;
@@ -67,14 +67,14 @@ export function createPedalThresholdGroup(
   minLabel.textContent = "0";
   minLabel.style.cssText = `
     font-size: 12px;
-    color: #999;
+    color: var(--text-muted);
   `;
 
   const maxLabel = document.createElement("span");
   maxLabel.textContent = "127";
   maxLabel.style.cssText = `
     font-size: 12px;
-    color: #999;
+    color: var(--text-muted);
   `;
 
   // Description
@@ -83,7 +83,7 @@ export function createPedalThresholdGroup(
     margin-top: 8px;
     margin-left: 24px;
     font-size: 12px;
-    color: #666;
+    color: var(--text-muted);
     line-height: 1.4;
   `;
   description.textContent = "MIDI CC64 value threshold for sustain pedal activation. Standard value is 64. Lower values make the pedal more sensitive.";
@@ -95,7 +95,7 @@ export function createPedalThresholdGroup(
     margin-top: 8px;
     margin-left: 24px;
     font-size: 12px;
-    color: #007bff;
+    color: var(--accent);
     font-style: italic;
   `;
   loadingIndicator.textContent = "Reprocessing files...";

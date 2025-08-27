@@ -39,22 +39,22 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     align-items: center;
     gap: 10px;
     padding: 8px 12px 12px;
-    background: #ffffff;
+    background: var(--surface);
     border-radius: 8px;
   `;
 
   const labelCurrent = document.createElement("span");
   labelCurrent.style.cssText =
-    "font-family: monospace; font-size: 12px; min-width:46px; text-align:right;";
+    "font-family: monospace; font-size: 12px; min-width:46px; text-align:right; color: var(--text-muted);";
   labelCurrent.textContent = "00:00";
 
   const barWrap = document.createElement("div");
   barWrap.style.cssText =
-    "flex:1; position:relative; height:8px; background:#e9ecef; border-radius:8px; cursor:pointer;";
+    "flex:1; position:relative; height:8px; background: var(--track-bg); border-radius:8px; cursor:pointer;";
 
   const progress = document.createElement("div");
   progress.style.cssText =
-    "position:absolute; top:0; left:0; height:100%; width:0%; background:#4285f4; border-radius:8px; transition:none;";
+    "position:absolute; top:0; left:0; height:100%; width:0%; background: var(--accent); border-radius:8px; transition:none;";
   barWrap.appendChild(progress);
 
   /* Loop region (gold stripes) */
@@ -63,13 +63,15 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     position:absolute; top:0; height:100%;
     background: repeating-linear-gradient(
       -45deg,
-      rgba(241,196,15,0.6) 0px,
-      rgba(241,196,15,0.6) 4px,
-      rgba(243,156,18,0.4) 4px,
-      rgba(243,156,18,0.4) 8px
+      var(--loop-stripe-a) 0px,
+      var(--loop-stripe-a) 4px,
+      var(--loop-stripe-b) 4px,
+      var(--loop-stripe-b) 8px
     );
-    border-top:2px solid rgba(241,196,15,.9);
-    border-bottom:2px solid rgba(241,196,15,.9);
+    border-top:2px solid var(--loop-stripe-border);
+    border-bottom:2px solid var(--loop-stripe-border);
+    border-left:2px solid var(--loop-stripe-border);
+    border-right:2px solid var(--loop-stripe-border);
     display:none;
     pointer-events:none;
     z-index:1;
@@ -159,7 +161,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
         -webkit-appearance: none;
         height: 14px;
         width: 14px;
-        background: #4285f4;
+        background: var(--accent-strong);
         border: 2px solid #fff;
         border-radius: 50%;
         margin-top: -3px; /* Center thumb vertically (14-8)/-2 */
@@ -180,7 +182,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
       input.wr-slider::-moz-range-thumb {
         height: 14px;
         width: 14px;
-        background: #4285f4;
+        background: var(--accent-strong);
         border: 2px solid #fff;
         border-radius: 50%;
         opacity: 0;
@@ -215,7 +217,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   slider.max = "100";
   slider.step = "0.1";
   slider.value = "0";
-  slider.className = "wr-slider";
+  slider.className = "wr-slider wr-focusable";
   barWrap.appendChild(slider);
 
   // No separate tooltip; the progress bar itself will reflect dragging.

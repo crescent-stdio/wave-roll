@@ -157,8 +157,9 @@ export class VisualizationHandler {
       // blendMode. Set this _before_ pushing CC events so the upcoming
       // render cycle can pick up the correct mode immediately.
       if (pianoInstance) {
-        (pianoInstance as any).highlightMode =
-          this.stateManager.getState().visual.highlightMode;
+        const visual = this.stateManager.getState().visual;
+        (pianoInstance as any).highlightMode = visual.highlightMode;
+        (pianoInstance as any).showOnsetMarkers = visual.showOnsetMarkers;
       }
 
       // Finally, push CC data to piano-roll which will trigger a re-render of

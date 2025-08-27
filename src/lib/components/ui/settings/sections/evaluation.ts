@@ -79,13 +79,13 @@ export function createEvaluationSection(
   // Header
   const header = document.createElement("h3");
   header.textContent = "Evaluation: based on ";
-  header.style.cssText = "margin:0;font-size:14px;font-weight:600;";
+  header.style.cssText = "margin:0;font-size:14px;font-weight:600;color:var(--text-primary);";
 
   const mirEval = "https://github.com/mir-evaluation/mir_eval";
   const mirEvalLink = document.createElement("a");
   mirEvalLink.href = mirEval;
   mirEvalLink.textContent = "mir_eval";
-  mirEvalLink.style.cssText = "color:#007bff;text-decoration:underline;";
+  mirEvalLink.style.cssText = "color:var(--accent);text-decoration:underline;";
   mirEvalLink.target = "_blank";
   mirEvalLink.rel = "noopener noreferrer";
   header.appendChild(mirEvalLink);
@@ -105,7 +105,7 @@ export function createEvaluationSection(
 
   const refSelect = document.createElement("select");
   refSelect.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
+    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
   attachTip(refSelect, "Choose the reference MIDI file (ground truth).");
 
   // Add empty option
@@ -131,7 +131,7 @@ export function createEvaluationSection(
   const estSelect = document.createElement("select");
   estSelect.multiple = true;
   estSelect.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;min-height:60px;";
+    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;min-height:60px;background:var(--surface);color:var(--text-primary);";
   attachTip(
     estSelect,
     "Pick one or more estimated MIDI files produced by transcription systems."
@@ -185,7 +185,7 @@ export function createEvaluationSection(
     input.type = "number";
     input.step = step;
     input.style.cssText =
-      "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
+      "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
     input.value = String(deps.stateManager.getState().evaluation[field]);
     attachTip(input, toleranceDescriptions[field]);
 
@@ -226,7 +226,7 @@ export function createEvaluationSection(
 
   const anchorSelect = document.createElement("select");
   anchorSelect.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
+    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
   const anchorDescriptions: Record<"intersection" | "ref" | "est", string> = {
     intersection: "Use the overlapped region as the anchor for visualization.",
     ref: "Use the reference note span as the anchor.",
@@ -278,7 +278,7 @@ export function createEvaluationSection(
   kOfNInput.min = "1";
   kOfNInput.step = "1";
   kOfNInput.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
+    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
   kOfNInput.value = String(deps.stateManager.getState().evaluation.kOfN);
   attachTip(
     kOfNInput,
@@ -294,7 +294,7 @@ export function createEvaluationSection(
   // Metrics display
   const metricsBox = document.createElement("div");
   metricsBox.style.cssText =
-    "border:1px solid #ced4da;border-radius:6px;padding:8px;background:#f8f9fa;font-size:11px;font-family:monospace;";
+    "border:1px solid var(--ui-border);border-radius:6px;padding:8px;background:var(--surface-alt);font-size:11px;font-family:monospace;color:var(--text-primary);";
   attachTip(
     metricsBox,
     "Shows Precision, Recall, F1, and average overlap ratio for the selected files under current tolerances. Based on mir_eval.transcription."

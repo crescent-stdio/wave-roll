@@ -7,16 +7,18 @@ export const DEFAULT_PALETTE_ID = "vibrant";
 export const DEFAULT_PALETTES: ColorPalette[] = [
   {
     id: "vibrant",
-    name: "Vibrant",
+    name: "Vibrant (Accessible)",
+    // CVD-friendly, dark-enough hues that maintain >= 3:1 contrast
+    // against light surfaces (e.g., #f1f5f9) for non-text graphics.
     colors: [
-      0x4285f4, // Blue
-      0xea4335, // Red
-      0xfbbc04, // Yellow
-      0x34a853, // Green
-      0x9c27b0, // Purple
-      0xff6f00, // Orange
-      0x00bcd4, // Cyan
-      0xe91e63, // Pink
+      0x2563eb, // Blue-600
+      0xea580c, // Orange-600
+      0x15803d, // Green-700
+      0xb91c1c, // Red-700
+      0x7c3aed, // Violet-600
+      0x0f766e, // Teal-700
+      0x0369a1, // Cyan-700
+      0xa21caf, // Fuchsia-700
     ],
   },
   {

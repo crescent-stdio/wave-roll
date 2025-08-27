@@ -28,7 +28,8 @@ export function setupUI(
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: #f8f9fa;
+    background: var(--surface-alt);
+    color: var(--text-primary);
     padding: 12px;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);

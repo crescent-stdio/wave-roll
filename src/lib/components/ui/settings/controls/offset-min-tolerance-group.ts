@@ -19,7 +19,7 @@ export function createOffsetMinToleranceGroup(
   input.min = "0";
   input.step = "0.01";
   input.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid #ced4da;border-radius:6px;";
+    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
 
   // Set initial value from visual state (separate from evaluation tolerances)
   const visualState = deps.stateManager.getState().visual;

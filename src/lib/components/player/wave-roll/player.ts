@@ -27,6 +27,7 @@ import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
 import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
 import { formatTime } from "@/core/utils";
+import { ensureThemeStylesInjected } from "@/lib/components/ui/theme";
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
 import { setupUI } from "@/lib/components/ui/controls";
@@ -126,6 +127,9 @@ export class WaveRollPlayer {
 
     // Initialize configuration
     this.config = createDefaultConfig();
+
+    // Inject accessible theme variables and focus styles once
+    ensureThemeStylesInjected();
 
     // Create UI containers
     this.createUIContainers();
@@ -594,26 +598,24 @@ export class WaveRollPlayer {
   /**
    * Open settings modal
    */
-  private openSettingsModal(): void {
+  private async openSettingsModal(): Promise<void> {
     const deps = this.getUIDependencies();
     if (deps) {
-      const {
-        openSettingsModal,
-      } = require("@/lib/components/ui/settings/modal");
-      openSettingsModal(deps);
+      const mod = await import("@/lib/components/ui/settings/modal");
+      mod.openSettingsModal(deps);
     }
   }
 
   /**
    * Open evaluation results modal
    */
-  private openEvaluationResultsModal(): void {
+  private async openEvaluationResultsModal(): Promise<void> {
     const deps = this.getUIDependencies();
     if (deps) {
-      const {
-        openEvaluationResultsModal,
-      } = require("@/lib/components/ui/settings/modal/evaluation-results");
-      openEvaluationResultsModal(deps);
+      const mod = await import(
+        "@/lib/components/ui/settings/modal/evaluation-results"
+      );
+      mod.openEvaluationResultsModal(deps);
     }
   }
 

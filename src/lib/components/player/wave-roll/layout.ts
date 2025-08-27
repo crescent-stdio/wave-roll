@@ -1,4 +1,5 @@
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
+import { COLOR_PLAYHEAD } from "@/lib/core/constants";
 import { UIElements, UIComponentDependencies } from "@/lib/components/ui";
 import { WaveRollPlayerOptions } from "./types";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
@@ -25,7 +26,7 @@ export function setupLayout(
     height: 400px;
     min-height: 400px;
     margin-bottom: 12px;
-    background: #f8f9fa;
+    background: var(--surface-alt);
     border-radius: 8px;
     position: relative;
   `;
@@ -50,7 +51,8 @@ export function createDefaultConfig(): WaveRollPlayerOptions {
       width: 800,
       height: 400,
       backgroundColor: 0xf8f9fa,
-      playheadColor: 0xff0000,
+      // Use theme playhead color for better visibility
+      playheadColor: parseInt(COLOR_PLAYHEAD.replace("#", ""), 16),
       showPianoKeys: true,
       noteRange: { min: 21, max: 108 },
       minorTimeStep: 0.1,

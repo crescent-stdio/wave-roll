@@ -18,7 +18,7 @@ export function createZoomControlsUI(
       align-items: center;
       gap: 6px;
       height: 48px;
-      background: rgba(255, 255, 255, 0.8);
+      background: var(--panel-bg);
       padding: 4px 8px;
       border-radius: 8px;
     `;
@@ -34,13 +34,14 @@ export function createZoomControlsUI(
   zoomInput.style.cssText = `
       width: 56px;
       padding: 4px 6px;
-      border: 1px solid #ced4da;
+      border: 1px solid var(--ui-border);
       border-radius: 6px;
       font-size: 12px;
       text-align: center;
-      color: #20c997;
-      background: #ffffff;
+      color: var(--accent);
+      background: var(--surface);
     `;
+  zoomInput.classList.add("wr-focusable");
 
   const clampZoom = (v: number) => clamp(v, 0.1, 10);
 
@@ -81,7 +82,7 @@ export function createZoomControlsUI(
   suffix.style.cssText = `
       font-size: 12px;
       font-weight: 600;
-      color: #6c757d;
+      color: var(--text-muted);
     `;
 
   // Reset button

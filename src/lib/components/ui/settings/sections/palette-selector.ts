@@ -17,7 +17,7 @@ export function createPaletteSelectorSection(
   const title = document.createElement("h3");
   title.id = "palette-title";
   title.textContent = "Color Palette";
-  title.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;";
+  title.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
 
   // Container for palette buttons
   const paletteGrid = document.createElement("div");
@@ -31,7 +31,7 @@ export function createPaletteSelectorSection(
   // Collapsible details panel shown when a card is clicked
   const detailsRow = document.createElement("div");
   detailsRow.style.cssText =
-    "margin-top:12px;padding:8px;border:1px solid #ced4da;border-radius:6px;background:#f8f9fa;display:none;flex-wrap:wrap;gap:12px;align-items:center;";
+    "margin-top:12px;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface-alt);display:none;flex-wrap:wrap;gap:12px;align-items:center;";
 
   // No palette selected initially so we can programmatically expand one.
   let currentDetailsId: string = "";
@@ -62,7 +62,7 @@ export function createPaletteSelectorSection(
     // ----- Palette name -----
     const name = document.createElement("span");
     name.textContent = palette.name;
-    name.style.cssText = "font-size:14px;font-weight:600;color:#212529;";
+    name.style.cssText = "font-size:14px;font-weight:600;color:var(--text-primary);";
 
     // ----- Action buttons -----
     const btnBar = document.createElement("div");
@@ -74,7 +74,7 @@ export function createPaletteSelectorSection(
       el.title = title;
       el.innerHTML = svg;
       el.style.cssText =
-        "width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;color:#495057;";
+        "width:24px;height:24px;display:flex;align-items:center;justify-content:center;border:none;background:none;cursor:pointer;color:var(--text-muted);";
       el.onclick = (e) => {
         e.stopPropagation();
         handler();
@@ -137,8 +137,8 @@ export function createPaletteSelectorSection(
   palettes.forEach((palette) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.style.cssText = `display:flex;flex-direction:column;align-items:center;padding:6px 4px;border:1px solid #ced4da;border-radius:6px;cursor:pointer;background:${
-      palette.id === activePaletteId ? "#e9ecef" : "#fff"
+    btn.style.cssText = `display:flex;flex-direction:column;align-items:center;padding:6px 4px;border:1px solid var(--ui-border);border-radius:6px;cursor:pointer;background:${
+      palette.id === activePaletteId ? "var(--surface-alt)" : "var(--surface)"
     };transition:background 0.2s;`;
 
     // Swatch row
@@ -154,7 +154,7 @@ export function createPaletteSelectorSection(
 
     const label = document.createElement("span");
     label.textContent = palette.name;
-    label.style.cssText = "font-size:12px;color:#495057;";
+    label.style.cssText = "font-size:12px;color:var(--text-muted);";
 
     // ---- Actions toolbar (appears on hover/focus) ----
     const actionsBar = document.createElement("div");
@@ -178,9 +178,9 @@ export function createPaletteSelectorSection(
       }
       // Highlight selection visually
       [...paletteGrid.children].forEach(
-        (c) => c instanceof HTMLElement && (c.style.background = "#fff")
+        (c) => c instanceof HTMLElement && (c.style.background = "var(--surface)")
       );
-      btn.style.background = "#e9ecef";
+      btn.style.background = "var(--surface-alt)";
       renderDetails(palette); // Show details for the clicked palette
     };
 
@@ -196,15 +196,15 @@ export function createPaletteSelectorSection(
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.style.cssText =
-    "display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border:1px dashed #ced4da;border-radius:6px;cursor:pointer;background:#fff;gap:4px;transition:background 0.2s;";
+    "display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 4px;border:1px dashed var(--ui-border);border-radius:6px;cursor:pointer;background:var(--surface);gap:4px;transition:background 0.2s;";
 
   const plusSign = document.createElement("span");
   plusSign.textContent = "+";
-  plusSign.style.cssText = "font-size:20px;line-height:1;color:#495057;";
+  plusSign.style.cssText = "font-size:20px;line-height:1;color:var(--text-muted);";
 
   const plusLabel = document.createElement("span");
   plusLabel.textContent = "New Palette";
-  plusLabel.style.cssText = "font-size:12px;color:#495057;";
+  plusLabel.style.cssText = "font-size:12px;color:var(--text-muted);";
 
   addBtn.append(plusSign, plusLabel);
 

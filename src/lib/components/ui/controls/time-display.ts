@@ -18,7 +18,8 @@ export function createTimeDisplayUI(
       display: flex;
       align-items: center;
       gap: 12px;
-      background: white;
+      background: var(--surface);
+      color: var(--text-primary);
       padding: 14px 14px 10px 14px;
       border-radius: 8px;
       margin-top: 4px;
@@ -30,7 +31,7 @@ export function createTimeDisplayUI(
       font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
       font-size: 12px;
       font-weight: 500;
-      color: #495057;
+      color: var(--text-muted);
       min-width: 45px;
       text-align: right;
     `;
@@ -42,7 +43,7 @@ export function createTimeDisplayUI(
       flex: 1;
       position: relative;
       height: 6px;
-      background: #e9ecef;
+      background: var(--track-bg);
       border-radius: 8px;
       cursor: pointer;
     `;
@@ -58,13 +59,15 @@ export function createTimeDisplayUI(
       height: 100%;
       background: repeating-linear-gradient(
         -45deg,
-        rgba(241, 196, 15, 0.6) 0px,
-        rgba(241, 196, 15, 0.6) 4px,
-        rgba(243, 156, 18, 0.4) 4px,
-        rgba(243, 156, 18, 0.4) 8px
+        var(--loop-stripe-a) 0px,
+        var(--loop-stripe-a) 4px,
+        var(--loop-stripe-b) 4px,
+        var(--loop-stripe-b) 8px
       );
-      border-top: 2px solid rgba(241, 196, 15, 0.9);
-      border-bottom: 2px solid rgba(241, 196, 15, 0.9);
+      border-top: 2px solid var(--loop-stripe-border);
+      border-bottom: 2px solid var(--loop-stripe-border);
+      border-left: 2px solid var(--loop-stripe-border);
+      border-right: 2px solid var(--loop-stripe-border);
       display: none;
       pointer-events: none;
       z-index: 1;
@@ -137,7 +140,7 @@ export function createTimeDisplayUI(
   const progressBar = document.createElement("div");
   progressBar.style.cssText = `
       height: 100%;
-      background: linear-gradient(90deg, ${COLOR_PRIMARY}, #4dabf7);
+      background: linear-gradient(90deg, var(--accent-strong), var(--accent));
       border-radius: 8px;
       width: 0%;
     `;
@@ -152,7 +155,7 @@ export function createTimeDisplayUI(
       transform: translate(-50%, -50%);
       width: 16px;
       height: 16px;
-      background: ${COLOR_PRIMARY};
+      background: var(--accent-strong);
       border-radius: 50%;
       cursor: pointer;
       left: 0%;
@@ -166,7 +169,7 @@ export function createTimeDisplayUI(
       font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
       font-size: 12px;
       font-weight: 500;
-      color: #6c757d;
+      color: var(--text-muted);
       min-width: 45px;
     `;
   totalTimeLabel.textContent = "00:00";

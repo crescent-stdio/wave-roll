@@ -15,7 +15,7 @@ export function createPanControlsUI(
       align-items: center;
       gap: 8px;
       height: 48px;
-      background: rgba(255, 255, 255, 0.8);
+      background: var(--panel-bg);
       padding: 4px 12px;
       border-radius: 8px;
     `;
@@ -31,7 +31,7 @@ export function createPanControlsUI(
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
-      background: #e9ecef;
+      background: var(--track-bg);
       border-radius: 8px;
       outline: none;
       cursor: pointer;
@@ -42,7 +42,7 @@ export function createPanControlsUI(
   label.style.cssText = `
       font-size: 12px;
       font-weight: 600;
-      color: #6c757d;
+      color: var(--text-muted);
     `;
 
   // Sync pan value on input

@@ -31,7 +31,7 @@ export function createCoreLoopControls(
     gap: 6px;
     align-items: center;
     height: 48px;
-    background: rgba(255, 255, 255, 0.8);
+    background: var(--panel-bg);
     padding: 4px 12px;
     border-radius: 8px;
   `;
@@ -60,8 +60,8 @@ export function createCoreLoopControls(
       padding: 0;
       border: none;
       border-radius: 8px;
-      background: ${isActive ? "rgba(0, 123, 255, 0.1)" : "transparent"};
-      color: ${isActive ? COLOR_PRIMARY : "#495057"};
+      background: ${isActive ? "rgba(37, 99, 235, 0.12)" : "transparent"};
+      color: ${isActive ? "var(--accent)" : "var(--text-muted)"};
       cursor: pointer;
       font-size: 13px;
       font-weight: 600;
@@ -70,6 +70,7 @@ export function createCoreLoopControls(
       justify-content: center;
       transition: all 0.15s ease;
     `;
+    btn.classList.add("wr-focusable");
     attachHoverBackground(btn);
     if (isActive) btn.dataset.active = "true";
     return btn;
@@ -88,22 +89,25 @@ export function createCoreLoopControls(
     border: none;
     border-radius: 8px;
     background: transparent;
-    color: #495057;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.15s ease;
   `;
+  btnLoopRestart.classList.add("wr-focusable");
   const setLoopRestartUI = () => {
     if (isLoopRestartActive) {
       btnLoopRestart.dataset.active = "true";
-      btnLoopRestart.style.background = "rgba(0, 123, 255, 0.1)";
-      btnLoopRestart.style.color = COLOR_PRIMARY;
+      btnLoopRestart.style.background = "rgba(37, 99, 235, 0.12)";
+      btnLoopRestart.style.color = "var(--accent)";
+      btnLoopRestart.setAttribute("aria-pressed", "true");
     } else {
       delete btnLoopRestart.dataset.active;
       btnLoopRestart.style.background = "transparent";
-      btnLoopRestart.style.color = "#495057";
+      btnLoopRestart.style.color = "var(--text-muted)";
+      btnLoopRestart.setAttribute("aria-pressed", "false");
     }
   };
   attachHoverBackground(btnLoopRestart);
@@ -139,14 +143,28 @@ export function createCoreLoopControls(
     if (pointB !== null && pointA !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
     // Style
     btnA.dataset.active = "true";
+    btnA.setAttribute("aria-pressed", "true");
     btnA.style.background = COLOR_A;
-    btnA.style.color = "white";
+    // Dynamic text color for contrast on sky/rose etc.
+    const isLight = (() => {
+      const hex = COLOR_A.replace("#", "");
+      const r = parseInt(hex.substring(0, 2), 16) / 255;
+      const g = parseInt(hex.substring(2, 4), 16) / 255;
+      const b = parseInt(hex.substring(4, 6), 16) / 255;
+      const srgb = [r, g, b].map((v) =>
+        v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+      );
+      const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+      return L > 0.5;
+    })();
+    btnA.style.color = isLight ? "black" : "white";
     btnA.style.fontWeight = "800";
     // Reset B if undefined
     if (pointB === null) {
       btnB.dataset.active = "";
+      btnB.setAttribute("aria-pressed", "false");
       btnB.style.background = "transparent";
-      btnB.style.color = "#495057";
+      btnB.style.color = "var(--text-muted)";
     }
     updateSeekBar();
     if (pointA !== null) {
@@ -167,8 +185,20 @@ export function createCoreLoopControls(
       if (pointA !== null && pointB < pointA) [pointA, pointB] = [pointB, pointA];
     }
     btnB.dataset.active = "true";
+    btnB.setAttribute("aria-pressed", "true");
     btnB.style.background = COLOR_B;
-    btnB.style.color = "white";
+    const isLightB = (() => {
+      const hex = COLOR_B.replace("#", "");
+      const r = parseInt(hex.substring(0, 2), 16) / 255;
+      const g = parseInt(hex.substring(2, 4), 16) / 255;
+      const b = parseInt(hex.substring(4, 6), 16) / 255;
+      const srgb = [r, g, b].map((v) =>
+        v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+      );
+      const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+      return L > 0.5;
+    })();
+    btnB.style.color = isLightB ? "black" : "white";
     btnB.style.fontWeight = "800";
     updateSeekBar();
   });
@@ -181,10 +211,12 @@ export function createCoreLoopControls(
     pointB = null;
     btnA.dataset.active = "";
     btnB.dataset.active = "";
+    btnA.setAttribute("aria-pressed", "false");
+    btnB.setAttribute("aria-pressed", "false");
     btnA.style.background = "transparent";
-    btnA.style.color = "#495057";
+    btnA.style.color = "var(--text-muted)";
     btnB.style.background = "transparent";
-    btnB.style.color = "#495057";
+    btnB.style.color = "var(--text-muted)";
     audioPlayer?.setLoopPoints(null, null);
     pianoRoll?.setLoopWindow?.(null, null);
     updateSeekBar();
