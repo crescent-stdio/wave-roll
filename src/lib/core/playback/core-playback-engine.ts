@@ -375,6 +375,20 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   }
   
   /**
+   * Set volume for a specific MIDI file
+   */
+  public setFileVolume(fileId: string, volume: number): void {
+    (this.audioPlayer as any)?.setFileVolume?.(fileId, volume);
+  }
+
+  /**
+   * Set volume for a specific WAV file
+   */
+  public setWavVolume(fileId: string, volume: number): void {
+    (this.audioPlayer as any)?.setWavVolume?.(fileId, volume);
+  }
+
+  /**
    * Refresh WAV/audio players from registry (for mute state updates)
    */
   public refreshAudioPlayers(): void {

@@ -27,3 +27,8 @@ export {
   type AudioPlayerState,
   type LoopPoints,
 } from "./audio-controller";
+
+export {
+  SilenceDetector,
+  type SilenceDetectorOptions,
+} from "./silence-detector";

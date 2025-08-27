@@ -53,12 +53,13 @@ export class UIUpdater {
         openSettingsModal: () => this.openSettingsModal(uiDeps),
         openEvaluationResultsModal: () => this.openEvaluationResultsModal(uiDeps),
         formatTime: (seconds: number) => formatTime(seconds),
+        silenceDetector: null,
       };
 
       // After creation, convert seconds -> % once we know duration.
       const durationSec = playbackState.duration;
       if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
-        uiDeps.loopPoints = {
+        uiDeps!.loopPoints = {
           a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
           b: loopPoints.b !== null ? (loopPoints.b / durationSec) * 100 : null,
         };

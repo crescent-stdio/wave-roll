@@ -434,8 +434,6 @@ export class FileToggleManager {
       dependencies.midiManager.toggleSustainVisibility(file.id);
     });
 
-    // Removed old mute button - now handled by volume control
-
     // Stereo labels for clarity
     const labelL = document.createElement("span");
     labelL.textContent = "L";
@@ -508,17 +506,22 @@ export class FileToggleManager {
         if (file.isMuted !== shouldMute) {
           dependencies.midiManager.toggleMute(file.id);
         }
-        
-        // Apply volume to the audio engine
+
+        // Apply volume to the audio engine - this will trigger auto-pause if needed
         const playerAny = dependencies.audioPlayer as any;
         if (playerAny?.setFileVolume) {
           playerAny.setFileVolume(file.id, volume);
         }
+        
+        // Also explicitly call setFileMute to ensure mute state is properly set
+        if (playerAny?.setFileMute) {
+          playerAny.setFileMute(file.id, shouldMute);
+        }
 
-        // Update silence detector and auto-pause if all sources are silent
+        // Also update silence detector for tracking
         dependencies.silenceDetector?.setFileVolume?.(file.id, volume);
-        dependencies.silenceDetector?.checkSilence?.(dependencies.midiManager);
-      }
+        dependencies.silenceDetector?.setFileMute?.(file.id, shouldMute);
+      },
     });
 
     // order: color - name - pin - est - vis - sustain - volume - pan
@@ -609,22 +612,25 @@ export class FileToggleManager {
             api.toggleMute?.(audio.id);
           }
         }
-        
-        // Apply volume to the audio player
+
+        // Apply volume to the audio player - this will trigger auto-pause if needed
         const playerAny = dependencies.audioPlayer as any;
         if (playerAny?.setWavVolume) {
           playerAny.setWavVolume(audio.id, volume);
         }
-        
-        // Refresh audio players
-        if (dependencies.audioPlayer && (dependencies.audioPlayer as any).refreshAudioPlayers) {
+
+        // Refresh audio players - this should handle mute state and auto-pause
+        if (
+          dependencies.audioPlayer &&
+          (dependencies.audioPlayer as any).refreshAudioPlayers
+        ) {
           (dependencies.audioPlayer as any).refreshAudioPlayers();
         }
 
-        // Update silence detector and auto-pause if all sources are silent
-        dependencies.silenceDetector?.setFileVolume?.(audio.id, volume);
-        dependencies.silenceDetector?.checkSilence?.(dependencies.midiManager);
-      }
+        // Also update silence detector for tracking
+        dependencies.silenceDetector?.setWavVolume?.(audio.id, volume);
+        dependencies.silenceDetector?.setWavMute?.(audio.id, shouldMute);
+      },
     });
 
     // Pan slider

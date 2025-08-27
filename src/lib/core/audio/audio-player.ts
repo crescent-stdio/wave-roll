@@ -134,6 +134,7 @@ export class AudioPlayer implements AudioPlayerContainer {
   private notes: NoteData[];
   private pianoRoll: PianoRollSync;
   public options: Required<PlayerOptions>;
+  private midiManager: any;
 
   // Tone.js components
   /** Legacy single sampler (used for single-file players) */
@@ -504,7 +505,17 @@ export class AudioPlayer implements AudioPlayerContainer {
         const cachedPan = (this as any).state?.pan ?? 0;
         panner.pan.value = cachedPan;
 
-        this.trackSamplers.set(fid, { sampler, panner, muted: false });
+        // Get initial muted state from MIDI manager
+        let initialMuted = false;
+        if (this.midiManager) {
+          const state = this.midiManager.getState();
+          const file = state.files.find((f: any) => f.id === fid);
+          if (file) {
+            initialMuted = file.isMuted || false;
+          }
+        }
+
+        this.trackSamplers.set(fid, { sampler, panner, muted: initialMuted });
       }
     });
 
@@ -1465,6 +1476,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     this.audioPlayers.forEach(({ player }) => {
       player.volume.value = db;
     });
+
+    // Auto-pause if everything became silent
+    this.maybeAutoPauseIfSilent();
   }
 
   /**
@@ -1793,6 +1807,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     const track = this.trackSamplers.get(fileId)!;
     // Set mute flag to control playback without recreating audio
     track.muted = mute;
+
+    // Auto-pause if all sources are now silent
+    this.maybeAutoPauseIfSilent();
   }
   
   /**
@@ -1800,6 +1817,8 @@ export class AudioPlayer implements AudioPlayerContainer {
    */
   public refreshAudioPlayers(): void {
     this.setupAudioPlayersFromRegistry();
+    // Registry changes (e.g., WAV mute) may turn all sources silent
+    this.maybeAutoPauseIfSilent();
   }
   
   /**
@@ -1818,6 +1837,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     
     // Update muted flag based on volume
     track.muted = clampedVolume === 0;
+
+    // Auto-pause if all sources are now silent
+    this.maybeAutoPauseIfSilent();
   }
   
   /**
@@ -1847,6 +1869,52 @@ export class AudioPlayer implements AudioPlayerContainer {
       }
     } catch {
       // Registry not available
+    }
+
+    // Auto-pause if all sources are now silent
+    this.maybeAutoPauseIfSilent();
+  }
+
+  /**
+   * Determine whether all audio sources (MIDI tracks and WAV players)
+   * are effectively silent given current per-source mutes/volumes and master volume.
+   */
+  private areAllSourcesSilent(): boolean {
+    // Master volume at 0 => everything silent
+    if (this.state.volume === 0) {
+      return true;
+    }
+
+    // If there are no sources at all, do not treat as silent for auto-pause purposes
+    const hasAnySource = this.trackSamplers.size > 0 || this.audioPlayers.size > 0;
+    if (!hasAnySource) {
+      return false;
+    }
+
+    // Any unmuted MIDI track with non-zero volume?
+    const SILENT_DB = -80;
+    const anyMidiAudible = Array.from(this.trackSamplers.values()).some(
+      (t) => !t.muted && t.sampler.volume.value > SILENT_DB
+    );
+
+    // Any WAV player effectively audible? Use a conservative dB threshold
+    // because Tone.js stores volume in dB. ~-80 dB is effectively silent.
+    const anyWavAudible = Array.from(this.audioPlayers.values()).some(
+      ({ player }) => player.volume.value > SILENT_DB
+    );
+
+    return !(anyMidiAudible || anyWavAudible);
+  }
+
+  /**
+   * Pause playback if currently playing and all sources are silent.
+   */
+  private maybeAutoPauseIfSilent(): void {
+    if (!this.state.isPlaying) {
+      return;
+    }
+    if (this.areAllSourcesSilent()) {
+      this.pause();
     }
   }
 

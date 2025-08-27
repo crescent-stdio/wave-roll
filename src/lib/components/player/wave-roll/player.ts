@@ -49,7 +49,7 @@ import { VisualizationHandler } from "./visualization-handler";
 import { UIUpdater } from "./ui-updater";
 import { KeyboardHandler } from "./keyboard-handler";
 import { FileLoader } from "./file-loader";
-import { SilenceDetector } from "@/core/playback/silence-detector";
+import { SilenceDetector } from "@/core/playback";
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -109,7 +109,7 @@ export class WaveRollPlayer {
   private uiUpdater!: UIUpdater;
   private keyboardHandler!: KeyboardHandler;
   private fileLoader!: FileLoader;
-  private silenceDetector: any; // SilenceDetector instance
+  private silenceDetector!: SilenceDetector;
 
   constructor(
     container: HTMLElement,
@@ -204,6 +204,8 @@ export class WaveRollPlayer {
         if (this.corePlaybackEngine?.getState().isPlaying) {
           console.log("Auto-pausing: all sources are silent");
           this.corePlaybackEngine.pause();
+          // Update play button UI to reflect paused state
+          this.updatePlayButton();
         }
       },
       onSoundDetected: () => {
@@ -256,8 +258,7 @@ export class WaveRollPlayer {
       
       // Check if all sources are silent and auto-pause if needed
       if (this.silenceDetector) {
-        const isSilent = this.silenceDetector.checkSilence(this.midiManager);
-        this.silenceDetector.setPlayingState(this.corePlaybackEngine?.getState().isPlaying || false);
+        this.silenceDetector.checkSilence(this.midiManager);
       }
       
       this.updateVisualization();
@@ -511,6 +512,11 @@ export class WaveRollPlayer {
         this.updateVisualization();
         this.updateSidebar();
         this.updateFileToggleSection();
+        
+        // Initialize silence detector with all loaded files
+        if (this.silenceDetector) {
+          this.silenceDetector.checkSilence(this.midiManager);
+        }
       },
     });
   }

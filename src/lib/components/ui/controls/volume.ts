@@ -75,11 +75,32 @@ export function createVolumeControlUI(
     `;
 
   // Volume control logic
+  // Keep track of the last non-zero volume so double-click can restore it
+  let lastNonZeroVolume = 1.0;
+
   const updateVolume = (percent: number) => {
     const vol = Math.max(0, Math.min(100, percent)) / 100;
+    // Apply to audio engine
     dependencies.audioPlayer?.setVolume(vol);
-    slider.value = (vol * 100).toString();
-    input.value = (vol * 100).toString();
+
+    // Reflect in UI controls
+    const percentStr = (vol * 100).toString();
+    slider.value = percentStr;
+    input.value = percentStr;
+
+    // Update icon visual state
+    iconBtn.innerHTML = vol === 0 ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
+
+    // Remember last audible volume for unmute restoration
+    if (vol > 0) {
+      lastNonZeroVolume = vol;
+    }
+
+    // Sync master volume to SilenceDetector for auto-pause
+    const silenceDetector = (dependencies as any).silenceDetector;
+    if (silenceDetector?.setMasterVolume) {
+      silenceDetector.setMasterVolume(vol);
+    }
   };
 
   slider.addEventListener("input", () => {
@@ -88,6 +109,22 @@ export function createVolumeControlUI(
 
   input.addEventListener("input", () => {
     updateVolume(parseFloat(input.value));
+  });
+
+  // Double-click on the volume icon toggles mute <-> unmute
+  // - Mute: set master volume to 0
+  // - Unmute: restore the last non-zero master volume
+  iconBtn.addEventListener("dblclick", () => {
+    const current = Math.max(0, Math.min(100, parseFloat(slider.value))) / 100;
+    if (current === 0) {
+      updateVolume(lastNonZeroVolume * 100);
+    } else {
+      // Preserve current as last non-zero before muting
+      if (current > 0) {
+        lastNonZeroVolume = current;
+      }
+      updateVolume(0);
+    }
   });
 
   container.appendChild(iconBtn);
