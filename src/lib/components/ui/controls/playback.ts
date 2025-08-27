@@ -29,6 +29,7 @@ export function createPlaybackControlsUI(
     border-radius: 8px;
     position: relative;
     z-index: 10;
+    box-shadow: var(--shadow-sm);
   `;
 
   /* ---------------- play / pause ---------------- */

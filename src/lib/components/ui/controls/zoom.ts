@@ -21,6 +21,7 @@ export function createZoomControlsUI(
       background: var(--panel-bg);
       padding: 4px 8px;
       border-radius: 8px;
+      box-shadow: var(--shadow-sm);
     `;
 
   // Numeric input for zoom factor

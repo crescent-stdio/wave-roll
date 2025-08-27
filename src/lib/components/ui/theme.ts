@@ -42,6 +42,10 @@ export function ensureThemeStylesInjected(): void {
       --loop-stripe-a: rgba(234, 179, 8, 0.8); /* amber-500 @ 0.8 */
       --loop-stripe-b: rgba(217, 119, 6, 0.6);  /* orange-600 @ 0.6 */
       --loop-stripe-border: rgba(234, 179, 8, 0.95);
+
+      /* Shadows */
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 10px rgba(0,0,0,0.08);
     }
 
     /* Focus-visible: thick and obvious for keyboard users */

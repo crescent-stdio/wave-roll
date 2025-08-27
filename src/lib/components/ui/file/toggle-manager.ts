@@ -17,7 +17,7 @@ export class FileToggleManager {
     fileToggleContainer.setAttribute("data-role", "file-toggle");
     fileToggleContainer.style.cssText = `
       background: var(--surface-alt);
-      padding: 12px;
+      padding: 12px 0;
       border-radius: 8px;
       margin-top: 12px;
     `;
@@ -260,13 +260,59 @@ export class FileToggleManager {
       border: 1px solid var(--ui-border);
     `;
 
-    // Color indicator
+    // Color indicator matching piano roll onset markers
     const colorIndicator = document.createElement("div");
+    const fileColor = `#${file.color.toString(16).padStart(6, "0")}`;
+
+    // Hash-based shape selection matching piano roll logic
+    let hash = 0;
+    for (let i = 0; i < file.id.length; i++) {
+      hash = (hash * 31 + file.id.charCodeAt(i)) >>> 0;
+    }
+    const shapes = ["circle", "triangle", "diamond", "square"];
+    const shape = shapes[hash % shapes.length];
+
+    // Create SVG for the shape with white fill and colored border
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+    svg.setAttribute("width", "12");
+    svg.setAttribute("height", "12");
+    svg.setAttribute("viewBox", "0 0 12 12");
+
+    let shapeElement;
+    if (shape === "circle") {
+      shapeElement = document.createElementNS(svgNS, "circle");
+      shapeElement.setAttribute("cx", "6");
+      shapeElement.setAttribute("cy", "6");
+      shapeElement.setAttribute("r", "4");
+    } else if (shape === "triangle") {
+      shapeElement = document.createElementNS(svgNS, "polygon");
+      shapeElement.setAttribute("points", "6,2 10,10 2,10");
+    } else if (shape === "diamond") {
+      shapeElement = document.createElementNS(svgNS, "polygon");
+      shapeElement.setAttribute("points", "6,1 11,6 6,11 1,6");
+    } else {
+      // square
+      shapeElement = document.createElementNS(svgNS, "rect");
+      shapeElement.setAttribute("x", "2");
+      shapeElement.setAttribute("y", "2");
+      shapeElement.setAttribute("width", "8");
+      shapeElement.setAttribute("height", "8");
+    }
+
+    shapeElement.setAttribute("fill", "#ffffff");
+    shapeElement.setAttribute("stroke", fileColor);
+    shapeElement.setAttribute("stroke-width", "2");
+    svg.appendChild(shapeElement);
+
     colorIndicator.style.cssText = `
       width: 12px;
       height: 12px;
-      background: #${file.color.toString(16).padStart(6, "0")};
+      display: flex;
+      align-items: center;
+      justify-content: center;
     `;
+    colorIndicator.appendChild(svg);
 
     // File name
     const fileName = document.createElement("span");
@@ -284,7 +330,9 @@ export class FileToggleManager {
       "Toggle visibility",
       { size: 24 }
     );
-    visBtn.style.color = file.isPianoRollVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
+    visBtn.style.color = file.isPianoRollVisible
+      ? "var(--text-muted)"
+      : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
 
@@ -512,7 +560,7 @@ export class FileToggleManager {
         if (playerAny?.setFileVolume) {
           playerAny.setFileVolume(file.id, volume);
         }
-        
+
         // Also explicitly call setFileMute to ensure mute state is properly set
         if (playerAny?.setFileMute) {
           playerAny.setFileMute(file.id, shouldMute);
@@ -562,11 +610,15 @@ export class FileToggleManager {
       border: 1px solid var(--ui-border);
     `;
 
+    // Simple square color chip for WAV
     const colorIndicator = document.createElement("div");
     colorIndicator.style.cssText = `
       width: 12px;
       height: 12px;
+      border-radius: 2px;
+      border: 1px solid var(--ui-border);
       background: #${audio.color.toString(16).padStart(6, "0")};
+      flex-shrink: 0;
     `;
 
     // Read-only name (editing is available in Files & Palette modal)
@@ -593,10 +645,11 @@ export class FileToggleManager {
       "Toggle waveform visibility",
       { size: 24 }
     );
-    visBtn.style.color = audio.isVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
+    visBtn.style.color = audio.isVisible
+      ? "var(--text-muted)"
+      : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
-
 
     // Add volume control for WAV with integrated mute functionality
     const volumeControl = new FileVolumeControl({

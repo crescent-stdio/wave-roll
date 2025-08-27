@@ -114,12 +114,12 @@ export function createFileList(
       };
       const shapeSvg = (kind: string, color: string) => {
         if (kind === "circle")
-          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"5\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"5\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
         if (kind === "triangle")
-          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 3 L13 13 L3 13 Z\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 3 L13 13 L3 13 Z\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
         if (kind === "diamond")
-          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 2 L14 8 L8 14 L2 8 Z\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
-        return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"10\" height=\"10\" fill=\"#fff\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 2 L14 8 L8 14 L2 8 Z\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
+        return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"10\" height=\"10\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
       };
       const currentShape = shapeKindForId(file.id);
       shapeHost.innerHTML = shapeSvg(currentShape, initialHex);

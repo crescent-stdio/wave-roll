@@ -23,6 +23,7 @@ export function createTimeDisplayUI(
       padding: 14px 14px 10px 14px;
       border-radius: 8px;
       margin-top: 4px;
+      box-shadow: var(--shadow-sm);
     `;
 
   // Current time label

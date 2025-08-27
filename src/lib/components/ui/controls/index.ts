@@ -32,7 +32,7 @@ export function setupUI(
     color: var(--text-primary);
     padding: 12px;
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-sm);
   `;
 
   // First row: playback / loop / misc controls

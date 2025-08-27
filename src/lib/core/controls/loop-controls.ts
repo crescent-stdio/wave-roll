@@ -34,6 +34,7 @@ export function createCoreLoopControls(
     background: var(--panel-bg);
     padding: 4px 12px;
     border-radius: 8px;
+    box-shadow: var(--shadow-sm);
   `;
 
   /* ------------------------------------------------------------------
@@ -159,18 +160,22 @@ export function createCoreLoopControls(
     })();
     btnA.style.color = isLight ? "black" : "white";
     btnA.style.fontWeight = "800";
+    btnA.style.border = "none";  // Remove border when active
     // Reset B if undefined
     if (pointB === null) {
       btnB.dataset.active = "";
       btnB.setAttribute("aria-pressed", "false");
       btnB.style.background = "transparent";
       btnB.style.color = "var(--text-muted)";
+      btnB.style.border = `2px solid ${COLOR_B}`;  // Show B border when inactive
     }
     updateSeekBar();
     if (pointA !== null) {
       pianoRoll?.setTime?.(pointA);
     }
   });
+  // Add default border to A button
+  btnA.style.border = `2px solid ${COLOR_A}`;
 
   /* ------------------------------------------------------------------
    * B button
@@ -200,8 +205,11 @@ export function createCoreLoopControls(
     })();
     btnB.style.color = isLightB ? "black" : "white";
     btnB.style.fontWeight = "800";
+    btnB.style.border = "none";  // Remove border when active
     updateSeekBar();
   });
+  // Add default border to B button
+  btnB.style.border = `2px solid ${COLOR_B}`;
 
   /* ------------------------------------------------------------------
    * Clear button
@@ -215,8 +223,10 @@ export function createCoreLoopControls(
     btnB.setAttribute("aria-pressed", "false");
     btnA.style.background = "transparent";
     btnA.style.color = "var(--text-muted)";
+    btnA.style.border = `2px solid ${COLOR_A}`;  // Restore A border
     btnB.style.background = "transparent";
     btnB.style.color = "var(--text-muted)";
+    btnB.style.border = `2px solid ${COLOR_B}`;  // Restore B border
     audioPlayer?.setLoopPoints(null, null);
     pianoRoll?.setLoopWindow?.(null, null);
     updateSeekBar();

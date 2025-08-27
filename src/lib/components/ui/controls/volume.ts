@@ -19,6 +19,7 @@ export function createVolumeControlUI(
       background: var(--panel-bg);
       padding: 4px 12px;
       border-radius: 8px;
+      box-shadow: var(--shadow-sm);
     `;
 
   // Volume icon button
