@@ -308,7 +308,7 @@ export class AudioPlayer implements AudioPlayerContainer {
         const resumeVisual =
           (this.pausedTime * this.state.tempo) / this.originalTempo;
         console.log("[AP.play] WAV resume", { resumeVisual });
-        this.wavPlayerManager.startActiveAudioAt(resumeVisual);
+        this.wavPlayerManager.startActiveAudioAt(resumeVisual, "+0.01");
       } else {
         // Start from beginning (or from A if loop is set)
         const resumeVisual =
@@ -345,7 +345,7 @@ export class AudioPlayer implements AudioPlayerContainer {
 
         // Start WAV audio
         console.log("[AP.play] WAV start", { resumeVisual });
-        this.wavPlayerManager.startActiveAudioAt(resumeVisual);
+        this.wavPlayerManager.startActiveAudioAt(resumeVisual, "+0.01");
       }
 
       // Start the Transport
@@ -565,7 +565,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       if (this.wavPlayerManager.isAudioActive()) {
         this.wavPlayerManager.stopAllAudioPlayers();
         console.log("[AP.seek] WAV start", { offset: clampedVisual });
-        this.wavPlayerManager.startActiveAudioAt(clampedVisual);
+        this.wavPlayerManager.startActiveAudioAt(clampedVisual, "+0.01");
       }
     } else {
       Tone.getTransport().seconds = transportSeconds;
@@ -610,6 +610,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     );
     const oldTempo = this.state.tempo;
     this.state.tempo = clampedTempo;
+    // Keep playbackRate in sync with tempo relative to originalTempo
+    const ratePct = (clampedTempo / this.originalTempo) * 100;
+    this.state.playbackRate = ratePct;
 
     if (this.state.isPlaying) {
       this.operationState.isSeeking = true;
@@ -620,16 +623,38 @@ export class AudioPlayer implements AudioPlayerContainer {
       const newTransportSeconds =
         (currentVisualTime * this.originalTempo) / clampedTempo;
 
-      if (this.samplerManager.getPart()) {
-        this.samplerManager.getPart()!.cancel();
+      // Rebuild Part to reflect new tempo mapping (visual -> transport)
+      this.samplerManager.stopPart();
+      this.samplerManager.setupNotePart(
+        this.loopManager.loopStartVisual,
+        this.loopManager.loopEndVisual,
+        {
+          repeat: this.options.repeat,
+          duration: this.state.duration,
+          tempo: clampedTempo,
+          originalTempo: this.originalTempo,
+        }
+      );
 
-        Tone.getTransport().schedule((time) => {
-          this.samplerManager.startPart(time, newTransportSeconds);
-          this.operationState.isSeeking = false;
-        }, Tone.now());
-      }
-
+      // Move transport and start Part at the corresponding offset (aligned absolute start)
+      const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
+      const startAt = Tone.now() + RESTART_DELAY;
       Tone.getTransport().seconds = newTransportSeconds;
+      this.samplerManager.startPart(startAt, newTransportSeconds);
+
+      // Match WAV speed to new tempo (ratio to original)
+      try {
+        this.wavPlayerManager.setPlaybackRate(ratePct);
+      } catch {}
+
+      // While playing, realign WAV at the precise visual position derived from transport
+      try {
+        const visualForWav = this.transportSyncManager.transportToVisualTime(
+          Tone.getTransport().seconds
+        );
+        this.wavPlayerManager.stopAllAudioPlayers();
+        this.wavPlayerManager.startActiveAudioAt(visualForWav, startAt);
+      } catch {}
     } else {
       Tone.getTransport().bpm.value = clampedTempo;
 
@@ -639,6 +664,11 @@ export class AudioPlayer implements AudioPlayerContainer {
         this.pausedTime =
           (currentVisualTime * this.originalTempo) / clampedTempo;
       }
+
+      // Not playing: still ensure WAV speed matches new tempo so next start is aligned
+      try {
+        this.wavPlayerManager.setPlaybackRate(ratePct);
+      } catch {}
     }
   }
 
@@ -667,7 +697,7 @@ export class AudioPlayer implements AudioPlayerContainer {
     // Update WAV playback rate
     this.wavPlayerManager.setPlaybackRate(clampedRate);
 
-    // Update Transport BPM
+    // Update Transport BPM (ties visual tempo to playback rate)
     const wasPlaying = this.state.isPlaying;
     const transportTime = wasPlaying
       ? Tone.getTransport().seconds
@@ -679,12 +709,40 @@ export class AudioPlayer implements AudioPlayerContainer {
       Tone.getTransport().seconds = transportTime;
     }
 
+    // Rebuild Part to reflect new tempo mapping and keep scheduling consistent
+    this.samplerManager.stopPart();
+    this.samplerManager.setupNotePart(
+      this.loopManager.loopStartVisual,
+      this.loopManager.loopEndVisual,
+      {
+        repeat: this.options.repeat,
+        duration: this.state.duration,
+        tempo: this.state.tempo,
+        originalTempo: this.originalTempo,
+      }
+    );
+    if (wasPlaying) {
+      this.samplerManager.startPart("+0.01", transportTime);
+    }
+
     // Update visual
     const visualTime = this.transportSyncManager.transportToVisualTime(
       Tone.getTransport().seconds
     );
     this.state.currentTime = visualTime;
     this.pianoRoll.setTime(visualTime);
+
+    // While playing, realign WAV at the current position after playback-rate change
+    if (wasPlaying) {
+      try {
+        const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
+        const startAt = Tone.now() + RESTART_DELAY;
+        this.wavPlayerManager.stopAllAudioPlayers();
+        this.wavPlayerManager.startActiveAudioAt(visualTime, startAt);
+      } catch {}
+    }
+
+    // Avoid double-start: stop/start already handled just above when playing
   }
 
   /**
@@ -949,6 +1007,11 @@ export class AudioPlayer implements AudioPlayerContainer {
       isPlaying: this.state.isPlaying,
       currentTime: this.state.currentTime,
     });
+    // Auto-resume playback on WAV unmute (Requirement A)
+    if (volume > 0 && !this.state.isPlaying) {
+      this._silencePauseGuardUntilMs = Date.now() + 500;
+      this.play().catch(() => {});
+    }
     this.maybeAutoPauseIfSilent();
   }
 

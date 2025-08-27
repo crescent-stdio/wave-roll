@@ -1243,7 +1243,8 @@ export class AudioPlayer implements AudioPlayerContainer {
     }
 
     if (wasPlaying) {
-      // A-B 창이 있으면 그 범위로, 없으면 전체로
+      // If an A-B loop window is set, rebuild the Part for that window;
+      // otherwise rebuild for the entire piece
       if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
         this.setupNotePart(this._loopStartVisual, this._loopEndVisual);
       } else {

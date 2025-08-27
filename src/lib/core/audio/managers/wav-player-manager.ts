@@ -11,6 +11,10 @@ export interface AudioPlayerEntry {
   panner: Tone.Panner;
   url: string;
   muted?: boolean;
+  /** Token to invalidate stale async starts (e.g., overlapping loads) */
+  startToken?: number;
+  /** Pending timeout id for a scheduled start (if any) */
+  scheduledTimer?: number | null;
 }
 
 export class WavPlayerManager {
@@ -33,6 +37,14 @@ export class WavPlayerManager {
       // Clean up players for removed items
       this.audioPlayers.forEach((entry, id) => {
         if (!items.find((it) => it.id === id)) {
+          try {
+            // Invalidate pending starts and clear timers
+            entry.startToken = (entry.startToken || 0) + 1;
+            if (entry.scheduledTimer) {
+              clearTimeout(entry.scheduledTimer);
+              entry.scheduledTimer = null;
+            }
+          } catch {}
           entry.player.dispose();
           entry.panner.dispose();
           this.audioPlayers.delete(id);
@@ -62,6 +74,13 @@ export class WavPlayerManager {
                   if (this.audioPlayers.has(it.id)) {
                     const entry = this.audioPlayers.get(it.id);
                     if (entry) {
+                      try {
+                        entry.startToken = (entry.startToken || 0) + 1;
+                        if (entry.scheduledTimer) {
+                          clearTimeout(entry.scheduledTimer);
+                          entry.scheduledTimer = null;
+                        }
+                      } catch {}
                       entry.player.dispose();
                       entry.panner.dispose();
                       this.audioPlayers.delete(it.id);
@@ -82,7 +101,7 @@ export class WavPlayerManager {
             if (state?.playbackRate) {
               player.playbackRate = state.playbackRate / 100;
             }
-            this.audioPlayers.set(it.id, { player, panner, url: it.url });
+            this.audioPlayers.set(it.id, { player, panner, url: it.url, startToken: 0, scheduledTimer: null });
           } catch (error) {
             console.error(`Failed to create audio player for ${it.id}:`, error);
           }
@@ -109,6 +128,8 @@ export class WavPlayerManager {
             if (state?.playbackRate) {
               entry.player.playbackRate = state.playbackRate / 100;
             }
+            entry.startToken = 0;
+            entry.scheduledTimer = null;
           }
         }
       }
@@ -134,7 +155,17 @@ export class WavPlayerManager {
    * Stop all audio players
    */
   stopAllAudioPlayers(): void {
-    this.audioPlayers.forEach(({ player }) => {
+    this.audioPlayers.forEach((entry) => {
+      const { player } = entry;
+      // Invalidate any pending scheduled start and clear timer
+      try {
+        entry.startToken = (entry.startToken || 0) + 1;
+        if (entry.scheduledTimer) {
+          clearTimeout(entry.scheduledTimer);
+          entry.scheduledTimer = null;
+        }
+      } catch {}
+      // Stop current playback immediately
       try {
         player.stop("+0");
       } catch {}
@@ -144,7 +175,7 @@ export class WavPlayerManager {
   /**
    * Start all unmuted WAV files at specified offset
    */
-  startActiveAudioAt(offsetSeconds: number): void {
+  startActiveAudioAt(offsetSeconds: number, startAt: string | number = "+0"): void {
     // Start ALL unmuted WAV files, not just the "active" one
     const api = (window as any)._waveRollAudio;
     if (!api?.getFiles) return;
@@ -174,15 +205,30 @@ export class WavPlayerManager {
         try {
           const maybePromise = (entry.player as any).load?.(entry.url);
           if (maybePromise && typeof maybePromise.then === "function") {
+            // Bump token to invalidate any previous pending starts
+            entry.startToken = (entry.startToken || 0) + 1;
+            const token = entry.startToken;
             maybePromise
               .then(() => {
                 try {
                   entry.player.stop("+0");
                 } catch {}
-                try {
-                  entry.player.start("+0", Math.max(0, offsetSeconds));
-                  console.log("[WM.started-postload]", { id: item.id, offsetSeconds });
-                } catch {}
+                // Only start if token is still current
+                if (token === entry.startToken) {
+                  // Schedule via setTimeout so we can cancel by token before it fires
+                  const targetStart = this.resolveStartAt(startAt);
+                  const delayMs = Math.max(0, (targetStart - Tone.now()) * 1000);
+                  if (entry.scheduledTimer) {
+                    clearTimeout(entry.scheduledTimer);
+                  }
+                  entry.scheduledTimer = window.setTimeout(() => {
+                    if (token !== entry.startToken) return;
+                    try {
+                      entry.player.start("+0", Math.max(0, offsetSeconds));
+                      console.log("[WM.started-postload]", { id: item.id, offsetSeconds, startAt: targetStart.toFixed(3) });
+                    } catch {}
+                  }, delayMs);
+                }
               })
               .catch(() => {
                 // Silently ignore; a subsequent play/loop will retry
@@ -197,11 +243,39 @@ export class WavPlayerManager {
       try {
         entry.player.stop("+0");
       } catch {}
-      try {
-        entry.player.start("+0", Math.max(0, offsetSeconds));
-        console.log("[WM.started]", { id: item.id, offsetSeconds });
-      } catch {}
+      // Bump token to indicate a new start request and invalidate prior async starts
+      entry.startToken = (entry.startToken || 0) + 1;
+      const token = entry.startToken;
+      // Clear any previously scheduled timer
+      if (entry.scheduledTimer) {
+        clearTimeout(entry.scheduledTimer);
+        entry.scheduledTimer = null;
+      }
+      // Schedule via setTimeout aligned to AudioContext time
+      const targetStart = this.resolveStartAt(startAt);
+      const delayMs = Math.max(0, (targetStart - Tone.now()) * 1000);
+      entry.scheduledTimer = window.setTimeout(() => {
+        if (token !== entry.startToken) return;
+        try {
+          entry.player.start("+0", Math.max(0, offsetSeconds));
+          console.log("[WM.started]", { id: item.id, offsetSeconds, startAt: targetStart.toFixed(3) });
+        } catch {}
+      }, delayMs);
     });
+  }
+
+  /**
+   * Convert a startAt parameter (e.g., "+0.01" or absolute number) to an absolute AudioContext time.
+   */
+  private resolveStartAt(startAt: string | number): number {
+    if (typeof startAt === "number") return startAt;
+    const s = String(startAt).trim();
+    if (s.startsWith("+")) {
+      const rel = parseFloat(s.slice(1)) || 0;
+      return Tone.now() + rel;
+    }
+    const abs = parseFloat(s);
+    return isFinite(abs) ? abs : Tone.now();
   }
 
   /**
@@ -423,10 +497,9 @@ export class WavPlayerManager {
     const currentTime = state.currentTime;
 
     this.setupAudioPlayersFromRegistry(state);
-
-    // If we're currently playing, start any newly unmuted WAV files at the current position
-    if (wasPlaying) {
-      this.startActiveAudioAt(currentTime);
-    }
+    // Note: Do NOT auto-restart here.
+    // - Unmuted files are started immediately in setWavVolume() at current position
+    // - Explicit calls from seek()/play()/loop will start via startActiveAudioAt()
+    // This method only syncs the registry and builds/refreshes players.
   }
 }
