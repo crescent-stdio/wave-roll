@@ -126,7 +126,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         fileIds.add(note.fileId);
       }
     });
-    const signature = Array.from(fileIds).sort().join(',') + ':' + notes.length;
+    const signature = Array.from(fileIds).sort().join(",") + ":" + notes.length;
 
     // Skip if file structure hasn't changed
     if (signature === this.lastAudioSignature && this.audioPlayer) {
@@ -186,7 +186,11 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       // Now restore loop points with preservePosition=true
       // Since we've already restored the position, this will maintain it
       if (this.loopPoints.a !== null || this.loopPoints.b !== null) {
-        this.audioPlayer.setLoopPoints(this.loopPoints.a, this.loopPoints.b, true);
+        this.audioPlayer.setLoopPoints(
+          this.loopPoints.a,
+          this.loopPoints.b,
+          true
+        );
       }
 
       // Resume playback if needed
@@ -205,14 +209,14 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       Object.entries(panValues).forEach(([fid, p]) => {
         (this.audioPlayer as any)?.setFilePan?.(fid, p);
       });
-      
+
       // Apply stored per-file mute states (if any)
       const muteStates = this.stateManager.getFileMuteStatesRef();
       Object.entries(muteStates).forEach(([fid, muted]) => {
         (this.audioPlayer as any)?.setFileMute?.(fid, muted);
       });
     }
-    
+
     // Also check notes for mute metadata (for initial load)
     const fileMuteStates = new Map<string, boolean>();
     notes.forEach((note: any) => {
@@ -224,7 +228,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         }
       }
     });
-    
+
     // Apply detected mute states
     fileMuteStates.forEach((muted, fileId) => {
       (this.audioPlayer as any)?.setFileMute?.(fileId, muted);
@@ -373,7 +377,19 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       this.stateManager.setFileMuteState(fileId, mute);
     }
   }
-  
+
+  /**
+   * Set playback rate as percentage (10-200, 100 = normal speed)
+   */
+  public setPlaybackRate(rate: number): void {
+    this.audioPlayer?.setPlaybackRate(rate);
+    // Immediately notify UI so time-display/seek-bar reflect new time scale
+    const state = this.audioPlayer?.getState();
+    if (state) {
+      this.dispatchVisualUpdateFromState(state);
+    }
+  }
+
   /**
    * Set volume for a specific MIDI file
    */
@@ -508,8 +524,8 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         fileIds.add(note.fileId);
       }
     });
-    
-    return Array.from(fileIds).sort().join(',') + ':' + notes.length;
+
+    return Array.from(fileIds).sort().join(",") + ":" + notes.length;
   }
 
   /**

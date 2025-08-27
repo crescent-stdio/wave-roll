@@ -136,7 +136,7 @@ export function createCoreLoopControls(
     const state = audioPlayer?.getState();
     if (!state) return;
     pointA = state.currentTime;
-    if (pointB !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
+    if (pointB !== null && pointA !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
     // Style
     btnA.dataset.active = "true";
     btnA.style.background = COLOR_A;
@@ -149,7 +149,9 @@ export function createCoreLoopControls(
       btnB.style.color = "#495057";
     }
     updateSeekBar();
-    pianoRoll?.setTime?.(pointA);
+    if (pointA !== null) {
+      pianoRoll?.setTime?.(pointA);
+    }
   });
 
   /* ------------------------------------------------------------------
@@ -162,7 +164,7 @@ export function createCoreLoopControls(
       pointB = state.currentTime;
     } else {
       pointB = state.currentTime;
-      if (pointB < pointA) [pointA, pointB] = [pointB, pointA];
+      if (pointA !== null && pointB < pointA) [pointA, pointB] = [pointB, pointA];
     }
     btnB.dataset.active = "true";
     btnB.style.background = COLOR_B;

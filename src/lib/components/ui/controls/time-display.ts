@@ -273,7 +273,12 @@ export function createTimeDisplayUI(
 
     // Update time labels even if duration is 0
     currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
-    totalTimeLabel.textContent = dependencies.formatTime(state.duration);
+    
+    // Adjust total time based on playback rate
+    // If playback rate is available, adjust the displayed duration
+    const playbackRate = (state as any).playbackRate || 100;
+    const adjustedDuration = state.duration * (100 / playbackRate);
+    totalTimeLabel.textContent = dependencies.formatTime(adjustedDuration);
 
     if (state.duration === 0) {
       if (dbgCounters.zeroDur < 5) {

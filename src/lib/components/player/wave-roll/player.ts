@@ -110,6 +110,7 @@ export class WaveRollPlayer {
   private keyboardHandler!: KeyboardHandler;
   private fileLoader!: FileLoader;
   private silenceDetector!: SilenceDetector;
+  private pausedBySilence: boolean = false;
 
   constructor(
     container: HTMLElement,
@@ -198,18 +199,20 @@ export class WaveRollPlayer {
 
     // Initialize silence detector for auto-pause functionality
     this.silenceDetector = new SilenceDetector({
-      autoResumeOnUnmute: false, // Don't auto-resume, require explicit play
+      autoResumeOnUnmute: false,
       onSilenceDetected: () => {
         // Auto-pause when all sources are silent
         if (this.corePlaybackEngine?.getState().isPlaying) {
           console.log("Auto-pausing: all sources are silent");
+          this.pausedBySilence = true;
           this.corePlaybackEngine.pause();
           // Update play button UI to reflect paused state
           this.updatePlayButton();
         }
       },
       onSoundDetected: () => {
-        // Could auto-resume here if autoResumeOnUnmute was true
+        // 요구사항: 사용자가 재생 버튼을 눌러야 재개됨 (자동 재개 금지)
+        this.pausedBySilence = false;
         console.log("Sound detected");
       }
     });

@@ -2,10 +2,10 @@ import { COLOR_PRIMARY } from "@/lib/core/constants";
 import { UIComponentDependencies } from "../types";
 
 /**
- * Create a tempo control element.
+ * Create a playback speed control element.
  *
  * @param dependencies - The UI component dependencies.
- * @returns The tempo control element.
+ * @returns The playback speed control element.
  */
 export function createTempoControlUI(
   dependencies: UIComponentDependencies
@@ -21,14 +21,15 @@ export function createTempoControlUI(
       border-radius: 8px;
     `;
 
-  // Tempo input
+  // Playback speed input
   const input = document.createElement("input");
   input.type = "number";
-  input.min = "40";
-  input.max = "400";
-  input.value = "120";
+  input.min = "10";
+  input.max = "200";
+  input.step = "5";
+  input.value = "100"; // Default 100% (normal speed)
   input.style.cssText = `
-      width: 48px;
+      width: 60px;
       padding: 4px 8px;
       border: none;
       border-radius: 4px;
@@ -41,20 +42,42 @@ export function createTempoControlUI(
     `;
 
   const label = document.createElement("span");
-  label.textContent = "BPM";
+  label.textContent = "%";
   label.style.cssText = `
       font-size: 12px;
       font-weight: 600;
       color: #6c757d;
     `;
 
-  // Tempo control logic
+  // Focus effects
+  input.addEventListener("focus", () => {
+    input.style.background = "rgba(0, 123, 255, 0.12)";
+  });
+
+  input.addEventListener("blur", () => {
+    input.style.background = "rgba(0, 123, 255, 0.08)";
+  });
+
+  // Playback speed control logic
   input.addEventListener("input", () => {
-    const tempo = parseFloat(input.value);
-    if (!isNaN(tempo) && tempo >= 40 && tempo <= 400) {
-      dependencies.audioPlayer?.setTempo(tempo);
+    const rate = parseFloat(input.value);
+    if (!isNaN(rate) && rate >= 10 && rate <= 200) {
+      dependencies.audioPlayer?.setPlaybackRate(rate);
+      // Force immediate UI update
+      // Get fresh state after rate change
+      const state = dependencies.audioPlayer?.getState();
+      if (state && dependencies.updateSeekBar) {
+        // Pass the full state including playbackRate to ensure UI updates
+        dependencies.updateSeekBar(state as any);
+      }
     }
   });
+
+  // Initialize with current playback rate if available
+  const currentState = dependencies.audioPlayer?.getState();
+  if (currentState && currentState.playbackRate) {
+    input.value = currentState.playbackRate.toString();
+  }
 
   container.appendChild(input);
   container.appendChild(label);

@@ -264,6 +264,26 @@ export class VisualizationEngine {
   }
 
   /**
+   * Set playback rate as percentage (10-200, 100 = normal speed)
+   */
+  public setPlaybackRate(rate: number): void {
+    this.coreEngine.setPlaybackRate(rate);
+    
+    // Immediately notify visual update callbacks
+    // This ensures UI reflects the rate change even when paused
+    const state = this.coreEngine.getState();
+    this.notifyVisualUpdateCallbacks({
+      currentTime: state.currentTime,
+      duration: state.duration,
+      zoomLevel: 1.0, // Default zoom level
+      isPlaying: state.isPlaying,
+      volume: state.volume,
+      tempo: state.tempo,
+      pan: state.pan || 0,
+    });
+  }
+
+  /**
    * Register visual update callback
    */
   public onVisualUpdate(callback: (params: VisualUpdateParams) => void): void {
