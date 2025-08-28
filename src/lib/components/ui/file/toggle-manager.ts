@@ -260,7 +260,7 @@ export class FileToggleManager {
       border: 1px solid var(--ui-border);
     `;
 
-    // Color indicator matching piano roll onset markers
+    // Color indicator matching onset markers (filled shape)
     const colorIndicator = document.createElement("div");
     const fileColor = `#${file.color.toString(16).padStart(6, "0")}`;
 
@@ -272,7 +272,7 @@ export class FileToggleManager {
     const shapes = ["circle", "triangle", "diamond", "square"];
     const shape = shapes[hash % shapes.length];
 
-    // Create SVG for the shape with white fill and colored border
+    // Create SVG for the shape with filled interior
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
     svg.setAttribute("width", "12");
@@ -300,7 +300,7 @@ export class FileToggleManager {
       shapeElement.setAttribute("height", "8");
     }
 
-    shapeElement.setAttribute("fill", "#ffffff");
+    shapeElement.setAttribute("fill", fileColor);
     shapeElement.setAttribute("stroke", fileColor);
     shapeElement.setAttribute("stroke-width", "2");
     svg.appendChild(shapeElement);

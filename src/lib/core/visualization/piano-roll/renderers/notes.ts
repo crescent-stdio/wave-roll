@@ -385,9 +385,9 @@ function getOnsetTexture(
       const target = 10;
       const scale = Math.max(1, target / Math.max(6, height));
       pOverlay.tileScale.set(scale, scale);
-      // Increase visibility in evaluation highlight modes
+      // Increase visibility in evaluation highlight modes but keep notes vivid
       const hlMode = (pianoRoll as any).highlightMode ?? "file";
-      pOverlay.alpha = hlMode.startsWith("eval-") ? 0.28 : 0.18;
+      pOverlay.alpha = hlMode.startsWith("eval-") ? 0.20 : 0.12;
     }
 
     // Hatch overlay driven by eval flags on note fragments (on top of patterns)

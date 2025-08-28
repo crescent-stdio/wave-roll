@@ -83,7 +83,11 @@ export class MultiMidiManager {
    */
   private getNextColor(): number {
     const palette = this.getActivePalette();
-    const color = palette.colors[this.colorIndex % palette.colors.length];
+    const colors = palette.colors;
+    const color =
+      colors.length > 0
+        ? colors[this.colorIndex % colors.length]
+        : 0x666666;
     this.colorIndex++;
     return color;
   }

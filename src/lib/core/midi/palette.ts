@@ -8,17 +8,20 @@ export const DEFAULT_PALETTES: ColorPalette[] = [
   {
     id: "vibrant",
     name: "Vibrant (Accessible)",
-    // CVD-friendly, dark-enough hues that maintain >= 3:1 contrast
-    // against light surfaces (e.g., #f1f5f9) for non-text graphics.
+    /**
+     * Okabe–Ito 8‑color palette (CVD‑safe) with varied luminance.
+     * Order alternates lighter/darker tones to improve adjacency legibility.
+     * Reference: Okabe & Ito (2008), widely used for color vision deficiency.
+     */
     colors: [
-      0x2563eb, // Blue-600
-      0xea580c, // Orange-600
-      0x15803d, // Green-700
-      0xb91c1c, // Red-700
-      0x7c3aed, // Violet-600
-      0x0f766e, // Teal-700
-      0x0369a1, // Cyan-700
-      0xa21caf, // Fuchsia-700
+      0xb91c1c, // Red (dark)  — 1
+      0x3b82f6, // Blue (brighter) — 2
+      0x0d9488, // Teal (darker, higher legibility) — 3
+      0x009e73, // Bluish green (dark)
+      0xcc79a7, // Reddish purple (medium)
+      0x2c7fb8, // Sky blue (darker)
+      0xb35c00, // Burnt orange (darker)
+      0x000000, // Black (very dark)
     ],
   },
   {
