@@ -6,6 +6,24 @@ export const DEFAULT_PALETTE_ID = "vibrant";
  */
 export const DEFAULT_PALETTES: ColorPalette[] = [
   {
+    id: "default",
+    name: "Default",
+    /**
+     * Tableau‑inspired, eye‑friendly set with varied luminance.
+     * Chosen for low eye‑strain and clear mutual separation.
+     */
+    colors: [
+      0x4e79a7, // Blue
+      0xf28e2b, // Orange
+      0x59a14f, // Green
+      0xe15759, // Red
+      0xb07aa1, // Purple
+      0x76b7b2, // Teal
+      0xedc948, // Mustard
+      0x9c755f, // Brown
+    ],
+  },
+  {
     id: "vibrant",
     name: "Vibrant (Accessible)",
     /**

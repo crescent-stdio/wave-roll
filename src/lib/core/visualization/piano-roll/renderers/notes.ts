@@ -80,7 +80,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, size, size);
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.lineCap = "butt";
     ctx.beginPath();
 
@@ -412,10 +412,9 @@ function getOnsetTexture(
         // Set hatch orientation by kind to increase visual distinction
         overlay.texture = getHatchTexture(kind === "exclusive" ? "down" : "up");
         overlay.tint = tint;
-        // Make hatching more prominent as requested
-        overlay.alpha = 0.75;
-        // Screen blending tends to pop on both dark and bright base colors
-        overlay.blendMode = "screen" as any;
+        // Softer overlay for eye comfort
+        overlay.alpha = 0.28;
+        overlay.blendMode = "normal" as any;
 
         // Scale hatch so it remains visible on very short notes
         const targetStripeThickness = 10; // px in note space

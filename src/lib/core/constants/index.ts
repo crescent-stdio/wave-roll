@@ -7,8 +7,10 @@ export const COLOR_B = "#e11d48"; // Rose-600 (B) — matched with loop line B
 export const COLOR_OVERLAP = "#64748b"; // Slate-500: neutral highlight base for overlaps
 
 // Single colors for evaluation highlight modes (no per-file blending)
-export const COLOR_EVAL_HIGHLIGHT = "#FFD966"; // Amber/yellow for high-contrast highlight
-export const COLOR_EVAL_EXCLUSIVE = "#FFB74D"; // Optional: distinct tone for exclusive segments
+// Evaluation highlight colours (soft, eye‑friendly)
+// Intersection/Match → soft blue, Exclusive/Difference → soft rose
+export const COLOR_EVAL_HIGHLIGHT = "#60A5FA"; // Sky-400
+export const COLOR_EVAL_EXCLUSIVE = "#FB7185"; // Rose-400
 
 export const SUSTAIN_ALPHA = 0.2;
 export const SUSTAIN_CONTROLLER = 64;

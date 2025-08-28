@@ -38,29 +38,23 @@ export function createHighlightModeGroup(
   ];
 
   const descriptions: Record<HighlightMode, string> = {
-    file: "Use the file's base color. No extra highlighting.",
-    "highlight-simple":
-      "Highlight overlapped segments with a brighter color; keep others as base color.",
-    "highlight-blend":
-      "Use additive blending so overlaps appear brighter where notes stack.",
-    "highlight-exclusive":
-      "Only highlight overlapped segments; non-overlap segments are shown in gray.",
-    "eval-match-intersection-gray":
-      "For matched ref/est notes, highlight the intersection segment; non-intersection and unmatched notes are gray.",
-    "eval-match-intersection-own":
-      "For matched ref/est notes, highlight the intersection segment; non-intersection and unmatched keep their file color.",
-    "eval-exclusive-intersection-gray":
-      "For matched ref/est notes, highlight only the non-overlap (exclusive) parts; intersection and unmatched are gray.",
-    "eval-exclusive-intersection-own":
-      "For matched ref/est notes, highlight only the non-overlap (exclusive) parts; intersection and unmatched keep their file color.",
-    "eval-gt-missed-only":
-      "Highlight only unmatched reference (ground-truth) notes; everything else is gray.",
+    file: "file colors (no highlight)",
+    "highlight-simple": "overlap brighter (experimental)",
+    "highlight-blend": "additive blend (experimental)",
+    "highlight-exclusive": "non-overlap only (experimental)",
+    // Evaluation modes (friendly labels)
+    "eval-match-intersection-gray": "match: highlight / intersection: gray",
+    "eval-match-intersection-own": "match: highlight / intersection: own",
+    "eval-exclusive-intersection-gray": "exclusive: highlight / intersection: gray",
+    "eval-exclusive-intersection-own": "exclusive: highlight / intersection: own",
+    "eval-gt-missed-only": "reference missed only",
   };
 
   modes.forEach((m) => {
     const opt = document.createElement("option");
     opt.value = m;
-    opt.textContent = m;
+    // Display intuitive labels for evaluation modes
+    opt.textContent = descriptions[m] ?? m;
     opt.title = descriptions[m] ?? "";
     select.appendChild(opt);
   });
