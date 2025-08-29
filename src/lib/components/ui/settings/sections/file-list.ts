@@ -338,7 +338,7 @@ export function createFileList(
       for (const file of files) {
         try {
           const state = dependencies.stateManager?.getState();
-          const pedalElongate = state?.visual.pedalElongate ?? false;
+          const pedalElongate = state?.visual.pedalElongate ?? true;
           const pedalThreshold = state?.visual.pedalThreshold ?? 64;
           const parsed = await parseMidi(file, { 
             applyPedalElongate: pedalElongate,

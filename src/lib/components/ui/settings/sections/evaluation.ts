@@ -115,13 +115,13 @@ export function createEvaluationSection(
   emptyOpt.title = "No reference selected";
   refSelect.appendChild(emptyOpt);
 
-  // Estimated files multi-select
+  // Estimated file single-select (enforce 1:1 evaluation)
   const estGroup = document.createElement("div");
   estGroup.style.cssText =
     "display:flex;align-items:start;gap:6px;font-size:12px;";
   attachTip(
     estGroup,
-    "Select one or more estimated transcription files to evaluate against the reference."
+    "Select a single estimated transcription file to evaluate against the reference (1:1)."
   );
 
   const estLabel = document.createElement("span");
@@ -129,12 +129,12 @@ export function createEvaluationSection(
   estLabel.style.cssText = "min-width:80px;font-weight:600;padding-top:4px;";
 
   const estSelect = document.createElement("select");
-  estSelect.multiple = true;
+  estSelect.multiple = false;
   estSelect.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;min-height:60px;background:var(--surface);color:var(--text-primary);";
+    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
   attachTip(
     estSelect,
-    "Pick one or more estimated MIDI files produced by transcription systems."
+    "Pick one estimated MIDI file (single) produced by a transcription system."
   );
 
   // Tolerances inputs
@@ -256,7 +256,7 @@ export function createEvaluationSection(
     );
   });
 
-  // (K-of-N UI 제거)
+  // (Remove K-of-N UI)
 
   // Metrics display
   const metricsBox = document.createElement("div");
@@ -364,20 +364,20 @@ export function createEvaluationSection(
       });
     }
 
-    // Auto-select second file as estimated if no estimated files are set and at least 2 files exist
+    // Auto-select second file as estimated if none is set and at least 2 files exist
     let newEstIds = state.estIds;
     if (newEstIds.length === 0 && files.length >= 2) {
       newEstIds = [files[1].id];
-      deps.stateManager.updateEvaluationState({
-        estIds: newEstIds,
-      });
+      deps.stateManager.updateEvaluationState({ estIds: newEstIds });
+    } else if (newEstIds.length > 1) {
+      // Force single selection: keep only the first
+      newEstIds = [newEstIds[0]];
+      deps.stateManager.updateEvaluationState({ estIds: newEstIds });
     }
 
     // Sync UI with current state (use new values if auto-selected)
     refSelect.value = newRefId || "";
-    Array.from(estSelect.options).forEach((opt) => {
-      opt.selected = newEstIds.includes(opt.value);
-    });
+    estSelect.value = newEstIds[0] || "";
 
     // Update titles like highlight-mode-group
     if (refSelect.value) {
@@ -392,19 +392,11 @@ export function createEvaluationSection(
       attachTip(refSelect, "Choose the reference MIDI file (ground truth).");
     }
 
-    const estSelectedLabels = Array.from(estSelect.selectedOptions)
-      .map((o) => o.textContent || "")
-      .filter(Boolean);
-    if (estSelectedLabels.length > 0) {
-      attachTip(
-        estSelect,
-        `Estimated (${estSelectedLabels.length}): ${estSelectedLabels.join(", ")}`
-      );
+    const selectedOpt = estSelect.selectedOptions[0];
+    if (selectedOpt) {
+      attachTip(estSelect, `Estimated: ${selectedOpt.textContent ?? ""}`);
     } else {
-      attachTip(
-        estSelect,
-        "Pick one or more estimated MIDI files produced by transcription systems."
-      );
+      attachTip(estSelect, "Pick one estimated MIDI file.");
     }
 
     updateMetrics();
@@ -431,24 +423,13 @@ export function createEvaluationSection(
   });
 
   estSelect.addEventListener("change", () => {
-    const selected = Array.from(estSelect.selectedOptions).map((o) => o.value);
-    deps.stateManager.updateEvaluationState({
-      estIds: selected,
-    });
-    // Keep tooltip in sync with selected options
-    const estSelectedLabels = Array.from(estSelect.selectedOptions)
-      .map((o) => o.textContent || "")
-      .filter(Boolean);
-    if (estSelectedLabels.length > 0) {
-      attachTip(
-        estSelect,
-        `Estimated (${estSelectedLabels.length}): ${estSelectedLabels.join(", ")}`
-      );
+    const value = estSelect.value;
+    deps.stateManager.updateEvaluationState({ estIds: value ? [value] : [] });
+    const selectedOpt = estSelect.selectedOptions[0];
+    if (selectedOpt) {
+      attachTip(estSelect, `Estimated: ${selectedOpt.textContent ?? ""}`);
     } else {
-      attachTip(
-        estSelect,
-        "Pick one or more estimated MIDI files produced by transcription systems."
-      );
+      attachTip(estSelect, "Pick one estimated MIDI file.");
     }
     updateMetrics();
   });

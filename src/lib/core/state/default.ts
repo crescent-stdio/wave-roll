@@ -51,7 +51,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   zoomLevel: DEFAULT_STATE_CONFIG.defaultZoomLevel,
   highlightMode: "file",
   minOffsetTolerance: 0.05,
-  pedalElongate: false,
+  pedalElongate: true,
   pedalThreshold: 64,
   showOnsetMarkers: false,
 };

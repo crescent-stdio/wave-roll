@@ -16,14 +16,16 @@ export function createHighlightModeGroup(
     background: var(--panel-bg);
     padding: 4px 12px;
     border-radius: 8px;
+    max-width: 100%;
+    overflow: hidden;
     `;
 
   const label = document.createElement("span");
   label.textContent = "Show notes:";
-  label.style.cssText = `font-weight:600;`;
+  label.style.cssText = `font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`;
 
   const select = document.createElement("select");
-  select.style.cssText = `flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);`;
+  select.style.cssText = `flex:1;min-width:0;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);`;
 
   const modes: HighlightMode[] = [
     "file",
@@ -40,7 +42,7 @@ export function createHighlightModeGroup(
   const descriptions: Record<HighlightMode, string> = {
     file: "file colors (no highlight)",
     "highlight-simple": "overlap brighter (experimental)",
-    "highlight-blend": "additive blend (experimental)",
+    "highlight-blend": "overlap: additive sum (better visibility)",
     "highlight-exclusive": "non-overlap only (experimental)",
     // Evaluation modes (friendly labels)
     "eval-match-intersection-gray": "match: highlight / intersection: gray",

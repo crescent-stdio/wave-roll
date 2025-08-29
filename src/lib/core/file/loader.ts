@@ -19,7 +19,7 @@ export async function loadSampleFiles(
 
   const fileList = files.length > 0 ? files : DEFAULT_SAMPLE_FILES;
   const state = fileManager.stateManager?.getState();
-  const pedalElongate = state?.visual.pedalElongate ?? false;
+  const pedalElongate = state?.visual.pedalElongate ?? true;
   const pedalThreshold = state?.visual.pedalThreshold ?? 64;
 
   for (const file of fileList) {
@@ -56,7 +56,7 @@ export async function loadFile(
 ): Promise<string | null> {
   try {
     const state = fileManager.stateManager?.getState();
-    const pedalElongate = state?.visual.pedalElongate ?? false;
+    const pedalElongate = state?.visual.pedalElongate ?? true;
     const pedalThreshold = state?.visual.pedalThreshold ?? 64;
     const parsedData = await parseMidi(input, { 
       applyPedalElongate: pedalElongate,
@@ -95,7 +95,7 @@ export async function loadMultipleFiles(
 
   const loadedFileIds: string[] = [];
   const state = fileManager.stateManager?.getState();
-  const pedalElongate = state?.visual.pedalElongate ?? false;
+  const pedalElongate = state?.visual.pedalElongate ?? true;
   const pedalThreshold = state?.visual.pedalThreshold ?? 64;
 
   for (const file of files) {

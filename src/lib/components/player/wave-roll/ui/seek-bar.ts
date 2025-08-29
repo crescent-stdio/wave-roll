@@ -306,7 +306,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     if (typeof update.prev === "number") {
       const diff = current - update.prev;
       if (diff < -0.05) {
-        // 50 ms 이상 뒤로 가면 플리커
+        // Flicker when jumping backward more than 50 ms
         console.warn("[SB] backward jump!", {
           from: update.prev.toFixed(3),
           to: current.toFixed(3),

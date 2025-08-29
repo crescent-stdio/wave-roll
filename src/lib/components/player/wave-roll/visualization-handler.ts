@@ -225,12 +225,13 @@ export class VisualizationHandler {
     const overlapColor = (base: number): number => {
       switch (highlightMode) {
         case "highlight-simple":
-          // Increase blend ratio for a stronger contrast
+          // Brighten overlap (file color + light yellow)
           return mixColorsOklch(base, 0xffff99, 0.85);
         case "highlight-blend":
-          // Make overlap colour even more pronounced
-          return mixColorsOklch(base, HIGHLIGHT, 0.8);
+          // Keep per-file color; rely on additive renderer blend to sum colors
+          return base;
         case "highlight-exclusive":
+          // Slightly brighten to emphasize exclusive segments
           return mixColorsOklch(base, HIGHLIGHT, 0.8);
         default:
           return base;

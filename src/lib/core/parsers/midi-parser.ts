@@ -378,38 +378,45 @@ export async function parseMidi(
     // Step 3: Extract header information
     const header = extractMidiHeader(midi);
 
-    // Step 4: Find the first track with notes (assuming it's the piano track)
-    const pianoTrack = midi.tracks.find(
-      (track) => track.notes && track.notes.length > 0
-    );
-    if (!pianoTrack) {
-      throw new Error("No tracks with notes found in MIDI file");
-    }
+  // Step 4: Collect ALL tracks that contain notes and merge them for evaluation.
+  const noteTracks = midi.tracks.filter((t: any) => t.notes && t.notes.length > 0);
+  if (noteTracks.length === 0) {
+    throw new Error("No tracks with notes found in MIDI file");
+  }
 
-    // Step 5: Extract track metadata
-    const track = extractTrackMetadata(pianoTrack, 0);
+  // Step 5: Extract track metadata (use the first track name/channel for compatibility)
+  const primaryTrack = noteTracks[0];
+  const track = extractTrackMetadata(primaryTrack, 0);
 
-    // Step 6: Convert notes to our format
-    let notes: NoteData[] = pianoTrack.notes.map(convertNote);
-
-    // Step 7: Extract control-change events (e.g., sustain pedal)
-    const pianoChannel = pianoTrack.channel ?? 0;
-
-    const controlChanges: ControlChangeEvent[] = midi.tracks
-      // Keep CC events that share the same channel as the piano track.
-      .filter((trk) => trk.channel === pianoChannel)
-      .flatMap((trk) => extractControlChanges(trk))
-      // Sort chronologically for convenience.
-      .sort((a, b) => a.time - b.time);
-
-    // Step 8: Apply sustain pedal if requested
-    if (options.applyPedalElongate && controlChanges.length > 0) {
-      const sustainEvents = controlChanges.filter(cc => cc.controller === 64);
-      if (sustainEvents.length > 0) {
-        const threshold = options.pedalThreshold ?? 64;
-        notes = applySustainPedal(notes, controlChanges, threshold, pianoChannel);
+  // Step 6: Convert notes to our format (per-track), applying sustain per channel when enabled
+  const applyPedal = options.applyPedalElongate !== false; // default ON
+  const threshold = options.pedalThreshold ?? 64;
+  const mergedNotes: NoteData[] = [];
+  for (const t of noteTracks) {
+    const channel = t.channel ?? 0;
+    let trackNotes: NoteData[] = t.notes.map(convertNote);
+    if (applyPedal) {
+      // Extract CC exclusively from this track (channel)
+      const cc = extractControlChanges(t);
+      if (cc.some((e) => e.controller === 64)) {
+        trackNotes = applySustainPedal(trackNotes, cc, threshold, channel);
       }
     }
+    mergedNotes.push(...trackNotes);
+  }
+
+  // Merge and sort
+  let notes: NoteData[] = mergedNotes.sort((a, b) =>
+    a.time !== b.time ? a.time - b.time : a.midi - b.midi
+  );
+
+  // Collect merged control changes across all note tracks for UI/diagnostics
+  const ccMerged: ControlChangeEvent[] = [];
+  for (const t of noteTracks) {
+    const channel = t.channel ?? 0;
+    const cc = extractControlChanges(t).map((evt) => ({ ...evt, fileId: primaryTrack.name }));
+    ccMerged.push(...cc);
+  }
 
     // Step 9: Calculate total duration
     const duration = midi.duration;
@@ -419,7 +426,7 @@ export async function parseMidi(
       duration,
       track,
       notes,
-      controlChanges, // include CC events
+      controlChanges: ccMerged, // merged CC events from all note tracks
     };
   } catch (error) {
     if (error instanceof Error) {

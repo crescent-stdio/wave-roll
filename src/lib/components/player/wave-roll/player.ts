@@ -215,7 +215,7 @@ export class WaveRollPlayer {
         }
       },
       onSoundDetected: () => {
-        // 요구사항: 사용자가 재생 버튼을 눌러야 재개됨 (자동 재개 금지)
+        // Requirement: user must press the play button to resume (no auto-resume)
         this.pausedBySilence = false;
         console.log("Sound detected");
       }

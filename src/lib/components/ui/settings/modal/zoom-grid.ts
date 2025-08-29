@@ -42,6 +42,10 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    box-sizing: border-box;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   `;
 
   // Header (title + close button)
