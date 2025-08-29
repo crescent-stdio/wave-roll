@@ -11,8 +11,12 @@ export const COLOR_OVERLAP = "#64748b"; // Slate-500: neutral highlight base for
 // Intersection/Match → soft blue, Exclusive/Difference → soft rose
 export const COLOR_EVAL_HIGHLIGHT = "#60A5FA"; // Sky-400
 export const COLOR_EVAL_EXCLUSIVE = "#FB7185"; // Rose-400
-// Ambiguous (same time & pitch without match) — choose a distinct hue (Teal)
-export const COLOR_EVAL_AMBIGUOUS = "#14B8A6"; // Teal-500
+// Ambiguous color is now dynamically generated based on REF and COMP colors
+
+// Gray mode distinct levels for better separation
+export const GRAY_EVAL_INTERSECTION = "#B0B0B0"; // Light gray for intersection
+export const GRAY_EVAL_EXCLUSIVE = "#707070"; // Medium gray for exclusive  
+export const GRAY_EVAL_AMBIGUOUS = "#7A6F66"; // Warm gray for ambiguous (distinct)
 
 export const SUSTAIN_ALPHA = 0.2;
 export const SUSTAIN_CONTROLLER = 64;

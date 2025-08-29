@@ -5,7 +5,11 @@ import { NoteData } from "@/lib/midi/types";
 import {
   COLOR_EVAL_HIGHLIGHT,
   COLOR_EVAL_EXCLUSIVE,
+  GRAY_EVAL_INTERSECTION,
+  GRAY_EVAL_EXCLUSIVE,
+  GRAY_EVAL_AMBIGUOUS,
 } from "@/lib/core/constants";
+import { getContrastingGray } from "@/lib/core/visualization/color-utils";
 import {
   computeNoteMetrics,
   DEFAULT_TOLERANCES,
@@ -367,7 +371,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       []) as PIXI.TilingSprite[];
     const pOverlay = patternSprites[idx];
     if (pOverlay) {
-      pOverlay.visible = true;
+      // Suppress pattern overlay for clean fills when requested
+      if ((note as any).noOverlay === true) {
+        pOverlay.visible = false;
+      } else {
+        pOverlay.visible = true;
+      }
       pOverlay.x = sprite.x;
       pOverlay.y = sprite.y;
       pOverlay.width = sprite.width;
@@ -393,7 +402,11 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       pOverlay.tileScale.set(scale, scale);
       // Increase visibility in evaluation highlight modes but keep notes vivid
       const hlMode = (pianoRoll as any).highlightMode ?? "file";
-      pOverlay.alpha = hlMode.startsWith("eval-") ? 0.2 : 0.12;
+      if ((note as any).noOverlay === true) {
+        pOverlay.alpha = 0;
+      } else {
+        pOverlay.alpha = hlMode.startsWith("eval-") ? 0.2 : 0.12;
+      }
     }
 
     // Hatch overlay driven by eval flags on note fragments (on top of patterns)
@@ -402,38 +415,55 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     const overlay = hatchSprites[idx];
     if (overlay) {
       const isEvalFragment = note.isEvalHighlightSegment === true;
-      if (isEvalFragment) {
+      if ((note as any).noOverlay === true) {
+        overlay.visible = false;
+      } else if (isEvalFragment) {
         // Use intersection/exclusive/ambiguous to select overlay style
         const kind = note.evalSegmentKind ?? "intersection";
         let tint: number;
-        if (kind === "exclusive") {
-          tint = parseInt(COLOR_EVAL_EXCLUSIVE.replace("#", ""), 16);
-        } else if (kind === "ambiguous") {
-          tint = noteColor; // harmonize overlay tint with ambiguous segment color
+        
+        // Check if we're in gray mode
+        const hlMode = (pianoRoll as any).highlightMode ?? "file";
+        const isGrayMode = typeof hlMode === "string" && hlMode.includes("-gray");
+        
+        if (isGrayMode) {
+          // Use distinct gray levels for better separation
+          if (kind === "exclusive") {
+            tint = parseInt(GRAY_EVAL_EXCLUSIVE.replace("#", ""), 16);
+          } else if (kind === "ambiguous") {
+            tint = parseInt(GRAY_EVAL_AMBIGUOUS.replace("#", ""), 16);
+          } else {
+            tint = parseInt(GRAY_EVAL_INTERSECTION.replace("#", ""), 16);
+          }
         } else {
-          tint = parseInt(COLOR_EVAL_HIGHLIGHT.replace("#", ""), 16);
+          // Color mode - use harmonious colors
+          if (kind === "exclusive") {
+            tint = parseInt(COLOR_EVAL_EXCLUSIVE.replace("#", ""), 16);
+          } else if (kind === "ambiguous") {
+            // Ambiguous color is already calculated dynamically in evaluation handler
+            tint = noteColor; // Use the color passed from evaluation handler
+          } else {
+            tint = parseInt(COLOR_EVAL_HIGHLIGHT.replace("#", ""), 16);
+          }
         }
+        
         overlay.visible = true;
         overlay.x = sprite.x;
         overlay.y = sprite.y;
         overlay.width = sprite.width;
         overlay.height = sprite.height;
         overlay.tilePosition.set(0, 0);
+        
         // Set hatch orientation by kind to increase visual distinction
         const texKind =
           kind === "exclusive" ? "down" : kind === "ambiguous" ? "cross" : "up";
-        overlay.texture = getHatchTexture(texKind);
-        // In gray mode, keep intersection lines lighter and ambiguous lines darker to ensure separation
-        const hlMode = (pianoRoll as any).highlightMode ?? "file";
-        const isGrayMode =
-          typeof hlMode === "string" && hlMode.includes("-gray");
-        if (isGrayMode && kind === "intersection") {
-          overlay.tint = 0xb0b0b0; // light gray lines
-        } else if (isGrayMode && kind === "ambiguous") {
-          overlay.tint = 0x303030; // dark gray lines
+        if (texKind === 'cross') {
+          overlay.texture = getPatternTexture('cross');
         } else {
-          overlay.tint = tint; // default coloured tints in non-gray modes
+          overlay.texture = getHatchTexture(texKind as 'up' | 'down');
         }
+        
+        overlay.tint = tint;
         // Differentiated overlay strength for clearer separation
         // - intersection: medium
         // - ambiguous: stronger

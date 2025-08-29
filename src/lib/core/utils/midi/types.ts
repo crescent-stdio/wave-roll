@@ -50,8 +50,10 @@ export interface NoteData {
   sourceIndex?: number;
   /** Mark this rendered fragment as an evaluation highlight segment */
   isEvalHighlightSegment?: boolean;
-  /** Highlighted segment kind for evaluation: intersection or exclusive */
-  evalSegmentKind?: "intersection" | "exclusive";
+  /** Highlighted segment kind for evaluation: intersection, exclusive, or ambiguous */
+  evalSegmentKind?: "intersection" | "exclusive" | "ambiguous";
+  /** Disable hatch/pattern overlays for a clean fill appearance */
+  noOverlay?: boolean;
 }
 
 /**

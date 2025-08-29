@@ -213,9 +213,9 @@ export function computeEnhancedNoteMetrics(
         if (Array.isArray(match.estVelocity)) {
           // For 1:N matching, take the best match (first one)
           const estVel = match.estVelocity[0];
-          const estVelScaled = Array.isArray(match.estVelocityScaled) 
-            ? match.estVelocityScaled[0] 
-            : match.estVelocityScaled || estVel;
+          const estVelScaled = (Array.isArray(match.estVelocityScaled)
+            ? match.estVelocityScaled[0]
+            : (match.estVelocityScaled ?? estVel)) as number;
           
           matchedEstVels.push(estVel);
           matchedEstVelsScaled.push(estVelScaled);
@@ -223,7 +223,7 @@ export function computeEnhancedNoteMetrics(
           scaledErrors.push(Math.abs(estVelScaled - match.refVelocity));
         } else if (match.estVelocity !== undefined) {
           const estVel = match.estVelocity;
-          const estVelScaled = match.estVelocityScaled || estVel;
+          const estVelScaled = (match.estVelocityScaled ?? estVel) as number;
           
           matchedEstVels.push(estVel);
           matchedEstVelsScaled.push(estVelScaled);

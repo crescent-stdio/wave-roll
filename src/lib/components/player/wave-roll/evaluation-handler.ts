@@ -3,6 +3,7 @@ import { StateManager } from "@/core/state";
 import { matchNotes } from "@/lib/evaluation/transcription";
 import { COLOR_PRIMARY, COLOR_OVERLAP, COLOR_A, COLOR_B, COLOR_EVAL_HIGHLIGHT, COLOR_EVAL_EXCLUSIVE } from "@/lib/core/constants";
 import { mixColorsOklch, blendColorsAverage } from "@/lib/core/utils/color/blend";
+import { getContrastingGray, getAmbiguousColor } from "@/lib/core/visualization/color-utils";
 
 export class EvaluationHandler {
   constructor(private stateManager: StateManager) {}
@@ -43,6 +44,33 @@ export class EvaluationHandler {
     // Helper functions
     const toNumberColor = (c: string | number): number =>
       typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
+    // WCAG contrast helpers for dynamic grays
+    const srgbToLin = (v: number) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    const relLum = (hex: number) => {
+      const r = (hex >> 16) & 0xff;
+      const g = (hex >> 8) & 0xff;
+      const b = hex & 0xff;
+      const R = srgbToLin(r), G = srgbToLin(g), B = srgbToLin(b);
+      return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+    };
+    const contrastRatio = (a: number, b: number) => {
+      const L1 = relLum(a), L2 = relLum(b);
+      const lighter = Math.max(L1, L2) + 0.05;
+      const darker = Math.min(L1, L2) + 0.05;
+      return lighter / darker;
+    };
+    // Get a contrasting gray that ensures visibility against the base color
+    const aaGrayFor = (base: number): number => {
+      // Convert to hex string for color-utils function
+      const baseHex = "#" + base.toString(16).padStart(6, "0");
+      // Use improved contrast calculation with proper bounds (min: #404040, max: #C0C0C0)
+      const grayHex = getContrastingGray(baseHex, 3.5);
+      // Convert back to number for PIXI
+      return parseInt(grayHex.replace("#", ""), 16);
+    };
     // Derive a dynamic, high-contrast alternative without assuming fixed hues
     const complement = (color: number): number => (color ^ 0xffffff) >>> 0;
 
@@ -192,35 +220,79 @@ export class EvaluationHandler {
         ? mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO)
         : fileColor;
 
-      // eval-gt-missed-only: only highlight unmatched reference notes
+      // eval-gt-missed-only: show Reference-only portions in REF color, everything else in a gray
       if (highlightMode === "eval-gt-missed-only") {
+        const refEntry = state.files.find((f: any) => f.id === evalState.refId);
+        const refBaseColor = toNumberColor(refEntry?.color ?? COLOR_PRIMARY);
+        const grayRef = aaGrayFor(refBaseColor);
+
         if (isRef) {
-          const hasAnyMatch =
-            byRef.has(sourceIdx) && byRef.get(sourceIdx)!.length > 0;
-          const color = !hasAnyMatch
-            ? useGrayGlobal
-              ? fileColor
-              : fileColor
-            : NEUTRAL_GRAY;
-          result.push({
-            ...coloredNote,
-            note: {
-              ...note,
-              isEvalHighlightSegment: !hasAnyMatch,
-              evalSegmentKind: !hasAnyMatch ? "exclusive" : undefined,
-            },
-            color,
-          });
+          const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice().sort((a,b)=>a.start-b.start);
+          const noteStart = note.time;
+          const noteEnd = note.time + note.duration;
+
+          if (unionRanges.length === 0) {
+            // No matches at all -> entire note is Reference only (use REF color)
+            result.push({
+              note: { ...note, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+              color: fileColor,
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+            return;
+          }
+
+          // Split: intersection -> grayRef, exclusive -> REF color
+          let cursor = noteStart;
+          for (const r of unionRanges) {
+            const s = Math.max(noteStart, r.start);
+            const e = Math.min(noteEnd, r.end);
+            if (s < noteEnd && e > noteStart && s < e) {
+              if (cursor < s) {
+                // REF-only segment
+                result.push({
+                  note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                  color: fileColor,
+                  fileId: coloredNote.fileId,
+                  isMuted: coloredNote.isMuted,
+                });
+              }
+              // Intersection segment (dimmed gray vs REF color), no overlay
+              result.push({
+                note: { ...note, time: Math.max(s, noteStart), duration: Math.min(e, noteEnd) - Math.max(s, noteStart), isEvalHighlightSegment: false, noOverlay: true },
+                color: grayRef,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+              cursor = Math.max(cursor, e);
+            }
+          }
+          if (cursor < noteEnd) {
+            // Tail REF-only segment
+            result.push({
+              note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+              color: fileColor,
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+          }
         } else {
-          // Estimated notes are grayed out in this mode
-          result.push({ ...coloredNote, color: NEUTRAL_GRAY });
+          // Non-reference notes shown in a plain gray (no overlay) with AA contrast vs REF
+          result.push({
+            note: { ...note, noOverlay: true, isEvalHighlightSegment: false },
+            color: grayRef,
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
         }
         return;
       }
 
-      // Keep non-intersection segments in the file's base colour regardless of gray mode
-      // so that "intersection: gray" behaves like "own" except intersections themselves.
-      const nonIntersectColor = fileColor;
+      // Exclusive emphasis: dim non-exclusive segments to de-emphasize when enabled
+      const nonIntersectBase = fileColor;
+      const nonIntersectColor = isExclusiveGlobal
+        ? mixColorsOklch(nonIntersectBase, NEUTRAL_GRAY, 0.75)
+        : nonIntersectBase;
       const isExclusive = isExclusiveGlobal;
 
       // Helper to push segmented fragments
@@ -228,7 +300,7 @@ export class EvaluationHandler {
         start: number,
         end: number,
         color: number,
-        flags?: { isEval?: boolean; kind?: "intersection" | "exclusive" }
+        flags?: { isEval?: boolean; kind?: "intersection" | "exclusive" | "ambiguous" }
       ) => {
         const dur = end - start;
         if (dur <= 0) return;
@@ -292,11 +364,18 @@ export class EvaluationHandler {
                 const refOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
                 const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
                 const blended = blendColorsAverage([refOwn, estOwn]);
-                // Mix blended with its RGB complement to ensure distinctness regardless of base hues
-                let ambColor = mixColorsOklch(blended, complement(blended), 0.50);
-                ambColor = useGrayGlobal
-                  ? mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50) // darker gray for clear contrast vs intersection gray
-                  : mixColorsOklch(ambColor, 0xffffff, 0.10);
+                // Dynamically generate ambiguous color based on REF and COMP colors
+                let ambColor: number;
+                if (useGrayGlobal) {
+                  ambColor = mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50);
+                } else {
+                  // Convert to hex strings for color-utils function
+                  const refHex = "#" + fileColor.toString(16).padStart(6, "0");
+                  const compHex = "#" + estBase.toString(16).padStart(6, "0");
+                  // Get dynamic ambiguous color that's distinct from both REF and COMP
+                  const ambHex = getAmbiguousColor(refHex, compHex, 'color');
+                  ambColor = parseInt(ambHex.replace("#", ""), 16);
+                }
                 pushSegment(s, e, ambColor, { isEval: true, kind: "ambiguous" });
                 cur = e;
               }
@@ -357,10 +436,17 @@ export class EvaluationHandler {
             const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
             const estOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
             const blended = blendColorsAverage([refOwn, estOwn]);
-            let ambColor = mixColorsOklch(blended, complement(blended), 0.50);
-            ambColor = useGrayGlobal
-              ? mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50)
-              : mixColorsOklch(ambColor, 0xffffff, 0.10);
+            let ambColor: number;
+            if (useGrayGlobal) {
+              ambColor = mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50);
+            } else {
+              // Convert to hex strings for color-utils function
+              const refHex = "#" + refBase.toString(16).padStart(6, "0");
+              const compHex = "#" + fileColor.toString(16).padStart(6, "0");
+              // Get dynamic ambiguous color that's distinct from both REF and COMP
+              const ambHex = getAmbiguousColor(refHex, compHex, 'color');
+              ambColor = parseInt(ambHex.replace("#", ""), 16);
+            }
             const sortedAmb = ambRanges.sort((a,b)=>a.start-b.start);
             let cur = noteStart;
             for (const r of sortedAmb) {
