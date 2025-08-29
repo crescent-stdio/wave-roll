@@ -228,56 +228,133 @@ export function getAmbiguousColor(
     return "#7a6f66"; // Warm gray that's distinct from pure grays
   }
 
-  // In color mode, dynamically generate based on REF and COMP colors
-  const refRgb = hexToRgb(refColor);
-  const compRgb = hexToRgb(compColor);
+  // Improved: pick a hue that is far from BOTH REF and COMP.
+  // Strategy:
+  // 1) Compute circular average hue Havg of REF/COMP.
+  // 2) Choose ambiguous hue = Havg + 180° (opposite of their middle).
+  // 3) If REF/COMP are nearly opposite (average magnitude ≈ 0), rotate 90° off REF.
+  // 4) Tune saturation/value and enforce contrast >= 3.0 against both.
 
-  // Calculate the midpoint between REF and COMP
-  const midR = Math.floor((refRgb.r + compRgb.r) / 2);
-  const midG = Math.floor((refRgb.g + compRgb.g) / 2);
-  const midB = Math.floor((refRgb.b + compRgb.b) / 2);
+  // Lazy import to avoid circular deps; replicate tiny HSV helpers locally.
+  const toHsv = (hex: string): [number, number, number] => {
+    const { r, g, b } = hexToRgb(hex);
+    // Inline rgbToHsv to avoid extra dependency and retain determinism
+    let rr = r / 255,
+      gg = g / 255,
+      bb = b / 255;
+    const max = Math.max(rr, gg, bb);
+    const min = Math.min(rr, gg, bb);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === rr) h = ((gg - bb) / d) % 6;
+      else if (max === gg) h = (bb - rr) / d + 2;
+      else h = (rr - gg) / d + 4;
+    }
+    const hue = (h < 0 ? h + 6 : h) * 60;
+    const s = max === 0 ? 0 : d / max;
+    const v = max;
+    return [hue, s, v];
+  };
 
-  // Darken the midpoint color for better visibility
-  // This creates a color that's related to both but darker/more distinct
-  const factor = 0.8; // Darken to 80% brightness (brighter than before)
-  const darkR = Math.floor(midR * factor);
-  const darkG = Math.floor(midG * factor);
-  const darkB = Math.floor(midB * factor);
+  const fromHsv = (h: number, s: number, v: number): string => {
+    const c = v * s;
+    const hh = (h % 360) / 60;
+    const x = c * (1 - Math.abs((hh % 2) - 1));
+    let r1 = 0,
+      g1 = 0,
+      b1 = 0;
+    if (hh >= 0 && hh < 1) {
+      r1 = c;
+      g1 = x;
+    } else if (hh >= 1 && hh < 2) {
+      r1 = x;
+      g1 = c;
+    } else if (hh >= 2 && hh < 3) {
+      g1 = c;
+      b1 = x;
+    } else if (hh >= 3 && hh < 4) {
+      g1 = x;
+      b1 = c;
+    } else if (hh >= 4 && hh < 5) {
+      r1 = x;
+      b1 = c;
+    } else {
+      r1 = c;
+      b1 = x;
+    }
+    const m = v - c;
+    const r = Math.round((r1 + m) * 255);
+    const g = Math.round((g1 + m) * 255);
+    const b = Math.round((b1 + m) * 255);
+    return rgbToHex(r, g, b);
+  };
 
-  // Check if the result is too dark (near black)
-  const luminance = getLuminance(darkR, darkG, darkB);
-  if (luminance < 0.05) {
-    // If too dark, lighten it slightly but keep it distinct
-    const lightFactor = 0.9;
-    return rgbToHex(
-      Math.floor(midR * lightFactor),
-      Math.floor(midG * lightFactor),
-      Math.floor(midB * lightFactor)
-    );
+  const [h1, s1, v1] = toHsv(refColor);
+  const [h2, s2, v2] = toHsv(compColor);
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => ((r * 180) / Math.PI + 360) % 360;
+  const x = Math.cos(toRad(h1)) + Math.cos(toRad(h2));
+  const y = Math.sin(toRad(h1)) + Math.sin(toRad(h2));
+  const mag = Math.sqrt(x * x + y * y);
+  const avgHue = toDeg(Math.atan2(y, x));
+  // Opposite of the average
+  let ambHue = (avgHue + 180) % 360;
+  if (mag < 0.2) {
+    // Nearly opposite colors: rotate 90° from REF to avoid either
+    ambHue = (h1 + 90) % 360;
   }
 
-  // Check contrast with both REF and COMP
-  const darkHex = rgbToHex(darkR, darkG, darkB);
-  const refContrast = getContrastRatio(refColor, darkHex);
-  const compContrast = getContrastRatio(compColor, darkHex);
+  // If ambiguous hue is still too close (< 30°) to any, push it away by 60°
+  const hueDist = (a: number, b: number) => {
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+  };
+  if (hueDist(ambHue, h1) < 30) ambHue = (ambHue + 60) % 360;
+  if (hueDist(ambHue, h2) < 30) ambHue = (ambHue + 60) % 360;
 
-  // If contrast is too low with either color, adjust
-  if (refContrast < 2.0 || compContrast < 2.0) {
-    // Create a complementary color for better distinction
-    // Rotate hue by 180 degrees in a simple way
-    const invertR = 255 - midR;
-    const invertG = 255 - midG;
-    const invertB = 255 - midB;
+  // Choose moderately vivid S and mid-high V for visibility
+  let ambS = Math.min(0.85, Math.max(0.55, Math.max(s1, s2) * 0.85));
+  let ambV = Math.min(0.8, Math.max(0.6, (v1 + v2) / 2 * 0.9));
 
-    // Apply darkening to the inverted color
-    return rgbToHex(
-      Math.floor(invertR * 0.6),
-      Math.floor(invertG * 0.6),
-      Math.floor(invertB * 0.6)
-    );
+  let candidate = fromHsv(ambHue, ambS, ambV);
+  const minContrast = (hex: string) =>
+    Math.min(getContrastRatio(hex, refColor), getContrastRatio(hex, compColor));
+
+  // Enforce minimum contrast 3.0:1 against both REF and COMP
+  let best = candidate;
+  let bestScore = minContrast(candidate);
+  const TARGET = 3.0;
+  let tries = 0;
+  while (bestScore < TARGET && tries < 10) {
+    // Try lightening and darkening
+    const vUp = Math.min(0.95, ambV + 0.08);
+    const vDn = Math.max(0.35, ambV - 0.08);
+    const cUp = fromHsv(ambHue, ambS, vUp);
+    const cDn = fromHsv(ambHue, ambS, vDn);
+    const sUp = minContrast(cUp);
+    const sDn = minContrast(cDn);
+    if (sUp >= sDn) {
+      ambV = vUp;
+      candidate = cUp;
+      bestScore = sUp;
+    } else {
+      ambV = vDn;
+      candidate = cDn;
+      bestScore = sDn;
+    }
+    // If still low, also adjust hue slightly away from nearer color
+    if (bestScore < TARGET) {
+      const d1 = hueDist(ambHue, h1);
+      const d2 = hueDist(ambHue, h2);
+      ambHue = (ambHue + (d1 < d2 ? 20 : -20) + 360) % 360;
+      candidate = fromHsv(ambHue, ambS, ambV);
+      bestScore = minContrast(candidate);
+    }
+    tries++;
   }
 
-  return darkHex;
+  return candidate;
 }
 
 /**

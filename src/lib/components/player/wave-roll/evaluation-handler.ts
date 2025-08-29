@@ -1,8 +1,9 @@
 import { ColoredNote } from "@/core/visualization";
 import { StateManager } from "@/core/state";
 import { matchNotes } from "@/lib/evaluation/transcription";
-import { COLOR_PRIMARY, COLOR_OVERLAP, COLOR_A, COLOR_B, COLOR_EVAL_HIGHLIGHT, COLOR_EVAL_EXCLUSIVE } from "@/lib/core/constants";
+import { COLOR_PRIMARY, COLOR_OVERLAP, COLOR_A, COLOR_B, COLOR_EVAL_HIGHLIGHT, COLOR_EVAL_EXCLUSIVE, GRAY_EVAL_INTERSECTION, GRAY_EVAL_AMBIGUOUS } from "@/lib/core/constants";
 import { mixColorsOklch, blendColorsAverage } from "@/lib/core/utils/color/blend";
+import { rgbToHsv, hsvToRgb } from "@/lib/core/utils/color/format";
 import { getContrastingGray, getAmbiguousColor } from "@/lib/core/visualization/color-utils";
 
 export class EvaluationHandler {
@@ -193,6 +194,7 @@ export class EvaluationHandler {
     const result: ColoredNote[] = [];
     const useGrayGlobal = highlightMode.includes("-gray");
     const isExclusiveGlobal = highlightMode.includes("exclusive");
+    const isIntersectionOwn = highlightMode.includes("-own");
 
     // Derive simple aggregation mode: pair for single estimate, otherwise OR.
     const estCount = estFiles.length;
@@ -288,11 +290,24 @@ export class EvaluationHandler {
         return;
       }
 
-      // Exclusive emphasis: dim non-exclusive segments to de-emphasize when enabled
+      // Exclusive emphasis: control how INTERSECTION segments look
+      // - exclusive + intersection: gray  -> fixed distinct gray for intersection
+      // - exclusive + intersection: own   -> keep file's own base color (not dimmed)
+      // - match modes                    -> keep base color
       const nonIntersectBase = fileColor;
-      const nonIntersectColor = isExclusiveGlobal
-        ? mixColorsOklch(nonIntersectBase, NEUTRAL_GRAY, 0.75)
-        : nonIntersectBase;
+      let nonIntersectColor: number;
+      if (isExclusiveGlobal) {
+        if (useGrayGlobal) {
+          nonIntersectColor = parseInt(GRAY_EVAL_INTERSECTION.replace("#", ""), 16);
+        } else if (isIntersectionOwn) {
+          nonIntersectColor = nonIntersectBase; // own color for intersection parts
+        } else {
+          // fallback: gently dim, though current UI doesn’t expose this variant
+          nonIntersectColor = mixColorsOklch(nonIntersectBase, NEUTRAL_GRAY, 0.75);
+        }
+      } else {
+        nonIntersectColor = nonIntersectBase;
+      }
       const isExclusive = isExclusiveGlobal;
 
       // Helper to push segmented fragments
@@ -318,26 +333,68 @@ export class EvaluationHandler {
         });
       };
 
+      // Helper: ensure Ambiguous hue is far enough from matched-overlap color
+      const ensureDistinctFromOverlap = (ambColor: number, overlapColor: number): number => {
+        const intToRgb = (value: number): [number, number, number] => [
+          (value >> 16) & 0xff,
+          (value >> 8) & 0xff,
+          value & 0xff,
+        ];
+        const rgbToInt = (r: number, g: number, b: number): number => {
+          const rr = Math.max(0, Math.min(255, Math.round(r)));
+          const gg = Math.max(0, Math.min(255, Math.round(g)));
+          const bb = Math.max(0, Math.min(255, Math.round(b)));
+          return (rr << 16) | (gg << 8) | bb;
+        };
+        const hueDist = (a: number, b: number) => {
+          const d = Math.abs(a - b) % 360;
+          return d > 180 ? 360 - d : d;
+        };
+
+        const [ar, ag, ab] = intToRgb(ambColor);
+        const [or, og, ob] = intToRgb(overlapColor);
+        let [hA, sA, vA] = rgbToHsv(ar, ag, ab);
+        const [hO] = rgbToHsv(or, og, ob);
+        if (hueDist(hA, hO) >= 55) return ambColor; // far enough
+
+        // Rotate hue by +/- 90° away from overlap to maximize separation
+        const plus = (hA + 90) % 360;
+        const minus = (hA + 270) % 360;
+        const dPlus = hueDist(plus, hO);
+        const dMinus = hueDist(minus, hO);
+        hA = dPlus >= dMinus ? plus : minus;
+        const [nr, ng, nb] = hsvToRgb(hA, sA, Math.min(0.9, Math.max(0.55, vA)));
+        return rgbToInt(nr, ng, nb);
+      };
+
       if (isRef) {
         const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice();
         const noteStart = note.time;
         const noteEnd = note.time + note.duration;
         const ambRanges = (ambiguousByRef.get(sourceIdx) || []).map(r => ({ start: r.start, end: r.end }));
-        // For single-estimate pairing, derive blended intersection colour (own) or gray (gray mode)
+        // Determine REF-side intersection fill color per mode
         let pairIntersectColor = nonIntersectColor;
-        if (estFiles.length >= 1 && byRef.has(sourceIdx)) {
+        if (useGrayGlobal) {
+          // Fixed distinct gray for intersection (clear vs ambiguous)
+          pairIntersectColor = parseInt(GRAY_EVAL_INTERSECTION.replace("#", ""), 16);
+        } else if (isExclusiveGlobal && isIntersectionOwn) {
+          // Only in exclusive-* modes do we want intersection-as-own.
+          // For match-* modes, keep prior blended intersection color.
+          pairIntersectColor = mixColorsOklch(
+            fileColor,
+            HIGHLIGHT_ANCHOR_REF,
+            HIGHLIGHT_BLEND_RATIO
+          );
+        } else if (estFiles.length >= 1 && byRef.has(sourceIdx)) {
+          // Blend REF/EST anchors for intersection when not using "own"
           const pair = byRef.get(sourceIdx)![0]; // 1:1 pairing assumed
           const estFile = estFiles.find((f: any) => f.id === pair.estId);
           if (estFile) {
-            if (useGrayGlobal) {
-              pairIntersectColor = NEUTRAL_GRAY;
-            } else {
-              const estBase = toNumberColor(estFile.color ?? COLOR_PRIMARY);
-              const refOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
-              const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
-              const blended = blendColorsAverage([refOwn, estOwn]);
-              pairIntersectColor = mixColorsOklch(blended, 0xffffff, 0.20);
-            }
+            const estBase = toNumberColor(estFile.color ?? COLOR_PRIMARY);
+            const refOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+            const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+            const blended = blendColorsAverage([refOwn, estOwn]);
+            pairIntersectColor = mixColorsOklch(blended, 0xffffff, 0.20);
           }
         }
 
@@ -367,14 +424,18 @@ export class EvaluationHandler {
                 // Dynamically generate ambiguous color based on REF and COMP colors
                 let ambColor: number;
                 if (useGrayGlobal) {
-                  ambColor = mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50);
+                  ambColor = parseInt(GRAY_EVAL_AMBIGUOUS.replace("#", ""), 16);
                 } else {
-                  // Convert to hex strings for color-utils function
-                  const refHex = "#" + fileColor.toString(16).padStart(6, "0");
-                  const compHex = "#" + estBase.toString(16).padStart(6, "0");
+                  // Convert to hex strings using OWN highlight variants for stronger distinction
+                  const refHex = "#" + refOwn.toString(16).padStart(6, "0");
+                  const compHex = "#" + estOwn.toString(16).padStart(6, "0");
                   // Get dynamic ambiguous color that's distinct from both REF and COMP
                   const ambHex = getAmbiguousColor(refHex, compHex, 'color');
                   ambColor = parseInt(ambHex.replace("#", ""), 16);
+                  // Also ensure it is distinct from matched-overlap color used in match-own
+                  const blended = blendColorsAverage([refOwn, estOwn]);
+                  const overlap = mixColorsOklch(blended, 0xffffff, 0.20);
+                  ambColor = ensureDistinctFromOverlap(ambColor, overlap);
                 }
                 pushSegment(s, e, ambColor, { isEval: true, kind: "ambiguous" });
                 cur = e;
@@ -405,7 +466,7 @@ export class EvaluationHandler {
             pushSegment(
               Math.max(s, noteStart),
               Math.min(e, noteEnd),
-              isExclusive ? nonIntersectColor : (useGrayGlobal ? NEUTRAL_GRAY : pairIntersectColor),
+              isExclusive ? nonIntersectColor : pairIntersectColor,
               !isExclusive ? { isEval: true, kind: "intersection" } : undefined
             );
             cursor = Math.max(cursor, e);
@@ -438,14 +499,19 @@ export class EvaluationHandler {
             const blended = blendColorsAverage([refOwn, estOwn]);
             let ambColor: number;
             if (useGrayGlobal) {
-              ambColor = mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50);
+              ambColor = parseInt(GRAY_EVAL_AMBIGUOUS.replace("#", ""), 16);
             } else {
-              // Convert to hex strings for color-utils function
-              const refHex = "#" + refBase.toString(16).padStart(6, "0");
-              const compHex = "#" + fileColor.toString(16).padStart(6, "0");
-              // Get dynamic ambiguous color that's distinct from both REF and COMP
+              // Use OWN highlight variants for stronger distinction in color mode
+              const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+              const estOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+              const refHex = "#" + refOwn.toString(16).padStart(6, "0");
+              const compHex = "#" + estOwn.toString(16).padStart(6, "0");
               const ambHex = getAmbiguousColor(refHex, compHex, 'color');
               ambColor = parseInt(ambHex.replace("#", ""), 16);
+              // Ensure distinctness from the intended matched-overlap color
+              const blended = blendColorsAverage([refOwn, estOwn]);
+              const overlap = mixColorsOklch(blended, 0xffffff, 0.20);
+              ambColor = ensureDistinctFromOverlap(ambColor, overlap);
             }
             const sortedAmb = ambRanges.sort((a,b)=>a.start-b.start);
             let cur = noteStart;
@@ -477,7 +543,14 @@ export class EvaluationHandler {
         // Compute blended intersection colour for this pair (own vs gray)
         let pairIntersectColor = nonIntersectColor;
         if (useGrayGlobal) {
-          pairIntersectColor = NEUTRAL_GRAY;
+          pairIntersectColor = parseInt(GRAY_EVAL_INTERSECTION.replace("#", ""), 16);
+        } else if (isExclusiveGlobal && isIntersectionOwn) {
+          // Only in exclusive-* modes use own for intersection
+          pairIntersectColor = mixColorsOklch(
+            fileColor,
+            HIGHLIGHT_ANCHOR_EST,
+            HIGHLIGHT_BLEND_RATIO
+          );
         } else {
           const refBase = toNumberColor(
             state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY
@@ -504,7 +577,7 @@ export class EvaluationHandler {
           pushSegment(
             intersectStart,
             intersectEnd,
-            isExclusive ? nonIntersectColor : (useGrayGlobal ? NEUTRAL_GRAY : pairIntersectColor),
+            isExclusive ? nonIntersectColor : pairIntersectColor,
             !isExclusive ? { isEval: true, kind: "intersection" } : undefined
           );
           // after intersection
