@@ -88,7 +88,6 @@ export interface EvaluationState {
   offsetRatioTolerance: number;
   offsetMinTolerance: number;
   anchor: "intersection" | "ref" | "est";
-  kOfN: number;
   showLoopOnlyMetrics: boolean;
   /** When true, render the reference file notes above all others */
   refOnTop: boolean;

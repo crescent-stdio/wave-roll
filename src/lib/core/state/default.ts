@@ -64,7 +64,6 @@ export const DEFAULT_EVALUATION_STATE: EvaluationState = {
   offsetRatioTolerance: 0.2,
   offsetMinTolerance: 0.05,
   anchor: "intersection",
-  kOfN: 1,
   showLoopOnlyMetrics: false,
   refOnTop: false,
 };

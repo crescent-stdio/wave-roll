@@ -256,40 +256,7 @@ export function createEvaluationSection(
     );
   });
 
-  // K-of-N input (for future use)
-  const kOfNGroup = document.createElement("div");
-  kOfNGroup.style.cssText =
-    "display:flex;align-items:center;gap:6px;font-size:12px;";
-  attachTip(
-    kOfNGroup,
-    "Require at least K systems out of N to agree (reserved for future use)."
-  );
-
-  const kOfNLabel = document.createElement("span");
-  kOfNLabel.textContent = "K-of-N:";
-  kOfNLabel.style.cssText = "min-width:80px;font-weight:600;";
-  attachTip(
-    kOfNLabel,
-    "Consensus threshold among multiple systems (not used yet)."
-  );
-
-  const kOfNInput = document.createElement("input");
-  kOfNInput.type = "number";
-  kOfNInput.min = "1";
-  kOfNInput.step = "1";
-  kOfNInput.style.cssText =
-    "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
-  kOfNInput.value = String(deps.stateManager.getState().evaluation.kOfN);
-  attachTip(
-    kOfNInput,
-    "Set K for K-of-N consensus across estimated systems (not used yet)."
-  );
-
-  kOfNInput.addEventListener("change", () => {
-    deps.stateManager.updateEvaluationState({
-      kOfN: parseInt(kOfNInput.value),
-    });
-  });
+  // (K-of-N UI 제거)
 
   // Metrics display
   const metricsBox = document.createElement("div");
@@ -498,7 +465,6 @@ export function createEvaluationSection(
   refGroup.append(refLabel, refSelect);
   estGroup.append(estLabel, estSelect);
   anchorGroup.append(anchorLabel, anchorSelect);
-  kOfNGroup.append(kOfNLabel, kOfNInput);
 
   // Ref-on-top toggle
   const refOnTopRow = document.createElement("div");
@@ -538,7 +504,6 @@ export function createEvaluationSection(
     estGroup,
     tolerancesGroup,
     anchorGroup,
-    kOfNGroup,
     refOnTopRow,
     metricsBox
   );

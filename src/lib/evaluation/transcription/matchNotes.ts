@@ -1,4 +1,19 @@
-import { TranscriptionToleranceOptions, DEFAULT_TOLERANCES } from "./constants";
+/**
+ * Note-level transcription matching utilities.
+ *
+ * This implementation is designed for logical equivalence with
+ * mir_eval.transcription note matching (onset/pitch/offset gating with unique
+ * assignment). We do not copy code from mir_eval; instead we document the
+ * intended behaviour and provide our own TypeScript implementation.
+ *
+ * Reference: https://github.com/mir-evaluation/mir_eval
+ */
+import {
+  TranscriptionToleranceOptions,
+  VelocityToleranceOptions,
+  DEFAULT_TOLERANCES,
+  DEFAULT_VELOCITY_OPTIONS,
+} from "./constants";
 import {
   parsedMidiToIntervalsAndPitches,
   validateTranscriptionInputs,
@@ -17,6 +32,20 @@ export interface NoteMatchResult {
     estPitch: number;
     refTime: number;
     estTime: number;
+    /** Absolute onset difference in seconds */
+    onsetDiff?: number;
+    /** Absolute offset difference in seconds */
+    offsetDiff?: number;
+    /** Absolute pitch difference in semitones (MIDI numbers) */
+    pitchDiff?: number;
+    /** IoU-style time overlap ratio between the two note intervals */
+    overlapRatio?: number;
+    /** Reference velocity (normalized [0,1]) if available */
+    refVelocity?: number;
+    /** Estimated velocity (normalized [0,1]) if available */
+    estVelocity?: number;
+    /** Absolute velocity difference (normalized [0,1]) if available */
+    velocityDiff?: number;
   }>;
   /** Indices of unmatched reference notes */
   falseNegatives: number[];
@@ -292,26 +321,135 @@ export function matchNotes(
     estData.intervals.length
   );
 
-  const matches: Array<{
-    ref: number;
-    est: number;
-    refPitch: number;
-    estPitch: number;
-    refTime: number;
-    estTime: number;
-  }> = [];
+  const matches: NoteMatchResult["matches"] = [];
   for (let refIdx = 0; refIdx < pairU.length; refIdx++) {
     const estIdx = pairU[refIdx];
     if (estIdx !== -1) {
-      const [refOnset] = refData.intervals[refIdx];
-      const [estOnset] = estData.intervals[estIdx];
+      const [refOn, refOff] = refData.intervals[refIdx];
+      const [estOn, estOff] = estData.intervals[estIdx];
+      const refVel = reference.notes[refIdx]?.velocity;
+      const estVel = estimated.notes[estIdx]?.velocity;
+      const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
+      const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
       matches.push({
         ref: refIdx,
         est: estIdx,
         refPitch: refData.pitches[refIdx],
         estPitch: estData.pitches[estIdx],
-        refTime: refOnset,
-        estTime: estOnset,
+        refTime: refOn,
+        estTime: estOn,
+        onsetDiff: Math.abs(estOn - refOn),
+        offsetDiff: Math.abs(estOff - refOff),
+        pitchDiff: Math.abs(estData.pitches[estIdx] - refData.pitches[refIdx]),
+        overlapRatio: union > 0 ? inter / union : 0,
+        refVelocity: typeof refVel === 'number' ? refVel : undefined,
+        estVelocity: typeof estVel === 'number' ? estVel : undefined,
+        velocityDiff:
+          typeof refVel === 'number' && typeof estVel === 'number'
+            ? Math.abs(estVel - refVel)
+            : undefined,
+      });
+    }
+  }
+
+  const falseNegatives: number[] = [];
+  for (let i = 0; i < pairU.length; i++) {
+    if (pairU[i] === -1) falseNegatives.push(i);
+  }
+  const falsePositives: number[] = [];
+  for (let j = 0; j < pairV.length; j++) {
+    if (pairV[j] === -1) falsePositives.push(j);
+  }
+
+  return { matches, falseNegatives, falsePositives };
+}
+
+/**
+ * Velocity-aware matching.
+ *
+ * This function mirrors `matchNotes` (onset/pitch/offset gating) and optionally
+ * adds a velocity gate to the adjacency when `velocity.includeInMatching` is true.
+ * It preserves the same 1:1 matching policy via Hopcroft-Karp and enriches
+ * matches with per-pair diagnostics (diffs, overlap, velocities).
+ */
+export function matchNotesWithVelocity(
+  reference: ParsedMidi,
+  estimated: ParsedMidi,
+  options: Partial<TranscriptionToleranceOptions> = {},
+  velocity: Partial<VelocityToleranceOptions> = {}
+): NoteMatchResult {
+  const toler = { ...DEFAULT_TOLERANCES, ...options };
+  const vopts = { ...DEFAULT_VELOCITY_OPTIONS, ...velocity };
+
+  const refData = parsedMidiToIntervalsAndPitches(reference);
+  const estData = parsedMidiToIntervalsAndPitches(estimated);
+
+  // Build base adjacency first (onset/pitch/offset)
+  const baseAdj = buildAdjacency(
+    refData.intervals,
+    refData.pitches,
+    estData.intervals,
+    estData.pitches,
+    toler.onsetTolerance,
+    toler.pitchTolerance,
+    toler.offsetRatioTolerance,
+    toler.offsetMinTolerance
+  );
+
+  // Optionally filter edges by velocity tolerance
+  const toNorm = (dv: number): number =>
+    vopts.unit === 'midi' ? dv / 127 : dv;
+  const tolNorm = vopts.unit === 'midi'
+    ? vopts.velocityTolerance / 127
+    : vopts.velocityTolerance;
+
+  const adj = vopts.includeInMatching
+    ? baseAdj.map((neighbors, i) =>
+        neighbors.filter((j) => {
+          const rv = reference.notes[i]?.velocity;
+          const ev = estimated.notes[j]?.velocity;
+          if (typeof rv !== 'number' || typeof ev !== 'number') {
+            return vopts.missingVelocity === 'ignore';
+          }
+          const dv = Math.abs(ev - rv);
+          return toNorm(dv) <= tolNorm;
+        })
+      )
+    : baseAdj;
+
+  const { pairU, pairV } = hopcroftKarp(
+    adj,
+    refData.intervals.length,
+    estData.intervals.length
+  );
+
+  const matches: NoteMatchResult["matches"] = [];
+  for (let refIdx = 0; refIdx < pairU.length; refIdx++) {
+    const estIdx = pairU[refIdx];
+    if (estIdx !== -1) {
+      const [refOn, refOff] = refData.intervals[refIdx];
+      const [estOn, estOff] = estData.intervals[estIdx];
+      const rv = reference.notes[refIdx]?.velocity;
+      const ev = estimated.notes[estIdx]?.velocity;
+      const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
+      const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
+      matches.push({
+        ref: refIdx,
+        est: estIdx,
+        refPitch: refData.pitches[refIdx],
+        estPitch: estData.pitches[estIdx],
+        refTime: refOn,
+        estTime: estOn,
+        onsetDiff: Math.abs(estOn - refOn),
+        offsetDiff: Math.abs(estOff - refOff),
+        pitchDiff: Math.abs(estData.pitches[estIdx] - refData.pitches[refIdx]),
+        overlapRatio: union > 0 ? inter / union : 0,
+        refVelocity: typeof rv === 'number' ? rv : undefined,
+        estVelocity: typeof ev === 'number' ? ev : undefined,
+        velocityDiff:
+          typeof rv === 'number' && typeof ev === 'number'
+            ? Math.abs(ev - rv)
+            : undefined,
       });
     }
   }

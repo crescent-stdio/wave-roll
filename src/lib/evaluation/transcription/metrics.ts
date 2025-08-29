@@ -1,5 +1,16 @@
+/**
+ * Note and velocity-level evaluation metrics.
+ *
+ * The functions in this module follow the intent of mir_eval's transcription
+ * metrics: match notes under onset/pitch/offset tolerances with a unique
+ * assignment and compute PRF-style measures. Velocity-aware diagnostics are
+ * integrated as a first-class feature while keeping backward-compatible APIs.
+ *
+ * Reference: https://github.com/mir-evaluation/mir_eval
+ */
 import {
   matchNotes,
+  matchNotesWithVelocity,
   NoteMatchResult,
   match_notes,
   match_notes_with_offset,
@@ -7,7 +18,11 @@ import {
   match_notes_chroma_onset,
 } from "./matchNotes";
 import { ParsedMidi } from "@/lib/midi/types";
-import { TranscriptionToleranceOptions } from "./constants";
+import {
+  TranscriptionToleranceOptions,
+  VelocityToleranceOptions,
+  DEFAULT_VELOCITY_OPTIONS,
+} from "./constants";
 
 export interface NoteMetrics {
   precision: number;
@@ -20,6 +35,10 @@ export interface NoteMetrics {
   numEst: number;
   /** Detailed match pairs between reference and estimated notes */
   matches: NoteMatchResult["matches"];
+  /** Unmatched reference indices */
+  falseNegatives?: number[];
+  /** Unmatched estimated indices */
+  falsePositives?: number[];
 }
 
 export function computeNoteMetrics(
@@ -81,6 +100,8 @@ export function computeNoteMetrics(
     numRef,
     numEst,
     matches: matchResult.matches,
+    falseNegatives: matchResult.falseNegatives,
+    falsePositives: matchResult.falsePositives,
   };
 }
 
@@ -103,6 +124,94 @@ export function precision_recall_f1_overlap(
     f_measure: metrics.f_measure,
     avgOverlapRatio: metrics.avgOverlapRatio,
   };
+}
+
+/**
+ * Compute velocity-aware metrics on top of note matching.
+ *
+ * Two modes are supported:
+ * - 'threshold': a match is velocity-correct if |dv| <= tol (normalized or MIDI)
+ * - 'weighted': per-pair score = max(0, 1 - |dv|/tol) averaged across matches
+ *
+ * By default, velocity is NOT used to determine matches (unique assignment is
+ * computed using onset/pitch/offset only). Set `velocity.includeInMatching=true`
+ * to add a velocity gate in the matching graph.
+ */
+export function computeVelocityMetrics(
+  reference: ParsedMidi,
+  estimated: ParsedMidi,
+  options: Partial<TranscriptionToleranceOptions> = {},
+  velocity: Partial<VelocityToleranceOptions> = {}
+): NoteMetrics & {
+  velocity: {
+    mode: VelocityToleranceOptions["mode"]; 
+    toleranceNormalized: number;
+    toleranceMidi: number;
+    numVelocityCorrect: number;
+    accuracyOnMatches: number; // ratio among matched pairs
+    weightedScoreOnMatches: number; // average in [0,1]
+  };
+} {
+  const vopts = { ...DEFAULT_VELOCITY_OPTIONS, ...velocity };
+  const tolNorm = vopts.unit === 'midi' ? vopts.velocityTolerance / 127 : vopts.velocityTolerance;
+  const tolMidi = vopts.unit === 'midi' ? vopts.velocityTolerance : Math.round(vopts.velocityTolerance * 127);
+
+  // Perform matching (optionally velocity-gated)
+  const matchResult = matchNotesWithVelocity(reference, estimated, options, vopts);
+
+  // Base note metrics
+  const base = computeNoteMetrics(reference, estimated, options);
+
+  // Compute velocity statistics over the matched pairs
+  let numVelocityCorrect = 0;
+  let weightedSum = 0;
+  let denom = matchResult.matches.length;
+
+  for (const m of matchResult.matches) {
+    const dv = typeof m.velocityDiff === 'number' ? m.velocityDiff : 0;
+    const dvNorm = dv; // already normalized in NoteData
+    if (vopts.mode === 'threshold') {
+      if (dvNorm <= tolNorm) numVelocityCorrect += 1;
+      // threshold mode still contributes to weighted average as 0/1
+      weightedSum += dvNorm <= tolNorm ? 1 : 0;
+    } else {
+      const score = Math.max(0, 1 - dvNorm / Math.max(1e-12, tolNorm));
+      // Count as correct if score==1 (perfect) in this mode for numVelocityCorrect
+      if (score >= 1 - 1e-9) numVelocityCorrect += 1;
+      weightedSum += score;
+    }
+  }
+
+  const accuracyOnMatches = denom > 0 ? numVelocityCorrect / denom : 0;
+  const weightedScoreOnMatches = denom > 0 ? weightedSum / denom : 0;
+
+  return {
+    ...base,
+    matches: matchResult.matches,
+    falseNegatives: matchResult.falseNegatives,
+    falsePositives: matchResult.falsePositives,
+    velocity: {
+      mode: vopts.mode,
+      toleranceNormalized: tolNorm,
+      toleranceMidi: tolMidi,
+      numVelocityCorrect,
+      accuracyOnMatches,
+      weightedScoreOnMatches,
+    },
+  };
+}
+
+/**
+ * Unified evaluation helper that returns both note-level PRF/overlap and
+ * velocity-aware diagnostics suitable for visualization.
+ */
+export function evaluateTranscription(
+  reference: ParsedMidi,
+  estimated: ParsedMidi,
+  options: Partial<TranscriptionToleranceOptions> = {},
+  velocity: Partial<VelocityToleranceOptions> = {}
+): ReturnType<typeof computeVelocityMetrics> {
+  return computeVelocityMetrics(reference, estimated, options, velocity);
 }
 
 /**
