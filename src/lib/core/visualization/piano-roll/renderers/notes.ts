@@ -77,7 +77,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     const canvas = document.createElement("canvas");
     canvas.width = size;
     canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
+    const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, size, size);
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
@@ -112,7 +112,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     return tex;
   }
 
-  function getPatternTexture(kind: "up" | "down" | "cross" | "dots"): PIXI.Texture {
+  function getPatternTexture(
+    kind: "up" | "down" | "cross" | "dots"
+  ): PIXI.Texture {
     const cached = WR_PATTERN_TEXTURE_CACHE[kind];
     if (cached && (cached as any).valid !== false) return cached;
 
@@ -164,60 +166,60 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     if ((tex as any).source?.style) {
       (tex as any).source.style.addressMode = "repeat";
     }
-  WR_PATTERN_TEXTURE_CACHE[kind] = tex;
-  return tex;
-}
-
-function getOnsetTexture(
-  kind: "circle" | "triangle" | "diamond" | "square",
-  colorHex: string
-): PIXI.Texture {
-  const key = `${kind}-${colorHex}`;
-  const cached = WR_ONSET_TEXTURE_CACHE[key];
-  if (cached && (cached as any).valid !== false) return cached;
-  const size = 12;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  ctx.clearRect(0, 0, size, size);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = colorHex; // outline in file color
-  ctx.fillStyle = "#ffffff"; // white fill
-  ctx.lineJoin = "miter";
-  if (kind === "circle") {
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  } else if (kind === "triangle") {
-    ctx.beginPath();
-    ctx.moveTo(size / 2, size / 6);
-    ctx.lineTo((5 * size) / 6, (5 * size) / 6);
-    ctx.lineTo(size / 6, (5 * size) / 6);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  } else if (kind === "diamond") {
-    ctx.beginPath();
-    ctx.moveTo(size / 2, 2);
-    ctx.lineTo(size - 2, size / 2);
-    ctx.lineTo(size / 2, size - 2);
-    ctx.lineTo(2, size / 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  } else {
-    // square
-    ctx.beginPath();
-    ctx.rect(3, 3, size - 6, size - 6);
-    ctx.fill();
-    ctx.stroke();
+    WR_PATTERN_TEXTURE_CACHE[kind] = tex;
+    return tex;
   }
-  const tex = PIXI.Texture.from(canvas);
-  WR_ONSET_TEXTURE_CACHE[key] = tex;
-  return tex;
-}
+
+  function getOnsetTexture(
+    kind: "circle" | "triangle" | "diamond" | "square",
+    colorHex: string
+  ): PIXI.Texture {
+    const key = `${kind}-${colorHex}`;
+    const cached = WR_ONSET_TEXTURE_CACHE[key];
+    if (cached && (cached as any).valid !== false) return cached;
+    const size = 12;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, size, size);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = colorHex; // outline in file color
+    ctx.fillStyle = "#ffffff"; // white fill
+    ctx.lineJoin = "miter";
+    if (kind === "circle") {
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (kind === "triangle") {
+      ctx.beginPath();
+      ctx.moveTo(size / 2, size / 6);
+      ctx.lineTo((5 * size) / 6, (5 * size) / 6);
+      ctx.lineTo(size / 6, (5 * size) / 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (kind === "diamond") {
+      ctx.beginPath();
+      ctx.moveTo(size / 2, 2);
+      ctx.lineTo(size - 2, size / 2);
+      ctx.lineTo(size / 2, size - 2);
+      ctx.lineTo(2, size / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // square
+      ctx.beginPath();
+      ctx.rect(3, 3, size - 6, size - 6);
+      ctx.fill();
+      ctx.stroke();
+    }
+    const tex = PIXI.Texture.from(canvas);
+    WR_ONSET_TEXTURE_CACHE[key] = tex;
+    return tex;
+  }
 
   while (pianoRoll.noteSprites.length < pianoRoll.notes.length) {
     const sprite = new PIXI.Sprite(baseTexture) as NoteSprite;
@@ -241,11 +243,11 @@ function getOnsetTexture(
       pianoRoll.hideTooltip();
     });
     pianoRoll.notesContainer.addChild(sprite);
-  pianoRoll.noteSprites.push(sprite);
-  // Ensure hatch overlay pool matches sprite pool
-  // Pattern overlay (always-on subtle file pattern) --------------------
-  const patternSprites = ((pianoRoll as any).patternSprites ??=
-    []) as PIXI.TilingSprite[];
+    pianoRoll.noteSprites.push(sprite);
+    // Ensure hatch overlay pool matches sprite pool
+    // Pattern overlay (always-on subtle file pattern) --------------------
+    const patternSprites = ((pianoRoll as any).patternSprites ??=
+      []) as PIXI.TilingSprite[];
     const pattern = new (PIXI as any).TilingSprite({
       texture: getPatternTexture("up"),
       width: 1,
@@ -256,16 +258,16 @@ function getOnsetTexture(
     pattern.tint = 0x000000; // neutral (black) pattern
     pattern.blendMode = "normal" as any;
     pianoRoll.notesContainer.addChild(pattern);
-  patternSprites.push(pattern);
+    patternSprites.push(pattern);
 
-  // Onset marker sprite pool (one per note)
-  const onsetSprites = ((pianoRoll as any).onsetSprites ??=
-    []) as PIXI.Sprite[];
-  const onset = new PIXI.Sprite(PIXI.Texture.WHITE);
-  onset.visible = false;
-  onset.alpha = 0.95;
-  pianoRoll.notesContainer.addChild(onset);
-  onsetSprites.push(onset);
+    // Onset marker sprite pool (one per note)
+    const onsetSprites = ((pianoRoll as any).onsetSprites ??=
+      []) as PIXI.Sprite[];
+    const onset = new PIXI.Sprite(PIXI.Texture.WHITE);
+    onset.visible = false;
+    onset.alpha = 0.95;
+    pianoRoll.notesContainer.addChild(onset);
+    onsetSprites.push(onset);
 
     // Evaluation hatch overlay (on-demand) -------------------------------
     const hatchSprites = ((pianoRoll as any).hatchSprites ??=
@@ -288,13 +290,16 @@ function getOnsetTexture(
       pianoRoll.notesContainer.removeChild(s);
       s.destroy();
     }
-  const hatchSprites = (pianoRoll as any).hatchSprites as
-    | PIXI.TilingSprite[]
-    | undefined;
-  const patternSprites = (pianoRoll as any).patternSprites as
-    | PIXI.TilingSprite[]
-    | undefined;
-    if (patternSprites && patternSprites.length > pianoRoll.noteSprites.length) {
+    const hatchSprites = (pianoRoll as any).hatchSprites as
+      | PIXI.TilingSprite[]
+      | undefined;
+    const patternSprites = (pianoRoll as any).patternSprites as
+      | PIXI.TilingSprite[]
+      | undefined;
+    if (
+      patternSprites &&
+      patternSprites.length > pianoRoll.noteSprites.length
+    ) {
       const p = patternSprites.pop();
       if (p) {
         pianoRoll.notesContainer.removeChild(p);
@@ -371,7 +376,8 @@ function getOnsetTexture(
       // Map fileId -> stable pattern kind
       const fid = note.fileId || "";
       let hash = 0;
-      for (let i = 0; i < fid.length; i++) hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
+      for (let i = 0; i < fid.length; i++)
+        hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
       const kinds: Array<"up" | "down" | "cross" | "dots"> = [
         "up",
         "down",
@@ -387,7 +393,7 @@ function getOnsetTexture(
       pOverlay.tileScale.set(scale, scale);
       // Increase visibility in evaluation highlight modes but keep notes vivid
       const hlMode = (pianoRoll as any).highlightMode ?? "file";
-      pOverlay.alpha = hlMode.startsWith("eval-") ? 0.20 : 0.12;
+      pOverlay.alpha = hlMode.startsWith("eval-") ? 0.2 : 0.12;
     }
 
     // Hatch overlay driven by eval flags on note fragments (on top of patterns)
@@ -397,12 +403,16 @@ function getOnsetTexture(
     if (overlay) {
       const isEvalFragment = note.isEvalHighlightSegment === true;
       if (isEvalFragment) {
-        // Use intersection/exclusive to select overlay style
+        // Use intersection/exclusive/ambiguous to select overlay style
         const kind = note.evalSegmentKind ?? "intersection";
-        const tint =
-          kind === "exclusive"
-            ? parseInt(COLOR_EVAL_EXCLUSIVE.replace("#", ""), 16)
-            : parseInt(COLOR_EVAL_HIGHLIGHT.replace("#", ""), 16);
+        let tint: number;
+        if (kind === "exclusive") {
+          tint = parseInt(COLOR_EVAL_EXCLUSIVE.replace("#", ""), 16);
+        } else if (kind === "ambiguous") {
+          tint = noteColor; // harmonize overlay tint with ambiguous segment color
+        } else {
+          tint = parseInt(COLOR_EVAL_HIGHLIGHT.replace("#", ""), 16);
+        }
         overlay.visible = true;
         overlay.x = sprite.x;
         overlay.y = sprite.y;
@@ -410,14 +420,32 @@ function getOnsetTexture(
         overlay.height = sprite.height;
         overlay.tilePosition.set(0, 0);
         // Set hatch orientation by kind to increase visual distinction
-        overlay.texture = getHatchTexture(kind === "exclusive" ? "down" : "up");
-        overlay.tint = tint;
-        // Softer overlay for eye comfort
-        overlay.alpha = 0.28;
+        const texKind =
+          kind === "exclusive" ? "down" : kind === "ambiguous" ? "cross" : "up";
+        overlay.texture = getHatchTexture(texKind);
+        // In gray mode, keep intersection lines lighter and ambiguous lines darker to ensure separation
+        const hlMode = (pianoRoll as any).highlightMode ?? "file";
+        const isGrayMode =
+          typeof hlMode === "string" && hlMode.includes("-gray");
+        if (isGrayMode && kind === "intersection") {
+          overlay.tint = 0xb0b0b0; // light gray lines
+        } else if (isGrayMode && kind === "ambiguous") {
+          overlay.tint = 0x303030; // dark gray lines
+        } else {
+          overlay.tint = tint; // default coloured tints in non-gray modes
+        }
+        // Differentiated overlay strength for clearer separation
+        // - intersection: medium
+        // - ambiguous: stronger
+        // - exclusive: softer
+        overlay.alpha =
+          kind === "ambiguous" ? 0.4 : kind === "intersection" ? 0.2 : 0.24;
         overlay.blendMode = "normal" as any;
 
         // Scale hatch so it remains visible on very short notes
-        const targetStripeThickness = 10; // px in note space
+        // Use different stripe thickness to distinguish kinds as well
+        const targetStripeThickness =
+          kind === "ambiguous" ? 16 : kind === "intersection" ? 10 : 12;
         const scale = Math.max(1, targetStripeThickness / Math.max(6, height));
         overlay.tileScale.set(scale, scale);
       } else {
@@ -434,7 +462,8 @@ function getOnsetTexture(
       if (showOnsets) {
         const fid = note.fileId || "";
         let hash = 0;
-        for (let i = 0; i < fid.length; i++) hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
+        for (let i = 0; i < fid.length; i++)
+          hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
         const kinds: Array<"circle" | "triangle" | "diamond" | "square"> = [
           "circle",
           "triangle",

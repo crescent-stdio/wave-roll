@@ -368,10 +368,10 @@ export class PianoRoll {
     let fileLines = "";
     if (fileInfos.size > 0) {
       const sortedFiles = Array.from(fileInfos.entries()).sort((a, b) => {
-        // Sort by kind priority: Reference first, then Estimate, then MIDI
+        // Sort by kind priority: Reference first, then Comparison, then MIDI
         const kindOrder: Record<string, number> = {
           Reference: 0,
-          Estimate: 1,
+          Comparison: 1,
           MIDI: 2,
         };
         const orderA = kindOrder[a[1].info.kind] ?? 3;
@@ -392,6 +392,34 @@ export class PianoRoll {
         .join("");
     }
 
+    // Evaluation context (if any)
+    const evalKind = (note as any).evalSegmentKind as
+      | "intersection"
+      | "exclusive"
+      | "ambiguous"
+      | undefined;
+    const isEval = (note as any).isEvalHighlightSegment === true;
+    // Determine file role (Reference/Comparison) if available
+    let fileRole: string | null = null;
+    if ((note as any).fileId && (this as any).fileInfoMap) {
+      const fid = (note as any).fileId as string;
+      const info = ((this as any).fileInfoMap as any)[fid];
+      fileRole = info?.kind || null;
+    }
+    let evalLine = "";
+    if (isEval) {
+      if (evalKind === "intersection") {
+        evalLine = `Matched overlap (Reference + Comparison blended)`;
+      } else if (evalKind === "exclusive") {
+        evalLine = `Matched exclusive (${fileRole ?? "Track"} part)`;
+      } else if (evalKind === "ambiguous") {
+        evalLine = `Ambiguous: same time & pitch without match`;
+      }
+    } else if (fileRole === "Reference" || fileRole === "Comparison") {
+      // Prefer wording that indicates presence-only rather than a failure
+      evalLine = `${fileRole} only`;
+    }
+
     // Calculate the time range for all overlapping notes
     let minStartTime = note.time;
     let maxEndTime = note.time + note.duration;
@@ -406,8 +434,9 @@ export class PianoRoll {
     this.tooltipDiv.innerHTML = `
       <div><strong>${header}</strong></div>
       ${fileLines}
-      <div style="margin-top:4px;color:rgba(255,255,255,0.9);">Time: ${minStartTime.toFixed(2)}s - ${maxEndTime.toFixed(2)}s</div>
-      <div style="color:rgba(255,255,255,0.9);">Velocity: ${note.velocity.toFixed(2)}</div>
+      <div style=\"margin-top:4px;color:rgba(255,255,255,0.9);\">Time: ${minStartTime.toFixed(2)}s - ${maxEndTime.toFixed(2)}s</div>
+      <div style=\"color:rgba(255,255,255,0.9);\">Velocity: ${note.velocity.toFixed(2)}</div>
+      ${evalLine ? `<div style=\"margin-top:4px;color:rgba(255,255,255,0.95);font-weight:600;\">${evalLine}</div>` : ""}
     `;
     this.tooltipDiv.style.display = "block";
     this.moveTooltip(event);

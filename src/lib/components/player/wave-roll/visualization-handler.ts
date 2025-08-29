@@ -136,7 +136,7 @@ export class VisualizationHandler {
         const isEst = Array.isArray(evalState?.estIds)
           ? evalState.estIds.includes(f.id)
           : false;
-        const kind = isRef ? "Reference" : isEst ? "Estimate" : "MIDI";
+        const kind = isRef ? "Reference" : isEst ? "Comparison" : "MIDI";
         const color =
           fileColors[f.id] ??
           (typeof f.color === "number"

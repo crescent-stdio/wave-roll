@@ -30,12 +30,12 @@ export function createHighlightModeGroup(
   const modes: HighlightMode[] = [
     "file",
     // "highlight-simple",
-    "highlight-blend",
+    // "highlight-blend",
     // "highlight-exclusive",
-    "eval-match-intersection-gray",
     "eval-match-intersection-own",
-    "eval-exclusive-intersection-gray",
+    "eval-match-intersection-gray",
     "eval-exclusive-intersection-own",
+    "eval-exclusive-intersection-gray",
     "eval-gt-missed-only",
   ];
 
@@ -47,8 +47,10 @@ export function createHighlightModeGroup(
     // Evaluation modes (friendly labels)
     "eval-match-intersection-gray": "match: highlight / intersection: gray",
     "eval-match-intersection-own": "match: highlight / intersection: own",
-    "eval-exclusive-intersection-gray": "exclusive: highlight / intersection: gray",
-    "eval-exclusive-intersection-own": "exclusive: highlight / intersection: own",
+    "eval-exclusive-intersection-gray":
+      "exclusive: highlight / intersection: gray",
+    "eval-exclusive-intersection-own":
+      "exclusive: highlight / intersection: own",
     "eval-gt-missed-only": "reference missed only",
   };
 

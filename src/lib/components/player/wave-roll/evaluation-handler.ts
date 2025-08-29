@@ -1,7 +1,8 @@
 import { ColoredNote } from "@/core/visualization";
 import { StateManager } from "@/core/state";
 import { matchNotes } from "@/lib/evaluation/transcription";
-import { COLOR_PRIMARY, COLOR_OVERLAP } from "@/lib/core/constants";
+import { COLOR_PRIMARY, COLOR_OVERLAP, COLOR_A, COLOR_B, COLOR_EVAL_HIGHLIGHT, COLOR_EVAL_EXCLUSIVE } from "@/lib/core/constants";
+import { mixColorsOklch, blendColorsAverage } from "@/lib/core/utils/color/blend";
 
 export class EvaluationHandler {
   constructor(private stateManager: StateManager) {}
@@ -42,9 +43,14 @@ export class EvaluationHandler {
     // Helper functions
     const toNumberColor = (c: string | number): number =>
       typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
+    // Derive a dynamic, high-contrast alternative without assuming fixed hues
+    const complement = (color: number): number => (color ^ 0xffffff) >>> 0;
 
     const NEUTRAL_GRAY = 0x444444;
-    const HIGHLIGHT = toNumberColor(COLOR_OVERLAP);
+    // Anchors for generating highlight colors distinct from base file colours
+    const HIGHLIGHT_ANCHOR_REF = toNumberColor(COLOR_EVAL_HIGHLIGHT);
+    const HIGHLIGHT_ANCHOR_EST = toNumberColor(COLOR_EVAL_EXCLUSIVE);
+    const HIGHLIGHT_BLEND_RATIO = 0.75; // drive farther from base file colour
 
     // 1) Run matching for each estimated file and build indexes
     const byRef = new Map<number, Array<{ estId: string; estIdx: number }>>();
@@ -111,6 +117,50 @@ export class EvaluationHandler {
     });
     const selectedEstCount = estFiles.length;
 
+    // 2.5) Build ambiguous overlaps (case 3): unmatched GT/EST with same pitch and time overlap
+    const matchedRef = new Set<number>([...byRef.keys()]);
+    const ambiguousByRef = new Map<number, Array<{ start: number; end: number; estId: string; estIdx: number }>>();
+    const ambiguousByEst = new Map<string, Map<number, Array<{ start: number; end: number; refIdx: number }>>>();
+    // Precompute per-est unmatched sets
+    const unmatchedEstIdxs = new Map<string, Set<number>>();
+    for (const estFile of estFiles) {
+      const estId = estFile.id;
+      const estMap = byEst.get(estId) ?? new Map<number, number>();
+      const s = new Set<number>();
+      for (let i = 0; i < estFile.parsedData.notes.length; i++) {
+        if (!estMap.has(i)) s.add(i);
+      }
+      unmatchedEstIdxs.set(estId, s);
+      ambiguousByEst.set(estId, new Map());
+    }
+    // Iterate unmatched refs
+    for (let r = 0; r < refFile.parsedData.notes.length; r++) {
+      if (matchedRef.has(r)) continue; // only unmatched GT
+      const rn = refFile.parsedData.notes[r];
+      const rOn = rn.time; const rOff = rn.time + rn.duration;
+      for (const estFile of estFiles) {
+        const estId = estFile.id;
+        const uSet = unmatchedEstIdxs.get(estId)!;
+        for (const eIdx of uSet) {
+          const en = estFile.parsedData.notes[eIdx];
+          if (en.midi !== rn.midi) continue;
+          const eOn = en.time; const eOff = en.time + en.duration;
+          const s = Math.max(rOn, eOn);
+          const e = Math.min(rOff, eOff);
+          if (e > s) {
+            // Record ambiguous ranges for both REF and EST
+            const listR = ambiguousByRef.get(r) ?? [];
+            listR.push({ start: s, end: e, estId, estIdx: eIdx });
+            ambiguousByRef.set(r, listR);
+            const estMap = ambiguousByEst.get(estId)!;
+            const listE = estMap.get(eIdx) ?? [];
+            listE.push({ start: s, end: e, refIdx: r });
+            estMap.set(eIdx, listE);
+          }
+        }
+      }
+    }
+
     // 3) Process notes based on highlight mode
     const result: ColoredNote[] = [];
     const useGrayGlobal = highlightMode.includes("-gray");
@@ -135,6 +185,12 @@ export class EvaluationHandler {
       const fileColor = toNumberColor(
         state.files.find((f: any) => f.id === fileId)?.color ?? COLOR_PRIMARY
       );
+      // Precompute per-file own highlight colour (anchored away from base file colour)
+      const ownHighlightColor = isRef
+        ? mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO)
+        : isEst
+        ? mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO)
+        : fileColor;
 
       // eval-gt-missed-only: only highlight unmatched reference notes
       if (highlightMode === "eval-gt-missed-only") {
@@ -162,9 +218,9 @@ export class EvaluationHandler {
         return;
       }
 
-      const nonIntersectColor = useGrayGlobal ? NEUTRAL_GRAY : fileColor;
-      // Do not change color for highlight; rely on hatch overlay for visibility
-      const intersectColor = fileColor;
+      // Keep non-intersection segments in the file's base colour regardless of gray mode
+      // so that "intersection: gray" behaves like "own" except intersections themselves.
+      const nonIntersectColor = fileColor;
       const isExclusive = isExclusiveGlobal;
 
       // Helper to push segmented fragments
@@ -194,24 +250,61 @@ export class EvaluationHandler {
         const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice();
         const noteStart = note.time;
         const noteEnd = note.time + note.duration;
+        const ambRanges = (ambiguousByRef.get(sourceIdx) || []).map(r => ({ start: r.start, end: r.end }));
+        // For single-estimate pairing, derive blended intersection colour (own) or gray (gray mode)
+        let pairIntersectColor = nonIntersectColor;
+        if (estFiles.length >= 1 && byRef.has(sourceIdx)) {
+          const pair = byRef.get(sourceIdx)![0]; // 1:1 pairing assumed
+          const estFile = estFiles.find((f: any) => f.id === pair.estId);
+          if (estFile) {
+            if (useGrayGlobal) {
+              pairIntersectColor = NEUTRAL_GRAY;
+            } else {
+              const estBase = toNumberColor(estFile.color ?? COLOR_PRIMARY);
+              const refOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+              const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+              const blended = blendColorsAverage([refOwn, estOwn]);
+              pairIntersectColor = mixColorsOklch(blended, 0xffffff, 0.20);
+            }
+          }
+        }
 
         // Use union-of-intersections (OR) for 1-vs-N comparison
         if (unionRanges.length === 0) {
           // No matches
-          if (isExclusive) {
-            if (aggregationMode === "pair") {
-              // Pair: r \ I_k where I_k is empty => full note highlighted
-              pushSegment(noteStart, noteEnd, intersectColor, {
-                isEval: true,
-                kind: "exclusive",
-              });
-              return;
+          // Handle ambiguous overlaps (case 3) first
+          if (ambRanges.length > 0) {
+            const sortedAmb = ambRanges.sort((a,b)=>a.start-b.start);
+            let cur = noteStart;
+            for (const r of sortedAmb) {
+              const s = Math.max(noteStart, r.start);
+              const e = Math.min(noteEnd, r.end);
+              if (s < e) {
+                if (cur < s) {
+                  // background segment
+                  pushSegment(cur, s, nonIntersectColor);
+                }
+                // ambiguous segment color: dynamic (no fixed hue)
+                // Find corresponding EST file/color for blend
+                const link = ambiguousByRef.get(sourceIdx)![0];
+                const estFile = estFiles.find((f:any)=>f.id===link.estId);
+                const estBase = estFile ? toNumberColor(estFile.color ?? COLOR_PRIMARY) : fileColor;
+                const refOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+                const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+                const blended = blendColorsAverage([refOwn, estOwn]);
+                // Mix blended with its RGB complement to ensure distinctness regardless of base hues
+                let ambColor = mixColorsOklch(blended, complement(blended), 0.50);
+                ambColor = useGrayGlobal
+                  ? mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50) // darker gray for clear contrast vs intersection gray
+                  : mixColorsOklch(ambColor, 0xffffff, 0.10);
+                pushSegment(s, e, ambColor, { isEval: true, kind: "ambiguous" });
+                cur = e;
+              }
             }
-            // OR: only highlight exclusive when there was any match
-            result.push({ ...coloredNote, color: nonIntersectColor });
+            if (cur < noteEnd) pushSegment(cur, noteEnd, nonIntersectColor);
             return;
           }
-          // Match-intersection modes: non-highlight
+          // No match and no ambiguous: fall back to default (non-highlight)
           result.push({ ...coloredNote, color: nonIntersectColor });
           return;
         }
@@ -226,14 +319,14 @@ export class EvaluationHandler {
               pushSegment(
                 cursor,
                 s,
-                isExclusive ? intersectColor : nonIntersectColor,
+                isExclusive ? ownHighlightColor : nonIntersectColor,
                 isExclusive ? { isEval: true, kind: "exclusive" } : undefined
               );
             }
             pushSegment(
               Math.max(s, noteStart),
               Math.min(e, noteEnd),
-              isExclusive ? nonIntersectColor : intersectColor,
+              isExclusive ? nonIntersectColor : (useGrayGlobal ? NEUTRAL_GRAY : pairIntersectColor),
               !isExclusive ? { isEval: true, kind: "intersection" } : undefined
             );
             cursor = Math.max(cursor, e);
@@ -243,7 +336,7 @@ export class EvaluationHandler {
           pushSegment(
             cursor,
             noteEnd,
-            isExclusive ? intersectColor : nonIntersectColor,
+            isExclusive ? ownHighlightColor : nonIntersectColor,
             isExclusive ? { isEval: true, kind: "exclusive" } : undefined
           );
         }
@@ -254,14 +347,36 @@ export class EvaluationHandler {
         const refIdx = byEst.get(fileId)?.get(sourceIdx);
         if (refIdx === undefined) {
           // Unmatched estimated note
-          if (isExclusive) {
-            // e_k \ I_k where I_k is empty => full note highlighted
-            const noteStart = note.time;
-            const noteEnd = note.time + note.duration;
-            pushSegment(noteStart, noteEnd, intersectColor);
-          } else {
-            result.push({ ...coloredNote, color: nonIntersectColor });
+          const ambMap = ambiguousByEst.get(fileId)!;
+          const ambRanges = (ambMap.get(sourceIdx) || []).map(r=>({start:r.start,end:r.end}));
+          const noteStart = note.time; const noteEnd = note.time + note.duration;
+          if (ambRanges.length > 0) {
+            const refBase = toNumberColor(
+              state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY
+            );
+            const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+            const estOwn = mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+            const blended = blendColorsAverage([refOwn, estOwn]);
+            let ambColor = mixColorsOklch(blended, complement(blended), 0.50);
+            ambColor = useGrayGlobal
+              ? mixColorsOklch(NEUTRAL_GRAY, 0x000000, 0.50)
+              : mixColorsOklch(ambColor, 0xffffff, 0.10);
+            const sortedAmb = ambRanges.sort((a,b)=>a.start-b.start);
+            let cur = noteStart;
+            for (const r of sortedAmb) {
+              const s = Math.max(noteStart, r.start);
+              const e = Math.min(noteEnd, r.end);
+              if (s < e) {
+                if (cur < s) pushSegment(cur, s, nonIntersectColor);
+                pushSegment(s, e, ambColor, { isEval: true, kind: "ambiguous" });
+                cur = e;
+              }
+            }
+            if (cur < noteEnd) pushSegment(cur, noteEnd, nonIntersectColor);
+            return;
           }
+          // No ambiguous: default fallbacks
+          result.push({ ...coloredNote, color: nonIntersectColor });
           return;
         }
 
@@ -273,6 +388,21 @@ export class EvaluationHandler {
         const intersectStart = Math.max(refOn, noteStart);
         const intersectEnd = Math.min(refOff, noteEnd);
 
+        // Compute blended intersection colour for this pair (own vs gray)
+        let pairIntersectColor = nonIntersectColor;
+        if (useGrayGlobal) {
+          pairIntersectColor = NEUTRAL_GRAY;
+        } else {
+          const refBase = toNumberColor(
+            state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY
+          );
+          const estBase = fileColor;
+          const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+          const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+          const blended = blendColorsAverage([refOwn, estOwn]);
+          pairIntersectColor = mixColorsOklch(blended, 0xffffff, 0.20);
+        }
+
         if (intersectStart < intersectEnd) {
           // Use pair/OR behaviour with I_k
           // before intersection
@@ -280,7 +410,7 @@ export class EvaluationHandler {
             pushSegment(
               noteStart,
               intersectStart,
-              isExclusive ? intersectColor : nonIntersectColor,
+              isExclusive ? ownHighlightColor : nonIntersectColor,
               isExclusive ? { isEval: true, kind: "exclusive" } : undefined
             );
           }
@@ -288,7 +418,7 @@ export class EvaluationHandler {
           pushSegment(
             intersectStart,
             intersectEnd,
-            isExclusive ? nonIntersectColor : intersectColor,
+            isExclusive ? nonIntersectColor : (useGrayGlobal ? NEUTRAL_GRAY : pairIntersectColor),
             !isExclusive ? { isEval: true, kind: "intersection" } : undefined
           );
           // after intersection
@@ -296,7 +426,7 @@ export class EvaluationHandler {
             pushSegment(
               intersectEnd,
               noteEnd,
-              isExclusive ? intersectColor : nonIntersectColor,
+              isExclusive ? ownHighlightColor : nonIntersectColor,
               isExclusive ? { isEval: true, kind: "exclusive" } : undefined
             );
           }
