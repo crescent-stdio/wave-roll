@@ -37,7 +37,7 @@ import { LoopManager } from "./managers/loop-manager";
 export class AudioPlayer implements AudioPlayerContainer {
   private notes: NoteData[];
   private pianoRoll: PianoRollSync;
-  public options: Required<PlayerOptions>;
+  public options: Required<Omit<PlayerOptions, 'onPlaybackEnd'>> & Pick<PlayerOptions, 'onPlaybackEnd'>;
   private midiManager: any;
 
   // Manager instances
@@ -158,6 +158,11 @@ export class AudioPlayer implements AudioPlayerContainer {
       }
     );
     this.loopManager = new LoopManager(this.originalTempo);
+    
+    // Set callback for when playback reaches the end
+    this.transportSyncManager.setEndCallback(() => {
+      this.handlePlaybackEnd();
+    });
   }
 
   /**
@@ -557,7 +562,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       });
       this.samplerManager.startPart("+0.01", offsetForPart);
 
-      // Restart sync
+      // Restart Sync
       this.state.isPlaying = true;
       this.transportSyncManager.startSyncScheduler();
 
@@ -615,16 +620,41 @@ export class AudioPlayer implements AudioPlayerContainer {
     this.state.playbackRate = ratePct;
 
     if (this.state.isPlaying) {
+      // Restart-style tempo change to flush scheduled events and avoid overlap
       this.operationState.isSeeking = true;
+      this.operationState.isRestarting = true;
 
       const currentVisualTime = this.state.currentTime;
-      Tone.getTransport().bpm.value = clampedTempo;
-
       const newTransportSeconds =
         (currentVisualTime * this.originalTempo) / clampedTempo;
 
-      // Rebuild Part to reflect new tempo mapping (visual -> transport)
+      // Rescale A-B loop window to preserve transport-anchored positions
+      this.loopManager.rescaleLoopForTempoChange(
+        oldTempo,
+        clampedTempo,
+        this.state.duration
+      );
+
+      // Stop sync and Part, then fully reset Transport
+      this.transportSyncManager.stopSyncScheduler();
       this.samplerManager.stopPart();
+
+      const transport = Tone.getTransport();
+      transport.stop();
+      transport.cancel();
+      transport.bpm.value = clampedTempo;
+
+      // Configure loop window under new tempo
+      this.loopManager.configureTransportLoop(
+        this.state.isRepeating,
+        this.state,
+        this.state.duration
+      );
+
+      // Set transport to new position
+      transport.seconds = newTransportSeconds;
+
+      // Rebuild Part
       this.samplerManager.setupNotePart(
         this.loopManager.loopStartVisual,
         this.loopManager.loopEndVisual,
@@ -636,25 +666,24 @@ export class AudioPlayer implements AudioPlayerContainer {
         }
       );
 
-      // Move transport and start Part at the corresponding offset (aligned absolute start)
+      // Schedule synchronized start for both Transport/Part and WAV
       const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
       const startAt = Tone.now() + RESTART_DELAY;
-      Tone.getTransport().seconds = newTransportSeconds;
+      transport.start(startAt);
       this.samplerManager.startPart(startAt, newTransportSeconds);
 
-      // Match WAV speed to new tempo (ratio to original)
+      // WAV speed + start
+      try { this.wavPlayerManager.setPlaybackRate(ratePct); } catch {}
       try {
-        this.wavPlayerManager.setPlaybackRate(ratePct);
+        this.wavPlayerManager.stopAllAudioPlayers();
+        this.wavPlayerManager.startActiveAudioAt(currentVisualTime, startAt);
       } catch {}
 
-      // While playing, realign WAV at the precise visual position derived from transport
-      try {
-        const visualForWav = this.transportSyncManager.transportToVisualTime(
-          Tone.getTransport().seconds
-        );
-        this.wavPlayerManager.stopAllAudioPlayers();
-        this.wavPlayerManager.startActiveAudioAt(visualForWav, startAt);
-      } catch {}
+      this.state.isPlaying = true;
+      this.transportSyncManager.startSyncScheduler();
+
+      // Clear restarting flag
+      setTimeout(() => { this.operationState.isRestarting = false; }, 100);
     } else {
       Tone.getTransport().bpm.value = clampedTempo;
 
@@ -669,6 +698,20 @@ export class AudioPlayer implements AudioPlayerContainer {
       try {
         this.wavPlayerManager.setPlaybackRate(ratePct);
       } catch {}
+
+      // Rescale A-B loop window while paused
+      this.loopManager.rescaleLoopForTempoChange(
+        oldTempo,
+        clampedTempo,
+        this.state.duration
+      );
+
+      // Also update loop window while paused
+      this.loopManager.configureTransportLoop(
+        this.state.isRepeating,
+        this.state,
+        this.state.duration
+      );
     }
   }
 
@@ -682,6 +725,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       AUDIO_CONSTANTS.MAX_PLAYBACK_RATE
     );
     const oldRate = this.state.playbackRate || 100;
+    const prevTempo = this.state.tempo;
 
     if (clampedRate === oldRate) {
       return;
@@ -693,6 +737,12 @@ export class AudioPlayer implements AudioPlayerContainer {
     const newTempo = this.originalTempo * speedMultiplier;
 
     this.state.tempo = newTempo;
+    // Rescale A-B loop window to preserve transport-anchored positions
+    this.loopManager.rescaleLoopForTempoChange(
+      prevTempo,
+      newTempo,
+      this.state.duration
+    );
 
     // Update WAV playback rate
     this.wavPlayerManager.setPlaybackRate(clampedRate);
@@ -743,6 +793,13 @@ export class AudioPlayer implements AudioPlayerContainer {
     }
 
     // Avoid double-start: stop/start already handled just above when playing
+    
+    // Update Transport loop window after playback-rate change
+    this.loopManager.configureTransportLoop(
+      this.state.isRepeating,
+      this.state,
+      this.state.duration
+    );
   }
 
   /**
@@ -1028,6 +1085,26 @@ export class AudioPlayer implements AudioPlayerContainer {
     this.maybeAutoPauseIfSilent();
   }
 
+  /**
+   * Handle playback reaching the end of duration
+   */
+  private handlePlaybackEnd(): void {
+    if (!this.state.isRepeating && this.state.isPlaying) {
+      console.log("[AP] Playback reached end, stopping and resetting");
+      
+      // First pause the playback
+      this.pause();
+      
+      // Reset to the beginning for next play
+      this.seek(0);
+      
+      // Emit event for UI to update play button state if needed
+      if (this.options.onPlaybackEnd) {
+        this.options.onPlaybackEnd();
+      }
+    }
+  }
+  
   /**
    * Check if all sources are silent and auto-pause if needed
    */

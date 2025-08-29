@@ -221,4 +221,25 @@ export class LoopManager {
   updateOriginalTempo(tempo: number): void {
     this.originalTempo = tempo;
   }
+
+  /**
+   * Adjust current A-B loop visual positions when tempo changes, so that
+   * their underlying transport positions remain anchored. This effectively
+   * rescales visual loop points by (newTempo / oldTempo).
+   */
+  rescaleLoopForTempoChange(oldTempo: number, newTempo: number, duration: number): void {
+    if (
+      this._loopStartVisual === null ||
+      this._loopEndVisual === null ||
+      oldTempo <= 0 ||
+      newTempo <= 0
+    ) {
+      return;
+    }
+    const scale = newTempo / oldTempo;
+    const newStart = Math.max(0, Math.min(duration, this._loopStartVisual * scale));
+    const newEnd = Math.max(newStart, Math.min(duration, this._loopEndVisual * scale));
+    this._loopStartVisual = newStart;
+    this._loopEndVisual = newEnd;
+  }
 }

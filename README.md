@@ -4,7 +4,7 @@
   <img src="./wave-roll-logo.png" alt="WaveRoll" width="50%"/>
 </div>
 
-> **WaveRoll** is an interactive [JavaScript library](https://www.npmjs.com/package/wave-roll) that enables comparative visualization and synchronized playback of multiple MIDI piano rolls in the browser. 
+> **WaveRoll** is an interactive [JavaScript library](https://www.npmjs.com/package/wave-roll) that enables comparative visualization and synchronized playback of multiple MIDI piano rolls on a browser. 
 
 ![NPM Version](https://img.shields.io/npm/v/wave-roll)
 ![NPM License](https://img.shields.io/npm/l/wave-roll)

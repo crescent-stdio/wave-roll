@@ -19,6 +19,7 @@ export class TransportSyncManager {
   private options: TransportSyncOptions;
   private state: AudioPlayerState;
   private operationState: OperationState;
+  private onEndCallback?: () => void;
 
   constructor(
     pianoRoll: PianoRollSync,
@@ -120,8 +121,15 @@ export class TransportSyncManager {
 
       // Auto-pause when playback ends and repeat is off
       if (!this.state.isRepeating && visualTime >= this.state.duration) {
-        // This will be handled by the main audio player
-        // Just notify that we've reached the end
+        // Stop at the end instead of continuing beyond duration
+        console.log("[TransportSync] End reached", {
+          visualTime: visualTime.toFixed(3),
+          duration: this.state.duration.toFixed(3),
+        });
+        // Call the end callback to handle pause
+        if (this.onEndCallback) {
+          this.onEndCallback();
+        }
         return;
       }
     };
@@ -267,5 +275,12 @@ export class TransportSyncManager {
    */
   updateOperationState(operationState: OperationState): void {
     this.operationState = operationState;
+  }
+
+  /**
+   * Set callback for when playback reaches the end
+   */
+  setEndCallback(callback: () => void): void {
+    this.onEndCallback = callback;
   }
 }

@@ -26,6 +26,8 @@ export interface PlayerOptions {
   soundFont?: string;
   /** Update interval for playhead synchronization in ms (default: 16 for ~60fps) */
   syncInterval?: number;
+  /** Callback when playback reaches the end (non-looping mode only) */
+  onPlaybackEnd?: () => void;
 }
 
 /**
