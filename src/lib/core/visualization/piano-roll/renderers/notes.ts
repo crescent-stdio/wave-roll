@@ -178,6 +178,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     kind: "circle" | "triangle" | "diamond" | "square",
     colorHex: string
   ): PIXI.Texture {
+    // Cache by kind + stroke color so each file gets a distinct outline
     const key = `${kind}-${colorHex}`;
     const cached = WR_ONSET_TEXTURE_CACHE[key];
     if (cached && (cached as any).valid !== false) return cached;
@@ -189,7 +190,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     ctx.clearRect(0, 0, size, size);
     ctx.lineWidth = 2;
     ctx.strokeStyle = colorHex; // outline in file color
-    ctx.fillStyle = "#ffffff"; // white fill
+    ctx.fillStyle = "#ffffff"; // white fill for visibility
     ctx.lineJoin = "miter";
     if (kind === "circle") {
       ctx.beginPath();
@@ -269,7 +270,8 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       []) as PIXI.Sprite[];
     const onset = new PIXI.Sprite(PIXI.Texture.WHITE);
     onset.visible = false;
-    onset.alpha = 0.95;
+    onset.alpha = 0.75; // semi-transparent to let overlaps visually mix
+    (onset as any).blendMode = "normal"; // use normal blending to avoid washout on white bg
     pianoRoll.notesContainer.addChild(onset);
     onsetSprites.push(onset);
 
@@ -327,6 +329,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         m.destroy();
       }
     }
+    // onsetOutlineSprites are no longer used
   }
 
   // 2) Update transform & style ------------------------------------------
@@ -421,11 +424,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         // Use intersection/exclusive/ambiguous to select overlay style
         const kind = note.evalSegmentKind ?? "intersection";
         let tint: number;
-        
+
         // Check if we're in gray mode
         const hlMode = (pianoRoll as any).highlightMode ?? "file";
-        const isGrayMode = typeof hlMode === "string" && hlMode.includes("-gray");
-        
+        const isGrayMode =
+          typeof hlMode === "string" && hlMode.includes("-gray");
+
         if (isGrayMode) {
           // Use distinct gray levels for better separation
           if (kind === "exclusive") {
@@ -446,23 +450,23 @@ export function renderNotes(pianoRoll: PianoRoll): void {
             tint = parseInt(COLOR_EVAL_HIGHLIGHT.replace("#", ""), 16);
           }
         }
-        
+
         overlay.visible = true;
         overlay.x = sprite.x;
         overlay.y = sprite.y;
         overlay.width = sprite.width;
         overlay.height = sprite.height;
         overlay.tilePosition.set(0, 0);
-        
+
         // Set hatch orientation by kind to increase visual distinction
         const texKind =
           kind === "exclusive" ? "down" : kind === "ambiguous" ? "cross" : "up";
-        if (texKind === 'cross') {
-          overlay.texture = getPatternTexture('cross');
+        if (texKind === "cross") {
+          overlay.texture = getPatternTexture("cross");
         } else {
-          overlay.texture = getHatchTexture(texKind as 'up' | 'down');
+          overlay.texture = getHatchTexture(texKind as "up" | "down");
         }
-        
+
         overlay.tint = tint;
         // Differentiated overlay strength for clearer separation
         // - intersection: medium
@@ -488,6 +492,10 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     const onsetSprites = ((pianoRoll as any).onsetSprites ??=
       []) as PIXI.Sprite[];
     const m = onsetSprites[idx];
+    const originalOnsetMap = (pianoRoll as any).originalOnsetMap as
+      | Record<string, number>
+      | undefined;
+    const onlyOriginal = (pianoRoll as any).onlyOriginalOnsets !== false;
     if (m) {
       if (showOnsets) {
         const fid = note.fileId || "";
@@ -507,7 +515,22 @@ export function renderNotes(pianoRoll: PianoRoll): void {
           | undefined;
         const baseColorNum = fileColors?.[fid] ?? noteColor;
         const colorHex = "#" + baseColorNum.toString(16).padStart(6, "0");
-        m.texture = getOnsetTexture(kind, colorHex);
+        // Only show marker for the original MIDI onset (avoid per-fragment markers)
+        if (onlyOriginal && originalOnsetMap) {
+          const key = `${fid}#${note.sourceIndex ?? -1}`;
+          const origT = originalOnsetMap[key];
+          if (origT === undefined || Math.abs(origT - note.time) > 1e-6) {
+            m.visible = false;
+            return; // skip drawing marker for segmented fragments
+          }
+        }
+
+        // Render as original shape marker with per-file stable kind
+        const tex = getOnsetTexture(kind, colorHex);
+        m.texture = tex;
+        (m as any).tint = 0xffffff; // no extra tint; texture carries stroke color
+        (m as any).blendMode = "normal";
+        m.alpha = 0.95;
         const sz = Math.min(12, Math.max(8, Math.floor(height)));
         m.width = sz;
         m.height = sz;

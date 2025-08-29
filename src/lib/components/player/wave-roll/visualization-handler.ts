@@ -160,6 +160,18 @@ export class VisualizationHandler {
         const visual = this.stateManager.getState().visual;
         (pianoInstance as any).highlightMode = visual.highlightMode;
         (pianoInstance as any).showOnsetMarkers = visual.showOnsetMarkers;
+        // Provide a mapping of original MIDI onsets so the renderer can
+        // suppress markers on segmented fragments in eval/highlight modes.
+        const origOnsetMap: Record<string, number> = {};
+        state.files.forEach((f: any) => {
+          if (!f.isPianoRollVisible || !f.parsedData?.notes) return;
+          const fid = f.id;
+          f.parsedData.notes.forEach((n: any, i: number) => {
+            origOnsetMap[`${fid}#${i}`] = n.time;
+          });
+        });
+        (pianoInstance as any).originalOnsetMap = origOnsetMap;
+        (pianoInstance as any).onlyOriginalOnsets = true;
       }
 
       // Finally, push CC data to piano-roll which will trigger a re-render of
