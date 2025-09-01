@@ -170,7 +170,7 @@ export function createPaletteSelectorSection(
     btn.addEventListener("focus", showBar);
     btn.addEventListener("blur", hideBar);
 
-    // Small palette preview should remain uncluttered—no edit/duplicate icons here.
+    // Small palette preview should remain uncluttered-no edit/duplicate icons here.
 
     btn.onclick = () => {
       if (deps.midiManager.getState().activePaletteId !== palette.id) {

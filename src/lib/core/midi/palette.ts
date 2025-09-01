@@ -32,9 +32,9 @@ export const DEFAULT_PALETTES: ColorPalette[] = [
      * Reference: Okabe & Ito (2008), widely used for color vision deficiency.
      */
     colors: [
-      0xb91c1c, // Red (dark)  — 1
-      0x3b82f6, // Blue (brighter) — 2
-      0x0d9488, // Teal (darker, higher legibility) — 3
+      0xb91c1c, // Red (dark)  - 1
+      0x3b82f6, // Blue (brighter) - 2
+      0x0d9488, // Teal (darker, higher legibility) - 3
       0x009e73, // Bluish green (dark)
       0xcc79a7, // Reddish purple (medium)
       0x2c7fb8, // Sky blue (darker)

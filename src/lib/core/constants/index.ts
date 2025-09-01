@@ -1,8 +1,8 @@
 // Accessible, higher-contrast defaults (WCAG AA targets)
 export const COLOR_PRIMARY = "#2563eb"; // Blue-600: ensures white-on-accent >= 4.5:1
 // Unify A/B marker color with piano-roll loop line colors for consistency
-export const COLOR_A = "#0ea5e9"; // Sky-500 (A) — matched with loop line A
-export const COLOR_B = "#e11d48"; // Rose-600 (B) — matched with loop line B
+export const COLOR_A = "#0ea5e9"; // Sky-500 (A) - matched with loop line A
+export const COLOR_B = "#e11d48"; // Rose-600 (B) - matched with loop line B
 
 export const COLOR_OVERLAP = "#64748b"; // Slate-500: neutral highlight base for overlaps
 
