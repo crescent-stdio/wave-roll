@@ -9,7 +9,7 @@ import {
   TimeSignatureEvent,
   ControlChangeEvent,
 } from "@/lib/midi/types";
-import { applySustainPedalElongation } from "@/lib/core/parsers/midi-parser-enhanced";
+// Sustain-pedal elongation utilities (ported from onsets-and-frames)
 import {
   midiToNoteName,
   midiToPitchClass,
@@ -151,38 +151,14 @@ function convertNote(note: any): NoteData {
 }
 
 /**
- * Apply sustain pedal logic to elongate notes based on CC64 events.
- * Implements threshold-based sustain handling:
- * - CC64 >= threshold: sustain on
- * - Sustain remains on until CC64 < threshold
- * - Same note re-issue closes previous instance
- * - sustain_off releases all held notes
- * 
- * @param notes - Original note data
- * @param controlChanges - Control change events including CC64
- * @param threshold - Pedal threshold (0-127, default 64)
- * @param channel - Channel to process
- * @returns Modified notes with sustain applied
+ * Apply sustain pedal elongation to MIDI notes.
+ *
+ * Algorithm (based on onsets-and-frames):
+ * 1) When sustain pedal is pressed (CC64 >= threshold), notes continue sounding after note-off
+ * 2) Notes are released when sustain pedal is released (CC64 < threshold) or when the same pitch is re-played
+ * 3) Handles multiple simultaneous notes of the same pitch via stacking (FIFO)
  */
-/**
- * Apply sustain pedal elongation per channel.
- * 
- * Based on implementation from onsets-and-frames:
- * https://github.com/jongwook/onsets-and-frames/blob/master/onsets_and_frames/midi.py
- * 
- * Key behaviors:
- * - Sustain pedal (CC64 >= threshold) keeps notes sounding after note-off
- * - Re-striking same pitch cuts previous sustained instance (FIFO)
- * - Sustain release (CC64 < threshold) releases all held notes
- * - Proper event ordering ensures correct temporal processing
- * 
- * Adaptations for this project:
- * - TypeScript implementation with Tone.js data structures
- * - Normalized CC values (0-1) instead of MIDI (0-127)
- * - Enhanced event sorting for simultaneous events
- * - Support for per-pitch note stacks
- */
-function applySustainPedal(
+export function applySustainPedalElongation(
   notes: NoteData[],
   controlChanges: ControlChangeEvent[],
   threshold: number = 64,
@@ -191,116 +167,195 @@ function applySustainPedal(
   if (notes.length === 0) return [];
 
   const EPS = 1e-9;
-  const normalizedThreshold = threshold / 127;
+  const normalizedThreshold = threshold / 127; // MIDI (0-127) -> normalized (0-1)
 
-  type NoteEvent = {
+  type Event = {
     time: number;
-    type: 'on' | 'off';
-    midi: number;
-    velocity: number;
-    noteIndex: number;
+    type: 'note_on' | 'note_off' | 'sustain_on' | 'sustain_off';
+    index: number; // original note index for note events
+    midi?: number;
+    velocity?: number;
   };
 
-  const events: NoteEvent[] = [];
-  notes.forEach((n, idx) => {
-    events.push({ time: n.time, type: 'on', midi: n.midi, velocity: n.velocity, noteIndex: idx });
-    events.push({ time: n.time + n.duration, type: 'off', midi: n.midi, velocity: n.velocity, noteIndex: idx });
+  const events: Event[] = [];
+
+  // Note on/off events
+  notes.forEach((note, index) => {
+    events.push({ time: note.time, type: 'note_on', index, midi: note.midi, velocity: note.velocity });
+    events.push({ time: note.time + note.duration, type: 'note_off', index, midi: note.midi, velocity: note.velocity });
   });
 
-  // Sort notes: by time, then 'off' before 'on' at same time, then pitch
-  events.sort((a, b) => {
-    if (a.time !== b.time) return a.time - b.time;
-    if (a.type !== b.type) return a.type === 'off' ? -1 : 1;
-    return a.midi - b.midi;
-  });
-
-  // Sustain events (CC64)
-  const sustain = controlChanges
+  // Sustain events (CC64), only add on state changes
+  let prevSustain = false;
+  controlChanges
     .filter((cc) => cc.controller === 64)
-    .map((cc) => ({ time: cc.time, isOn: (cc.value ?? 0) >= normalizedThreshold }))
-    .sort((a, b) => a.time - b.time);
-
-  let sustainOn = false;
-  let si = 0;
-
-  // Active notes indexed by noteIndex
-  const active = new Map<number, { onset: number; midi: number; velocity: number }>();
-  // Sustained notes per pitch (stack to support rare overlapping same-pitch cases)
-  const sustained = new Map<number, Array<{ onset: number; velocity: number; noteIndex: number }>>();
-
-  // Final results by original index
-  const results = new Map<number, NoteData>();
-
-  const releaseAll = (t: number) => {
-    sustained.forEach((arr) => {
-      for (const data of arr) {
-        const orig = notes[data.noteIndex];
-        const dur = Math.max(EPS, t - data.onset);
-        results.set(data.noteIndex, { ...orig, duration: dur });
+    .forEach((cc) => {
+      const isOn = (cc.value ?? 0) >= normalizedThreshold;
+      if (isOn !== prevSustain) {
+        events.push({ time: cc.time, type: isOn ? 'sustain_on' : 'sustain_off', index: -1 });
+        prevSustain = isOn;
       }
     });
-    sustained.clear();
+
+  // Sort events. Priority for ties: sustain_off > note_off > sustain_on > note_on
+  events.sort((a, b) => {
+    if (Math.abs(a.time - b.time) > EPS) return a.time - b.time;
+    const prio: Record<Event['type'], number> = {
+      sustain_off: 0,
+      note_off: 1,
+      sustain_on: 2,
+      note_on: 3,
+    } as const;
+    return prio[a.type] - prio[b.type];
+  });
+
+  // State
+  let sustainOn = false;
+  const activeNotes = new Map<number, { startTime: number; midi: number; velocity: number }>();
+  const sustainedNotes = new Map<number, Array<{ index: number; startTime: number; velocity: number }>>();
+  const finalNotes = new Map<number, NoteData>();
+
+  const releaseAllSustained = (t: number) => {
+    for (const [pitch, stack] of sustainedNotes.entries()) {
+      for (const s of stack) {
+        const orig = notes[s.index];
+        const dur = Math.max(EPS, t - s.startTime);
+        finalNotes.set(s.index, { ...orig, duration: dur });
+      }
+    }
+    sustainedNotes.clear();
+  };
+
+  const releasePitchFIFO = (pitch: number, t: number) => {
+    const stack = sustainedNotes.get(pitch);
+    if (stack && stack.length > 0) {
+      const s = stack.shift()!;
+      const orig = notes[s.index];
+      const dur = Math.max(EPS, t - s.startTime);
+      finalNotes.set(s.index, { ...orig, duration: dur });
+      if (stack.length === 0) sustainedNotes.delete(pitch);
+    }
   };
 
   for (const ev of events) {
-    // Apply any sustain state changes up to and including this event time
-    while (si < sustain.length && sustain[si].time <= ev.time + EPS) {
-      const prev = sustainOn;
-      sustainOn = sustain[si].isOn;
-      if (prev && !sustainOn) {
-        releaseAll(sustain[si].time);
-      }
-      si += 1;
-    }
-
-    if (ev.type === 'on') {
-      // If there is a sustained note of the same pitch, cut the earliest one
-      const stack = sustained.get(ev.midi);
-      if (stack && stack.length > 0) {
-        const prevData = stack.shift()!; // earliest sustained
-        const orig = notes[prevData.noteIndex];
-        const dur = Math.max(EPS, ev.time - prevData.onset);
-        results.set(prevData.noteIndex, { ...orig, duration: dur });
-        if (stack.length === 0) sustained.delete(ev.midi);
-      }
-      // Mark this note as active
-      active.set(ev.noteIndex, { onset: ev.time, midi: ev.midi, velocity: ev.velocity });
-    } else {
-      // Note off
-      if (!active.has(ev.noteIndex)) continue; // safety
-      const data = active.get(ev.noteIndex)!;
-      active.delete(ev.noteIndex);
-      if (sustainOn) {
-        // Move to sustained stack for this pitch
-        const stack = sustained.get(data.midi) ?? [];
-        stack.push({ onset: data.onset, velocity: data.velocity, noteIndex: ev.noteIndex });
-        sustained.set(data.midi, stack);
-      } else {
-        // Finalize with original duration (no elongation)
-        if (!results.has(ev.noteIndex)) {
-          results.set(ev.noteIndex, notes[ev.noteIndex]);
+    switch (ev.type) {
+      case 'sustain_on':
+        sustainOn = true;
+        break;
+      case 'sustain_off':
+        sustainOn = false;
+        releaseAllSustained(ev.time);
+        break;
+      case 'note_on':
+        if (ev.midi !== undefined) {
+          // Re-striking same pitch cuts previous sustained instance
+          releasePitchFIFO(ev.midi, ev.time);
+          activeNotes.set(ev.index, { startTime: ev.time, midi: ev.midi, velocity: ev.velocity || 0 });
         }
-      }
+        break;
+      case 'note_off':
+        if (!activeNotes.has(ev.index)) break; // safety
+        const info = activeNotes.get(ev.index)!;
+        activeNotes.delete(ev.index);
+        if (sustainOn && ev.midi !== undefined) {
+          const stack = sustainedNotes.get(ev.midi) ?? [];
+          stack.push({ index: ev.index, startTime: info.startTime, velocity: info.velocity });
+          sustainedNotes.set(ev.midi, stack);
+        } else {
+          if (!finalNotes.has(ev.index)) finalNotes.set(ev.index, notes[ev.index]);
+        }
+        break;
     }
   }
 
-  // Determine file end and release any remaining sustained notes at the end
-  const finalTime = Math.max(...notes.map((n) => n.time + n.duration));
-  releaseAll(finalTime);
+  // Release any remaining sustained notes at the end of file
+  const maxEnd = Math.max(...notes.map((n) => n.time + n.duration));
+  if (sustainedNotes.size > 0) releaseAllSustained(maxEnd);
 
-  // Any remaining active notes (should not happen) - keep original
-  for (const [idx] of active) {
-    if (!results.has(idx)) results.set(idx, notes[idx]);
+  // Any remaining active notes -> keep original
+  for (const [idx] of activeNotes) {
+    if (!finalNotes.has(idx)) finalNotes.set(idx, notes[idx]);
   }
 
-  // Build ordered array
+  // Build final array preserving index order, then sort by time, pitch
   const out: NoteData[] = [];
-  for (let i = 0; i < notes.length; i++) {
-    out.push(results.get(i) ?? notes[i]);
-  }
-  out.sort((a, b) => (a.time !== b.time ? a.time - b.time : a.midi - b.midi));
+  for (let i = 0; i < notes.length; i++) out.push(finalNotes.get(i) ?? notes[i]);
+  out.sort((a, b) => (Math.abs(a.time - b.time) > EPS ? a.time - b.time : a.midi - b.midi));
   return out;
 }
+
+/**
+ * Safe wrapper with validation and optional max elongation.
+ */
+export function applySustainPedalElongationSafe(
+  notes: NoteData[],
+  controlChanges: ControlChangeEvent[],
+  options: { threshold?: number; channel?: number; maxElongation?: number; verbose?: boolean } = {}
+): NoteData[] {
+  const { threshold = 64, channel = 0, maxElongation = 30, verbose = false } = options;
+  try {
+    if (!Array.isArray(notes) || !Array.isArray(controlChanges)) {
+      if (verbose) console.warn('Invalid input to sustain pedal elongation');
+      return notes;
+    }
+    let res = applySustainPedalElongation(notes, controlChanges, threshold, channel);
+    if (maxElongation > 0) {
+      res = res.map((n) => (n.duration > maxElongation ? { ...n, duration: maxElongation } : n));
+    }
+    const invalid = res.filter((n) => n.duration <= 0 || !isFinite(n.duration) || !isFinite(n.time));
+    if (invalid.length > 0) {
+      if (verbose) console.warn(`Found ${invalid.length} invalid notes after sustain processing`);
+      res = res.filter((n) => n.duration > 0 && isFinite(n.duration) && isFinite(n.time));
+    }
+    return res;
+  } catch (err) {
+    if (verbose) console.error('Error applying sustain pedal elongation:', err);
+    return notes;
+  }
+}
+
+/**
+ * Analyze sustain pedal usage from CC64 events.
+ */
+export function analyzeSustainPedalUsage(
+  controlChanges: ControlChangeEvent[],
+  threshold: number = 64
+): {
+  hasSustain: boolean;
+  sustainCount: number;
+  averageSustainDuration: number;
+  totalSustainTime: number;
+  sustainRegions: Array<{ start: number; end: number; duration: number }>;
+} {
+  const events = controlChanges.filter((cc) => cc.controller === 64).sort((a, b) => a.time - b.time);
+  if (events.length === 0) {
+    return { hasSustain: false, sustainCount: 0, averageSustainDuration: 0, totalSustainTime: 0, sustainRegions: [] };
+  }
+  const thr = threshold / 127;
+  const regions: Array<{ start: number; end: number; duration: number }> = [];
+  let start: number | null = null;
+  let on = false;
+  for (const e of events) {
+    const shouldOn = (e.value ?? 0) >= thr;
+    if (shouldOn && !on) {
+      start = e.time;
+      on = true;
+    } else if (!shouldOn && on && start !== null) {
+      const dur = e.time - start;
+      regions.push({ start, end: e.time, duration: dur });
+      start = null;
+      on = false;
+    }
+  }
+  if (on && start !== null) {
+    const assumedEnd = events[events.length - 1].time + 5;
+    regions.push({ start, end: assumedEnd, duration: assumedEnd - start });
+  }
+  const total = regions.reduce((s, r) => s + r.duration, 0);
+  const avg = regions.length > 0 ? total / regions.length : 0;
+  return { hasSustain: true, sustainCount: regions.length, averageSustainDuration: avg, totalSustainTime: total, sustainRegions: regions };
+}
+
 
 /**
  * Parses a MIDI file and extracts musical data in the Tone.js format
