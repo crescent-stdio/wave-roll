@@ -48,7 +48,8 @@ export function applySustainPedalElongation(
   if (notes.length === 0) return [];
 
   const EPS = 1e-9; // Small epsilon for floating point comparisons
-  const normalizedThreshold = threshold / 127; // Convert to normalized value
+  // CC values from Tone.js are already normalized (0-1), so normalize threshold to match
+  const normalizedThreshold = threshold / 127; // Convert MIDI threshold (0-127) to normalized (0-1)
 
   // Event types for processing
   type Event = {
@@ -85,6 +86,7 @@ export function applySustainPedalElongation(
   controlChanges
     .filter(cc => cc.controller === 64)
     .forEach(cc => {
+      // cc.value is already normalized (0-1) by Tone.js
       const isOn = (cc.value ?? 0) >= normalizedThreshold;
       // Only add event if state actually changes
       if (isOn !== previousSustainState) {
@@ -366,6 +368,7 @@ export function analyzeSustainPedalUsage(
   let isOn = false;
 
   for (const event of sustainEvents) {
+    // event.value is already normalized (0-1) by Tone.js
     const shouldBeOn = (event.value ?? 0) >= normalizedThreshold;
     
     if (shouldBeOn && !isOn) {

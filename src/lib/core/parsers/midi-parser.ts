@@ -9,6 +9,7 @@ import {
   TimeSignatureEvent,
   ControlChangeEvent,
 } from "@/lib/midi/types";
+import { applySustainPedalElongation } from "@/lib/core/parsers/midi-parser-enhanced";
 import {
   midiToNoteName,
   midiToPitchClass,
@@ -367,7 +368,9 @@ export async function parseMidi(
       // Extract CC exclusively from this track (channel)
       const cc = extractControlChanges(t);
       if (cc.some((e) => e.controller === 64)) {
-        trackNotes = applySustainPedal(trackNotes, cc, threshold, channel);
+        // Use the enhanced sustain-pedal elongation which follows
+        // onsets-and-frames ordering (sustain_off > note_off > sustain_on > note_on)
+        trackNotes = applySustainPedalElongation(trackNotes, cc, threshold, channel);
       }
     }
     mergedNotes.push(...trackNotes);
