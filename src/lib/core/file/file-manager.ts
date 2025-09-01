@@ -48,9 +48,9 @@ export class FileManager {
 
   /** Load sample audio files */
   async loadSampleAudioFiles(
-    files: { path: string; displayName?: string; color?: number }[] = []
+    files: Array<{ path: string; displayName?: string; color?: number; type?: "midi" | "audio" }> = []
   ): Promise<void> {
-    return Loader.loadSampleAudioFiles(this, files as any);
+    return Loader.loadSampleAudioFiles(this, files);
   }
 
   /* ==READ-ONLY== */

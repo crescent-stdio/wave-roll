@@ -207,22 +207,22 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     if (this.stateManager) {
       const panValues = this.stateManager.getFilePanValuesRef();
       Object.entries(panValues).forEach(([fid, p]) => {
-        (this.audioPlayer as any)?.setFilePan?.(fid, p);
+        this.audioPlayer?.setFilePan(fid, p);
       });
 
       // Apply stored per-file mute states (if any)
       const muteStates = this.stateManager.getFileMuteStatesRef();
       Object.entries(muteStates).forEach(([fid, muted]) => {
-        (this.audioPlayer as any)?.setFileMute?.(fid, muted);
+        this.audioPlayer?.setFileMute(fid, muted);
       });
     }
 
     // Also check notes for mute metadata (for initial load)
     const fileMuteStates = new Map<string, boolean>();
-    notes.forEach((note: any) => {
+    notes.forEach((note) => {
       if (note.fileId && !fileMuteStates.has(note.fileId)) {
         // Check if this file is marked as muted in any of the notes
-        const isMuted = (note as any).muted === true;
+        const isMuted = (note as unknown as { muted?: boolean }).muted === true;
         if (isMuted) {
           fileMuteStates.set(note.fileId, true);
         }
@@ -231,7 +231,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 
     // Apply detected mute states
     fileMuteStates.forEach((muted, fileId) => {
-      (this.audioPlayer as any)?.setFileMute?.(fileId, muted);
+      this.audioPlayer?.setFileMute(fileId, muted);
       // Also persist to state manager
       if (this.stateManager) {
         this.stateManager.setFileMuteState(fileId, muted);
@@ -358,7 +358,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Set pan for a specific file track.
    */
   public setFilePan(fileId: string, pan: number): void {
-    (this.audioPlayer as any)?.setFilePan?.(fileId, pan);
+    this.audioPlayer?.setFilePan(fileId, pan);
 
     // Persist in state manager so the value survives player recreation
     if (this.config.enableStateSync && this.stateManager) {
@@ -370,7 +370,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Set mute state for a specific file track.
    */
   public setFileMute(fileId: string, mute: boolean): void {
-    (this.audioPlayer as any)?.setFileMute?.(fileId, mute);
+    this.audioPlayer?.setFileMute(fileId, mute);
 
     // Persist in state manager so the value survives player recreation
     if (this.config.enableStateSync && this.stateManager) {
@@ -394,21 +394,21 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Set volume for a specific MIDI file
    */
   public setFileVolume(fileId: string, volume: number): void {
-    (this.audioPlayer as any)?.setFileVolume?.(fileId, volume);
+    this.audioPlayer?.setFileVolume(fileId, volume);
   }
 
   /**
    * Set volume for a specific WAV file
    */
   public setWavVolume(fileId: string, volume: number): void {
-    (this.audioPlayer as any)?.setWavVolume?.(fileId, volume);
+    this.audioPlayer?.setWavVolume(fileId, volume);
   }
 
   /**
    * Refresh WAV/audio players from registry (for mute state updates)
    */
   public refreshAudioPlayers(): void {
-    (this.audioPlayer as any)?.refreshAudioPlayers?.();
+    (this.audioPlayer as unknown as { refreshAudioPlayers?: () => void })?.refreshAudioPlayers?.();
   }
 
   public getState(): AudioPlayerState {

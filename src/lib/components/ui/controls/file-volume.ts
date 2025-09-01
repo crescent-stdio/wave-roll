@@ -260,7 +260,7 @@ export class FileVolumeControl {
   private updateSliderTrack(): void {
     const pct = this.currentVolume * 100;
     const trackStyle = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--ui-border) ${pct}%, var(--ui-border) 100%)`;
-    (this.slider as any).style.background = trackStyle;
+    this.slider.style.background = trackStyle;
   }
 
   public setVolume(volume: number): void {

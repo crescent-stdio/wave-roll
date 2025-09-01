@@ -209,8 +209,9 @@ export function createVolumeControl({
   );
 
   // Global keyboard shortcuts - ArrowUp/Down, Shift+Arrow, M
-  if (!(window as any)._volumeKeyHandlerAttached) {
-    (window as any)._volumeKeyHandlerAttached = true;
+  const KEY = "_volumeKeyHandlerAttached" as const;
+  if (!Reflect.get(window, KEY)) {
+    Reflect.set(window, KEY, true);
     window.addEventListener("keydown", (e) => {
       if (
         ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName) &&

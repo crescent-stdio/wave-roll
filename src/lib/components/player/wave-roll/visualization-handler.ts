@@ -8,9 +8,12 @@ import {
 } from "@/lib/core/constants";
 import { detectOverlappingNotes } from "@/lib/core/utils/midi/overlap";
 import { ColoredNote, VisualizationEngine } from "@/core/visualization";
+import type { MidiFileEntry } from "@/core/midi";
 import { StateManager } from "@/core/state";
 import { mixColorsOklch } from "@/core/utils/color";
 import { EvaluationHandler } from "./evaluation-handler";
+import type { PianoRoll } from "@/core/visualization/piano-roll";
+import type { PianoRollAugments } from "@/core/visualization/piano-roll/types-internal";
 
 export class VisualizationHandler {
   private evaluationHandler: EvaluationHandler;
@@ -49,7 +52,7 @@ export class VisualizationHandler {
     const velocityScale = 1 / Math.max(1, totalFileCount);
 
     const audioNotes: NoteData[] = [];
-    state.files.forEach((file: any) => {
+    state.files.forEach((file: MidiFileEntry) => {
       if (file.parsedData) {
         // Include ALL notes, even from muted files
         // Muting is handled by the audio player, not by excluding notes
@@ -69,7 +72,7 @@ export class VisualizationHandler {
     // Sustain-pedal CC events (64) for visible tracks
     // --------------------------------------------------------------
     const controlChanges: ControlChangeEvent[] = [];
-    state.files.forEach((file: any) => {
+    state.files.forEach((file: MidiFileEntry) => {
       const sustainVisible = file.isSustainVisible ?? true;
       if (
         !file.isPianoRollVisible ||
@@ -98,7 +101,7 @@ export class VisualizationHandler {
     const piano = this.visualizationEngine.getPianoRollInstance();
     if (piano) {
       // Get the actual PianoRoll instance for internal property access
-      const pianoInstance = (piano as any)._instance;
+      const pianoInstance = (piano as unknown as { _instance?: PianoRoll })._instance;
 
       // ------------------------------------------------------------
       // Provide original per-file colours (sidebar swatch) so that
@@ -106,7 +109,7 @@ export class VisualizationHandler {
       // modes recolour the notes.
       // ------------------------------------------------------------
       const fileColors: Record<string, number> = {};
-      state.files.forEach((f: any) => {
+      state.files.forEach((f: MidiFileEntry) => {
         if (f.color !== undefined) {
           fileColors[f.id] =
             typeof f.color === "number"
@@ -119,7 +122,7 @@ export class VisualizationHandler {
       // can access it during the imminent render triggered by
       // `setControlChanges()`.
       if (pianoInstance) {
-        (pianoInstance as any).fileColors = fileColors;
+        (pianoInstance as PianoRoll & PianoRollAugments).fileColors = fileColors;
       }
 
       // Provide lightweight file metadata for tooltips so we can render
@@ -130,7 +133,7 @@ export class VisualizationHandler {
         string,
         { displayName: string; fileName: string; kind: string; color: number }
       > = {};
-      state.files.forEach((f: any) => {
+      state.files.forEach((f: MidiFileEntry) => {
         const displayName = f.displayName || f.fileName || f.id;
         const isRef = evalState?.refId === f.id;
         const isEst = Array.isArray(evalState?.estIds)
@@ -150,7 +153,7 @@ export class VisualizationHandler {
         };
       });
       if (pianoInstance) {
-        (pianoInstance as any).fileInfoMap = fileInfoMap;
+        (pianoInstance as PianoRoll & PianoRollAugments).fileInfoMap = fileInfoMap;
       }
 
       // Pass current highlight mode to the renderer so it can adjust
@@ -158,20 +161,20 @@ export class VisualizationHandler {
       // render cycle can pick up the correct mode immediately.
       if (pianoInstance) {
         const visual = this.stateManager.getState().visual;
-        (pianoInstance as any).highlightMode = visual.highlightMode;
-        (pianoInstance as any).showOnsetMarkers = visual.showOnsetMarkers;
+        (pianoInstance as PianoRoll & PianoRollAugments).highlightMode = visual.highlightMode;
+        (pianoInstance as PianoRoll & PianoRollAugments).showOnsetMarkers = visual.showOnsetMarkers;
         // Provide a mapping of original MIDI onsets so the renderer can
         // suppress markers on segmented fragments in eval/highlight modes.
         const origOnsetMap: Record<string, number> = {};
-        state.files.forEach((f: any) => {
+        state.files.forEach((f: MidiFileEntry) => {
           if (!f.isPianoRollVisible || !f.parsedData?.notes) return;
           const fid = f.id;
-          f.parsedData.notes.forEach((n: any, i: number) => {
+          f.parsedData.notes.forEach((n, i: number) => {
             origOnsetMap[`${fid}#${i}`] = n.time;
           });
         });
-        (pianoInstance as any).originalOnsetMap = origOnsetMap;
-        (pianoInstance as any).onlyOriginalOnsets = true;
+        (pianoInstance as PianoRoll & PianoRollAugments).originalOnsetMap = origOnsetMap;
+        (pianoInstance as PianoRoll & PianoRollAugments).onlyOriginalOnsets = true;
       }
 
       // Finally, push CC data to piano-roll which will trigger a re-render of
@@ -183,7 +186,7 @@ export class VisualizationHandler {
   /**
    * Get colored notes from MIDI state
    */
-  getColoredNotes(state: any): ColoredNote[] {
+  getColoredNotes(state: { files: MidiFileEntry[] }): ColoredNote[] {
     const fallbackColors = [COLOR_PRIMARY, COLOR_A, COLOR_B];
 
     const toNumberColor = (c: string | number): number =>
@@ -191,13 +194,13 @@ export class VisualizationHandler {
 
     // 1) Base notes -------------------------------------------------------
     const baseNotes: ColoredNote[] = [];
-    state.files.forEach((file: any, idx: number) => {
+    state.files.forEach((file, idx: number) => {
       if (!file.isPianoRollVisible || !file.parsedData?.notes) return;
 
       const raw = file.color ?? fallbackColors[idx % fallbackColors.length];
       const baseColor = toNumberColor(raw);
 
-      file.parsedData.notes.forEach((n: any, noteIdx: number) => {
+      file.parsedData.notes.forEach((n, noteIdx: number) => {
         baseNotes.push({
           note: { ...n, fileId: file.id, sourceIndex: noteIdx } as NoteData,
           color: baseColor,

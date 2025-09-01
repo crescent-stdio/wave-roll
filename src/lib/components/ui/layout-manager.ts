@@ -53,7 +53,7 @@ export class UILayoutManager {
 
     /* ---------- window resize -> resize PixiJS canvas ---------- */
     const handleWindowResize = () => {
-      const pr = dependencies.pianoRoll as any;
+      const pr = dependencies.pianoRoll;
       if (pr?.resize) {
         const newWidth = elements.playerContainer.clientWidth;
         pr.resize(newWidth);

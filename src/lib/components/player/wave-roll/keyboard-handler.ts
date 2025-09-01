@@ -17,9 +17,12 @@ export class KeyboardHandler {
     this.boundHandleKeyDown = (event: KeyboardEvent) => 
       this.handleKeyDown(event, getDependencies, startUpdateLoop);
     
-    if (!(window as any)[GLOBAL_KEY]) {
-      (window as any)[GLOBAL_KEY] = this.boundHandleKeyDown;
-      document.addEventListener("keydown", (window as any)[GLOBAL_KEY]);
+    const existing = Reflect.get(window, GLOBAL_KEY) as
+      | ((e: KeyboardEvent) => void)
+      | undefined;
+    if (!existing && this.boundHandleKeyDown) {
+      Reflect.set(window, GLOBAL_KEY, this.boundHandleKeyDown);
+      document.addEventListener("keydown", this.boundHandleKeyDown);
     }
   }
 
@@ -102,10 +105,12 @@ export class KeyboardHandler {
    */
   cleanup(): void {
     const GLOBAL_KEY = "_waveRollSpaceHandler" as const;
-    const handler = (window as any)[GLOBAL_KEY];
+    const handler = Reflect.get(window, GLOBAL_KEY) as
+      | ((e: KeyboardEvent) => void)
+      | undefined;
     if (handler && handler === this.boundHandleKeyDown) {
       document.removeEventListener("keydown", handler);
-      delete (window as any)[GLOBAL_KEY];
+      Reflect.deleteProperty(window, GLOBAL_KEY);
     }
   }
 

@@ -34,9 +34,7 @@ export interface UIComponentDependencies {
    * Callback used by visualisation engine to update the seek bar.
    * Accepts an optional override payload when the caller has its own time values.
    */
-  updateSeekBar:
-    | ((state?: { currentTime: number; duration: number }) => void)
-    | null;
+  updateSeekBar: ((state?: { currentTime: number; duration: number }) => void) | null;
 
   /** Callback that toggles play ↔ pause icon. */
   updatePlayButton: (() => void) | null;
@@ -54,6 +52,9 @@ export interface UIComponentDependencies {
 
   /** Silence detector for auto-pause when all sources are muted/silent */
   silenceDetector: SilenceDetector | null;
+
+  /** Optional reference to zoom input for synchronized UI updates */
+  zoomInput?: HTMLInputElement;
 }
 
 export interface UIElements {

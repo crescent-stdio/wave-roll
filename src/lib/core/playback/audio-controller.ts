@@ -89,7 +89,7 @@ export class AudioController {
    */
   public async initializeAudioPlayer(
     notes: NoteData[],
-    pianoRollInstance: any
+    pianoRollInstance: import("@/core/playback").PianoRollInstance
   ): Promise<void> {
     // Create a minimal piano roll manager if we don't have one
     if (!this.pianoRollManager) {
@@ -99,8 +99,10 @@ export class AudioController {
     // Initialize piano roll manager with provided instance
     // This is a bit of a hack to maintain backward compatibility
     if (pianoRollInstance) {
-      // Store reference to external piano roll instance
-      (this.pianoRollManager as any).pianoRollInstance = pianoRollInstance;
+      // Store reference to external piano roll instance (compatibility path)
+      (this.pianoRollManager as unknown as {
+        pianoRollInstance: import("@/core/playback").PianoRollInstance | null;
+      }).pianoRollInstance = pianoRollInstance;
     }
 
     // Initialize core engine

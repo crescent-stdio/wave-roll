@@ -68,8 +68,11 @@ export function createTempoControlUI(
       // Get fresh state after rate change
       const state = dependencies.audioPlayer?.getState();
       if (state && dependencies.updateSeekBar) {
-        // Pass the full state including playbackRate to ensure UI updates
-        dependencies.updateSeekBar(state as any);
+        // Update seek bar with minimal, typed payload
+        dependencies.updateSeekBar({
+          currentTime: state.currentTime,
+          duration: state.duration,
+        });
       }
     }
   });

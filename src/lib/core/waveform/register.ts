@@ -13,12 +13,24 @@ interface RegisteredAudio {
   peaks?: { min: number[]; max: number[] };
 }
 
-function ensureAPI(): any {
-  const w = window as any;
+type WaveRollAudioAPI = {
+  getFiles(): RegisteredAudio[];
+  getVisiblePeaks(): Array<{ time: number; min: number; max: number; color: number }>;
+  sampleAtTime(time: number): { min: number; max: number; color: number } | null;
+  toggleVisibility(id: string): void;
+  toggleMute(id: string): void;
+  setPan(id: string, pan: number): void;
+  updateDisplayName(id: string, name: string): void;
+  updateColor(id: string, color: number): void;
+  _store: { items: RegisteredAudio[] };
+};
+
+function ensureAPI(): WaveRollAudioAPI {
+  const w = globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI };
   if (!w._waveRollAudio) {
     const store: { items: RegisteredAudio[] } = { items: [] };
 
-    const api = {
+    const api: WaveRollAudioAPI = {
       getFiles(): RegisteredAudio[] {
         return store.items.slice();
       },
@@ -79,7 +91,7 @@ function ensureAPI(): any {
 
     w._waveRollAudio = api;
   }
-  return (window as any)._waveRollAudio;
+  return (globalThis as unknown as { _waveRollAudio: WaveRollAudioAPI })._waveRollAudio;
 }
 
 export async function addAudioFileFromUrl(
@@ -104,7 +116,9 @@ export async function addAudioFileFromUrl(
 
   // Decode audio and compute peaks lazily
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AC) throw new Error("AudioContext not available");
+    const ctx = new AC();
     const resp = await fetch(url);
     const arr = await resp.arrayBuffer();
     const buf = await ctx.decodeAudioData(arr);

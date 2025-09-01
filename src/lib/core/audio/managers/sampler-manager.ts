@@ -68,7 +68,7 @@ export class SamplerManager {
     // Group notes by fileId
     const fileNotes = new Map<string, NoteData[]>();
     this.notes.forEach((note) => {
-      const fid = (note as any).fileId || "__default";
+      const fid = note.fileId || "__default";
       if (!fileNotes.has(fid)) {
         fileNotes.set(fid, []);
       }
@@ -162,7 +162,13 @@ export class SamplerManager {
       ? options.originalTempo / options.tempo
       : 1;
     // Create events, optionally windowed for A-B looping
-    const events = this.notes
+    const events: Array<{
+      time: number;
+      note: string;
+      duration: number;
+      velocity: number;
+      fileId: string;
+    }> = this.notes
       .filter((note) => {
         // When a custom loop window is active, keep any note that INTERSECTS
         // [loopStartVisual, loopEndVisual).  This includes notes whose onset
@@ -204,7 +210,7 @@ export class SamplerManager {
           note: note.name,
           duration: durationSafe,
           velocity: note.velocity,
-          fileId: (note as any).fileId || "__default",
+          fileId: note.fileId || "__default",
         };
       });
 
@@ -222,8 +228,9 @@ export class SamplerManager {
     });
 
     let eventCount = 0;
-    this.part = new Tone.Part((time: number, event: any) => {
-      eventCount++;
+    this.part = new Tone.Part(
+      (time: number, event) => {
+        eventCount++;
       if (eventCount <= 3) {
         console.log("[SM.Part.callback]", { 
           eventCount, 
@@ -252,7 +259,9 @@ export class SamplerManager {
           warnedSamplers.add(fid);
         }
       }
-    }, events);
+    },
+      events
+    );
 
     // Set part to loop if transport is looping
     this.part.loop = options?.repeat || false;
@@ -270,7 +279,12 @@ export class SamplerManager {
       ? options.originalTempo / options.tempo
       : 1;
     // Create events, optionally windowed for A-B looping
-    const events = this.notes
+    const events: Array<{
+      time: number;
+      note: string;
+      duration: number;
+      velocity: number;
+    }> = this.notes
       .filter((note) => {
         if (
           loopStartVisual !== undefined &&
@@ -309,7 +323,7 @@ export class SamplerManager {
         };
       });
 
-    this.part = new Tone.Part((time: number, event: any) => {
+    this.part = new Tone.Part((time: number, event) => {
       // Check if sampler exists and is loaded
       if (this.sampler && this.sampler.loaded) {
         this.sampler.triggerAttackRelease(
@@ -450,7 +464,7 @@ export class SamplerManager {
     const EPS = 1e-3;
     const fid = fileId || "__default";
     let retriggered = 0;
-    this.notes.forEach((note: any) => {
+    this.notes.forEach((note) => {
       const nFid = note.fileId || "__default";
       if (nFid !== fid) return;
 

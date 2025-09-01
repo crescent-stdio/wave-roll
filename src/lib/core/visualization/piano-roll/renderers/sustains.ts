@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
+import type { PianoRollAugments } from "../types-internal";
 import { ControlChangeEvent } from "@/lib/midi/types";
 import { getColorForFile } from "../utils/get-color-for-file";
 import { SUSTAIN_CONTROLLER } from "@/core/constants";
@@ -63,9 +64,7 @@ export function renderSustains(pianoRoll: PianoRoll): void {
     if (width <= 0) return;
 
     // Prefer the original per-file colour injected by the player.
-    const fileColors = (pianoRoll as any).fileColors as
-      | Record<string, number>
-      | undefined;
+    const fileColors = (pianoRoll as PianoRoll & PianoRollAugments).fileColors;
     // Resolve colour: prefer injected per-file map, otherwise fall back to
     // dynamically resolving the colour from the notes belonging to `fid`.
     const color =

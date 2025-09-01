@@ -20,6 +20,7 @@ import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
 import { NoteInterval } from "@/lib/core/controls/utils/overlap";
+import type { FileInfoMap } from "./types-internal";
 // (Note) Evaluation utilities removed - no longer required here
 
 export class PianoRoll {
@@ -89,6 +90,16 @@ export class PianoRoll {
 
   public backgroundLabelContainer!: PIXI.Container;
   public loopLabelContainer!: PIXI.Container;
+  // Optional per-renderer caches/flags injected by handlers (intentionally public)
+  // These are used by renderers for overlays, markers and file metadata.
+  public patternSprites?: PIXI.TilingSprite[];
+  public hatchSprites?: PIXI.TilingSprite[];
+  public onsetSprites?: PIXI.Sprite[];
+  public fileColors?: Record<string, number>;
+  public highlightMode?: string;
+  public originalOnsetMap?: Record<string, number>;
+  public onlyOriginalOnsets?: boolean;
+  public fileInfoMap?: FileInfoMap;
 
   private constructor(
     canvas: HTMLCanvasElement,
@@ -340,15 +351,12 @@ export class PianoRoll {
     // Find all notes at this position
     const notesAtPosition = this.findNotesAtPosition(time, note.midi);
 
-    const fileInfoMap = (this as any).fileInfoMap as
-      | Record<
-          string,
-          { displayName: string; fileName: string; kind: string; color: number }
-        >
+    const fileInfoMap = this.fileInfoMap as
+      | Record<string, { displayName: string; fileName: string; kind: string; color: number }>
       | undefined;
 
     // Group notes by unique file IDs
-    const fileInfos: Map<string, { info: any; notes: NoteData[] }> = new Map();
+    const fileInfos: Map<string, { info: { displayName: string; fileName: string; kind: string; color: number }; notes: NoteData[] }> = new Map();
 
     for (const n of notesAtPosition) {
       if (n.fileId && fileInfoMap) {
@@ -393,18 +401,14 @@ export class PianoRoll {
     }
 
     // Evaluation context (if any)
-    const evalKind = (note as any).evalSegmentKind as
-      | "intersection"
-      | "exclusive"
-      | "ambiguous"
-      | undefined;
-    const isEval = (note as any).isEvalHighlightSegment === true;
+    const evalKind = note.evalSegmentKind;
+    const isEval = note.isEvalHighlightSegment === true;
     // Determine file role (Reference/Comparison) if available
     let fileRole: string | null = null;
-    if ((note as any).fileId && (this as any).fileInfoMap) {
-      const fid = (note as any).fileId as string;
-      const info = ((this as any).fileInfoMap as any)[fid];
-      fileRole = info?.kind || null;
+    if (note.fileId && this.fileInfoMap) {
+      const fid = note.fileId as string;
+      const info = this.fileInfoMap[fid];
+      fileRole = info?.kind ?? null;
     }
     let evalLine = "";
     if (isEval) {

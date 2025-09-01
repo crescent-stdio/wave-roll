@@ -63,7 +63,7 @@ export class SamplerManager {
   setupTrackSamplers(): boolean {
     const fileNotes = new Map<string, NoteData[]>();
     this.notes.forEach((note) => {
-      const fid = (note as any).fileId || "__default";
+      const fid = note.fileId || "__default";
       if (!fileNotes.has(fid)) {
         fileNotes.set(fid, []);
       }
@@ -87,7 +87,7 @@ export class SamplerManager {
         const currentVolume = this.state?.volume ?? this.options.volume;
         sampler.volume.value = Tone.gainToDb(currentVolume);
 
-        const cachedPan = (this as any).state?.pan ?? 0;
+        const cachedPan = this.state?.pan ?? 0;
         panner.pan.value = cachedPan;
 
         let initialMuted = false;
@@ -108,7 +108,7 @@ export class SamplerManager {
   }
 
   private createNotePart(): void {
-    const events = this.notes
+    const events: Array<{ time: number; note: string; duration: number; velocity: number; fileId: string }> = this.notes
       .filter((note) => {
         if (
           this._loopStartVisual !== undefined &&
@@ -137,13 +137,13 @@ export class SamplerManager {
           note: note.name,
           duration: durationSafe,
           velocity: note.velocity,
-          fileId: (note as any).fileId || "__default",
+          fileId: note.fileId || "__default",
         };
       });
 
     const warnedSamplers = new Set<string>();
-    
-    this.part = new Tone.Part((time: number, event: any) => {
+    type ScheduledEvent = { time: number; note: string; duration: number; velocity: number; fileId?: string };
+    this.part = new Tone.Part((time: number, event: ScheduledEvent) => {
       const fid = event.fileId || "__default";
       const track = this.trackSamplers.get(fid);
       if (track && !track.muted) {

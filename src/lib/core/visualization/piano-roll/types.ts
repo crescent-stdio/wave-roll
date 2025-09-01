@@ -1,4 +1,5 @@
 import { NoteInterval } from "@/core/controls/utils/overlap";
+import type { PianoRoll } from "./piano-roll";
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 
 /**
@@ -74,5 +75,5 @@ export type PianoRollInstance = {
   resize: (width: number, height?: number) => void;
   
   /** Internal reference to the PianoRoll instance */
-  _instance?: any;
+  _instance?: PianoRoll;
 };

@@ -37,7 +37,7 @@ export class UIUpdater {
       uiDeps = {
         midiManager: this.midiManager,
         audioPlayer: this.visualizationEngine,
-        pianoRoll: this.visualizationEngine.getPianoRollInstance() as any,
+        pianoRoll: this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance,
         stateManager: this.stateManager,
         filePanStateHandlers: filePanStateHandlersRef,
         filePanValues: filePanValuesRef,
@@ -69,7 +69,7 @@ export class UIUpdater {
       uiDeps.midiManager = this.midiManager;
       uiDeps.audioPlayer = this.visualizationEngine;
       uiDeps.pianoRoll =
-        this.visualizationEngine.getPianoRollInstance() as any;
+        this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance;
       uiDeps.stateManager = this.stateManager;
       uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       uiDeps.filePanValues = filePanValuesRef;
@@ -127,13 +127,13 @@ export class UIUpdater {
 
         // Update seek bar with current state
         if (uiDeps?.updateSeekBar) {
-          const pr = (state as any).playbackRate || 100;
+          const pr = state.playbackRate ?? 100;
           const speed = pr / 100;
           const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
           uiDeps.updateSeekBar({
             currentTime: state.currentTime,
             duration: effectiveDuration,
-          } as any);
+          });
         }
 
         // Update time display
@@ -203,13 +203,13 @@ export class UIUpdater {
     const state = this.visualizationEngine.getState();
     if (state) {
       // Always pass explicit state to ensure seekbar is updated
-      const pr = (state as any).playbackRate || 100;
+      const pr = state.playbackRate ?? 100;
       const speed = pr / 100;
       const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
       uiDeps.updateSeekBar({
         currentTime: state.currentTime,
         duration: effectiveDuration,
-      } as any);
+      });
 
       // Also ensure piano roll is synced
       const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();

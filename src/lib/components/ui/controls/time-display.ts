@@ -237,18 +237,8 @@ export function createTimeDisplayUI(
     //   audioPlayerExists: !!dependencies.audioPlayer,
     // });
 
-    const dbgCounters = (updateSeekBar as any)._dbg ?? {
-      noState: 0,
-      zeroDur: 0,
-      normal: 0,
-    };
-    (updateSeekBar as any)._dbg = dbgCounters;
-
     if (!state) {
-      if (dbgCounters.noState < 5) {
-        console.warn("[UIControlFactory.updateSeekBar] no state");
-        dbgCounters.noState++;
-      }
+      // No state available; skip until next tick
       return;
     }
 
@@ -278,17 +268,12 @@ export function createTimeDisplayUI(
     // Update time labels even if duration is 0
     currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
     
-    // Adjust total time based on playback rate
-    // If playback rate is available, adjust the displayed duration
-    const playbackRate = (state as any).playbackRate || 100;
-    const adjustedDuration = state.duration * (100 / playbackRate);
+    // Adjust total time based on playback rate if available from audio player
+    const rate = dependencies.audioPlayer?.getState().playbackRate ?? 100;
+    const adjustedDuration = state.duration * (100 / rate);
     totalTimeLabel.textContent = dependencies.formatTime(adjustedDuration);
 
     if (state.duration === 0) {
-      if (dbgCounters.zeroDur < 5) {
-        // console.warn("[UIControlFactory.updateSeekBar] duration 0", state);
-        dbgCounters.zeroDur++;
-      }
       // Set progress to 0 when duration is 0
       progressBar.style.width = "0%";
       seekHandle.style.left = "0%";
@@ -332,9 +317,7 @@ export function createTimeDisplayUI(
     // we can forward directly.
     const shouldShowLoopMarkers = state.duration > 0;
     updateLoopDisplay({
-      loopPoints: shouldShowLoopMarkers
-        ? ((dependencies.loopPoints ?? null) as any)
-        : null,
+      loopPoints: shouldShowLoopMarkers ? (dependencies.loopPoints ?? null) : null,
       loopRegion,
       markerA,
       markerB,

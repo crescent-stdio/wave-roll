@@ -13,11 +13,26 @@ export function createWaveListSection(
   list.style.cssText = "display:flex;flex-direction:column;gap:8px;";
   section.appendChild(list);
 
+  // Minimal typed accessor for the global audio API
+  type WaveRollAudioAPI = {
+    getFiles?: () => Array<{ id: string; color: number; displayName: string }>;
+    updateColor?: (id: string, color: number) => void;
+    updateDisplayName?: (id: string, name: string) => void;
+  };
+  const getWaveRollAudio = (): WaveRollAudioAPI | undefined => {
+    const w = globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI };
+    return w._waveRollAudio;
+  };
+
   const refresh = () => {
     list.innerHTML = "";
-    const api = (window as any)._waveRollAudio;
-    const files = api?.getFiles?.() || [];
-    files.forEach((a: any) => {
+    const api = getWaveRollAudio();
+    const files = (api?.getFiles?.() ?? []) as Array<{
+      id: string;
+      color: number;
+      displayName: string;
+    }>;
+    files.forEach((a) => {
       const row = document.createElement("div");
       row.style.cssText = "display:flex;align-items:center;gap:8px;background:var(--surface-alt);padding:8px;border-radius:6px;border:1px solid var(--ui-border);";
 
@@ -57,4 +72,3 @@ export function createWaveListSection(
   refresh();
   return section;
 }
-

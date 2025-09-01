@@ -110,10 +110,10 @@ export class SilenceDetector {
     }
 
     // Check WAV files from global audio object
-    const audioAPI = (window as any)._waveRollAudio;
+    const audioAPI = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean }> } })._waveRollAudio;
     if (audioAPI?.getFiles) {
       const wavFiles = audioAPI.getFiles() || [];
-      wavFiles.forEach((wav: any) => {
+      wavFiles.forEach((wav) => {
         const volume = this.wavVolumes.get(wav.id) ?? 1.0;
         const isMuted = volume === 0 || wav.isMuted;
         this.wavMutes.set(wav.id, isMuted);

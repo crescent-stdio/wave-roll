@@ -62,8 +62,8 @@ export function createFileList(
     };
 
     // (Re)attach once per render to avoid duplicates
-    fileList.removeEventListener("dragover", containerDragOver as any);
-    fileList.removeEventListener("drop", containerDrop as any);
+    fileList.removeEventListener("dragover", containerDragOver);
+    fileList.removeEventListener("drop", containerDrop);
     fileList.addEventListener("dragover", containerDragOver);
     fileList.addEventListener("drop", containerDrop);
 
@@ -360,8 +360,8 @@ export function createFileList(
   refreshFileList();
 
   // Optional: auto‑refresh if the manager exposes a subscribe method
-  if (typeof (dependencies.midiManager as any).subscribe === "function") {
-    (dependencies.midiManager as any).subscribe(refreshFileList);
+  if (typeof dependencies.midiManager.subscribe === "function") {
+    dependencies.midiManager.subscribe(refreshFileList);
   }
   return filesSection;
 }

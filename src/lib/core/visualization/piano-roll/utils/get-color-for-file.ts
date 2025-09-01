@@ -29,7 +29,7 @@ export function getColorForFile(
       // If highlight mode changes per-note colours (simple / exclusive),
       // fall back to the original per-file colour so sustain overlay
       // stays consistent with the sidebar swatch.
-      const hl = (pianoRoll as any).highlightMode ?? "file";
+      const hl = (pianoRoll as PianoRoll & { highlightMode?: string }).highlightMode ?? "file";
       const colour =
         hl === "file"
           ? pianoRoll.options.noteRenderer

@@ -21,7 +21,7 @@ export function createTempoControl({
   `;
 
   const currentState = audioPlayer.getState();
-  const currentRate = (currentState as any).playbackRate || 100;
+  const currentRate = currentState.playbackRate ?? 100;
 
   // Numeric input (10-200%)
   const input = document.createElement("input");
@@ -57,25 +57,33 @@ export function createTempoControl({
     const rate = clamp(val);
     input.value = rate.toString();
     audioPlayer.setPlaybackRate(rate);
-    try {
-      // Force immediate UI refresh (seek bar + time labels)
-      (window as any).requestIdleCallback?.(() => {
-        try {
-          const state = audioPlayer.getState();
-          // If VisualizationEngine is used upstream, a periodic update loop exists,
-          // but we still nudge the UI to reflect the new time scale instantly.
-          (document as any).dispatchEvent?.(
-            new CustomEvent("wr-force-ui-refresh", {
-              detail: {
-                currentTime: state.currentTime,
-                duration: state.duration,
-              },
-              bubbles: true,
-            })
-          );
-        } catch {}
+    // Force immediate UI refresh (seek bar + time labels)
+    const state = audioPlayer.getState();
+    if ((window as any).requestIdleCallback) {
+      (window as any).requestIdleCallback(() => {
+        document.dispatchEvent(
+          new CustomEvent("wr-force-ui-refresh", {
+            detail: {
+              currentTime: state.currentTime,
+              duration: state.duration,
+            },
+            bubbles: true,
+          })
+        );
       });
-    } catch {}
+    } else {
+      setTimeout(() => {
+        document.dispatchEvent(
+          new CustomEvent("wr-force-ui-refresh", {
+            detail: {
+              currentTime: state.currentTime,
+              duration: state.duration,
+            },
+            bubbles: true,
+          })
+        );
+      }, 0);
+    }
   };
 
   // Events

@@ -29,7 +29,7 @@ export class WavPlayerManager {
    */
   setupAudioPlayersFromRegistry(state: { volume?: number; playbackRate?: number }): void {
     try {
-      const api = (window as any)._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
       if (!api?.getFiles) return;
 
       const items = api.getFiles() as AudioFileInfo[];
@@ -177,7 +177,7 @@ export class WavPlayerManager {
    */
   startActiveAudioAt(offsetSeconds: number, startAt: string | number = "+0"): void {
     // Start ALL unmuted WAV files, not just the "active" one
-    const api = (window as any)._waveRollAudio;
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
     if (!api?.getFiles) return;
 
     const items = api.getFiles() as AudioFileInfo[];
@@ -194,7 +194,9 @@ export class WavPlayerManager {
       if (!entry) return;
 
       // If the underlying buffer is not yet loaded, defer start until it is.
-      const buffer: any = (entry.player as any).buffer;
+      type GrainPlayerWithBuffer = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
+      type LoadablePlayer = Tone.GrainPlayer & { load?: (url: string) => Promise<unknown> };
+      const buffer = (entry.player as GrainPlayerWithBuffer).buffer;
       console.log("[WM.start]", {
         id: item.id,
         offsetSeconds,
@@ -203,7 +205,7 @@ export class WavPlayerManager {
       });
       if (!buffer || buffer.loaded === false) {
         try {
-          const maybePromise = (entry.player as any).load?.(entry.url);
+          const maybePromise = (entry.player as LoadablePlayer).load?.(entry.url);
           if (maybePromise && typeof maybePromise.then === "function") {
             // Bump token to invalidate any previous pending starts
             entry.startToken = (entry.startToken || 0) + 1;
@@ -343,10 +345,12 @@ export class WavPlayerManager {
     const wasEffectivelyMuted = wasDb <= -80; // ~silent threshold in dB
     if (clampedVolume > 0 && wasEffectivelyMuted && opts?.isPlaying) {
       const offsetSeconds = Math.max(0, opts?.currentTime ?? 0);
-      const buffer: any = (entry.player as any).buffer;
+      type GrainPlayerWithBuffer2 = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
+      const buffer = (entry.player as GrainPlayerWithBuffer2).buffer;
       try {
         if (!buffer || buffer.loaded === false) {
-          const maybePromise = (entry.player as any).load?.(entry.url);
+          type LoadablePlayer = Tone.GrainPlayer & { load?: (url: string) => Promise<unknown> };
+          const maybePromise = (entry.player as LoadablePlayer).load?.(entry.url);
           if (maybePromise && typeof maybePromise.then === "function") {
             maybePromise
               .then(() => {
@@ -378,13 +382,13 @@ export class WavPlayerManager {
 
     // Update registry if available
     try {
-      const api = (window as any)._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; volume?: number }> } })._waveRollAudio;
       if (api?.getFiles) {
         const files = api.getFiles();
-        const file = files.find((f: any) => f.id === fileId);
+        const file = files.find((f) => f.id === fileId);
         if (file) {
           // Store volume in metadata (not affecting mute flag)
-          (file as any).volume = clampedVolume;
+          (file as { volume?: number }).volume = clampedVolume;
         }
       }
     } catch {
@@ -416,7 +420,9 @@ export class WavPlayerManager {
     masterVolume: number
   ): void {
     try {
-      const api = (window as any)._waveRollAudio;
+      const api = (globalThis as unknown as {
+        _waveRollAudio?: { getFiles?: () => Array<{ id: string; isVisible: boolean; isMuted: boolean }> };
+      })._waveRollAudio;
       if (!api?.getFiles) return;
 
       const items = api.getFiles() as AudioFileInfo[];
@@ -455,7 +461,7 @@ export class WavPlayerManager {
    */
   getMaxAudioDuration(): number {
     try {
-      const api = (window as any)._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
       if (!api?.getFiles) return 0;
 
       const items = api.getFiles() as AudioFileInfo[];

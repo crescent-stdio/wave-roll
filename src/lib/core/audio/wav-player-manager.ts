@@ -17,8 +17,8 @@ export class WavPlayerManager {
   private activeAudioId: string | null = null;
 
   constructor(
-    private state: any,
-    private options: any
+    private state: { volume?: number; playbackRate?: number; duration: number },
+    private options: { volume: number }
   ) {}
 
   getAudioPlayers() {
@@ -31,17 +31,9 @@ export class WavPlayerManager {
 
   setupAudioPlayersFromRegistry(): void {
     try {
-      const api = (window as any)._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; url: string; isVisible: boolean; isMuted: boolean; audioBuffer?: AudioBuffer; pan?: number }> } })._waveRollAudio;
       if (!api?.getFiles) return;
-
-      const items = api.getFiles() as Array<{
-        id: string;
-        url: string;
-        isVisible: boolean;
-        isMuted: boolean;
-        audioBuffer?: AudioBuffer;
-        pan?: number;
-      }>;
+      const items = api.getFiles();
 
       // Clean up players for removed items
       this.audioPlayers.forEach((entry, id) => {
@@ -148,14 +140,9 @@ export class WavPlayerManager {
   }
 
   startActiveAudioAt(offsetSeconds: number): void {
-    const api = (window as any)._waveRollAudio;
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isVisible: boolean; isMuted: boolean }> } })._waveRollAudio;
     if (!api?.getFiles) return;
-
-    const items = api.getFiles() as Array<{
-      id: string;
-      isVisible: boolean;
-      isMuted: boolean;
-    }>;
+    const items = api.getFiles();
 
     items.forEach((item) => {
       const localEntry = this.audioPlayers.get(item.id);
@@ -167,12 +154,14 @@ export class WavPlayerManager {
       if (!entry) return;
       
       // Mark entry as not muted when starting
-      (entry as any).muted = false;
+      (entry as unknown as { muted?: boolean }).muted = false;
 
-      const buffer: any = (entry.player as any).buffer;
+      type PlayerWithBuffer = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
+      type LoadablePlayer = Tone.GrainPlayer & { load?: (url: string) => Promise<unknown> };
+      const buffer = (entry.player as PlayerWithBuffer).buffer;
       if (!buffer || buffer.loaded === false) {
         try {
-          const maybePromise = (entry.player as any).load?.(entry.url);
+          const maybePromise = (entry.player as LoadablePlayer).load?.(entry.url);
           if (maybePromise && typeof maybePromise.then === "function") {
             maybePromise
               .then(() => {

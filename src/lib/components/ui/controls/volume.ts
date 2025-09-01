@@ -100,10 +100,7 @@ export function createVolumeControlUI(
     }
 
     // Sync master volume to SilenceDetector for auto-pause
-    const silenceDetector = (dependencies as any).silenceDetector;
-    if (silenceDetector?.setMasterVolume) {
-      silenceDetector.setMasterVolume(vol);
-    }
+    dependencies.silenceDetector?.setMasterVolume?.(vol);
   };
 
   slider.addEventListener("input", () => {

@@ -143,8 +143,7 @@ export async function createPianoRoll(
     getMinorTimeStep: () => pianoRoll.getMinorTimeStep(),
 
     /** Update overlap highlight bars */
-    setOverlapRegions: (ov: NoteInterval[]) =>
-      (pianoRoll as any).setOverlapRegions?.(ov),
+    setOverlapRegions: (ov: NoteInterval[]) => pianoRoll.setOverlapRegions(ov),
 
     /** Resize the PixiJS renderer */
     resize: (width: number, height?: number) => pianoRoll.resize(width, height),

@@ -242,21 +242,31 @@ export class VisualizationEngine {
    * Set pan for a specific MIDI file track.
    */
   public setFilePan(fileId: string, pan: number): void {
-    (this.coreEngine as any).setFilePan?.(fileId, pan);
+    this.coreEngine.setFilePan(fileId, pan);
   }
   
   /**
    * Set mute state for a specific MIDI file track.
    */
   public setFileMute(fileId: string, mute: boolean): void {
-    (this.coreEngine as any).setFileMute?.(fileId, mute);
+    this.coreEngine.setFileMute(fileId, mute);
   }
   
   /**
    * Refresh WAV/audio players from registry (for mute state updates)
    */
   public refreshAudioPlayers(): void {
-    (this.coreEngine as any).refreshAudioPlayers?.();
+    this.coreEngine.refreshAudioPlayers();
+  }
+
+  /** Set per-file MIDI volume */
+  public setFileVolume(fileId: string, volume: number): void {
+    this.coreEngine.setFileVolume(fileId, volume);
+  }
+
+  /** Set per-file WAV volume */
+  public setWavVolume(fileId: string, volume: number): void {
+    this.coreEngine.setWavVolume(fileId, volume);
   }
 
   public setTempo(tempo: number): void {

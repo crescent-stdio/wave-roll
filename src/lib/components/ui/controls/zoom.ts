@@ -99,7 +99,8 @@ export function createZoomControlsUI(
   container.appendChild(resetBtn);
 
   // Expose zoomInput so outer update loop can sync value
-  (dependencies as any).zoomInput = zoomInput;
+  // Store reference for coordinated UI updates
+  (dependencies as UIComponentDependencies & { zoomInput?: HTMLInputElement }).zoomInput = zoomInput;
 
   return container;
 }

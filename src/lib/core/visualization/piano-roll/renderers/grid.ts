@@ -1,5 +1,6 @@
 import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
+import type { WaveRollAudioAPI } from "@/lib/core/waveform/types";
 import { COLOR_LOOP_SHADE, COLOR_LOOP_LINE_A, COLOR_LOOP_LINE_B } from "@/lib/core/constants";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
@@ -19,8 +20,9 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   if (pianoRoll.waveformLayer) {
     pianoRoll.waveformLayer.clear();
   }
-  if ((pianoRoll as any).waveformKeysLayer) {
-    (pianoRoll as any).waveformKeysLayer.clear();
+  const pr = pianoRoll as PianoRoll & { waveformKeysLayer?: PIXI.Graphics };
+  if (pr.waveformKeysLayer) {
+    pr.waveformKeysLayer.clear();
   }
 
   // Clear loop overlay & lines before redrawing
@@ -263,7 +265,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   // Render as a bottom band so it appears "below" the piano-roll grid content while
   // remaining synchronized with pan/zoom.
   try {
-    const api = (window as any)._waveRollAudio;
+    const api = (globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI })._waveRollAudio;
     if (api?.getVisiblePeaks) {
       const peaksPayload = api.getVisiblePeaks();
       if (peaksPayload && peaksPayload.length > 0) {
@@ -276,8 +278,8 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
         // Clear previous waveform drawing
         pianoRoll.waveformLayer.clear();
-        if ((pianoRoll as any).waveformKeysLayer) {
-          (pianoRoll as any).waveformKeysLayer.clear();
+        if (pr.waveformKeysLayer) {
+          pr.waveformKeysLayer.clear();
         }
 
         // Compute visible time range based on current pan/zoom
@@ -331,7 +333,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
             pianoRoll.state.panX +
             pianoKeysOffset;
 
-          const p = api.sampleAtTime(t); // returns { min: number, max: number, color: number }
+          const p = api.sampleAtTime ? api.sampleAtTime(t) : null; // returns { min: number, max: number, color: number }
           if (!p) continue;
           // Use symmetric amplitude around midline for a canonical waveform look
           const amp = Math.max(
@@ -352,10 +354,9 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         // Also draw the same-scale waveform inside the piano-keys column (left of playhead)
         if (
           pianoRoll.options.showPianoKeys &&
-          (pianoRoll as any).waveformKeysLayer
+          pr.waveformKeysLayer
         ) {
-          const keysLayer = (pianoRoll as any)
-            .waveformKeysLayer as PIXI.Graphics;
+          const keysLayer = pr.waveformKeysLayer as PIXI.Graphics;
           // Use identical dimensions as the main bottom waveform band for seamless continuity
           const keysBandHeight = bandHeight;
           const keysBandTop = bandTop;
@@ -400,7 +401,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
             if (xKeys < 0 || xKeys >= pianoRoll.playheadX) continue;
 
-            const p = api.sampleAtTime(t);
+            const p = api.sampleAtTime ? api.sampleAtTime(t) : null;
             if (!p) continue;
             // Symmetric amplitude for the compact keys waveform as well
             const amp = Math.max(

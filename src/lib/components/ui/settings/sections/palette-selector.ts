@@ -87,7 +87,7 @@ export function createPaletteSelectorSection(
       createIconBtn(PLAYER_ICONS.duplicate, "Duplicate", () => {
         openPaletteEditorModal(
           deps,
-          palette as any,
+          palette,
           () => {
             const newSection = createPaletteSelectorSection(deps);
             wrapper.replaceWith(newSection);
@@ -104,7 +104,7 @@ export function createPaletteSelectorSection(
         createIconBtn(PLAYER_ICONS.edit, "Edit", () => {
           openPaletteEditorModal(
             deps,
-            palette as any,
+            palette,
             () => {
               const newSection = createPaletteSelectorSection(deps);
               wrapper.replaceWith(newSection);

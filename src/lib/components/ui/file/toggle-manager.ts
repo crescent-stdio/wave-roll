@@ -76,7 +76,7 @@ export class FileToggleManager {
     });
 
     const evalResultsBtn = document.createElement("button");
-    evalResultsBtn.innerHTML = `${(PLAYER_ICONS as any).results ?? ""} <span>Evaluation Results</span>`;
+    evalResultsBtn.innerHTML = `${PLAYER_ICONS.results} <span>Evaluation Results</span>`;
     evalResultsBtn.style.cssText = `
       padding: 4px 8px;
       border: none;
@@ -98,7 +98,7 @@ export class FileToggleManager {
       evalResultsBtn.style.background = "var(--surface)";
     });
     evalResultsBtn.addEventListener("click", () => {
-      (dependencies as any).openEvaluationResultsModal?.();
+      dependencies.openEvaluationResultsModal?.();
     });
 
     btnBar.appendChild(midiSettingsBtn);
@@ -179,7 +179,8 @@ export class FileToggleManager {
 
     // Determine counts
     const midiCount = state.files.length;
-    const audioList = (window as any)._waveRollAudio?.getFiles?.() ?? [];
+    const audioApi = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => unknown[] } })._waveRollAudio;
+    const audioList = audioApi?.getFiles?.() ?? [];
     const audioCount = Array.isArray(audioList) ? audioList.length : 0;
 
     if (audioHeader) {
@@ -238,7 +239,15 @@ export class FileToggleManager {
     // Audio controls refresh
     if (audioControls) {
       audioControls.innerHTML = "";
-      for (const a of audioList) {
+      const list = (audioList as Array<{
+        id: string;
+        displayName: string;
+        color: number;
+        isVisible: boolean;
+        isMuted: boolean;
+        pan: number;
+      }>);
+      for (const a of list) {
         audioControls.appendChild(this.createAudioToggleItem(a, dependencies));
       }
     }
@@ -340,7 +349,7 @@ export class FileToggleManager {
     const currentEval = dependencies.stateManager.getState().evaluation;
     const isRef = currentEval.refId === file.id;
     const pinBtn = createIconButton(
-      (PLAYER_ICONS as any).pin ?? "",
+      PLAYER_ICONS.pin,
       () => {
         const evalState = dependencies.stateManager.getState().evaluation;
         const nextRef = evalState.refId === file.id ? null : file.id;
@@ -405,7 +414,7 @@ export class FileToggleManager {
     /* -------- estimation toggle (eval estIds) -------- */
     const isEst = currentEval.estIds.includes(file.id);
     const estBtn = createIconButton(
-      (PLAYER_ICONS as any).est ?? "E",
+      PLAYER_ICONS.est,
       () => {
         const evalState = dependencies.stateManager.getState().evaluation;
         if (evalState.refId === file.id) {
@@ -462,8 +471,8 @@ export class FileToggleManager {
 
     /* -------- sustain toggle -------- */
     const sustainBtn = document.createElement("button");
-    const isSustainVisible = (file as any).isSustainVisible ?? true;
-    sustainBtn.innerHTML = (PLAYER_ICONS as any).sustain ?? "S";
+    const isSustainVisible = file.isSustainVisible ?? true;
+    sustainBtn.innerHTML = PLAYER_ICONS.sustain;
     sustainBtn.style.cssText = `
         width: 20px;
         height: 20px;
@@ -519,9 +528,8 @@ export class FileToggleManager {
       }
 
       // Prefer per-file panning if supported by the audio player
-      const playerAny = dependencies.audioPlayer as any;
-      if (playerAny?.setFilePan) {
-        playerAny.setFilePan(file.id, panValue);
+      if (dependencies.audioPlayer?.setFilePan) {
+        dependencies.audioPlayer.setFilePan(file.id, panValue);
       } else {
         // Fallback to global pan (legacy single-file player)
         dependencies.audioPlayer?.setPan(panValue);
@@ -535,9 +543,8 @@ export class FileToggleManager {
         dependencies.filePanValues[file.id] = 0;
       }
 
-      const playerAny = dependencies.audioPlayer as any;
-      if (playerAny?.setFilePan) {
-        playerAny.setFilePan(file.id, 0);
+      if (dependencies.audioPlayer?.setFilePan) {
+        dependencies.audioPlayer.setFilePan(file.id, 0);
       } else {
         dependencies.audioPlayer?.setPan(0);
       }
@@ -556,14 +563,13 @@ export class FileToggleManager {
         }
 
         // Apply volume to the audio engine - this will trigger auto-pause if needed
-        const playerAny = dependencies.audioPlayer as any;
-        if (playerAny?.setFileVolume) {
-          playerAny.setFileVolume(file.id, volume);
+        if (dependencies.audioPlayer?.setFileVolume) {
+          dependencies.audioPlayer.setFileVolume(file.id, volume);
         }
 
         // Also explicitly call setFileMute to ensure mute state is properly set
-        if (playerAny?.setFileMute) {
-          playerAny.setFileMute(file.id, shouldMute);
+        if (dependencies.audioPlayer?.setFileMute) {
+          dependencies.audioPlayer.setFileMute(file.id, shouldMute);
         }
 
         // Also update silence detector for tracking
@@ -634,7 +640,7 @@ export class FileToggleManager {
     const visBtn = createIconButton(
       audio.isVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
       () => {
-        (window as any)._waveRollAudio?.toggleVisibility?.(audio.id);
+        (globalThis as unknown as { _waveRollAudio?: { toggleVisibility?: (id: string) => void } })._waveRollAudio?.toggleVisibility?.(audio.id);
         const container = item.closest(
           '[data-role="file-toggle"]'
         ) as HTMLElement | null;
@@ -659,28 +665,18 @@ export class FileToggleManager {
       onVolumeChange: (volume) => {
         // Update mute state based on volume
         const shouldMute = volume === 0;
-        if ((window as any)._waveRollAudio) {
-          const api = (window as any)._waveRollAudio;
-          const files = api.getFiles?.() || [];
-          const file = files.find((f: any) => f.id === audio.id);
-          if (file && file.isMuted !== shouldMute) {
-            api.toggleMute?.(audio.id);
-          }
+        const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean }>; toggleMute?: (id: string) => void } })._waveRollAudio;
+        if (api?.getFiles) {
+          const files = api.getFiles() || [];
+          const f = files.find((x) => x.id === audio.id);
+          if (f && f.isMuted !== shouldMute) api.toggleMute?.(audio.id);
         }
 
         // Apply volume to the audio player - this will trigger auto-pause if needed
-        const playerAny = dependencies.audioPlayer as any;
-        if (playerAny?.setWavVolume) {
-          playerAny.setWavVolume(audio.id, volume);
-        }
+        dependencies.audioPlayer?.setWavVolume?.(audio.id, volume);
 
         // Refresh audio players - this should handle mute state and auto-pause
-        if (
-          dependencies.audioPlayer &&
-          (dependencies.audioPlayer as any).refreshAudioPlayers
-        ) {
-          (dependencies.audioPlayer as any).refreshAudioPlayers();
-        }
+        dependencies.audioPlayer?.refreshAudioPlayers?.();
 
         // Also update silence detector for tracking
         dependencies.silenceDetector?.setWavVolume?.(audio.id, volume);
@@ -715,10 +711,10 @@ export class FileToggleManager {
     `;
     panSlider.addEventListener("input", () => {
       const pan = parseFloat(panSlider.value) / 100;
-      (window as any)._waveRollAudio?.setPan?.(audio.id, pan);
+      (globalThis as unknown as { _waveRollAudio?: { setPan?: (id: string, pan: number) => void } })._waveRollAudio?.setPan?.(audio.id, pan);
     });
     panSlider.addEventListener("dblclick", () => {
-      (window as any)._waveRollAudio?.setPan?.(audio.id, 0);
+      (globalThis as unknown as { _waveRollAudio?: { setPan?: (id: string, pan: number) => void } })._waveRollAudio?.setPan?.(audio.id, 0);
       panSlider.value = "0";
     });
 

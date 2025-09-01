@@ -1,6 +1,6 @@
 import * as PIXI from "pixi.js";
-// BLEND_MODES isn’t exposed in the public typings, fall back to `any` access
 import { PianoRoll } from "../piano-roll";
+import type { PianoRollAugments } from "../types-internal";
 import { NoteData } from "@/lib/midi/types";
 import {
   COLOR_EVAL_HIGHLIGHT,
@@ -16,21 +16,12 @@ import {
 } from "@/lib/evaluation/transcription";
 
 // Cache for hatch textures keyed by orientation to avoid recreating
-let WR_HATCH_TEXTURE_CACHE: Record<"up" | "down", PIXI.Texture> = {
-  up: null as unknown as PIXI.Texture,
-  down: null as unknown as PIXI.Texture,
-};
+let WR_HATCH_TEXTURE_CACHE: Partial<Record<"up" | "down", PIXI.Texture>> = {};
 
 // Subtle per-file pattern textures to improve CVD distinguishability
-let WR_PATTERN_TEXTURE_CACHE: Record<
-  "up" | "down" | "cross" | "dots",
-  PIXI.Texture
-> = {
-  up: null as unknown as PIXI.Texture,
-  down: null as unknown as PIXI.Texture,
-  cross: null as unknown as PIXI.Texture,
-  dots: null as unknown as PIXI.Texture,
-};
+let WR_PATTERN_TEXTURE_CACHE: Partial<
+  Record<"up" | "down" | "cross" | "dots", PIXI.Texture>
+> = {};
 
 // Onset shape textures (circle, triangle, diamond, square) cached per color
 let WR_ONSET_TEXTURE_CACHE: Record<string, PIXI.Texture> = {};
@@ -40,6 +31,10 @@ interface NoteSprite extends PIXI.Sprite {
   noteData?: NoteData;
   labelText?: PIXI.Text;
 }
+
+// Renderer-local augmentation for optional caches/flags on PianoRoll.
+// This keeps the external/public API clean without using `any`.
+type AugmentedPianoRoll = PianoRoll & PianoRollAugments;
 
 /**
  * Default Sprite-based note renderer with automatic batching.
@@ -72,7 +67,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
   // Prepare diagonal-hatch textures for overlay with emphasized visibility
   function getHatchTexture(direction: "up" | "down" = "up"): PIXI.Texture {
     const cached = WR_HATCH_TEXTURE_CACHE[direction];
-    if (cached && (cached as any).valid !== false) {
+    if (cached) {
       return cached;
     }
 
@@ -108,10 +103,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
 
     ctx.stroke();
     const tex = PIXI.Texture.from(canvas);
-    // Pixi v8: use Texture.source.style.addressMode = 'repeat'
-    if ((tex as any).source?.style) {
-      (tex as any).source.style.addressMode = "repeat";
-    }
+    // Pixi v8: enable texture tiling when style is available
+    const src = tex.source as unknown as { style?: { addressMode?: string } };
+    if (src.style) src.style.addressMode = "repeat";
     WR_HATCH_TEXTURE_CACHE[direction] = tex;
     return tex;
   }
@@ -120,7 +114,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     kind: "up" | "down" | "cross" | "dots"
   ): PIXI.Texture {
     const cached = WR_PATTERN_TEXTURE_CACHE[kind];
-    if (cached && (cached as any).valid !== false) return cached;
+    if (cached) return cached;
 
     const size = 10;
     const canvas = document.createElement("canvas");
@@ -167,9 +161,8 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     }
 
     const tex = PIXI.Texture.from(canvas);
-    if ((tex as any).source?.style) {
-      (tex as any).source.style.addressMode = "repeat";
-    }
+    const src = tex.source as unknown as { style?: { addressMode?: string } };
+    if (src.style) src.style.addressMode = "repeat";
     WR_PATTERN_TEXTURE_CACHE[kind] = tex;
     return tex;
   }
@@ -181,7 +174,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     // Cache by kind + stroke color so each file gets a distinct outline
     const key = `${kind}-${colorHex}`;
     const cached = WR_ONSET_TEXTURE_CACHE[key];
-    if (cached && (cached as any).valid !== false) return cached;
+    if (cached) return cached;
     const size = 12;
     const canvas = document.createElement("canvas");
     canvas.width = size;
@@ -251,9 +244,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     pianoRoll.noteSprites.push(sprite);
     // Ensure hatch overlay pool matches sprite pool
     // Pattern overlay (always-on subtle file pattern) --------------------
-    const patternSprites = ((pianoRoll as any).patternSprites ??=
-      []) as PIXI.TilingSprite[];
-    const pattern = new (PIXI as any).TilingSprite({
+    const pr = pianoRoll as AugmentedPianoRoll;
+    const patternSprites = (pr.patternSprites ??= []);
+    const pattern = new PIXI.TilingSprite({
       texture: getPatternTexture("up"),
       width: 1,
       height: 1,
@@ -261,25 +254,23 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     pattern.visible = true;
     pattern.alpha = 0.18; // subtle
     pattern.tint = 0x000000; // neutral (black) pattern
-    pattern.blendMode = "normal" as any;
+    pattern.blendMode = "normal";
     pianoRoll.notesContainer.addChild(pattern);
     patternSprites.push(pattern);
 
     // Onset marker sprite pool (one per note)
-    const onsetSprites = ((pianoRoll as any).onsetSprites ??=
-      []) as PIXI.Sprite[];
+    const onsetSprites = (pr.onsetSprites ??= []);
     const onset = new PIXI.Sprite(PIXI.Texture.WHITE);
     onset.visible = false;
     onset.alpha = 0.75; // semi-transparent to let overlaps visually mix
-    (onset as any).blendMode = "normal"; // use normal blending to avoid washout on white bg
+    onset.blendMode = "normal"; // use normal blending to avoid washout on white bg
     pianoRoll.notesContainer.addChild(onset);
     onsetSprites.push(onset);
 
     // Evaluation hatch overlay (on-demand) -------------------------------
-    const hatchSprites = ((pianoRoll as any).hatchSprites ??=
-      []) as PIXI.TilingSprite[];
+    const hatchSprites = (pr.hatchSprites ??= []);
     // Pixi v8: TilingSprite accepts an options object
-    const overlay = new (PIXI as any).TilingSprite({
+    const overlay = new PIXI.TilingSprite({
       texture: getHatchTexture("up"),
       width: 1,
       height: 1,
@@ -296,12 +287,9 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       pianoRoll.notesContainer.removeChild(s);
       s.destroy();
     }
-    const hatchSprites = (pianoRoll as any).hatchSprites as
-      | PIXI.TilingSprite[]
-      | undefined;
-    const patternSprites = (pianoRoll as any).patternSprites as
-      | PIXI.TilingSprite[]
-      | undefined;
+    const pr2 = pianoRoll as AugmentedPianoRoll;
+    const hatchSprites = pr2.hatchSprites as PIXI.TilingSprite[] | undefined;
+    const patternSprites = pr2.patternSprites as PIXI.TilingSprite[] | undefined;
     if (
       patternSprites &&
       patternSprites.length > pianoRoll.noteSprites.length
@@ -319,9 +307,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         o.destroy();
       }
     }
-    const onsetSprites = (pianoRoll as any).onsetSprites as
-      | PIXI.Sprite[]
-      | undefined;
+    const onsetSprites = pr2.onsetSprites as PIXI.Sprite[] | undefined;
     if (onsetSprites && onsetSprites.length > pianoRoll.noteSprites.length) {
       const m = onsetSprites.pop();
       if (m) {
@@ -366,16 +352,16 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     sprite.alpha = noteColor === NEUTRAL_GRAY_NOTE ? 0.5 : 1;
 
     // Apply additive blending when the global highlight mode requests it
-    const hl = (pianoRoll as any).highlightMode ?? "file";
-    sprite.blendMode = hl === "highlight-blend" ? "add" : ("normal" as any);
+    const hl = (pianoRoll as AugmentedPianoRoll).highlightMode ?? "file";
+    sprite.blendMode = hl === "highlight-blend" ? "add" : "normal";
 
     // Per-file pattern overlay (always visible with subtle alpha)
-    const patternSprites = ((pianoRoll as any).patternSprites ??=
-      []) as PIXI.TilingSprite[];
+    const patternSprites = ((pianoRoll as AugmentedPianoRoll).patternSprites ??=
+      []);
     const pOverlay = patternSprites[idx];
     if (pOverlay) {
       // Suppress pattern overlay for clean fills when requested
-      if ((note as any).noOverlay === true) {
+      if (note.noOverlay === true) {
         pOverlay.visible = false;
       } else {
         pOverlay.visible = true;
@@ -404,8 +390,8 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       const scale = Math.max(1, target / Math.max(6, height));
       pOverlay.tileScale.set(scale, scale);
       // Increase visibility in evaluation highlight modes but keep notes vivid
-      const hlMode = (pianoRoll as any).highlightMode ?? "file";
-      if ((note as any).noOverlay === true) {
+      const hlMode = (pianoRoll as AugmentedPianoRoll).highlightMode ?? "file";
+      if (note.noOverlay === true) {
         pOverlay.alpha = 0;
       } else {
         pOverlay.alpha = hlMode.startsWith("eval-") ? 0.2 : 0.12;
@@ -413,12 +399,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     }
 
     // Hatch overlay driven by eval flags on note fragments (on top of patterns)
-    const hatchSprites = ((pianoRoll as any).hatchSprites ??=
-      []) as PIXI.TilingSprite[];
+    const hatchSprites = ((pianoRoll as AugmentedPianoRoll).hatchSprites ??=
+      []);
     const overlay = hatchSprites[idx];
     if (overlay) {
       const isEvalFragment = note.isEvalHighlightSegment === true;
-      if ((note as any).noOverlay === true) {
+      if (note.noOverlay === true) {
         overlay.visible = false;
       } else if (isEvalFragment) {
         // Use intersection/exclusive/ambiguous to select overlay style
@@ -426,7 +412,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         let tint: number;
 
         // Check if we're in gray mode
-        const hlMode = (pianoRoll as any).highlightMode ?? "file";
+        const hlMode = (pianoRoll as AugmentedPianoRoll).highlightMode ?? "file";
         const isGrayMode =
           typeof hlMode === "string" && hlMode.includes("-gray");
 
@@ -474,7 +460,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         // - exclusive: softer
         overlay.alpha =
           kind === "ambiguous" ? 0.4 : kind === "intersection" ? 0.2 : 0.24;
-        overlay.blendMode = "normal" as any;
+        overlay.blendMode = "normal";
 
         // Scale hatch so it remains visible on very short notes
         // Use different stripe thickness to distinguish kinds as well
@@ -488,14 +474,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     }
 
     // Onset marker positioning -----------------------------------------
-    const showOnsets = (pianoRoll as any).showOnsetMarkers === true;
-    const onsetSprites = ((pianoRoll as any).onsetSprites ??=
-      []) as PIXI.Sprite[];
+    const showOnsets = (pianoRoll as AugmentedPianoRoll).showOnsetMarkers === true;
+    const onsetSprites = ((pianoRoll as AugmentedPianoRoll).onsetSprites ??=
+      []);
     const m = onsetSprites[idx];
-    const originalOnsetMap = (pianoRoll as any).originalOnsetMap as
-      | Record<string, number>
-      | undefined;
-    const onlyOriginal = (pianoRoll as any).onlyOriginalOnsets !== false;
+    const originalOnsetMap = (pianoRoll as AugmentedPianoRoll).originalOnsetMap;
+    const onlyOriginal = (pianoRoll as AugmentedPianoRoll).onlyOriginalOnsets !== false;
     if (m) {
       if (showOnsets) {
         const fid = note.fileId || "";
@@ -510,9 +494,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         ];
         const kind = kinds[hash % kinds.length];
         // Outline color near file’s base color; fall back to current note color
-        const fileColors = (pianoRoll as any).fileColors as
-          | Record<string, number>
-          | undefined;
+        const fileColors = (pianoRoll as AugmentedPianoRoll).fileColors;
         const baseColorNum = fileColors?.[fid] ?? noteColor;
         const colorHex = "#" + baseColorNum.toString(16).padStart(6, "0");
         // Only show marker for the original MIDI onset (avoid per-fragment markers)
@@ -528,8 +510,8 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         // Render as original shape marker with per-file stable kind
         const tex = getOnsetTexture(kind, colorHex);
         m.texture = tex;
-        (m as any).tint = 0xffffff; // no extra tint; texture carries stroke color
-        (m as any).blendMode = "normal";
+        m.tint = 0xffffff; // no extra tint; texture carries stroke color
+        m.blendMode = "normal";
         m.alpha = 0.95;
         const sz = Math.min(12, Math.max(8, Math.floor(height)));
         m.width = sz;

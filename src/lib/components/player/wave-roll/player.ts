@@ -183,7 +183,7 @@ export class WaveRollPlayer {
     this.visualizationEngine.onVisualUpdate(({ currentTime, duration }) => {
       // Always get fresh dependencies to ensure updateSeekBar is available
       const deps = this.getUIDependencies();
-      deps.updateSeekBar?.({ currentTime, duration } as any);
+      deps.updateSeekBar?.({ currentTime, duration });
       this.updateTimeDisplay(currentTime);
 
       // NEW: keep piano-roll playhead in perfect sync with audio
@@ -305,7 +305,7 @@ export class WaveRollPlayer {
         // that occurred when the controls referenced the bare AudioController
         // before it had created its internal AudioPlayer.
         audioPlayer: this.visualizationEngine,
-        pianoRoll: this.visualizationEngine.getPianoRollInstance() as any,
+        pianoRoll: this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance,
         stateManager: this.stateManager,
         filePanStateHandlers: filePanStateHandlersRef,
         filePanValues: filePanValuesRef,
@@ -327,7 +327,7 @@ export class WaveRollPlayer {
       // After creation, convert seconds -> % once we know duration.
       const durationSec = playbackState.duration;
       if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
-        this.uiDeps.loopPoints = {
+        this.uiDeps!.loopPoints = {
           a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
           b: loopPoints.b !== null ? (loopPoints.b / durationSec) * 100 : null,
         };
@@ -336,8 +336,7 @@ export class WaveRollPlayer {
       // Refresh dynamic fields
       this.uiDeps.midiManager = this.midiManager;
       this.uiDeps.audioPlayer = this.visualizationEngine;
-      this.uiDeps.pianoRoll =
-        this.visualizationEngine.getPianoRollInstance() as any;
+      this.uiDeps.pianoRoll = this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance;
       this.uiDeps.stateManager = this.stateManager;
       this.uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       this.uiDeps.filePanValues = filePanValuesRef;
@@ -437,14 +436,14 @@ export class WaveRollPlayer {
         // Persist on the shared dependencies object so the seek-bar update
         // function can access the latest values.
         const deps = this.getUIDependencies();
-        (deps as any).loopPoints = lp;
+        (deps as UIComponentDependencies & { loopPoints?: { a: number | null; b: number | null } | null }).loopPoints = lp;
 
         // Force a seek-bar refresh immediately for snappy feedback.
         const state = this.visualizationEngine.getState();
         deps.updateSeekBar?.({
           currentTime: state.currentTime,
           duration: state.duration,
-        } as any);
+        });
       }
     );
 
