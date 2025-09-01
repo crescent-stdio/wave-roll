@@ -1,0 +1,32 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["vitest/globals"],
+    "baseUrl": "..",
+    "rootDir": "..",
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "@/core/*": ["src/lib/core/*"],
+      "@/demos/*": ["src/demos/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/components/*": ["src/lib/components/*"],
+      "@/assets/*": ["src/assets/*"],
+      "@/types/*": ["src/lib/types/*"],
+      "@/types": ["src/lib/types/index.ts"],
+      "@/core/playback": ["test/types/stubs/core-playback.d.ts"],
+      "pixi.js": ["test/types/stubs/pixi.d.ts"],
+      "tone": ["test/types/stubs/tone.d.ts"],
+      "d3-scale": ["test/types/stubs/d3-scale.d.ts"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.d.ts"
+  ],
+  "exclude": [
+    "web-component.element.test.ts"
+  ]
+}

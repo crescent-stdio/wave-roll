@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { NoteData, ControlChangeEvent } from "@/lib/core/utils/midi/types";
+import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import {
   applySustainPedalElongation,
   applySustainPedalElongationSafe,
   analyzeSustainPedalUsage,
-} from "@/lib/core/parsers/midi-parser-enhanced";
+} from "@/lib/core/parsers/midi-parser";
 
 /**
  * Test suite for sustain pedal elongation
@@ -148,8 +148,8 @@ describe("Sustain Pedal Elongation", () => {
 
     const result = applySustainPedalElongation(notes, cc, 64);
 
-    // C4: original duration (ends after sustain starts)
-    expect(result[0].duration).toBeCloseTo(2.0);
+    // C4: sustain is ON at note-off -> elongated to sustain-off (3.0)
+    expect(result[0].duration).toBeCloseTo(3.0);
     // D4: elongated to sustain off
     expect(result[1].duration).toBeCloseTo(2.5); // 3.0 - 0.5 = 2.5
     // E4: elongated to sustain off

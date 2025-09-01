@@ -2,6 +2,23 @@ import { defineConfig } from "vite";
 import { resolve } from "path";
 
 export default defineConfig({
+  test: {
+    environment: "node",
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+        minThreads: 1,
+        maxThreads: 1,
+      },
+    },
+    globals: true,
+    setupFiles: [],
+    reporters: ["default"],
+    coverage: {
+      enabled: false,
+    },
+  },
   // Development server configuration
   server: {
     port: 3000,

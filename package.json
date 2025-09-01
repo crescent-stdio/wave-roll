@@ -13,7 +13,8 @@
     "dev": "vite",
     "preview": "vite preview",
     "watch": "vite build --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -35,6 +36,7 @@
   "homepage": "https://github.com/crescent-stdio/wave-roll#readme",
   "devDependencies": {
     "@types/node": "^24.0.3",
+    "vitest": "^2.1.9",
     "typescript": "^5.8.3",
     "vite": "^7.0.0"
   },
