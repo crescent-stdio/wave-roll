@@ -114,6 +114,9 @@ export interface AudioPlayerContainer {
 
   /** Set volume for a specific WAV file */
   setWavVolume(fileId: string, volume: number): void;
+
+  /** Refresh WAV/audio players from registry (for mute/visibility updates) */
+  refreshAudioPlayers?(): void;
 }
 
 /**

@@ -1,6 +1,6 @@
 import * as Loader from "./loader";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
-import { SampleFileConfig } from "./types";
+import { SampleFileConfig, SampleAudioFileConfig } from "./types";
 import { MidiInput } from "@/lib/midi/types";
 import { FileLoadOptions } from "./types";
 import { MidiFileEntry } from "@/lib/midi/types";
@@ -48,7 +48,7 @@ export class FileManager {
 
   /** Load sample audio files */
   async loadSampleAudioFiles(
-    files: Array<{ path: string; displayName?: string; color?: number; type?: "midi" | "audio" }> = []
+    files: SampleAudioFileConfig[] = []
   ): Promise<void> {
     return Loader.loadSampleAudioFiles(this, files);
   }

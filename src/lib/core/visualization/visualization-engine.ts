@@ -16,7 +16,7 @@ import {
   ColoredNote as CoreColoredNote,
   DEFAULT_PIANO_ROLL_CONFIG,
 } from "@/core/playback";
-import type { PianoRollInstance as CorePianoRollInstance } from "@/core/playback";
+import type { PianoRollInstance as VizPianoRollInstance } from "./piano-roll";
 import { overlapping } from "@/core/controls/utils/overlap";
 import { COLOR_OVERLAP } from "@/lib/core/constants";
 
@@ -55,7 +55,7 @@ export interface VisualUpdateParams extends CoreVisualUpdateParams {
 }
 
 // Piano roll instance type alias for backward-compatibility
-export type PianoRollInstance = CorePianoRollInstance;
+export type PianoRollInstance = VizPianoRollInstance;
 
 /**
  * Main visualization engine class - Thin wrapper around CorePlaybackEngine
@@ -177,7 +177,9 @@ export class VisualizationEngine {
    * Get piano roll instance
    */
   public getPianoRollInstance(): PianoRollInstance | null {
-    return this.pianoRollManager.getPianoRollInstance() as PianoRollInstance | null;
+    // PianoRollManager stores the object created by createPianoRoll(), which is the
+    // visualizer-facing PianoRollInstance. Cast for ergonomic downstream typing.
+    return this.pianoRollManager.getPianoRollInstance() as unknown as PianoRollInstance | null;
   }
 
   /**

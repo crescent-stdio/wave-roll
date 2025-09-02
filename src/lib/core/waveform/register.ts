@@ -1,29 +1,6 @@
 import { generateAudioFileId } from "@/lib/core/utils/id";
 import { COLOR_WAVEFORM } from "@/lib/core/constants";
-
-interface RegisteredAudio {
-  id: string;
-  displayName: string;
-  url: string;
-  color: number;
-  isVisible: boolean;
-  isMuted: boolean;
-  pan: number;
-  audioBuffer?: AudioBuffer;
-  peaks?: { min: number[]; max: number[] };
-}
-
-type WaveRollAudioAPI = {
-  getFiles(): RegisteredAudio[];
-  getVisiblePeaks(): Array<{ time: number; min: number; max: number; color: number }>;
-  sampleAtTime(time: number): { min: number; max: number; color: number } | null;
-  toggleVisibility(id: string): void;
-  toggleMute(id: string): void;
-  setPan(id: string, pan: number): void;
-  updateDisplayName(id: string, name: string): void;
-  updateColor(id: string, color: number): void;
-  _store: { items: RegisteredAudio[] };
-};
+import type { PeakDatum, WaveRollAudioAPI, RegisteredAudio } from "./types";
 
 function ensureAPI(): WaveRollAudioAPI {
   const w = globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI };
@@ -34,8 +11,8 @@ function ensureAPI(): WaveRollAudioAPI {
       getFiles(): RegisteredAudio[] {
         return store.items.slice();
       },
-      getVisiblePeaks(): Array<{ time: number; min: number; max: number; color: number }> {
-        const out: Array<{ time: number; min: number; max: number; color: number }> = [];
+      getVisiblePeaks(): PeakDatum[] {
+        const out: PeakDatum[] = [];
         for (const a of store.items) {
           if (!a.isVisible || !a.peaks || !a.audioBuffer) continue;
           const { min, max } = a.peaks;
@@ -47,9 +24,9 @@ function ensureAPI(): WaveRollAudioAPI {
         }
         return out;
       },
-      sampleAtTime(time: number): { min: number; max: number; color: number } | null {
+      sampleAtTime(time: number): Omit<PeakDatum, 'time'> | null {
         // Return the max of all visible audio tracks at this time
-        let result: { min: number; max: number; color: number } | null = null;
+        let result: Omit<PeakDatum, 'time'> | null = null;
         for (const a of store.items) {
           if (!a.isVisible || !a.peaks || !a.audioBuffer) continue;
           const duration = a.audioBuffer.duration;
@@ -112,7 +89,7 @@ export async function addAudioFileFromUrl(
     isMuted: false,
     pan: 0,
   };
-  api._store.items.push(entry);
+  api._store!.items.push(entry);
 
   // Decode audio and compute peaks lazily
   try {

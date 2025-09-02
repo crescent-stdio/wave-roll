@@ -10,6 +10,9 @@ import {
   ControlChangeEvent,
 } from "@/lib/midi/types";
 // Sustain-pedal elongation utilities (ported from onsets-and-frames)
+
+// Local analysis types
+export interface SustainRegion { start: number; end: number; duration: number }
 import {
   midiToNoteName,
   midiToPitchClass,
@@ -212,7 +215,8 @@ export function applySustainPedalElongation(
   // State
   let sustainOn = false;
   const activeNotes = new Map<number, { startTime: number; midi: number; velocity: number }>();
-  const sustainedNotes = new Map<number, Array<{ index: number; startTime: number; velocity: number }>>();
+  interface SustainedNoteEntry { index: number; startTime: number; velocity: number }
+  const sustainedNotes = new Map<number, SustainedNoteEntry[]>();
   const finalNotes = new Map<number, NoteData>();
 
   const releaseAllSustained = (t: number) => {
@@ -325,14 +329,14 @@ export function analyzeSustainPedalUsage(
   sustainCount: number;
   averageSustainDuration: number;
   totalSustainTime: number;
-  sustainRegions: Array<{ start: number; end: number; duration: number }>;
+  sustainRegions: SustainRegion[];
 } {
   const events = controlChanges.filter((cc) => cc.controller === 64).sort((a, b) => a.time - b.time);
   if (events.length === 0) {
     return { hasSustain: false, sustainCount: 0, averageSustainDuration: 0, totalSustainTime: 0, sustainRegions: [] };
   }
   const thr = threshold / 127;
-  const regions: Array<{ start: number; end: number; duration: number }> = [];
+  const regions: SustainRegion[] = [];
   let start: number | null = null;
   let on = false;
   for (const e of events) {

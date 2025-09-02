@@ -162,13 +162,8 @@ export class SamplerManager {
       ? options.originalTempo / options.tempo
       : 1;
     // Create events, optionally windowed for A-B looping
-    const events: Array<{
-      time: number;
-      note: string;
-      duration: number;
-      velocity: number;
-      fileId: string;
-    }> = this.notes
+    interface ScheduledNoteEvent { time: number; note: string; duration: number; velocity: number; fileId: string }
+    const events: ScheduledNoteEvent[] = this.notes
       .filter((note) => {
         // When a custom loop window is active, keep any note that INTERSECTS
         // [loopStartVisual, loopEndVisual).  This includes notes whose onset

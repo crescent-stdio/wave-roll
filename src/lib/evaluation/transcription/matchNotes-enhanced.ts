@@ -23,6 +23,7 @@ import {
   DEFAULT_VELOCITY_OPTIONS,
 } from "./constants";
 import { validateTranscriptionInputs } from "./utils";
+import type { EnhancedMatchEntry, SecondaryMatch } from "./types";
 
 /**
  * Enhanced match result with support for 1:N relationships
@@ -49,11 +50,7 @@ export interface EnhancedNoteMatchResult {
     confidence?: number;
   }>;
   /** All possible matches (including secondary matches for 1:N) */
-  allMatches?: Array<{
-    ref: number;
-    est: number;
-    score: number; // Match quality score
-  }>;
+  allMatches?: SecondaryMatch[];
   /** Indices of unmatched reference notes */
   falseNegatives: number[];
   /** Indices of unmatched estimated notes */

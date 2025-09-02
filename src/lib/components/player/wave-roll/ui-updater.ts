@@ -37,7 +37,7 @@ export class UIUpdater {
       uiDeps = {
         midiManager: this.midiManager,
         audioPlayer: this.visualizationEngine,
-        pianoRoll: this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance,
+        pianoRoll: this.visualizationEngine.getPianoRollInstance(),
         stateManager: this.stateManager,
         filePanStateHandlers: filePanStateHandlersRef,
         filePanValues: filePanValuesRef,
@@ -69,7 +69,7 @@ export class UIUpdater {
       uiDeps.midiManager = this.midiManager;
       uiDeps.audioPlayer = this.visualizationEngine;
       uiDeps.pianoRoll =
-        this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance;
+        this.visualizationEngine.getPianoRollInstance();
       uiDeps.stateManager = this.stateManager;
       uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       uiDeps.filePanValues = filePanValuesRef;

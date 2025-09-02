@@ -408,7 +408,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Refresh WAV/audio players from registry (for mute state updates)
    */
   public refreshAudioPlayers(): void {
-    (this.audioPlayer as unknown as { refreshAudioPlayers?: () => void })?.refreshAudioPlayers?.();
+    this.audioPlayer?.refreshAudioPlayers?.();
   }
 
   public getState(): AudioPlayerState {

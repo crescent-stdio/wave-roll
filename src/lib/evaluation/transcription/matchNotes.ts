@@ -19,34 +19,14 @@ import {
   validateTranscriptionInputs,
 } from "./utils";
 import { ParsedMidi } from "@/lib/midi/types";
+import type { MatchEntry } from "./types";
 
 /**
  * Result of a note-level matching operation.
  */
 export interface NoteMatchResult {
   /** Pairs of matched reference-estimated indices */
-  matches: Array<{
-    ref: number;
-    est: number;
-    refPitch: number;
-    estPitch: number;
-    refTime: number;
-    estTime: number;
-    /** Absolute onset difference in seconds */
-    onsetDiff?: number;
-    /** Absolute offset difference in seconds */
-    offsetDiff?: number;
-    /** Absolute pitch difference in semitones (MIDI numbers) */
-    pitchDiff?: number;
-    /** IoU-style time overlap ratio between the two note intervals */
-    overlapRatio?: number;
-    /** Reference velocity (normalized [0,1]) if available */
-    refVelocity?: number;
-    /** Estimated velocity (normalized [0,1]) if available */
-    estVelocity?: number;
-    /** Absolute velocity difference (normalized [0,1]) if available */
-    velocityDiff?: number;
-  }>;
+  matches: MatchEntry[];
   /** Indices of unmatched reference notes */
   falseNegatives: number[];
   /** Indices of unmatched estimated notes */

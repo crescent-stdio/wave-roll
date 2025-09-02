@@ -14,6 +14,7 @@ import { mixColorsOklch } from "@/core/utils/color";
 import { EvaluationHandler } from "./evaluation-handler";
 import type { PianoRoll } from "@/core/visualization/piano-roll";
 import type { PianoRollAugments } from "@/core/visualization/piano-roll/types-internal";
+ type AugPR = PianoRoll & PianoRollAugments;
 
 export class VisualizationHandler {
   private evaluationHandler: EvaluationHandler;
@@ -122,7 +123,7 @@ export class VisualizationHandler {
       // can access it during the imminent render triggered by
       // `setControlChanges()`.
       if (pianoInstance) {
-        (pianoInstance as PianoRoll & PianoRollAugments).fileColors = fileColors;
+        (pianoInstance as AugPR).fileColors = fileColors;
       }
 
       // Provide lightweight file metadata for tooltips so we can render
@@ -153,7 +154,7 @@ export class VisualizationHandler {
         };
       });
       if (pianoInstance) {
-        (pianoInstance as PianoRoll & PianoRollAugments).fileInfoMap = fileInfoMap;
+        (pianoInstance as AugPR).fileInfoMap = fileInfoMap;
       }
 
       // Pass current highlight mode to the renderer so it can adjust
@@ -161,8 +162,8 @@ export class VisualizationHandler {
       // render cycle can pick up the correct mode immediately.
       if (pianoInstance) {
         const visual = this.stateManager.getState().visual;
-        (pianoInstance as PianoRoll & PianoRollAugments).highlightMode = visual.highlightMode;
-        (pianoInstance as PianoRoll & PianoRollAugments).showOnsetMarkers = visual.showOnsetMarkers;
+        (pianoInstance as AugPR).highlightMode = visual.highlightMode;
+        (pianoInstance as AugPR).showOnsetMarkers = visual.showOnsetMarkers;
         // Provide a mapping of original MIDI onsets so the renderer can
         // suppress markers on segmented fragments in eval/highlight modes.
         const origOnsetMap: Record<string, number> = {};
@@ -173,8 +174,8 @@ export class VisualizationHandler {
             origOnsetMap[`${fid}#${i}`] = n.time;
           });
         });
-        (pianoInstance as PianoRoll & PianoRollAugments).originalOnsetMap = origOnsetMap;
-        (pianoInstance as PianoRoll & PianoRollAugments).onlyOriginalOnsets = true;
+        (pianoInstance as AugPR).originalOnsetMap = origOnsetMap;
+        (pianoInstance as AugPR).onlyOriginalOnsets = true;
       }
 
       // Finally, push CC data to piano-roll which will trigger a re-render of

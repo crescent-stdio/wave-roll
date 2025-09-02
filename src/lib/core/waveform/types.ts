@@ -16,8 +16,8 @@ export interface RegisteredAudio {
 
 export interface WaveRollAudioAPI {
   getFiles(): RegisteredAudio[];
-  getVisiblePeaks?: () => Array<{ time: number; min: number; max: number; color: number }>;
-  sampleAtTime?: (time: number) => { min: number; max: number; color: number } | null;
+  getVisiblePeaks?: () => PeakDatum[];
+  sampleAtTime?: (time: number) => Omit<PeakDatum, "time"> | null;
   toggleVisibility?: (id: string) => void;
   toggleMute?: (id: string) => void;
   setPan?: (id: string, pan: number) => void;
@@ -26,3 +26,10 @@ export interface WaveRollAudioAPI {
   _store?: { items: RegisteredAudio[] };
 }
 
+
+export interface PeakDatum {
+  time: number;
+  min: number;
+  max: number;
+  color: number;
+}

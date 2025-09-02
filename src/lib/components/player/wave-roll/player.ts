@@ -305,7 +305,7 @@ export class WaveRollPlayer {
         // that occurred when the controls referenced the bare AudioController
         // before it had created its internal AudioPlayer.
         audioPlayer: this.visualizationEngine,
-        pianoRoll: this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance,
+        pianoRoll: this.visualizationEngine.getPianoRollInstance(),
         stateManager: this.stateManager,
         filePanStateHandlers: filePanStateHandlersRef,
         filePanValues: filePanValuesRef,
@@ -336,7 +336,7 @@ export class WaveRollPlayer {
       // Refresh dynamic fields
       this.uiDeps.midiManager = this.midiManager;
       this.uiDeps.audioPlayer = this.visualizationEngine;
-      this.uiDeps.pianoRoll = this.visualizationEngine.getPianoRollInstance() as unknown as import("@/core/visualization/piano-roll").PianoRollInstance;
+      this.uiDeps.pianoRoll = this.visualizationEngine.getPianoRollInstance();
       this.uiDeps.stateManager = this.stateManager;
       this.uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       this.uiDeps.filePanValues = filePanValuesRef;

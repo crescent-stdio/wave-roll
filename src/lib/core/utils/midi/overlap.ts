@@ -1,5 +1,7 @@
 import { NoteData } from "@/lib/midi/types";
 
+export interface TimeRange { start: number; end: number }
+
 /**
  * Detects overlapping notes between different MIDI files
  * @param notes Array of note objects with color and file ID information
@@ -7,7 +9,7 @@ import { NoteData } from "@/lib/midi/types";
  */
 export function detectOverlappingNotes(
   notes: Array<{ note: NoteData; color: number; fileId: string }>
-): Map<number, Array<{ start: number; end: number }>> {
+): Map<number, TimeRange[]> {
   const overlappingRanges = new Map<
     number,
     Array<{ start: number; end: number }>
@@ -55,7 +57,7 @@ export function detectOverlappingNotes(
     // Sort by start time
     ranges.sort((a, b) => a.start - b.start);
 
-    const merged: Array<{ start: number; end: number }> = [];
+    const merged: TimeRange[] = [];
     let current = { ...ranges[0] };
 
     for (let k = 1; k < ranges.length; k++) {
