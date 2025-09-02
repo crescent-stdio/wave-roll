@@ -245,8 +245,8 @@ export class AudioSettingsController {
       return;
     }
 
-    // Set the loop points
-    loopManager.setLoopPoints(start, end, state.duration);
+    // Set the loop points (setLoopPoints requires 4 parameters)
+    loopManager.setLoopPoints(start, end, state.duration, state);
 
     // Get the effective loop bounds
     const effectiveStart = loopManager.loopStartVisual ?? 0;

@@ -27,7 +27,7 @@ export class WavPlayerManager {
    * Build/refresh Tone.Player instances from global audio registry (window._waveRollAudio)
    * and select the first visible & unmuted item as the active audio source.
    */
-  setupAudioPlayersFromRegistry(state: { volume?: number; playbackRate?: number }): void {
+  setupAudioPlayersFromRegistry(state: { volume?: number; playbackRate?: number; isPlaying?: boolean; currentTime?: number }): void {
     try {
       const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
       if (!api?.getFiles) return;
@@ -474,10 +474,7 @@ export class WavPlayerManager {
     
     try {
       // Re-setup audio players from registry
-      this.setupAudioPlayersFromRegistry({
-        isPlaying: false,
-        currentTime: 0,
-      });
+      this.setupAudioPlayersFromRegistry({});
       return true;
     } catch (error) {
       console.error("[WavPlayerManager] Failed to refresh:", error);
@@ -562,6 +559,14 @@ export class WavPlayerManager {
     } catch {
       return 0;
     }
+  }
+
+  /**
+   * Restart at position
+   */
+  restartAtPosition(position: number): void {
+    this.stopAllAudioPlayers();
+    this.startActiveAudioAt(position);
   }
 
   /**

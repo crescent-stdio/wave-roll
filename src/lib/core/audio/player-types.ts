@@ -178,6 +178,10 @@ export const AUDIO_CONSTANTS = {
   MIN_PLAYBACK_RATE: 10,
   /** Maximum playback rate percentage */
   MAX_PLAYBACK_RATE: 200,
+  /** Minimum playback rate (alias for consistency) */
+  MIN_RATE: 10,
+  /** Maximum playback rate (alias for consistency) */
+  MAX_RATE: 200,
   /** Minimum tempo in BPM */
   MIN_TEMPO: 30,
   /** Maximum tempo in BPM */

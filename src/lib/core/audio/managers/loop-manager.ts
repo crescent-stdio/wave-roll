@@ -12,6 +12,13 @@ export class LoopManager {
   private _loopCounter = 0;
   private originalTempo: number;
   
+  // Add loopStartTransport property
+  get loopStartTransport(): number | null {
+    if (this._loopStartVisual === null) return null;
+    const currentTempo = Tone.getTransport().bpm.value;
+    return (this._loopStartVisual * this.originalTempo) / currentTempo;
+  }
+  
   constructor(originalTempo: number) {
     this.originalTempo = originalTempo;
   }

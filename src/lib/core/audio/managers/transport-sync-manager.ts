@@ -25,12 +25,15 @@ export class TransportSyncManager {
     pianoRoll: PianoRollSync,
     state: AudioPlayerState,
     operationState: OperationState,
-    options: TransportSyncOptions
+    originalTempo: number
   ) {
     this.pianoRoll = pianoRoll;
     this.state = state;
     this.operationState = operationState;
-    this.options = options;
+    this.options = {
+      syncInterval: AUDIO_CONSTANTS.DEFAULT_SYNC_INTERVAL,
+      originalTempo
+    };
   }
 
   /**

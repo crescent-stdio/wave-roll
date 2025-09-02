@@ -40,15 +40,13 @@ export class FileAudioController {
     console.log("[FileAudioController.setFileMute]", { fileId, mute });
 
     // Try sampler first
-    const samplerResult = samplerManager.setFileMute(fileId, mute);
+    samplerManager.setFileMute(fileId, mute);
     
-    if (!samplerResult) {
-      // Try external WAV player
-      const wavResult = wavPlayerManager.setFileMute(fileId, mute);
-      
-      if (!wavResult) {
-        console.warn(`[FileAudioController.setFileMute] No track found for fileId: ${fileId}`);
-      }
+    // Also try external WAV player
+    const wavResult = wavPlayerManager.setFileMute(fileId, mute);
+    
+    if (!wavResult) {
+      // WAV player might not have this file, which is okay
     }
 
     // Update midiManager state if available
@@ -69,7 +67,9 @@ export class FileAudioController {
     const clamped = clamp(volume, 0, 1);
     console.log("[FileAudioController.setFileVolume]", { fileId, volume: clamped });
     
-    this.deps.samplerManager.setFileVolume(fileId, clamped);
+    // setFileVolume requires masterVolume parameter
+    const masterVolume = 0.7; // Default master volume
+    this.deps.samplerManager.setFileVolume(fileId, clamped, masterVolume);
   }
 
   /**
