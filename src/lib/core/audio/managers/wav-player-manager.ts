@@ -397,6 +397,95 @@ export class WavPlayerManager {
   }
 
   /**
+   * Get file mute states
+   */
+  getFileMuteStates(): Map<string, boolean> {
+    const states = new Map<string, boolean>();
+    const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
+    this.audioPlayers.forEach(({ player }, fileId) => {
+      states.set(fileId, player.volume.value <= SILENT_DB);
+    });
+    return states;
+  }
+
+  /**
+   * Get file volume states
+   */
+  getFileVolumeStates(): Map<string, number> {
+    const states = new Map<string, number>();
+    this.audioPlayers.forEach(({ player }, fileId) => {
+      const linearVolume = Tone.dbToGain(player.volume.value);
+      states.set(fileId, linearVolume);
+    });
+    return states;
+  }
+
+  /**
+   * Set file mute state
+   */
+  setFileMute(fileId: string, mute: boolean): boolean {
+    const entry = this.audioPlayers.get(fileId);
+    if (!entry) return false;
+    
+    const { player } = entry;
+    const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
+    
+    if (mute) {
+      player.volume.value = SILENT_DB;
+    } else {
+      // Unmute to default volume
+      player.volume.value = Tone.gainToDb(0.7);
+    }
+    
+    return true;
+  }
+
+  /**
+   * Set file volume
+   */
+  setFileVolume(fileId: string, volume: number): boolean {
+    const entry = this.audioPlayers.get(fileId);
+    if (!entry) return false;
+    
+    const { player } = entry;
+    const clamped = Math.max(0, Math.min(1, volume));
+    player.volume.value = Tone.gainToDb(clamped);
+    
+    return true;
+  }
+
+  /**
+   * Check if all players have zero volume
+   */
+  areAllPlayersZeroVolume(): boolean {
+    const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
+    if (this.audioPlayers.size === 0) return true;
+    
+    return !Array.from(this.audioPlayers.values()).some(
+      ({ player }) => player.volume.value > SILENT_DB
+    );
+  }
+
+  /**
+   * Refresh from MIDI manager
+   */
+  refreshFromMidiManager(midiManager: any): boolean {
+    if (!midiManager) return false;
+    
+    try {
+      // Re-setup audio players from registry
+      this.setupAudioPlayersFromRegistry({
+        isPlaying: false,
+        currentTime: 0,
+      });
+      return true;
+    } catch (error) {
+      console.error("[WavPlayerManager] Failed to refresh:", error);
+      return false;
+    }
+  }
+
+  /**
    * Check if all WAV players are muted
    */
   areAllPlayersMuted(): boolean {

@@ -506,6 +506,43 @@ export class SamplerManager {
   }
 
   /**
+   * Get file mute states
+   */
+  getFileMuteStates(): Map<string, boolean> {
+    const states = new Map<string, boolean>();
+    this.trackSamplers.forEach((track, fileId) => {
+      states.set(fileId, track.muted);
+    });
+    return states;
+  }
+
+  /**
+   * Get file volume states
+   */
+  getFileVolumeStates(): Map<string, number> {
+    const states = new Map<string, number>();
+    this.trackSamplers.forEach((track, fileId) => {
+      // Convert dB back to linear
+      const linearVolume = Tone.dbToGain(track.sampler.volume.value);
+      states.set(fileId, linearVolume);
+    });
+    return states;
+  }
+
+  /**
+   * Check if all tracks have zero volume
+   */
+  areAllTracksZeroVolume(): boolean {
+    const SILENT_DB = -60;
+    if (this.trackSamplers.size === 0) {
+      return this.sampler ? this.sampler.volume.value <= SILENT_DB : true;
+    }
+    return !Array.from(this.trackSamplers.values()).some(
+      track => !track.muted && track.sampler.volume.value > SILENT_DB
+    );
+  }
+
+  /**
    * Check if all tracks are muted
    */
   areAllTracksMuted(): boolean {
