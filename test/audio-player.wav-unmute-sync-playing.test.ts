@@ -17,6 +17,7 @@ vi.mock('tone', () => ({
     off: vi.fn(),
   }),
   context: { state: 'running' },
+  getContext: () => ({ state: 'running', resume: vi.fn(), lookAhead: 0.1, updateInterval: 0.02, rawContext: { sampleRate: 44100, baseLatency: 0 } }),
   start: vi.fn(async () => {}),
   now: () => 0,
 }));

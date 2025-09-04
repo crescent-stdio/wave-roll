@@ -6,7 +6,37 @@
  */
 
 import { describe, test, expect, beforeEach, vi } from 'vitest';
+// Shim window for TransportSyncManager timers
+// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+globalThis.window = globalThis as any;
 import * as Tone from 'tone';
+import { vi } from 'vitest';
+
+// Provide a minimal Tone mock for this test file
+vi.mock('tone', () => {
+  class Panner { pan = { value: 0 }; toDestination() { return this; } connect() { return this; } dispose = vi.fn(() => {}); }
+  class Sampler { volume = { value: 0 }; loaded = true; connect(_node: any) { return this; } }
+  class GrainPlayer { buffer: any = { loaded: true }; volume = { value: 0 }; playbackRate = 1; constructor(_opts: any) {}; connect(_node: any) { return this; } start = vi.fn(); stop = vi.fn(); dispose = vi.fn(() => {}); }
+  class Part { loop=false; loopStart=0; loopEnd=0; constructor(public cb: any, public events: any[]){} start=vi.fn(); stop=vi.fn(); cancel=vi.fn(); }
+  const gainToDb = (g: number) => (g <= 0 ? -Infinity : 20 * Math.log10(g));
+  const dbToGain = (db: number) => (db === -Infinity ? 0 : Math.pow(10, db / 20));
+  return ({
+    getTransport: () => ({
+      state: 'stopped', seconds: 0, bpm: { value: 120 }, start: vi.fn(), stop: vi.fn(), pause: vi.fn(), cancel: vi.fn(), on: vi.fn(), off: vi.fn(),
+    }),
+    context: { state: 'running' },
+    getContext: () => ({ state: 'running', resume: vi.fn(), lookAhead: 0.1, updateInterval: 0.02, rawContext: { sampleRate: 44100, baseLatency: 0 } }),
+    start: vi.fn(async () => {}),
+    now: () => 0,
+    Panner,
+    Sampler,
+    GrainPlayer,
+    Part,
+    gainToDb,
+    dbToGain,
+  });
+});
 import { AudioPlayer } from '../src/lib/core/audio/audio-player';
 import { NoteData } from '../src/lib/midi/types';
 

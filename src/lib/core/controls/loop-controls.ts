@@ -116,6 +116,8 @@ export function createCoreLoopControls(
   btnLoopRestart.onclick = () => {
     isLoopRestartActive = !isLoopRestartActive;
     setLoopRestartUI();
+    // Toggle transport repeat to actually loop the selected window
+    audioPlayer?.toggleRepeat?.(isLoopRestartActive);
 
     if (isLoopRestartActive) {
       // Apply loop points immediately

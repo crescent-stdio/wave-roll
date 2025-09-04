@@ -70,16 +70,37 @@ export class LoopManager {
       };
     }
 
-    // Clear looping if start is null
+    // If only B is provided (start is null, end has a value), loop [0, end)
     if (start === null) {
-      this._loopStartVisual = null;
-      this._loopEndVisual = null;
+      if (end === null) {
+        // Clear loop entirely
+        this._loopStartVisual = null;
+        this._loopEndVisual = null;
+        this._loopCounter = 0;
+        return {
+          changed: true,
+          transportStart: 0,
+          transportEnd: duration,
+          shouldPreservePosition: false,
+        };
+      }
+
+      // B-only loop => treat A = 0
+      const clampedEnd = Math.min(Math.max(0, end), duration);
+      this._loopStartVisual = 0;
+      this._loopEndVisual = clampedEnd;
       this._loopCounter = 0;
+
+      const transportStart = 0;
+      const transportEnd = (clampedEnd * this.originalTempo) / state.tempo;
+      const currentPosition = state.currentTime;
+      const shouldPreservePosition = currentPosition >= 0 && currentPosition <= clampedEnd;
+
       return {
         changed: true,
-        transportStart: 0,
-        transportEnd: duration,
-        shouldPreservePosition: false,
+        transportStart,
+        transportEnd,
+        shouldPreservePosition,
       };
     }
 
