@@ -14,6 +14,7 @@ import {
 } from "@/core/audio";
 import { PianoRollManager } from "@/core/playback";
 import { StateManager } from "@/core/state";
+import { PlaybackValueUtils, ensureInitialized } from "./utils";
 
 /**
  * Core playback engine configuration
@@ -248,15 +249,13 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * AudioPlayerContainer implementation
    */
   public async play(): Promise<void> {
-    if (!this.audioPlayer) {
-      throw new Error("Audio player not initialized");
-    }
+    ensureInitialized(this.audioPlayer, "Audio player");
 
     // Get state before playing to check if we're starting from the beginning
-    const stateBefore = this.audioPlayer.getState();
+    const stateBefore = this.audioPlayer!.getState();
     const isStartingFromBeginning = stateBefore.currentTime === 0;
 
-    await this.audioPlayer.play();
+    await this.audioPlayer!.play();
 
     // Start update loop immediately
     this.startUpdateLoop();
@@ -325,7 +324,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   }
 
   public setVolume(volume: number): void {
-    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const clampedVolume = PlaybackValueUtils.clampVolume(volume);
     this.audioPlayer?.setVolume(clampedVolume);
 
     if (this.config.enableStateSync && this.stateManager) {
@@ -334,9 +333,10 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   }
 
   public setTempo(bpm: number): void {
-    const clampedTempo = Math.max(
+    const clampedTempo = PlaybackValueUtils.clampTempo(
+      bpm,
       this.config.minTempo,
-      Math.min(this.config.maxTempo, bpm)
+      this.config.maxTempo
     );
     this.audioPlayer?.setTempo(clampedTempo);
   }

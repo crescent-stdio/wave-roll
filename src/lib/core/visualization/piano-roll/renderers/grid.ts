@@ -2,6 +2,12 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import type { WaveRollAudioAPI } from "@/lib/core/waveform/types";
 import { COLOR_LOOP_SHADE, COLOR_LOOP_LINE_A, COLOR_LOOP_LINE_B } from "@/lib/core/constants";
+import { 
+  createCoordinateTransform, 
+  getVisibleTimeRange,
+  DrawingPrimitives,
+  ColorCalculator
+} from "../utils";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
 export function renderGrid(pianoRoll: PianoRoll): void {
@@ -89,23 +95,24 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
   // Calculate minimum label spacing to prevent overlap
   const minLabelSpacing = 50; // pixels
-  const pixelsPerSecond = pianoRoll.timeScale(1) * pianoRoll.state.zoomX;
+  const transform = createCoordinateTransform(pianoRoll);
+  const pixelsPerSecond = transform.getPixelsPerSecond();
 
   // Helper to draw vertical grid line
   const drawGridLine = (tVal: number, alpha: number, showLabel: boolean) => {
-    const x =
-      pianoRoll.timeScale(tVal) * pianoRoll.state.zoomX +
-      pianoRoll.state.panX +
-      (pianoRoll.options.showPianoKeys ? 60 : 0);
+    const x = transform.timeToPixel(tVal) + pianoRoll.state.panX;
 
     // Only draw if line is within viewport
     if (x < -10 || x > pianoRoll.options.width + 10) {
       return;
     }
 
-    pianoRoll.backgroundGrid.moveTo(x, 0);
-    pianoRoll.backgroundGrid.lineTo(x, pianoRoll.options.height);
-    pianoRoll.backgroundGrid.stroke({ width: 1, color: 0xe0e0e0, alpha });
+    DrawingPrimitives.drawVerticalLine(
+      pianoRoll.backgroundGrid,
+      x,
+      pianoRoll.options.height,
+      { width: 1, color: 0xe0e0e0, alpha }
+    );
 
     if (showLabel) {
       const label = new PIXI.Text({
@@ -125,10 +132,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   // Major lines - only show labels at appropriate intervals
   let lastLabelX = -Infinity;
   for (let t = 0; t <= maxTime; t += timeStep) {
-    const x =
-      pianoRoll.timeScale(t) * pianoRoll.state.zoomX +
-      pianoRoll.state.panX +
-      (pianoRoll.options.showPianoKeys ? 60 : 0);
+    const x = transform.timeToPixel(t) + pianoRoll.state.panX;
 
     // Show label only if there's enough space from the previous label
     const showLabel = x - lastLabelX >= minLabelSpacing;
@@ -161,7 +165,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   // -------------------------------------------------------------
 
   if (pianoRoll.loopLines) {
-    const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
+    const pianoKeysOffset = transform.getPianoKeysOffset();
     let lineWidth = 3; // thicker for better visibility
 
     const drawDashed = (
@@ -219,40 +223,36 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     let endX: number | null = null;
 
     if (pianoRoll.loopStart !== null) {
-      startX =
-        pianoRoll.timeScale(pianoRoll.loopStart) * pianoRoll.state.zoomX +
-        pianoRoll.state.panX +
-        pianoKeysOffset;
+      startX = transform.timeToPixel(pianoRoll.loopStart) + pianoRoll.state.panX;
 
       // A-line: longer dashes
-      const colA = parseInt(COLOR_LOOP_LINE_A.replace("#", ""), 16);
+      const colA = ColorCalculator.hexToNumber(COLOR_LOOP_LINE_A);
       drawDashed(pianoRoll.loopLines.start, startX!, colA, 14, 8);
       drawLine(pianoRoll.loopLines.start, startX!, colA, `A(${pianoRoll.loopStart.toFixed(1)}s)`);
     }
 
     if (pianoRoll.loopEnd !== null) {
-      endX =
-        pianoRoll.timeScale(pianoRoll.loopEnd) * pianoRoll.state.zoomX +
-        pianoRoll.state.panX +
-        pianoKeysOffset;
+      endX = transform.timeToPixel(pianoRoll.loopEnd) + pianoRoll.state.panX;
 
       // B-line: denser short dashes (dotted look)
-      const colB = parseInt(COLOR_LOOP_LINE_B.replace("#", ""), 16);
+      const colB = ColorCalculator.hexToNumber(COLOR_LOOP_LINE_B);
       drawDashed(pianoRoll.loopLines.end, endX!, colB, 2, 4);
       drawLine(pianoRoll.loopLines.end, endX!, colB, `B(${pianoRoll.loopEnd.toFixed(1)}s)`);
     }
 
     // Draw translucent overlay only when both points are defined
     if (startX !== null && endX !== null) {
-      const overlayColor = parseInt(COLOR_LOOP_SHADE.replace("#", ""), 16);
-      pianoRoll.loopOverlay.rect(
-        startX,
-        0,
-        Math.max(0, endX - startX),
-        pianoRoll.options.height
+      const overlayColor = ColorCalculator.hexToNumber(COLOR_LOOP_SHADE);
+      DrawingPrimitives.drawRectangle(
+        pianoRoll.loopOverlay,
+        {
+          x: startX,
+          y: 0,
+          width: Math.max(0, endX - startX),
+          height: pianoRoll.options.height
+        },
+        { color: overlayColor, alpha: 0.22 }
       );
-      // Slightly lighter alpha to preserve note contrast while keeping region visible
-      pianoRoll.loopOverlay.fill({ color: overlayColor, alpha: 0.22 });
     }
   }
 
@@ -269,11 +269,11 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     if (api?.getVisiblePeaks) {
       const peaksPayload = api.getVisiblePeaks();
       if (peaksPayload && peaksPayload.length > 0) {
-        const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
+        const pianoKeysOffset = transform.getPianoKeysOffset();
         const height = pianoRoll.options.height;
 
         // To avoid overdraw, sample at most one bar per pixel
-        const pixelsPerSecond = pianoRoll.timeScale(1) * pianoRoll.state.zoomX;
+        const pixelsPerSecond = transform.getPixelsPerSecond();
         const secondsPerPixel = 1 / pixelsPerSecond;
 
         // Clear previous waveform drawing
@@ -283,19 +283,9 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         }
 
         // Compute visible time range based on current pan/zoom
-        const t0 = Math.max(
-          0,
-          pianoRoll.timeScale.invert(
-            (-pianoRoll.state.panX - pianoKeysOffset) / pianoRoll.state.zoomX
-          )
-        );
-        const t1 = Math.min(
-          pianoRoll.timeScale.domain()[1],
-          pianoRoll.timeScale.invert(
-            (pianoRoll.options.width - pianoKeysOffset - pianoRoll.state.panX) /
-              pianoRoll.state.zoomX
-          )
-        );
+        const visibleRange = getVisibleTimeRange(pianoRoll);
+        const t0 = visibleRange.timeStart;
+        const t1 = visibleRange.timeEnd;
 
         // Choose step ~ 1px in time
         const step = Math.max(secondsPerPixel, 0.005);
@@ -328,10 +318,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         pianoRoll.waveformLayer.fill({ color: 0x000000, alpha: 0.04 });
 
         for (let t = t0; t <= t1; t += step) {
-          const x =
-            pianoRoll.timeScale(t) * pianoRoll.state.zoomX +
-            pianoRoll.state.panX +
-            pianoKeysOffset;
+          const x = transform.timeToPixel(t) + pianoRoll.state.panX;
 
           const p = api.sampleAtTime ? api.sampleAtTime(t) : null; // returns { min: number, max: number, color: number }
           if (!p) continue;
@@ -394,10 +381,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
           );
 
           for (let t = tKeys0; t <= tKeys1; t += step) {
-            const xKeys =
-              pianoRoll.timeScale(t) * pianoRoll.state.zoomX +
-              pianoRoll.state.panX +
-              pianoKeysOffset;
+            const xKeys = transform.timeToPixel(t) + pianoRoll.state.panX;
 
             if (xKeys < 0 || xKeys >= pianoRoll.playheadX) continue;
 

@@ -5,6 +5,7 @@
 
 import * as Tone from "tone";
 import { AudioFileInfo, AUDIO_CONSTANTS } from "../player-types";
+import { clamp } from "../../utils";
 
 export interface AudioPlayerEntry {
   player: Tone.GrainPlayer;
@@ -107,7 +108,7 @@ export class WavPlayerManager {
           }
         } else {
           const entry = this.audioPlayers.get(it.id)!;
-          entry.panner.pan.value = Math.max(-1, Math.min(1, it.pan ?? 0));
+          entry.panner.pan.value = clamp(it.pan ?? 0, -1, 1);
 
           // Update volume based on mute state
           const volumeValue = it.isMuted
@@ -294,7 +295,7 @@ export class WavPlayerManager {
    * Set pan for all WAV players
    */
   setPan(pan: number): void {
-    const clamped = Math.max(-1, Math.min(1, pan));
+    const clamped = clamp(pan, -1, 1);
     this.audioPlayers.forEach(({ panner }) => {
       panner.pan.value = clamped;
     });

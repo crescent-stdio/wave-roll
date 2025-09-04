@@ -1,21 +1,50 @@
 import { AppState, StateManagerConfig } from "./types";
-import { DEFAULT_STATE_CONFIG } from "./default";
-import { DEFAULT_APP_STATE } from "./default";
+import { DEFAULT_STATE_CONFIG, DEFAULT_APP_STATE } from "./default";
+import {
+  ListenerManager,
+  SetManager,
+  RecordManager,
+  deepClone,
+  batchStateUpdate,
+  createStateUpdater,
+  normalizeLoopPoints,
+  percentageToAbsolute,
+  shallowMerge
+} from "./utils";
 
 export class StateManager {
   private state: AppState;
   private config: StateManagerConfig;
-  private readonly listeners: (() => void)[] = [];
+  private readonly listeners = new ListenerManager<() => void>();
+  private readonly fileVisibilityManager: SetManager<string>;
+  private readonly panHandlersManager: RecordManager<(pan: number | null) => void>;
 
   constructor(config: Partial<StateManagerConfig> = {}) {
-    this.config = { ...DEFAULT_STATE_CONFIG, ...config };
+    this.config = shallowMerge(DEFAULT_STATE_CONFIG, config);
     this.state = this.createInitialState();
+    
+    // Initialize managers
+    this.fileVisibilityManager = new SetManager(
+      this.state.fileVisibility.visibleFileIds || new Set(),
+      (set) => {
+        this.state.fileVisibility.visibleFileIds = set;
+        this.state.fileVisibility.totalFiles = set.size;
+        this.notify();
+      }
+    );
+    
+    this.panHandlersManager = new RecordManager(
+      this.state.panVolume.filePanStateHandlers,
+      (record) => {
+        this.state.panVolume.filePanStateHandlers = record;
+      }
+    );
   }
 
   /* ====== state creation  ====== */
 
   private createInitialState(): AppState {
-    return JSON.parse(JSON.stringify(DEFAULT_APP_STATE)) as AppState;
+    return deepClone(DEFAULT_APP_STATE);
   }
 
   /* ====== state getters  ====== */
@@ -27,7 +56,7 @@ export class StateManager {
     return this.state;
   }
   public getConfig(): StateManagerConfig {
-    return { ...this.config };
+    return shallowMerge(this.config);
   }
   public getFilePanValuesRef(): Record<string, number> {
     return this.state.panVolume.filePanValues;
@@ -48,7 +77,7 @@ export class StateManager {
    * Update UI state
    */
   public updateUIState(updates: Partial<AppState["ui"]>): void {
-    this.state.ui = { ...this.state.ui, ...updates };
+    this.state.ui = shallowMerge(this.state.ui, updates);
     this.notify();
   }
 
@@ -56,7 +85,7 @@ export class StateManager {
    * Update playback state
    */
   public updatePlaybackState(updates: Partial<AppState["playback"]>): void {
-    this.state.playback = { ...this.state.playback, ...updates };
+    this.state.playback = shallowMerge(this.state.playback, updates);
     this.notify();
   }
 
@@ -66,7 +95,7 @@ export class StateManager {
   public updateFileVisibilityState(
     updates: Partial<AppState["fileVisibility"]>
   ): void {
-    this.state.fileVisibility = { ...this.state.fileVisibility, ...updates };
+    this.state.fileVisibility = shallowMerge(this.state.fileVisibility, updates);
     this.notify();
   }
 
@@ -74,7 +103,7 @@ export class StateManager {
    * Update loop points state
    */
   public updateLoopPointsState(updates: Partial<AppState["loopPoints"]>): void {
-    this.state.loopPoints = { ...this.state.loopPoints, ...updates };
+    this.state.loopPoints = shallowMerge(this.state.loopPoints, updates);
     this.notify();
   }
 
@@ -82,7 +111,7 @@ export class StateManager {
    * Update pan/volume state
    */
   public updatePanVolumeState(updates: Partial<AppState["panVolume"]>): void {
-    this.state.panVolume = { ...this.state.panVolume, ...updates };
+    this.state.panVolume = shallowMerge(this.state.panVolume, updates);
     this.notify();
   }
 
@@ -90,7 +119,7 @@ export class StateManager {
    * Update visual state
    */
   public updateVisualState(updates: Partial<AppState["visual"]>): void {
-    this.state.visual = { ...this.state.visual, ...updates };
+    this.state.visual = shallowMerge(this.state.visual, updates);
     this.notify();
   }
 
@@ -98,7 +127,7 @@ export class StateManager {
    * Update evaluation state
    */
   public updateEvaluationState(updates: Partial<AppState["evaluation"]>): void {
-    this.state.evaluation = { ...this.state.evaluation, ...updates };
+    this.state.evaluation = shallowMerge(this.state.evaluation, updates);
     this.notify();
   }
 
@@ -108,57 +137,35 @@ export class StateManager {
    * Preserve state during updates (batch operations)
    */
   public preserveStateForBatch<T>(operation: () => T): T {
-    const prevBatchLoading = this.state.ui.isBatchLoading;
-    this.state.ui.isBatchLoading = true;
-
-    try {
-      return operation();
-    } finally {
-      this.state.ui.isBatchLoading = prevBatchLoading;
-      if (!prevBatchLoading) this.notify();
-    }
+    return batchStateUpdate(this.state, () => this.notify(), operation);
   }
 
   /**
    * Synchronize file visibility with a set of file IDs
    */
   public syncFileVisibility(fileIds: string[]): void {
-    this.state.fileVisibility.visibleFileIds = new Set(fileIds);
-    this.state.fileVisibility.totalFiles = fileIds.length;
-    this.notify();
+    this.fileVisibilityManager.sync(fileIds);
   }
 
   /**
    * Add file to visibility tracking
    */
   public addFileToVisibility(fileId: string): void {
-    this.state.fileVisibility.visibleFileIds.add(fileId);
-    this.state.fileVisibility.totalFiles =
-      this.state.fileVisibility.visibleFileIds.size;
-    this.notify();
+    this.fileVisibilityManager.add(fileId);
   }
 
   /**
    * Remove file from visibility tracking
    */
   public removeFileFromVisibility(fileId: string): void {
-    this.state.fileVisibility.visibleFileIds.delete(fileId);
-    this.state.fileVisibility.totalFiles =
-      this.state.fileVisibility.visibleFileIds.size;
-    this.notify();
+    this.fileVisibilityManager.remove(fileId);
   }
 
   /**
    * Toggle file visibility
    */
   public toggleFileVisibility(fileId: string): boolean {
-    const isVisible = this.state.fileVisibility.visibleFileIds.has(fileId);
-    if (isVisible) {
-      this.removeFileFromVisibility(fileId);
-    } else {
-      this.addFileToVisibility(fileId);
-    }
-    return !isVisible;
+    return this.fileVisibilityManager.toggle(fileId);
   }
 
   /* ====== Pan / volume  ====== */
@@ -177,23 +184,21 @@ export class StateManager {
     fileId: string,
     handler: (pan: number | null) => void
   ): void {
-    this.state.panVolume.filePanStateHandlers[fileId] = handler;
+    this.panHandlersManager.set(fileId, handler);
   }
   /**
    * Unregister pan state handler for a file
    */
   public unregisterFilePanHandler(fileId: string): void {
-    delete this.state.panVolume.filePanStateHandlers[fileId];
+    this.panHandlersManager.remove(fileId);
   }
   /**
    * Synchronize pan values across all files
    */
   public syncPanValues(panValue: number | null): void {
-    Object.values(this.state.panVolume.filePanStateHandlers).forEach(
-      (handler) => {
-        handler(panValue);
-      }
-    );
+    this.panHandlersManager.forEach((handler) => {
+      handler(panValue);
+    });
   }
   
   /**
@@ -216,8 +221,8 @@ export class StateManager {
    * Set loop points with validation
    */
   public setLoopPoints(a: number | null, b: number | null): void {
-    if (a !== null && b !== null && a > b) [a, b] = [b, a];
-    this.state.loopPoints = { a, b };
+    const [normalizedA, normalizedB] = normalizeLoopPoints(a, b);
+    this.state.loopPoints = { a: normalizedA, b: normalizedB };
     this.notify();
   }
   /**
@@ -238,8 +243,8 @@ export class StateManager {
     if (duration === 0) return;
 
     this.setLoopPoints(
-      aPercent !== null ? (aPercent / 100) * duration : null,
-      bPercent !== null ? (bPercent / 100) * duration : null
+      percentageToAbsolute(aPercent, duration),
+      percentageToAbsolute(bPercent, duration)
     );
   }
 
@@ -249,7 +254,7 @@ export class StateManager {
    * Update configuration
    */
   public updateConfig(updates: Partial<StateManagerConfig>): void {
-    this.config = { ...this.config, ...updates };
+    this.config = shallowMerge(this.config, updates);
   }
 
   /**
@@ -266,15 +271,14 @@ export class StateManager {
    * Register state change callback
    */
   public onStateChange(callback: () => void): void {
-    this.listeners.push(callback);
+    this.listeners.add(callback);
   }
 
   /**
    * Unregister state change callback
    */
   public offStateChange(callback: () => void): void {
-    const index = this.listeners.indexOf(callback);
-    if (index !== -1) this.listeners.splice(index, 1);
+    this.listeners.remove(callback);
   }
 
   /**
@@ -282,14 +286,7 @@ export class StateManager {
    */
   private notify(): void {
     if (this.state.ui.isBatchLoading) return;
-
-    this.listeners.forEach((callback) => {
-      try {
-        callback();
-      } catch (error) {
-        console.error("Error in state change callback:", error);
-      }
-    });
+    this.listeners.notify();
   }
 }
 

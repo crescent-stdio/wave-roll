@@ -12,6 +12,7 @@ import {
   PianoRollManager,
   createPianoRollManager,
 } from "@/core/playback";
+import { PlaybackValueUtils } from "./utils";
 
 /**
  * Audio player state interface
@@ -305,41 +306,6 @@ export function createAudioController(
 
 /**
  * Audio controller utility functions
+ * @deprecated Use PlaybackValueUtils from './utils' instead
  */
-export const AudioControllerUtils = {
-  /**
-   * Clamp tempo value within valid range
-   */
-  clampTempo: (tempo: number, min: number = 30, max: number = 300): number => {
-    return Math.max(min, Math.min(max, tempo));
-  },
-
-  /**
-   * Clamp volume value within valid range
-   */
-  clampVolume: (volume: number): number => {
-    return Math.max(0, Math.min(1, volume));
-  },
-
-  /**
-   * Clamp pan value within valid range
-   */
-  clampPan: (pan: number): number => {
-    return Math.max(-1, Math.min(1, pan));
-  },
-
-  /**
-   * Convert time to percentage
-   */
-  timeToPercent: (time: number, duration: number): number => {
-    if (duration === 0) return 0;
-    return (time / duration) * 100;
-  },
-
-  /**
-   * Convert percentage to time
-   */
-  percentToTime: (percent: number, duration: number): number => {
-    return (percent / 100) * duration;
-  },
-};
+export const AudioControllerUtils = PlaybackValueUtils;

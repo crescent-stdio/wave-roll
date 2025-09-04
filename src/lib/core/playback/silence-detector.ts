@@ -3,23 +3,30 @@
  * and triggers auto-pause functionality
  */
 
+import { VolumeStateManager } from './utils';
+
 export interface SilenceDetectorOptions {
   onSilenceDetected?: () => void;
   onSoundDetected?: () => void;
   autoResumeOnUnmute?: boolean;
 }
 
+type SourceType = 'file' | 'wav';
+
 export class SilenceDetector {
-  private fileVolumes: Map<string, number> = new Map();
-  private wavVolumes: Map<string, number> = new Map();
-  private fileMutes: Map<string, boolean> = new Map();
-  private wavMutes: Map<string, boolean> = new Map();
+  private fileVolumeManager: VolumeStateManager<string>;
+  private wavVolumeManager: VolumeStateManager<string>;
   private masterVolume: number = 1.0;
   private wasPausedBySilence: boolean = false;
   private options: SilenceDetectorOptions;
 
   constructor(options: SilenceDetectorOptions = {}) {
     this.options = options;
+    
+    // Initialize volume managers without automatic handlers
+    // We'll manually check for silence changes to have better control
+    this.fileVolumeManager = new VolumeStateManager();
+    this.wavVolumeManager = new VolumeStateManager();
   }
 
   /**
@@ -27,15 +34,7 @@ export class SilenceDetector {
    */
   public setFileVolume(fileId: string, volume: number): void {
     const wasAllSilent = this.isAllSilent();
-    this.fileVolumes.set(fileId, volume);
-    
-    // Check if mute state should be updated based on volume
-    if (volume === 0) {
-      this.fileMutes.set(fileId, true);
-    } else {
-      this.fileMutes.set(fileId, false);
-    }
-    
+    this.fileVolumeManager.setVolume(fileId, volume);
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -45,15 +44,7 @@ export class SilenceDetector {
    */
   public setWavVolume(fileId: string, volume: number): void {
     const wasAllSilent = this.isAllSilent();
-    this.wavVolumes.set(fileId, volume);
-    
-    // Check if mute state should be updated based on volume
-    if (volume === 0) {
-      this.wavMutes.set(fileId, true);
-    } else {
-      this.wavMutes.set(fileId, false);
-    }
-    
+    this.wavVolumeManager.setVolume(fileId, volume);
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -63,7 +54,7 @@ export class SilenceDetector {
    */
   public setFileMute(fileId: string, muted: boolean): void {
     const wasAllSilent = this.isAllSilent();
-    this.fileMutes.set(fileId, muted);
+    this.fileVolumeManager.setMuted(fileId, muted);
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -73,7 +64,7 @@ export class SilenceDetector {
    */
   public setWavMute(fileId: string, muted: boolean): void {
     const wasAllSilent = this.isAllSilent();
-    this.wavMutes.set(fileId, muted);
+    this.wavVolumeManager.setMuted(fileId, muted);
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -84,6 +75,8 @@ export class SilenceDetector {
   public setMasterVolume(volume: number): void {
     const wasAllSilent = this.isAllSilent();
     this.masterVolume = volume;
+    this.fileVolumeManager.setMasterVolume(volume);
+    this.wavVolumeManager.setMasterVolume(volume);
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -99,12 +92,14 @@ export class SilenceDetector {
     if (midiManager) {
       const state = midiManager.getState();
       state.files.forEach((file: any) => {
-        // Volume 0 means muted
-        const volume = this.fileVolumes.get(file.id) ?? 1.0;
-        const isMuted = volume === 0 || file.isMuted;
-        this.fileMutes.set(file.id, isMuted);
-        if (!this.fileVolumes.has(file.id)) {
-          this.fileVolumes.set(file.id, isMuted ? 0 : 1.0);
+        // Initialize from current manager state if missing
+        const currentVol = this.fileVolumeManager.getVolume(file.id);
+        // Consider both our tracked volume and MIDI manager mute flag
+        const isMuted = currentVol === 0 || file.isMuted === true;
+        this.fileVolumeManager.setMuted(file.id, isMuted);
+        // Ensure a volume entry exists so source is tracked
+        if (currentVol === undefined) {
+          this.fileVolumeManager.setVolume(file.id, isMuted ? 0 : 1.0);
         }
       });
     }
@@ -114,11 +109,11 @@ export class SilenceDetector {
     if (audioAPI?.getFiles) {
       const wavFiles = audioAPI.getFiles() || [];
       wavFiles.forEach((wav) => {
-        const volume = this.wavVolumes.get(wav.id) ?? 1.0;
-        const isMuted = volume === 0 || wav.isMuted;
-        this.wavMutes.set(wav.id, isMuted);
-        if (!this.wavVolumes.has(wav.id)) {
-          this.wavVolumes.set(wav.id, isMuted ? 0 : 1.0);
+        const currentVol = this.wavVolumeManager.getVolume(wav.id);
+        const isMuted = currentVol === 0 || wav.isMuted === true;
+        this.wavVolumeManager.setMuted(wav.id, isMuted);
+        if (currentVol === undefined) {
+          this.wavVolumeManager.setVolume(wav.id, isMuted ? 0 : 1.0);
         }
       });
     }
@@ -131,37 +126,32 @@ export class SilenceDetector {
    * Check if all audio sources are effectively silent
    */
   private isAllSilent(): boolean {
-    // If master volume is 0, everything is silent
-    if (this.masterVolume === 0) {
-      return true;
-    }
-
     // Check if there are any audio sources at all
-    const hasAnySources = this.fileVolumes.size > 0 || this.wavVolumes.size > 0;
+    const fileState = this.fileVolumeManager.getState();
+    const wavState = this.wavVolumeManager.getState();
+    const hasAnySources = fileState.sources.size > 0 || wavState.sources.size > 0;
+    
     if (!hasAnySources) {
       return false; // No sources means not silent (nothing to pause)
     }
 
-    // Check MIDI files
-    for (const [fileId, volume] of this.fileVolumes) {
-      const isMuted = this.fileMutes.get(fileId) || false;
-      const effectiveVolume = isMuted ? 0 : volume * this.masterVolume;
-      if (effectiveVolume > 0) {
-        return false; // Found an audible source
-      }
+    // Both managers must report all their sources as silent
+    const filesAreSilent = this.fileVolumeManager.isAllSilent();
+    const wavsAreSilent = this.wavVolumeManager.isAllSilent();
+    
+    // But if one has no sources, that's OK - only check the one with sources
+    const fileHasSources = fileState.sources.size > 0;
+    const wavHasSources = wavState.sources.size > 0;
+    
+    if (fileHasSources && wavHasSources) {
+      return filesAreSilent && wavsAreSilent;
+    } else if (fileHasSources) {
+      return filesAreSilent;
+    } else if (wavHasSources) {
+      return wavsAreSilent;
     }
-
-    // Check WAV files  
-    for (const [fileId, volume] of this.wavVolumes) {
-      const isMuted = this.wavMutes.get(fileId) || false;
-      const effectiveVolume = isMuted ? 0 : volume * this.masterVolume;
-      if (effectiveVolume > 0) {
-        return false; // Found an audible source
-      }
-    }
-
-    // All sources are silent
-    return true;
+    
+    return false;
   }
 
   /**
@@ -176,12 +166,12 @@ export class SilenceDetector {
       }
     } else if (wasAllSilent && !isAllSilent) {
       // Just became audible
+      if (this.options.onSoundDetected) {
+        this.options.onSoundDetected();
+      }
       if (this.wasPausedBySilence && this.options.autoResumeOnUnmute) {
         // Could auto-resume here if desired
         this.wasPausedBySilence = false;
-      }
-      if (this.options.onSoundDetected) {
-        this.options.onSoundDetected();
       }
     }
   }
@@ -190,10 +180,8 @@ export class SilenceDetector {
    * Reset the silence detector state
    */
   public reset(): void {
-    this.fileVolumes.clear();
-    this.wavVolumes.clear();
-    this.fileMutes.clear();
-    this.wavMutes.clear();
+    this.fileVolumeManager.clear();
+    this.wavVolumeManager.clear();
     this.masterVolume = 1.0;
     this.wasPausedBySilence = false;
   }

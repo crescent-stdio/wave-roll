@@ -6,6 +6,7 @@
 import * as Tone from "tone";
 import { NoteData } from "@/lib/midi/types";
 import { DEFAULT_SAMPLE_MAP, AUDIO_CONSTANTS, AudioPlayerState } from "../player-types";
+import { clamp } from "../../utils";
 
 export interface SamplerTrack {
   sampler: Tone.Sampler;
@@ -379,7 +380,7 @@ export class SamplerManager {
    * Set pan for all samplers
    */
   setPan(pan: number): void {
-    const clamped = Math.max(-1, Math.min(1, pan));
+    const clamped = clamp(pan, -1, 1);
 
     // Legacy single panner
     if (this.panner) {
@@ -401,7 +402,7 @@ export class SamplerManager {
       return;
     }
     const { panner } = this.trackSamplers.get(fileId)!;
-    const clamped = Math.max(-1, Math.min(1, pan));
+    const clamped = clamp(pan, -1, 1);
     panner.pan.value = clamped;
   }
 
@@ -497,7 +498,7 @@ export class SamplerManager {
     }
 
     // Apply volume to the sampler
-    const clampedVolume = Math.max(0, Math.min(1, volume));
+    const clampedVolume = clamp(volume, 0, 1);
     const db = Tone.gainToDb(clampedVolume * masterVolume);
     track.sampler.volume.value = db;
 

@@ -1,6 +1,7 @@
 import { NoteInterval } from "@/core/controls/utils/overlap";
 import type { PianoRoll } from "./piano-roll";
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
+export type { NoteData } from "@/lib/midi/types";
 
 /**
  * Configuration options for the piano roll

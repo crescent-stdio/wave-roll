@@ -5,8 +5,6 @@ import { formatTime } from "@/core/utils";
 import { UILayoutManager } from "@/lib/components/ui/layout-manager";
 import { FileToggleManager } from "@/lib/components/ui/file/toggle-manager";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
-import { openSettingsModal } from "@/lib/components/ui/settings/modal";
-import { openEvaluationResultsModal } from "@/lib/components/ui/settings/modal/evaluation-results";
 
 export class UIUpdater {
   private updateLoopId: number | null = null;
@@ -256,8 +254,9 @@ export class UIUpdater {
   /**
    * Open settings modal
    */
-  private openSettingsModal(deps: UIComponentDependencies | null): void {
+  private async openSettingsModal(deps: UIComponentDependencies | null): Promise<void> {
     if (deps) {
+      const { openSettingsModal } = await import("@/lib/components/ui/settings/modal");
       openSettingsModal(deps);
     }
   }
@@ -265,8 +264,9 @@ export class UIUpdater {
   /**
    * Open evaluation results modal
    */
-  private openEvaluationResultsModal(deps: UIComponentDependencies | null): void {
+  private async openEvaluationResultsModal(deps: UIComponentDependencies | null): Promise<void> {
     if (deps) {
+      const { openEvaluationResultsModal } = await import("@/lib/components/ui/settings/modal/evaluation-results");
       openEvaluationResultsModal(deps);
     }
   }
