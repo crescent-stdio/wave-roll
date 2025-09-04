@@ -1,6 +1,7 @@
 import { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
+import { clamp } from "@/lib/core/utils";
 
 /**
  * Build a volume control slider with icon and numeric input.
@@ -122,11 +123,9 @@ export function createVolumeControl({
     document.head.appendChild(style);
   }
 
-  const clamp = (v: number) => Math.max(0, Math.min(100, v));
-
   /** Update UI (slider, input, icon color) */
   const updateUI = (percent: number) => {
-    const safe = clamp(percent);
+    const safe = clamp(percent, 0, 100);
     slider.value = safe.toString();
     input.value = safe.toString();
     if (safe === 0) {
@@ -140,7 +139,7 @@ export function createVolumeControl({
 
   /** Set volume on AudioPlayer and update UI */
   const updateVolume = (percent: number) => {
-    const vol = clamp(percent) / 100;
+    const vol = clamp(percent, 0, 100) / 100;
     audioPlayer?.setVolume(vol);
     updateUI(percent);
   };
@@ -197,7 +196,7 @@ export function createVolumeControl({
     (e) => {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 1 : -1;
-      const newVal = clamp(parseFloat(slider.value) + delta);
+      const newVal = clamp(parseFloat(slider.value) + delta, 0, 100);
       isMuted = newVal === 0;
       if (!isMuted) {
         previousVolume = newVal / 100;
@@ -226,7 +225,7 @@ export function createVolumeControl({
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
         const step = e.shiftKey ? 5 : 1;
         const dir = e.key === "ArrowUp" ? 1 : -1;
-        const newVal = clamp(parseFloat(slider.value) + dir * step);
+        const newVal = clamp(parseFloat(slider.value) + dir * step, 0, 100);
         isMuted = false;
         updateVolume(newVal);
       }

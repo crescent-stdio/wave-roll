@@ -164,10 +164,14 @@ export const AUDIO_CONSTANTS = {
   SEEK_SUPPRESS_MS: 3000,
   /** Silent threshold in decibels */
   SILENT_DB: -80,
-  /** Restart delay for transport scheduling */
-  RESTART_DELAY: 0.05,
+  /** Restart delay for transport scheduling - increased for stability */
+  RESTART_DELAY: 0.1,
   /** Default sync interval in milliseconds */
   DEFAULT_SYNC_INTERVAL: 16,
+  /** Lookahead time for event scheduling in seconds */
+  LOOKAHEAD_TIME: 0.1,
+  /** Schedule ahead time for notes in seconds */
+  SCHEDULE_AHEAD_TIME: 0.25,
   /** Default volume level */
   DEFAULT_VOLUME: 0.7,
   /** Default tempo in BPM */

@@ -16,6 +16,7 @@ import {
   OperationState,
   AUDIO_CONSTANTS,
 } from "./player-types";
+import { ensureAudioContextReady } from "./utils/audio-context";
 
 // Manager imports
 import { SamplerManager } from "./managers/sampler-manager";
@@ -98,11 +99,11 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     this.samplerManager.stopPart();
 
-    const transport = Tone.getTransport();
     const transportStart = this.loopManager.loopStartTransport ?? 0;
     
     setTimeout(() => {
-      this.samplerManager.startPart(Tone.now(), transportStart);
+      // Restart Part at loop-start relative offset (0)
+      this.samplerManager.startPart(Tone.now(), 0);
     }, 10);
 
     if (this.wavPlayerManager.isAudioActive() && visualStart !== null) {
@@ -163,6 +164,14 @@ export class AudioPlayer implements AudioPlayerContainer {
     );
     this.loopManager = new LoopManager(this.originalTempo);
 
+    // Initialize FileAudioController first (needed by PlaybackController)
+    this.fileAudioController = new FileAudioController({
+      samplerManager: this.samplerManager,
+      wavPlayerManager: this.wavPlayerManager,
+      midiManager: this.midiManager,
+      onFileSettingsChange: () => this.handleFileSettingsChange(),
+    });
+
     // Initialize controllers with dependencies
     this.playbackController = new PlaybackController({
       state: this.state,
@@ -175,6 +184,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       options: this.options,
       pianoRoll: this.pianoRoll,
       onPlaybackEnd: this.options.onPlaybackEnd,
+      checkAllMuted: () => this.fileAudioController.areAllFilesMuted(),
     });
 
     this.audioSettingsController = new AudioSettingsController({
@@ -187,13 +197,6 @@ export class AudioPlayer implements AudioPlayerContainer {
       originalTempo: this.originalTempo,
       options: this.options,
       onVolumeChange: () => this.maybeAutoPauseIfSilent(),
-    });
-
-    this.fileAudioController = new FileAudioController({
-      samplerManager: this.samplerManager,
-      wavPlayerManager: this.wavPlayerManager,
-      midiManager: this.midiManager,
-      onFileSettingsChange: () => this.handleFileSettingsChange(),
     });
 
     this.autoPauseController = new AutoPauseController({
@@ -212,6 +215,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     if (this.isInitialized) return;
 
     try {
+      // Ensure audio context is properly configured
+      await ensureAudioContextReady();
+      
       // Initialize Tone.js transport
       const transport = Tone.getTransport();
       transport.bpm.value = this.options.tempo ?? 120;
@@ -228,6 +234,11 @@ export class AudioPlayer implements AudioPlayerContainer {
 
       // Setup transport callbacks
       this.setupTransportCallbacks();
+
+      // Prebuild WAV players from registry (if any) to avoid first-play stutter
+      try {
+        this.fileAudioController.refreshAudioPlayers();
+      } catch {}
 
       this.isInitialized = true;
       console.log("[AudioPlayer] Initialized successfully");
@@ -306,54 +317,70 @@ export class AudioPlayer implements AudioPlayerContainer {
   }
 
   public setFileMute(fileId: string, mute: boolean): void {
-    this.fileAudioController.setFileMute(fileId, mute);
+    // Store state before making changes
+    const wasAutoPaused = this.autoPauseController.isAutoPaused();
+    const pausedPosition = this.playbackController.getPausedTime();
     
-    // Handle auto-resume logic
-    if (!mute && !this.state.isPlaying && this.autoPauseController.isAutoPaused()) {
-      this.autoPauseController.setAutoPaused(false);
-      this.play()
-        .then(() => {
-          if (this.state.volume === 0) {
-            const restore = this.options.volume > 0 ? this.options.volume : 0.7;
-            this.setVolume(restore);
+    this.fileAudioController.setFileMute(fileId, mute);
+    // Auto-pause/resume is handled via onFileSettingsChange callback
+    
+    // Handle re-scheduling when unmuting
+    if (!mute) {
+      // Check if we just auto-resumed from being fully muted
+      const isNowPlaying = this.state.isPlaying;
+      const didAutoResume = wasAutoPaused && isNowPlaying;
+      
+      if (isNowPlaying) {
+        // Ensure track is audible and retrigger held notes
+        this.samplerManager.ensureTrackAudible(fileId, this.state.volume);
+        
+        // If global volume is 0, restore it
+        if (this.state.volume === 0) {
+          const restore = this.options.volume > 0 ? this.options.volume : 0.7;
+          this.setVolume(restore);
+        }
+        
+        // If we auto-resumed, we need to ensure both MIDI and WAV are properly synced
+        if (didAutoResume) {
+          try {
+            // Use the paused position for proper sync
+            const visualPosition = this.transportSyncManager.transportToVisualTime(pausedPosition);
+            const transportSeconds = pausedPosition;
+            
+            // Ensure transport is at correct position
+            Tone.getTransport().seconds = transportSeconds;
+            
+            // Reschedule MIDI Part from the paused position
+            this.samplerManager.stopPart();
+            this.samplerManager.setupNotePart(
+              this.loopManager.loopStartVisual,
+              this.loopManager.loopEndVisual,
+              {
+                repeat: this.options.repeat,
+                duration: this.state.duration,
+                tempo: this.state.tempo,
+                originalTempo: this.originalTempo,
+              }
+            );
+            const relativeOffset = this.loopManager.getPartOffset(visualPosition, transportSeconds);
+            const relativeTransportOffset = this.transportSyncManager.visualToTransportTime(relativeOffset);
+            this.samplerManager.startPart("+0.01", relativeTransportOffset);
+            
+            // Restart WAV players at the same position
+            if (this.wavPlayerManager.isAudioActive()) {
+              this.wavPlayerManager.stopAllAudioPlayers();
+              this.wavPlayerManager.startActiveAudioAt(visualPosition, "+0.01");
+            }
+          } catch (e) {
+            console.error("[setFileMute] Error syncing after auto-resume:", e);
           }
-          // Additional retrigger logic if needed
-          this.samplerManager.ensureTrackAudible(fileId, this.state.volume);
+        } else {
+          // Regular unmute while already playing - just retrigger held notes
           setTimeout(() => {
             this.samplerManager.retriggerHeldNotes(fileId, this.state.currentTime);
           }, 30);
-        })
-        .catch(() => {});
-    }
-    
-    // Handle re-scheduling when unmuting while playing
-    if (!mute && this.state.isPlaying) {
-      if (this.state.volume === 0) {
-        const restore = this.options.volume > 0 ? this.options.volume : 0.7;
-        this.setVolume(restore);
+        }
       }
-      
-      try {
-        this.samplerManager.ensureTrackAudible(fileId, this.state.volume);
-        this.samplerManager.retriggerHeldNotes(fileId, this.state.currentTime);
-        
-        // Reschedule Part to ensure upcoming notes
-        const currentVisual = this.state.currentTime;
-        const transportSeconds = this.transportSyncManager.visualToTransportTime(currentVisual);
-        
-        this.samplerManager.stopPart();
-        this.samplerManager.setupNotePart(
-          this.loopManager.loopStartVisual,
-          this.loopManager.loopEndVisual,
-          {
-            repeat: this.options.repeat,
-            duration: this.state.duration,
-            tempo: this.state.tempo,
-            originalTempo: this.originalTempo,
-          }
-        );
-        this.samplerManager.startPart("+0", transportSeconds);
-      } catch {}
     }
   }
 
@@ -424,12 +451,29 @@ export class AudioPlayer implements AudioPlayerContainer {
   }
 
   private maybeAutoPauseIfSilent(): void {
+    // Store current position before auto-pause
+    const currentPosition = this.state.currentTime;
+    const wasPlaying = this.state.isPlaying;
+    
     if (this.autoPauseController.maybeAutoPause()) {
       return;
     }
     
     // Check for auto-resume
-    this.autoPauseController.maybeAutoResume();
+    const shouldResume = this.autoPauseController.maybeAutoResume();
+    
+    // If we auto-resumed, ensure WAV and MIDI are synchronized
+    if (shouldResume && !wasPlaying && this.state.isPlaying) {
+      // Small delay to ensure everything is properly initialized
+      setTimeout(() => {
+        // Refresh WAV player positions to match current transport position
+        if (this.wavPlayerManager.isAudioActive()) {
+          const currentVisual = this.state.currentTime;
+          this.wavPlayerManager.stopAllAudioPlayers();
+          this.wavPlayerManager.startActiveAudioAt(currentVisual, "+0.01");
+        }
+      }, 50);
+    }
   }
 }
 

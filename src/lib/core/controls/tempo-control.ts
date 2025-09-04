@@ -1,5 +1,6 @@
 import { COLOR_PRIMARY } from "@/lib/core/constants";
 import { AudioPlayerContainer } from "../audio/player-types";
+import { clamp } from "@/lib/core/utils";
 
 /**
  * Playback speed control - numeric input with percentage label.
@@ -51,10 +52,8 @@ export function createTempoControl({
     color: #6c757d;
   `;
 
-  const clamp = (v: number) => Math.max(10, Math.min(200, v));
-
   const updatePlaybackRate = (val: number) => {
-    const rate = clamp(val);
+    const rate = clamp(val, 10, 200);
     input.value = rate.toString();
     audioPlayer.setPlaybackRate(rate);
     // Force immediate UI refresh (seek bar + time labels)

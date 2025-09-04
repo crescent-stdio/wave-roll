@@ -7,6 +7,7 @@ import * as Tone from "tone";
 import { NoteData } from "@/lib/midi/types";
 import { DEFAULT_SAMPLE_MAP, AUDIO_CONSTANTS, AudioPlayerState } from "../player-types";
 import { clamp } from "../../utils";
+import { toDb, fromDb, clamp01, isSilentDb, mixLinear } from "../utils";
 
 export interface SamplerTrack {
   sampler: Tone.Sampler;
@@ -33,6 +34,124 @@ export class SamplerManager {
     this.midiManager = midiManager;
   }
 
+  // ------------------------------
+  // Private helpers (behavior preserved)
+  // ------------------------------
+  private getTrack(fileId: string): SamplerTrack | null {
+    return this.trackSamplers.get(fileId) ?? null;
+  }
+
+  private applySamplerVolume(sampler: Tone.Sampler, linear: number): void {
+    sampler.volume.value = toDb(clamp01(linear));
+  }
+
+  private applyPannerPan(panner: Tone.Panner, pan: number): void {
+    panner.pan.value = clamp(pan, -1, 1);
+  }
+
+  /** Return notes filtered to intersect the [loopStart, loopEnd) window, or all if window inactive. */
+  private filterNotesByLoopWindow(
+    notes: NoteData[],
+    loopStartVisual?: number | null,
+    loopEndVisual?: number | null
+  ): NoteData[] {
+    if (
+      loopStartVisual === undefined ||
+      loopEndVisual === undefined ||
+      loopStartVisual === null ||
+      loopEndVisual === null
+    ) {
+      return notes;
+    }
+    return notes.filter((n) => {
+      const noteEnd = n.time + n.duration;
+      return noteEnd > loopStartVisual && n.time < loopEndVisual;
+    });
+  }
+
+  /** Compute visual->transport scale factor. */
+  private computeScaleToTransport(
+    originalTempo?: number,
+    tempo?: number
+  ): number {
+    return originalTempo && tempo ? originalTempo / tempo : 1;
+  }
+
+  /** Map notes to Part events without fileId. */
+  private notesToEvents(
+    notes: NoteData[],
+    loopStartVisual: number | null | undefined,
+    scaleToTransport: number
+  ): Array<{ time: number; note: string; duration: number; velocity: number }> {
+    return notes.map((note) => {
+      const onset = note.time;
+      const duration = note.duration;
+      const transportOnset = onset * scaleToTransport;
+      const transportDuration = duration * scaleToTransport;
+      const relativeTime =
+        loopStartVisual !== undefined && loopStartVisual !== null
+          ? transportOnset - loopStartVisual * scaleToTransport
+          : transportOnset;
+      const timeSafe = Math.max(0, relativeTime);
+      const durationSafe = Math.max(0, transportDuration);
+      return {
+        time: timeSafe,
+        note: note.name,
+        duration: durationSafe,
+        velocity: note.velocity,
+      };
+    });
+  }
+
+  /** Map notes to Part events with fileId. */
+  private notesToEventsWithFileId(
+    notes: NoteData[],
+    loopStartVisual: number | null | undefined,
+    scaleToTransport: number
+  ): Array<{
+    time: number;
+    note: string;
+    duration: number;
+    velocity: number;
+    fileId: string;
+  }> {
+    return notes.map((note) => {
+      const onset = note.time;
+      const duration = note.duration;
+      const transportOnset = onset * scaleToTransport;
+      const transportDuration = duration * scaleToTransport;
+      const relativeTime =
+        loopStartVisual !== undefined && loopStartVisual !== null
+          ? transportOnset - loopStartVisual * scaleToTransport
+          : transportOnset;
+      const timeSafe = Math.max(0, relativeTime);
+      const durationSafe = Math.max(0, transportDuration);
+      return {
+        time: timeSafe,
+        note: note.name,
+        duration: durationSafe,
+        velocity: note.velocity,
+        fileId: note.fileId || "__default",
+      };
+    });
+  }
+
+  /** Build Tone.Part from events and callback, configure loop settings. */
+  private buildPart<T extends { time: number }>(
+    events: T[],
+    options: { repeat?: boolean; duration?: number } | undefined,
+    callback: (time: number, event: T) => void
+  ): void {
+    this.part = new Tone.Part(callback as any, events as any);
+    this.part.loop = options?.repeat || false;
+    this.part.loopStart = 0;
+    this.part.loopEnd = options?.duration || 0;
+    // Add slight humanization to reduce mechanical sound
+    this.part.humanize = 0.005; // 5ms humanization
+    // Ensure all notes play (no probability dropping)
+    this.part.probability = 1;
+  }
+
   /**
    * Initialize samplers - either multi-track or legacy single sampler
    */
@@ -49,7 +168,7 @@ export class SamplerManager {
         async (track) => {
           try {
             await track.sampler.loaded;
-            console.log("Sampler fully loaded and ready");
+            // Loaded
           } catch (err) {
             console.warn("Sampler load warning:", err);
           }
@@ -86,7 +205,7 @@ export class SamplerManager {
             options.soundFont ||
             "https://tonejs.github.io/audio/salamander/",
           onload: () => {
-            console.log(`Sampler loaded for file ${fid}`);
+            // Sampler loaded for file
           },
           onerror: (error: Error) => {
             console.error(`Failed to load sampler for file ${fid}:`, error);
@@ -95,7 +214,7 @@ export class SamplerManager {
 
         // Initialize volume
         const currentVolume = options.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME;
-        sampler.volume.value = Tone.gainToDb(currentVolume);
+        this.applySamplerVolume(sampler, currentVolume);
 
         // Get initial muted state from MIDI manager
         let initialMuted = false;
@@ -127,7 +246,7 @@ export class SamplerManager {
 
     // Set initial volume
     const currentVolume = options.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME;
-    this.sampler.volume.value = Tone.gainToDb(currentVolume);
+    this.applySamplerVolume(this.sampler, currentVolume);
 
     // Wait for samples to load
     await this.sampler.loaded;
@@ -157,112 +276,55 @@ export class SamplerManager {
     loopEndVisual?: number | null,
     options?: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number }
   ): void {
-    // CRITICAL: Convert visual seconds to transport seconds
-    // Transport runs at originalTempo/tempo speed relative to visual time
-    const scaleToTransport = (options?.originalTempo && options?.tempo)
-      ? options.originalTempo / options.tempo
-      : 1;
-    // Create events, optionally windowed for A-B looping
-    interface ScheduledNoteEvent { time: number; note: string; duration: number; velocity: number; fileId: string }
-    const events: ScheduledNoteEvent[] = this.notes
-      .filter((note) => {
-        // When a custom loop window is active, keep any note that INTERSECTS
-        // [loopStartVisual, loopEndVisual).  This includes notes whose onset
-        // is earlier than the loop window but whose tail sustains into it.
-        if (
-          loopStartVisual !== undefined &&
-          loopEndVisual !== undefined &&
-          loopStartVisual !== null &&
-          loopEndVisual !== null
-        ) {
-          const noteEnd = note.time + note.duration;
-          return (
-            noteEnd > loopStartVisual && note.time < loopEndVisual
-          );
-        }
-        // No window - include all notes
-        return true;
-      })
-      .map((note) => {
-        const onset = note.time; // This is in visual seconds
-        const duration = note.duration;
-        
-        // Convert to transport seconds
-        const transportOnset = onset * scaleToTransport;
-        const transportDuration = duration * scaleToTransport;
-        
-        // Shift timeline when a custom loop window is active.
-        const relativeTime =
-          loopStartVisual !== undefined && loopStartVisual !== null
-            ? transportOnset - (loopStartVisual * scaleToTransport)
-            : transportOnset;
-
-        // Ensure safe, non-negative values to avoid Tone.js errors.
-        const timeSafe = Math.max(0, relativeTime);
-        const durationSafe = Math.max(0, transportDuration);
-
-        return {
-          time: timeSafe,
-          note: note.name,
-          duration: durationSafe,
-          velocity: note.velocity,
-          fileId: note.fileId || "__default",
-        };
-      });
+    const scaleToTransport = this.computeScaleToTransport(
+      options?.originalTempo,
+      options?.tempo
+    );
+    const filtered = this.filterNotesByLoopWindow(
+      this.notes,
+      loopStartVisual,
+      loopEndVisual
+    );
+    type ScheduledNoteEvent = {
+      time: number;
+      note: string;
+      duration: number;
+      velocity: number;
+      fileId: string;
+    };
+    const events: ScheduledNoteEvent[] = this.notesToEventsWithFileId(
+      filtered,
+      loopStartVisual,
+      scaleToTransport
+    );
 
     // Track if we've warned about each unloaded sampler
     const warnedSamplers = new Set<string>();
     
-    // Debug: log events
-    console.log("[SM.setupPart] events", {
-      count: events.length,
-      first5: events.slice(0, 5).map(e => ({ time: e.time.toFixed(3), note: e.note })),
-      tempoRatio: (options?.originalTempo && options?.tempo) 
-        ? (options.originalTempo / options.tempo).toFixed(3)
-        : 1,
-      options
-    });
+    // Build events for Part
 
-    let eventCount = 0;
-    this.part = new Tone.Part(
-      (time: number, event) => {
-        eventCount++;
-      if (eventCount <= 3) {
-        console.log("[SM.Part.callback]", { 
-          eventCount, 
-          time: time.toFixed(3), 
-          eventTime: event.time,
-          note: event.note,
-          fileId: event.fileId 
-        });
-      }
+    const callback = (time: number, event: ScheduledNoteEvent) => {
       const fid = event.fileId || "__default";
       const track = this.trackSamplers.get(fid);
       if (track && !track.muted) {
-        // Check if sampler is loaded before triggering notes
         if (track.sampler.loaded) {
+          // Schedule note with slight lookahead for smoother playback
+          const scheduledTime = Math.max(time, Tone.now());
           track.sampler.triggerAttackRelease(
             event.note,
             event.duration,
-            time,
+            scheduledTime,
             event.velocity
           );
         } else if (!warnedSamplers.has(fid)) {
-          // Only warn once per file to reduce console spam
           console.warn(
             `Sampler not yet loaded for file ${fid}, notes will be skipped until loaded`
           );
           warnedSamplers.add(fid);
         }
       }
-    },
-      events
-    );
-
-    // Set part to loop if transport is looping
-    this.part.loop = options?.repeat || false;
-    this.part.loopStart = 0;
-    this.part.loopEnd = options?.duration || 0;
+    };
+    this.buildPart(events, { repeat: options?.repeat, duration: options?.duration }, callback);
   }
 
   private setupLegacyPart(
@@ -270,71 +332,37 @@ export class SamplerManager {
     loopEndVisual?: number | null,
     options?: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number }
   ): void {
-    // CRITICAL: Convert visual seconds to transport seconds
-    const scaleToTransport = (options?.originalTempo && options?.tempo)
-      ? options.originalTempo / options.tempo
-      : 1;
-    // Create events, optionally windowed for A-B looping
-    const events: Array<{
-      time: number;
-      note: string;
-      duration: number;
-      velocity: number;
-    }> = this.notes
-      .filter((note) => {
-        if (
-          loopStartVisual !== undefined &&
-          loopEndVisual !== undefined &&
-          loopStartVisual !== null &&
-          loopEndVisual !== null
-        ) {
-          const noteEnd = note.time + note.duration;
-          return (
-            noteEnd > loopStartVisual && note.time < loopEndVisual
-          );
-        }
-        return true;
-      })
-      .map((note) => {
-        const onset = note.time; // This is in visual seconds
-        const duration = note.duration;
-        
-        // Convert to transport seconds
-        const transportOnset = onset * scaleToTransport;
-        const transportDuration = duration * scaleToTransport;
-        
-        const relativeTime =
-          loopStartVisual !== undefined && loopStartVisual !== null
-            ? transportOnset - (loopStartVisual * scaleToTransport)
-            : transportOnset;
+    const scaleToTransport = this.computeScaleToTransport(
+      options?.originalTempo,
+      options?.tempo
+    );
+    const filtered = this.filterNotesByLoopWindow(
+      this.notes,
+      loopStartVisual,
+      loopEndVisual
+    );
+    const events = this.notesToEvents(
+      filtered,
+      loopStartVisual,
+      scaleToTransport
+    );
 
-        const timeSafe = Math.max(0, relativeTime);
-        const durationSafe = Math.max(0, transportDuration);
-
-        return {
-          time: timeSafe,
-          note: note.name,
-          duration: durationSafe,
-          velocity: note.velocity,
-        };
-      });
-
-    this.part = new Tone.Part((time: number, event) => {
-      // Check if sampler exists and is loaded
+    const callback = (
+      time: number,
+      event: { time: number; note: string; duration: number; velocity: number }
+    ) => {
       if (this.sampler && this.sampler.loaded) {
+        // Schedule note with slight lookahead for smoother playback
+        const scheduledTime = Math.max(time, Tone.now());
         this.sampler.triggerAttackRelease(
           event.note,
           event.duration,
-          time,
+          scheduledTime,
           event.velocity
         );
       }
-    }, events);
-
-    // Set part loop settings to match transport
-    this.part.loop = options?.repeat || false;
-    this.part.loopStart = 0;
-    this.part.loopEnd = options?.duration || 0;
+    };
+    this.buildPart(events, { repeat: options?.repeat, duration: options?.duration }, callback);
   }
 
   /**
@@ -342,10 +370,11 @@ export class SamplerManager {
    */
   startPart(time: string | number, offset?: number): void {
     if (this.part) {
-      this.part.stop();
+      this.part.stop("+0");
       this.part.cancel();
-      console.log("[SM.startPart]", { time, offset });
-      (this.part as Tone.Part).start(time, offset);
+      // Start part with a safe non-negative offset (avoid tiny negative epsilons)
+      const off = typeof offset === 'number' && Number.isFinite(offset) ? Math.max(0, offset) : 0;
+      (this.part as Tone.Part).start(time, off);
     }
   }
 
@@ -363,16 +392,14 @@ export class SamplerManager {
    * Set volume for all samplers
    */
   setVolume(volume: number): void {
-    const db = Tone.gainToDb(volume);
-
     // Legacy single sampler
     if (this.sampler) {
-      this.sampler.volume.value = db;
+      this.applySamplerVolume(this.sampler, volume);
     }
 
     // Per-track samplers
     this.trackSamplers.forEach(({ sampler }) => {
-      sampler.volume.value = db;
+      this.applySamplerVolume(sampler, volume);
     });
   }
 
@@ -380,16 +407,14 @@ export class SamplerManager {
    * Set pan for all samplers
    */
   setPan(pan: number): void {
-    const clamped = clamp(pan, -1, 1);
-
     // Legacy single panner
     if (this.panner) {
-      this.panner.pan.value = clamped;
+      this.applyPannerPan(this.panner, pan);
     }
 
     // Apply to all track-level panners
     this.trackSamplers.forEach(({ panner }) => {
-      panner.pan.value = clamped;
+      this.applyPannerPan(panner, pan);
     });
   }
 
@@ -402,8 +427,7 @@ export class SamplerManager {
       return;
     }
     const { panner } = this.trackSamplers.get(fileId)!;
-    const clamped = clamp(pan, -1, 1);
-    panner.pan.value = clamped;
+    this.applyPannerPan(panner, pan);
   }
 
   /**
@@ -421,28 +445,17 @@ export class SamplerManager {
    * silent (<= SILENT_DB), lift it to the provided masterVolume.
    */
   ensureTrackAudible(fileId: string, masterVolume: number): void {
-    const track = this.trackSamplers.get(fileId);
+    const track = this.getTrack(fileId);
     if (!track) return;
-    const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
     const before = track.sampler.volume.value;
-    if (before <= SILENT_DB) {
+    if (isSilentDb(before, AUDIO_CONSTANTS.SILENT_DB)) {
       try {
-        const nextDb = Tone.gainToDb(
-          Math.max(0, Math.min(1, masterVolume))
-        );
+        const nextDb = toDb(clamp01(masterVolume));
         track.sampler.volume.value = nextDb;
-        console.log("[SM.ensureTrackAudible] lifted", {
-          fileId,
-          before,
-          nextDb,
-          masterVolume,
-        });
+        // lifted from silence
       } catch {}
     } else {
-      console.log("[SM.ensureTrackAudible] already audible", {
-        fileId,
-        db: before,
-      });
+      // already audible
     }
   }
 
@@ -485,21 +498,21 @@ export class SamplerManager {
         }
       }
     });
-    console.log("[SM.retriggerHeldNotes]", { fileId, currentTime, retriggered });
+    // retrigger summary suppressed (debug)
   }
 
   /**
    * Set volume for a specific file
    */
   setFileVolume(fileId: string, volume: number, masterVolume: number): void {
-    const track = this.trackSamplers.get(fileId);
+    const track = this.getTrack(fileId);
     if (!track) {
       return;
     }
 
     // Apply volume to the sampler
-    const clampedVolume = clamp(volume, 0, 1);
-    const db = Tone.gainToDb(clampedVolume * masterVolume);
+    const clampedVolume = clamp01(volume);
+    const db = toDb(mixLinear(masterVolume, clampedVolume));
     track.sampler.volume.value = db;
 
     // Update muted flag based on volume
@@ -524,7 +537,7 @@ export class SamplerManager {
     const states = new Map<string, number>();
     this.trackSamplers.forEach((track, fileId) => {
       // Convert dB back to linear
-      const linearVolume = Tone.dbToGain(track.sampler.volume.value);
+      const linearVolume = fromDb(track.sampler.volume.value);
       states.set(fileId, linearVolume);
     });
     return states;

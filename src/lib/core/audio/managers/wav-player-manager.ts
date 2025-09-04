@@ -6,6 +6,7 @@
 import * as Tone from "tone";
 import { AudioFileInfo, AUDIO_CONSTANTS } from "../player-types";
 import { clamp } from "../../utils";
+import { toDb, fromDb, isSilentDb, clamp01, effectiveVolume, mixLinear } from "../utils";
 
 export interface AudioPlayerEntry {
   player: Tone.GrainPlayer;
@@ -91,13 +92,17 @@ export class WavPlayerManager {
               },
             }).connect(panner);
 
-            player.grainSize = 0.1;
-            player.overlap = 0.05;
+            // Optimize grain player settings for smoother playback
+            player.grainSize = 0.2; // Larger grain size for more stable playback
+            player.overlap = 0.1; // More overlap for smoother transitions
+            player.detune = 0; // No pitch shift
+            player.loop = false; // No looping at player level
             // Apply mute state to WAV player volume
-            const volumeValue = it.isMuted
-              ? 0
-              : (state?.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME);
-            player.volume.value = Tone.gainToDb(volumeValue);
+            const volumeValue = effectiveVolume(
+              state?.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME,
+              it.isMuted
+            );
+            player.volume.value = toDb(volumeValue);
             // Apply current playback rate if set
             if (state?.playbackRate) {
               player.playbackRate = state.playbackRate / 100;
@@ -111,10 +116,11 @@ export class WavPlayerManager {
           entry.panner.pan.value = clamp(it.pan ?? 0, -1, 1);
 
           // Update volume based on mute state
-          const volumeValue = it.isMuted
-            ? 0
-            : (state?.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME);
-          entry.player.volume.value = Tone.gainToDb(volumeValue);
+          const volumeValue = effectiveVolume(
+            state?.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME,
+            it.isMuted
+          );
+          entry.player.volume.value = toDb(volumeValue);
 
           if (entry.url !== it.url) {
             entry.player.dispose();
@@ -124,7 +130,7 @@ export class WavPlayerManager {
             }).connect(entry.panner);
             entry.player.grainSize = 0.1;
             entry.player.overlap = 0.05;
-            entry.player.volume.value = Tone.gainToDb(volumeValue);
+            entry.player.volume.value = toDb(volumeValue);
             // Apply current playback rate if set
             if (state?.playbackRate) {
               entry.player.playbackRate = state.playbackRate / 100;
@@ -147,9 +153,16 @@ export class WavPlayerManager {
    * Check if any audio player is active
    */
   isAudioActive(): boolean {
-    return (
-      this.activeAudioId !== null && this.audioPlayers.has(this.activeAudioId)
-    );
+    // Prefer registry truth: any visible and unmuted item means audio should be active
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const items = api?.getFiles?.() as AudioFileInfo[] | undefined;
+      if (items && items.some((i) => i.isVisible && !i.isMuted)) {
+        return true;
+      }
+    } catch {}
+    // Fallback to local players map
+    return this.audioPlayers.size > 0;
   }
 
   /**
@@ -177,6 +190,10 @@ export class WavPlayerManager {
    * Start all unmuted WAV files at specified offset
    */
   startActiveAudioAt(offsetSeconds: number, startAt: string | number = "+0"): void {
+    // Ensure players exist for registry items before attempting to start
+    try {
+      this.setupAudioPlayersFromRegistry({});
+    } catch {}
     // Start ALL unmuted WAV files, not just the "active" one
     const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
     if (!api?.getFiles) return;
@@ -198,72 +215,58 @@ export class WavPlayerManager {
       type GrainPlayerWithBuffer = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
       type LoadablePlayer = Tone.GrainPlayer & { load?: (url: string) => Promise<unknown> };
       const buffer = (entry.player as GrainPlayerWithBuffer).buffer;
-      console.log("[WM.start]", {
-        id: item.id,
-        offsetSeconds,
-        muted: isMuted,
-        bufferLoaded: !!buffer && buffer.loaded !== false,
-      });
+      // Debug info suppressed in production
       if (!buffer || buffer.loaded === false) {
-        try {
-          const maybePromise = (entry.player as LoadablePlayer).load?.(entry.url);
-          if (maybePromise && typeof maybePromise.then === "function") {
-            // Bump token to invalidate any previous pending starts
-            entry.startToken = (entry.startToken || 0) + 1;
-            const token = entry.startToken;
-            maybePromise
-              .then(() => {
-                try {
-                  entry.player.stop("+0");
-                } catch {}
-                // Only start if token is still current
-                if (token === entry.startToken) {
-                  // Schedule via setTimeout so we can cancel by token before it fires
-                  const targetStart = this.resolveStartAt(startAt);
-                  const delayMs = Math.max(0, (targetStart - Tone.now()) * 1000);
-                  if (entry.scheduledTimer) {
-                    clearTimeout(entry.scheduledTimer);
-                  }
-                  entry.scheduledTimer = window.setTimeout(() => {
-                    if (token !== entry.startToken) return;
-                    try {
-                      entry.player.start("+0", Math.max(0, offsetSeconds));
-                      console.log("[WM.started-postload]", { id: item.id, offsetSeconds, startAt: targetStart.toFixed(3) });
-                    } catch {}
-                  }, delayMs);
-                }
-              })
-              .catch(() => {
-                // Silently ignore; a subsequent play/loop will retry
-              });
+        // No reliable load() promise on GrainPlayer; poll until buffer is ready
+        entry.startToken = (entry.startToken || 0) + 1;
+        const token = entry.startToken;
+        const targetStart = this.resolveStartAt(startAt);
+        const poll = () => {
+          if (token !== entry.startToken) return;
+          const b = (entry.player as GrainPlayerWithBuffer).buffer;
+          const ready = !!b && b.loaded !== false;
+          const now = Tone.now();
+          if (ready) {
+            try { entry.player.stop("+0"); } catch {}
+            const drift = now - targetStart;
+            if (drift <= 0) {
+              // Still before target start: schedule directly at absolute context time
+              try { entry.player.start(targetStart, Math.max(0, offsetSeconds)); } catch {}
+            } else {
+              // Target start already passed: compensate by advancing offset
+              const rate = (entry.player.playbackRate || 1);
+              const offsetComp = Math.max(0, offsetSeconds + drift * rate);
+              try { entry.player.start("+0", offsetComp); } catch {}
+            }
+            entry.scheduledTimer = null;
+            return;
           }
-        } catch {
-          // Ignore; a later attempt will retry once buffer is ready
-        }
+          // Poll again shortly, or wait until target start time
+          entry.scheduledTimer = window.setTimeout(
+            poll,
+            Math.max(10, Math.min(50, (targetStart - now) * 1000))
+          );
+        };
+        const initialDelay = Math.max(0, (targetStart - Tone.now()) * 1000);
+        if (entry.scheduledTimer) clearTimeout(entry.scheduledTimer);
+        entry.scheduledTimer = window.setTimeout(poll, initialDelay);
         return;
       }
 
-      try {
-        entry.player.stop("+0");
-      } catch {}
+      try { entry.player.stop("+0"); } catch {}
       // Bump token to indicate a new start request and invalidate prior async starts
       entry.startToken = (entry.startToken || 0) + 1;
-      const token = entry.startToken;
-      // Clear any previously scheduled timer
       if (entry.scheduledTimer) {
         clearTimeout(entry.scheduledTimer);
         entry.scheduledTimer = null;
       }
-      // Schedule via setTimeout aligned to AudioContext time
-      const targetStart = this.resolveStartAt(startAt);
-      const delayMs = Math.max(0, (targetStart - Tone.now()) * 1000);
-      entry.scheduledTimer = window.setTimeout(() => {
-        if (token !== entry.startToken) return;
-        try {
-          entry.player.start("+0", Math.max(0, offsetSeconds));
-          console.log("[WM.started]", { id: item.id, offsetSeconds, startAt: targetStart.toFixed(3) });
-        } catch {}
-      }, delayMs);
+      // Schedule directly at absolute AudioContext time to minimize jitter
+      const targetStart2 = this.resolveStartAt(startAt);
+      try {
+        // Ensure we don't schedule in the past
+        const safeStart = Math.max(targetStart2, Tone.now() + 0.001);
+        entry.player.start(safeStart, Math.max(0, offsetSeconds));
+      } catch {}
     });
   }
 
@@ -285,7 +288,7 @@ export class WavPlayerManager {
    * Set volume for all WAV players
    */
   setVolume(volume: number): void {
-    const db = Tone.gainToDb(volume);
+    const db = toDb(volume);
     this.audioPlayers.forEach(({ player }) => {
       player.volume.value = db;
     });
@@ -328,8 +331,8 @@ export class WavPlayerManager {
     }
 
     // Apply volume to the player
-    const clampedVolume = Math.max(0, Math.min(1, volume));
-    const db = Tone.gainToDb(clampedVolume * masterVolume);
+    const clampedVolume = clamp01(volume);
+    const db = toDb(mixLinear(masterVolume, clampedVolume));
     const wasDb = entry.player.volume.value;
     entry.player.volume.value = db;
     console.log("[WM.setWavVolume]", {
@@ -343,7 +346,7 @@ export class WavPlayerManager {
     });
 
     // If unmuting this WAV while transport is playing, ensure it starts immediately
-    const wasEffectivelyMuted = wasDb <= -80; // ~silent threshold in dB
+    const wasEffectivelyMuted = isSilentDb(wasDb); // ~silent threshold in dB
     if (clampedVolume > 0 && wasEffectivelyMuted && opts?.isPlaying) {
       const offsetSeconds = Math.max(0, opts?.currentTime ?? 0);
       type GrainPlayerWithBuffer2 = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
@@ -415,7 +418,7 @@ export class WavPlayerManager {
   getFileVolumeStates(): Map<string, number> {
     const states = new Map<string, number>();
     this.audioPlayers.forEach(({ player }, fileId) => {
-      const linearVolume = Tone.dbToGain(player.volume.value);
+      const linearVolume = fromDb(player.volume.value);
       states.set(fileId, linearVolume);
     });
     return states;
@@ -435,7 +438,7 @@ export class WavPlayerManager {
       player.volume.value = SILENT_DB;
     } else {
       // Unmute to default volume
-      player.volume.value = Tone.gainToDb(0.7);
+      player.volume.value = toDb(0.7);
     }
     
     return true;
@@ -449,8 +452,8 @@ export class WavPlayerManager {
     if (!entry) return false;
     
     const { player } = entry;
-    const clamped = Math.max(0, Math.min(1, volume));
-    player.volume.value = Tone.gainToDb(clamped);
+    const clamped = clamp01(volume);
+    player.volume.value = toDb(clamped);
     
     return true;
   }
@@ -526,7 +529,7 @@ export class WavPlayerManager {
       });
 
       // Lift player volumes and start
-      const db = Tone.gainToDb(Math.max(0, Math.min(1, masterVolume)));
+      const db = toDb(clamp01(masterVolume));
       this.audioPlayers.forEach(({ player }, id) => {
         try {
           player.volume.value = db;

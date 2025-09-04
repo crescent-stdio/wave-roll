@@ -22,6 +22,7 @@ export interface PlaybackControllerDeps {
   options: { repeat?: boolean };
   pianoRoll: { setTime(time: number): void };
   onPlaybackEnd?: () => void;
+  checkAllMuted?: () => boolean;
 }
 
 export class PlaybackController {
@@ -44,10 +45,16 @@ export class PlaybackController {
     this._playLock = true;
 
     try {
-      const { state, samplerManager, wavPlayerManager, transportSyncManager, loopManager } = this.deps;
+      const { state, samplerManager, wavPlayerManager, transportSyncManager, loopManager, checkAllMuted } = this.deps;
 
       if (state.isPlaying) {
         console.log("[PlaybackController.play] Already playing");
+        return;
+      }
+
+      // Check if all sources are muted
+      if (checkAllMuted && checkAllMuted()) {
+        console.warn("[PlaybackController.play] Cannot play: all audio sources are muted");
         return;
       }
 
@@ -82,8 +89,11 @@ export class PlaybackController {
 
       // Start transport and part
       transport.start("+0.01");
-      const offsetForPart = this.pausedTime;
-      samplerManager.startPart("+0.01", offsetForPart);
+      // Compute part offset relative to current loop window (visual -> transport)
+      const visualAtStart = transportSyncManager.transportToVisualTime(this.pausedTime);
+      const relativeVisualOffset = loopManager.getPartOffset(visualAtStart, this.pausedTime);
+      const relativeTransportOffset = transportSyncManager.visualToTransportTime(relativeVisualOffset);
+      samplerManager.startPart("+0.01", relativeTransportOffset);
 
       // Start external audio if needed
       if (wavPlayerManager.isAudioActive()) {
@@ -230,9 +240,11 @@ export class PlaybackController {
         }
       );
 
-      // Start transport and part
+      // Start transport and part (use loop-relative offset for Part)
       transport.start("+0.01");
-      samplerManager.startPart("+0.01", transportSeconds);
+      const relVisual = loopManager.getPartOffset(clampedVisual, transportSeconds);
+      const relTransport = transportSyncManager.visualToTransportTime(relVisual);
+      samplerManager.startPart("+0.01", relTransport);
 
       // Restart Sync
       state.isPlaying = true;
