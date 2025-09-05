@@ -12,6 +12,13 @@ export interface TransportSyncOptions {
 }
 
 export class TransportSyncManager {
+  // Performance monitoring
+  private performanceMetrics = {
+    updateCount: 0,
+    totalUpdateTime: 0,
+    slowUpdates: 0,
+    lastUpdateTime: 0,
+  };
   private pianoRoll: PianoRollSync;
   private syncScheduler: number | null = null;
   private _schedulerToken = 0;
@@ -34,6 +41,31 @@ export class TransportSyncManager {
       syncInterval: AUDIO_CONSTANTS.DEFAULT_SYNC_INTERVAL,
       originalTempo
     };
+  }
+
+  /**
+   * Effective duration considering both MIDI notes and visible WAV buffers.
+   * Falls back to state.duration when registry/audio buffers are unavailable.
+   */
+  private getEffectiveDuration(): number {
+    let duration = this.state.duration || 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ isVisible?: boolean; isMuted?: boolean; volume?: number; audioBuffer?: { duration?: number } }> } })._waveRollAudio;
+      const items = api?.getFiles?.();
+      if (items && Array.isArray(items)) {
+        const audioDurations = items
+          // Only consider WAV sources that are actually audible: visible, unmuted, volume > 0 (if provided)
+          .filter((i) => i && (i.isVisible !== false) && (i.isMuted !== true) && (i.volume === undefined || i.volume > 0))
+          .map((i) => (i?.audioBuffer?.duration ?? 0))
+          .filter((d) => typeof d === 'number' && d > 0);
+        if (audioDurations.length > 0) {
+          duration = Math.max(duration, ...audioDurations);
+        }
+      }
+    } catch {
+      // ignore if registry is not present
+    }
+    return duration;
   }
 
   /**
@@ -73,8 +105,9 @@ export class TransportSyncManager {
     // Store new token for this scheduler instance
     const token = ++this._schedulerToken;
 
-    // Force initial sync to current position
-    const initialSync = () => {
+    // Skip initial sync if we're seeking - the seek already set the position
+    if (!this.operationState.isSeeking) {
+      // Force initial sync to current position
       const transport = Tone.getTransport();
       const transportTime = transport.seconds;
       // Visual time calculation using state.tempo which now reflects playback rate
@@ -83,21 +116,17 @@ export class TransportSyncManager {
 
       // Prevent the playhead from jumping backwards when a new sync-scheduler starts
       const TOLERANCE_SEC = 1;
-      if (visualTime < this.state.currentTime - TOLERANCE_SEC) {
-        // Stale - keep existing position and let the first performUpdate()
-        // correct things once Transport.seconds has settled.
-        return;
+      if (visualTime >= this.state.currentTime - TOLERANCE_SEC) {
+        // Update state and visual only if not stale
+        this.state.currentTime = visualTime;
+        this.pianoRoll.setTime(visualTime);
       }
-
-      // Update state and visual
-      this.state.currentTime = visualTime;
-      this.pianoRoll.setTime(visualTime);
-    };
-
-    // Perform initial sync immediately
-    initialSync();
+    }
 
     const performUpdate = () => {
+      // Performance monitoring start
+      const updateStart = performance.now();
+      
       // Ignore callbacks from an outdated scheduler
       if (token !== this._schedulerToken) {
         return;
@@ -115,44 +144,94 @@ export class TransportSyncManager {
       const transportTime = transport.seconds;
 
       // Visual time calculation using state.tempo which now reflects playback rate
-      const visualTime =
+      let visualTime =
         (transportTime * this.state.tempo) / this.options.originalTempo;
+      const effectiveDuration = this.getEffectiveDuration();
       
-      // Sync internal state and visual playhead
-      this.state.currentTime = visualTime;
-      this.pianoRoll.setTime(visualTime);
-
       // Auto-pause when playback ends and repeat is off
-      if (!this.state.isRepeating && visualTime >= this.state.duration) {
+      if (!this.state.isRepeating && visualTime >= effectiveDuration) {
+        // Clamp to duration before updating
+        visualTime = effectiveDuration;
+        
+        // Update state and visual one last time at exact duration
+        this.state.currentTime = visualTime;
+        this.pianoRoll.setTime(visualTime);
+        
+        // Mark as not playing and stop the scheduler immediately to prevent further updates
+        this.state.isPlaying = false;
+        this.stopSyncScheduler();
+        
         // Stop at the end instead of continuing beyond duration
         console.log("[TransportSync] End reached", {
           visualTime: visualTime.toFixed(3),
-          duration: this.state.duration.toFixed(3),
+          duration: effectiveDuration.toFixed(3),
         });
+        
         // Call the end callback to handle pause
         if (this.onEndCallback) {
           this.onEndCallback();
         }
         return;
       }
-    };
-
-    const scheduleUpdate = () => {
-      performUpdate();
-      // Continue scheduling only if playing and token is still valid
-      if (this.state.isPlaying && token === this._schedulerToken) {
-        this.syncScheduler = window.setTimeout(
-          scheduleUpdate,
-          this.options.syncInterval
-        );
+      
+      // Clamp visual time to duration even when repeating
+      if (visualTime > effectiveDuration) {
+        visualTime = effectiveDuration;
+      }
+      
+      // Sync internal state and visual playhead
+      this.state.currentTime = visualTime;
+      this.pianoRoll.setTime(visualTime);
+      
+      // Performance monitoring end
+      const updateEnd = performance.now();
+      const updateTime = updateEnd - updateStart;
+      this.performanceMetrics.updateCount++;
+      this.performanceMetrics.totalUpdateTime += updateTime;
+      this.performanceMetrics.lastUpdateTime = updateTime;
+      
+      if (updateTime > 16) { // More than one frame (60fps)
+        this.performanceMetrics.slowUpdates++;
+        console.warn(`[TransportSync] Slow update: ${updateTime.toFixed(2)}ms`);
+      }
+      
+      // Log every 100 updates
+      if (this.performanceMetrics.updateCount % 100 === 0) {
+        const avgTime = this.performanceMetrics.totalUpdateTime / this.performanceMetrics.updateCount;
+        console.log(`[TransportSync] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowUpdates}/${this.performanceMetrics.updateCount}`);
       }
     };
 
-    // Start the update loop after a brief delay to allow Transport to stabilize
-    this.syncScheduler = window.setTimeout(
-      scheduleUpdate,
-      this.options.syncInterval
-    );
+    // Prefer requestAnimationFrame for smoother updates; fallback to setTimeout
+    const useRaf = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function' && typeof window.cancelAnimationFrame === 'function';
+    if (useRaf) {
+      const rafTick = () => {
+        performUpdate();
+        const effectiveDuration = this.getEffectiveDuration();
+        const hasReachedEnd = !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
+        if (this.state.isPlaying && token === this._schedulerToken && !hasReachedEnd) {
+          this.syncRafId = window.requestAnimationFrame(rafTick);
+        }
+      };
+      // Start immediately without delay
+      rafTick();
+    } else {
+      const scheduleUpdate = () => {
+        performUpdate();
+        const effectiveDuration = this.getEffectiveDuration();
+        const hasReachedEnd = !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
+        if (this.state.isPlaying && token === this._schedulerToken && !hasReachedEnd) {
+          this.syncScheduler = (setTimeout as unknown as (h: any, t: number) => number)(
+            scheduleUpdate,
+            this.options.syncInterval
+          ) as unknown as number;
+        }
+      };
+      this.syncScheduler = (setTimeout as unknown as (h: any, t: number) => number)(
+        scheduleUpdate,
+        this.options.syncInterval
+      ) as unknown as number;
+    }
   }
 
   /**
@@ -162,6 +241,10 @@ export class TransportSyncManager {
     if (this.syncScheduler !== null) {
       clearTimeout(this.syncScheduler);
       this.syncScheduler = null;
+    }
+    if (this.syncRafId !== null && typeof window !== 'undefined' && window.cancelAnimationFrame) {
+      window.cancelAnimationFrame(this.syncRafId);
+      this.syncRafId = null;
     }
     // Increment token to invalidate any pending callbacks
     this._schedulerToken++;

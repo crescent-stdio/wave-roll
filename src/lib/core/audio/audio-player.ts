@@ -64,6 +64,7 @@ export class AudioPlayer implements AudioPlayerContainer {
   private state: AudioPlayerState;
   private originalTempo: number;
   private isInitialized = false;
+  private isHandlingLoop = false;
 
   // Refactored operation state management
   private operationState: OperationState = {
@@ -91,26 +92,35 @@ export class AudioPlayer implements AudioPlayerContainer {
   };
 
   private handleTransportLoop = (): void => {
+    // Prevent handling multiple loop events simultaneously
+    if (this.isHandlingLoop) {
+      console.log("[AudioPlayer] Ignoring duplicate loop event");
+      return;
+    }
+    
+    this.isHandlingLoop = true;
+    
     const visualStart = this.loopManager.handleLoopEvent();
     this.transportSyncManager.handleTransportLoop(
       this.loopManager.loopStartVisual,
       this.loopManager.loopEndVisual
     );
 
-    this.samplerManager.stopPart();
-
-    const transportStart = this.loopManager.loopStartTransport ?? 0;
+    // Cancel current Part events and restart immediately
+    // This is necessary because Part doesn't automatically loop with Transport
+    if (this.samplerManager.getPart()) {
+      this.samplerManager.getPart()?.cancel();
+      // Start Part again immediately at the loop start
+      this.samplerManager.getPart()?.start(0, 0);
+    }
     
-    setTimeout(() => {
-      // Restart Part at loop-start relative offset (0)
-      this.samplerManager.startPart(Tone.now(), 0);
-    }, 10);
-
+    // Restart WAV players at the loop start position
     if (this.wavPlayerManager.isAudioActive() && visualStart !== null) {
       this.wavPlayerManager.restartAtPosition(visualStart);
     }
-
+    
     this.operationState.lastLoopJumpTime = Date.now();
+    this.isHandlingLoop = false;
   };
 
   constructor(
@@ -119,6 +129,9 @@ export class AudioPlayer implements AudioPlayerContainer {
     options?: PlayerOptions,
     midiManager?: any
   ) {
+    // Clean up any existing instance first
+    this.cleanup();
+    
     // Initialize basic properties
     this.notes = notes;
     this.pianoRoll = pianoRoll;
@@ -184,7 +197,6 @@ export class AudioPlayer implements AudioPlayerContainer {
       options: this.options,
       pianoRoll: this.pianoRoll,
       onPlaybackEnd: this.options.onPlaybackEnd,
-      checkAllMuted: () => this.fileAudioController.areAllFilesMuted(),
     });
 
     this.audioSettingsController = new AudioSettingsController({
@@ -234,6 +246,11 @@ export class AudioPlayer implements AudioPlayerContainer {
 
       // Setup transport callbacks
       this.setupTransportCallbacks();
+      
+      // Set up end callback for auto-pause at duration
+      this.transportSyncManager.setEndCallback(() => {
+        this.handlePlaybackEnd();
+      });
 
       // Prebuild WAV players from registry (if any) to avoid first-play stutter
       try {
@@ -250,10 +267,12 @@ export class AudioPlayer implements AudioPlayerContainer {
 
   private setupTransportCallbacks(): void {
     const transport = Tone.getTransport();
-    transport.off("stop", this.handleTransportStop);
-    transport.off("pause", this.handleTransportPause);
-    transport.off("loop", this.handleTransportLoop);
+    // Remove ALL existing listeners first to ensure clean slate
+    transport.off("stop");
+    transport.off("pause");
+    transport.off("loop");
     
+    // Then add our specific handlers
     transport.on("stop", this.handleTransportStop);
     transport.on("pause", this.handleTransportPause);
     transport.on("loop", this.handleTransportLoop);
@@ -264,6 +283,16 @@ export class AudioPlayer implements AudioPlayerContainer {
     transport.off("stop", this.handleTransportStop);
     transport.off("pause", this.handleTransportPause);
     transport.off("loop", this.handleTransportLoop);
+  }
+  
+  private cleanup(): void {
+    // Clean up any existing transport callbacks
+    try {
+      const transport = Tone.getTransport();
+      transport.off("stop");
+      transport.off("pause");
+      transport.off("loop");
+    } catch {}
   }
 
   // Public API - delegate to controllers
@@ -420,6 +449,7 @@ export class AudioPlayer implements AudioPlayerContainer {
     return { ...this.state };
   }
 
+  
   public destroy(): void {
     console.log("[AudioPlayer] Destroying audio player");
     
@@ -443,7 +473,19 @@ export class AudioPlayer implements AudioPlayerContainer {
   // Private helper methods
 
   private handlePlaybackEnd(): void {
-    this.playbackController.handlePlaybackEnd();
+    if (!this.state.isRepeating) {
+      // Ensure we pause properly
+      this.pause();
+      
+      // Set position to exact duration
+      this.state.currentTime = this.state.duration;
+      this.pianoRoll.setTime(this.state.duration);
+      
+      // Call user callback if provided
+      if (this.options.onPlaybackEnd) {
+        this.options.onPlaybackEnd();
+      }
+    }
   }
 
   private handleFileSettingsChange(): void {

@@ -22,7 +22,6 @@ export interface PlaybackControllerDeps {
   options: { repeat?: boolean };
   pianoRoll: { setTime(time: number): void };
   onPlaybackEnd?: () => void;
-  checkAllMuted?: () => boolean;
 }
 
 export class PlaybackController {
@@ -45,16 +44,10 @@ export class PlaybackController {
     this._playLock = true;
 
     try {
-      const { state, samplerManager, wavPlayerManager, transportSyncManager, loopManager, checkAllMuted } = this.deps;
+      const { state, samplerManager, wavPlayerManager, transportSyncManager, loopManager } = this.deps;
 
       if (state.isPlaying) {
         console.log("[PlaybackController.play] Already playing");
-        return;
-      }
-
-      // Check if all sources are muted
-      if (checkAllMuted && checkAllMuted()) {
-        console.warn("[PlaybackController.play] Cannot play: all audio sources are muted");
         return;
       }
 
@@ -64,11 +57,10 @@ export class PlaybackController {
         console.log("[PlaybackController] Audio context started");
       }
 
-      // Handle restart if at end
+      // Handle play-after-end: rewind to start (0) and start playback
       if (state.currentTime >= state.duration - 0.001 && !state.isRepeating) {
-        console.log("[PlaybackController.play] At end, restarting");
-        this.restart();
-        return;
+        this.pausedTime = 0;
+        state.currentTime = 0;
       }
 
       // Setup transport and parts
@@ -215,13 +207,22 @@ export class PlaybackController {
     const clampedVisual = clamp(seconds, 0, state.duration);
     const transportSeconds = transportSyncManager.visualToTransportTime(clampedVisual);
 
-    // Update state
+    // Update state immediately for responsiveness
     state.currentTime = clampedVisual;
     this.pausedTime = transportSeconds;
 
+    // Update visual immediately to reduce perceived lag
+    if (updateVisual) {
+      pianoRoll.setTime(clampedVisual);
+    }
+
     if (wasPlaying) {
+      // Stop sync first but don't wait
       transportSyncManager.stopSyncScheduler();
+      
+      // Batch all stop operations
       samplerManager.stopPart();
+      wavPlayerManager.stopAllAudioPlayers();
 
       const transport = Tone.getTransport();
       transport.stop();
@@ -257,11 +258,6 @@ export class PlaybackController {
       }
     } else {
       Tone.getTransport().seconds = transportSeconds;
-    }
-
-    // Update visual
-    if (updateVisual) {
-      pianoRoll.setTime(clampedVisual);
     }
 
     // Clear seeking flag

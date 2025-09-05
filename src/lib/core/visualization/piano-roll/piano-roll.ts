@@ -76,8 +76,18 @@ export class PianoRoll {
 
   // Performance optimization
   private lastRenderTime = 0;
-  // private renderThrottleMs = 16; // ~60fps
-  private renderThrottleMs = 20; // ~50fps
+  private renderThrottleMs = 16; // ~60fps
+  private rafId: number | null = null;
+  
+  // Performance metrics
+  private performanceMetrics = {
+    renderCount: 0,
+    totalRenderTime: 0,
+    slowRenders: 0,
+    skippedRenders: 0,
+    setTimeCount: 0,
+    lastRenderTime: 0,
+  };
 
   // Loop window (A-B) state
   public loopStart: number | null = null;
@@ -524,19 +534,38 @@ export class PianoRoll {
    * Request render with throttling for performance
    */
   public requestRender(): void {
-    const now = performance.now();
-    if (now - this.lastRenderTime < this.renderThrottleMs) {
-      return;
+    // Cancel any pending RAF to prevent duplicates
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
     }
-
-    this.lastRenderTime = now;
-    this.render();
+    
+    const now = performance.now();
+    const timeSinceLastRender = now - this.lastRenderTime;
+    
+    if (timeSinceLastRender >= this.renderThrottleMs) {
+      // Enough time has passed, render immediately
+      this.lastRenderTime = now;
+      this.render();
+    } else {
+      // Schedule render for the next frame
+      this.performanceMetrics.skippedRenders++;
+      const delay = this.renderThrottleMs - timeSinceLastRender;
+      this.rafId = requestAnimationFrame(() => {
+        this.rafId = null;
+        this.lastRenderTime = performance.now();
+        this.render();
+      });
+    }
   }
 
   /**
    * Full render of all components
    */
   public render(): void {
+    // Performance monitoring start
+    const renderStart = performance.now();
+    
     // Update playhead first so that its computed X position is available
     // to background and note layers (e.g., pianoKeys shading uses playheadX).
 
@@ -582,6 +611,24 @@ export class PianoRoll {
 
     // Ensure proper rendering order
     this.container.sortChildren();
+    
+    // Performance monitoring end
+    const renderEnd = performance.now();
+    const renderTime = renderEnd - renderStart;
+    this.performanceMetrics.renderCount++;
+    this.performanceMetrics.totalRenderTime += renderTime;
+    this.performanceMetrics.lastRenderTime = renderTime;
+    
+    if (renderTime > 16) { // More than one frame
+      this.performanceMetrics.slowRenders++;
+      console.warn(`[PianoRoll] Slow render: ${renderTime.toFixed(2)}ms`);
+    }
+    
+    // Log every 100 renders
+    if (this.performanceMetrics.renderCount % 100 === 0) {
+      const avgTime = this.performanceMetrics.totalRenderTime / this.performanceMetrics.renderCount;
+      console.log(`[PianoRoll] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowRenders}/${this.performanceMetrics.renderCount}, Skipped: ${this.performanceMetrics.skippedRenders}`);
+    }
   }
 
   /**
@@ -599,13 +646,7 @@ export class PianoRoll {
    * Set current playback time and update playhead
    */
   public setTime(time: number): void {
-    // console.log(
-    //     "[setTime] time",
-    //     time,
-    //     "panX(before)",
-    //     this.state.panX,
-    //     "zoomX"
-    //   );
+    this.performanceMetrics.setTimeCount++;
     this.state.currentTime = time;
 
     // Only auto-scroll if user is not actively panning
@@ -617,22 +658,9 @@ export class PianoRoll {
       // so that the note at the current time is always under the playhead.
       this.state.panX = -timeOffsetPx;
       clampPanX(this.timeScale, this.state);
-      // console.log(
-      //     "[setTime] pxPerSecond",
-      //     pxPerSecond,
-      //     "timeOffsetPx",
-      //     timeOffsetPx,
-      //     "panX(after)",
-      //     this.state.panX
-      //   );
     }
 
-    // To avoid heavy full re-renders during regular playback we no longer
-    // call `render()` directly here. Instead we delegate to `requestRender()`,
-    // which respects the internal 16 ms throttle (≈60 FPS).
-    // For explicit seek operations the PianoRollManager may still call
-    // `render()` immediately, so this change is safe.
-
+    // Request render with throttling
     this.requestRender();
   }
 

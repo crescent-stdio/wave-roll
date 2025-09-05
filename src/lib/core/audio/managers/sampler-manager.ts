@@ -142,7 +142,17 @@ export class SamplerManager {
     options: { repeat?: boolean; duration?: number } | undefined,
     callback: (time: number, event: T) => void
   ): void {
+    // Dispose of existing part to prevent memory leak and double triggering
+    if (this.part) {
+      this.part.stop(0);
+      this.part.cancel();
+      this.part.dispose();
+      this.part = null;
+    }
+    
     this.part = new Tone.Part(callback as any, events as any);
+    // Enable Part loop to match Transport loop for seamless playback
+    // When Transport loops, Part will also loop automatically
     this.part.loop = options?.repeat || false;
     this.part.loopStart = 0;
     this.part.loopEnd = options?.duration || 0;
@@ -370,8 +380,10 @@ export class SamplerManager {
    */
   startPart(time: string | number, offset?: number): void {
     if (this.part) {
-      this.part.stop("+0");
+      // Ensure the part is completely stopped before starting
+      this.part.stop(0);
       this.part.cancel();
+      
       // Start part with a safe non-negative offset (avoid tiny negative epsilons)
       const off = typeof offset === 'number' && Number.isFinite(offset) ? Math.max(0, offset) : 0;
       (this.part as Tone.Part).start(time, off);
@@ -383,8 +395,26 @@ export class SamplerManager {
    */
   stopPart(): void {
     if (this.part) {
-      this.part.stop("+0");
+      // Use immediate stop for faster response
+      this.part.stop(0);
+      this.part.cancel(0);
+      // Don't dispose here - let buildPart handle disposal when creating a new one
+    }
+  }
+  
+  /**
+   * Restart the part for seamless looping
+   * This avoids recreating the Part which can cause gaps
+   */
+  restartPartAtLoop(): void {
+    if (this.part) {
+      // Cancel any scheduled events to prevent overlap
       this.part.cancel();
+      
+      // Immediately restart the part from the beginning
+      // Use a very small offset to ensure smooth transition
+      const restartTime = Tone.now() + 0.001;
+      (this.part as Tone.Part).start(restartTime, 0);
     }
   }
 
