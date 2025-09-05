@@ -68,6 +68,34 @@ export class AudioPlayer implements AudioPlayerContainer {
   private originalTempo: number;
   private isInitialized = false;
   private isHandlingLoop = false;
+  
+  private updateAllUI(time: number, force: boolean = false): void {
+    try {
+      // 1) Piano roll update
+      this.pianoRoll.setTime(time);
+    } catch {}
+
+    // 2) Notify visual update listeners (seekbar/time display)
+    try {
+      if (this.visualUpdateCallback) {
+        this.visualUpdateCallback({
+          currentTime: time,
+          duration: this.state.duration,
+          isPlaying: this.state.isPlaying,
+        });
+      }
+    } catch {}
+
+    if (force) {
+      // Keep internal state and transport in sync
+      this.state.currentTime = time;
+      try {
+        const t = this.transportSyncManager.visualToTransportTime(time);
+        const transport = Tone.getTransport();
+        transport.seconds = t;
+      } catch {}
+    }
+  }
   private initPromise: Promise<void>;
 
   // Refactored operation state management
@@ -96,6 +124,12 @@ export class AudioPlayer implements AudioPlayerContainer {
   };
 
   private handleTransportLoop = (): void => {
+    // Skip loop handling while we are in the middle of a restart
+    // (e.g., tempo/playback-rate change). This prevents creating a new Part
+    // concurrently with the restart path and avoids double playback.
+    if (this.operationState.isRestarting || this.operationState.isSeeking) {
+      return;
+    }
     // Prevent handling multiple loop events simultaneously
     if (this.isHandlingLoop) {
       console.log("[AudioPlayer] Ignoring duplicate loop event");
@@ -248,6 +282,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       originalTempo: this.originalTempo,
       options: this.options,
       pianoRoll: this.pianoRoll,
+      uiSync: (time: number, force?: boolean) => this.updateAllUI(time, !!force),
       onPlaybackEnd: this.options.onPlaybackEnd,
     });
 
@@ -326,21 +361,27 @@ export class AudioPlayer implements AudioPlayerContainer {
   private setupTransportCallbacks(): void {
     const transport = Tone.getTransport();
     // Remove ALL existing listeners first to ensure clean slate
-    transport.off("stop");
-    transport.off("pause");
-    transport.off("loop");
+    if (typeof (transport as any).off === 'function') {
+      (transport as any).off("stop");
+      (transport as any).off("pause");
+      (transport as any).off("loop");
+    }
     
     // Then add our specific handlers
-    transport.on("stop", this.handleTransportStop);
-    transport.on("pause", this.handleTransportPause);
-    transport.on("loop", this.handleTransportLoop);
+    if (typeof (transport as any).on === 'function') {
+      (transport as any).on("stop", this.handleTransportStop);
+      (transport as any).on("pause", this.handleTransportPause);
+      (transport as any).on("loop", this.handleTransportLoop);
+    }
   }
 
   private removeTransportCallbacks(): void {
     const transport = Tone.getTransport();
-    transport.off("stop", this.handleTransportStop);
-    transport.off("pause", this.handleTransportPause);
-    transport.off("loop", this.handleTransportLoop);
+    if (typeof (transport as any).off === 'function') {
+      (transport as any).off("stop", this.handleTransportStop);
+      (transport as any).off("pause", this.handleTransportPause);
+      (transport as any).off("loop", this.handleTransportLoop);
+    }
   }
   
   private cleanup(): void {

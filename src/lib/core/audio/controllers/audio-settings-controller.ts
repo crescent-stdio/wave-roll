@@ -4,6 +4,7 @@
  */
 
 import * as Tone from "tone";
+import { ensureAudioContextReady } from "../utils/audio-context";
 import { clamp } from "../../utils";
 import { AudioPlayerState, AUDIO_CONSTANTS, OperationState } from "../player-types";
 import { SamplerManager } from "../managers/sampler-manager";
@@ -77,6 +78,8 @@ export class AudioSettingsController {
     state.playbackRate = ratePct;
 
     if (state.isPlaying) {
+      // Ensure AudioContext is running (safety in browsers)
+      try { void ensureAudioContextReady(); } catch {}
       // Restart-style tempo change to flush scheduled events and avoid overlap
       operationState.isSeeking = true;
       operationState.isRestarting = true;
@@ -92,6 +95,8 @@ export class AudioSettingsController {
       samplerManager.stopPart();
 
       const transport = Tone.getTransport();
+      // Capture current transport time BEFORE stopping/cancelling.
+      const prevTransportSeconds = transport.seconds;
       transport.stop();
       transport.cancel();
       transport.bpm.value = clampedTempo;
@@ -117,7 +122,9 @@ export class AudioSettingsController {
       // Schedule synchronized start for both Transport/Part and WAV
       const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
       const startAt = Tone.now() + RESTART_DELAY;
-      transport.start(startAt);
+      if (typeof (transport as any).start === 'function') {
+        transport.start(startAt);
+      }
       samplerManager.startPart(startAt, newTransportSeconds);
 
       // WAV speed + start
@@ -144,6 +151,14 @@ export class AudioSettingsController {
       // Rescale loop points
       loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
       loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
+      // Trigger UI update when paused
+      if (this.deps.onVisualUpdate) {
+        this.deps.onVisualUpdate({
+          currentTime: state.currentTime,
+          duration: state.duration,
+          isPlaying: state.isPlaying,
+        });
+      }
     }
   }
 
@@ -167,6 +182,7 @@ export class AudioSettingsController {
     state.playbackRate = finalRate;
 
     if (state.isPlaying) {
+      try { void ensureAudioContextReady(); } catch {}
       // Same logic as setTempo for playing state
       operationState.isSeeking = true;
       operationState.isRestarting = true;
@@ -180,6 +196,8 @@ export class AudioSettingsController {
       samplerManager.stopPart();
 
       const transport = Tone.getTransport();
+      // Capture BEFORE stopping to preserve anchor for preservePosition=true
+      const prevTransportSeconds = transport.seconds;
       transport.stop();
       transport.cancel();
       transport.bpm.value = clampedTempo;
@@ -223,6 +241,14 @@ export class AudioSettingsController {
       
       loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
       loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
+      // Trigger UI update when paused so seekbar/time reflect new rate
+      if (this.deps.onVisualUpdate) {
+        this.deps.onVisualUpdate({
+          currentTime: state.currentTime,
+          duration: state.duration,
+          isPlaying: state.isPlaying,
+        });
+      }
     }
   }
 
@@ -257,15 +283,20 @@ export class AudioSettingsController {
     // Configure transport loop
     loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
 
+    // Determine if this call clears the loop window entirely
+    const isClearing = start === null && end === null;
+
     // Helper function to trigger UI update
     const triggerUIUpdate = (newPosition: number) => {
       if (this.deps.onVisualUpdate) {
         this.deps.onVisualUpdate({
           currentTime: newPosition,
           duration: state.duration,
-          isPlaying: state.isPlaying
+          isPlaying: state.isPlaying,
         });
       }
+      // Also sync piano-roll immediately for snappy feedback
+      try { this.deps.pianoRoll?.setTime(newPosition); } catch {}
     };
 
     // Rebuild the Part with new loop bounds
@@ -276,6 +307,8 @@ export class AudioSettingsController {
       samplerManager.stopPart();
 
       const transport = Tone.getTransport();
+      // Capture BEFORE stopping to preserve anchor when clearing with preservePosition
+      const prevTransportSeconds = transport.seconds;
       transport.stop();
       transport.cancel();
 
@@ -289,7 +322,11 @@ export class AudioSettingsController {
         newPosition = effectiveStart;
       }
 
-      const transportSeconds = transportSyncManager.visualToTransportTime(newPosition);
+      // For clearing loop while preserving position, keep the exact current
+      // transport time to avoid audible jumps to 0.
+      const transportSeconds = (isClearing && preservePosition)
+        ? prevTransportSeconds
+        : transportSyncManager.visualToTransportTime(newPosition);
       transport.seconds = transportSeconds;
       state.currentTime = newPosition;
       
@@ -334,7 +371,10 @@ export class AudioSettingsController {
       }, 100);
     } else {
       // Not playing - just update position if needed
-      if (!preservePosition || currentVisualTime < effectiveStart || currentVisualTime >= effectiveEnd) {
+      if (isClearing && preservePosition) {
+        // Do not move the playhead; only clear loop markers
+        triggerUIUpdate(currentVisualTime);
+      } else if (!preservePosition || currentVisualTime < effectiveStart || currentVisualTime >= effectiveEnd) {
         const newPosition = effectiveStart;
         const transportSeconds = transportSyncManager.visualToTransportTime(newPosition);
         Tone.getTransport().seconds = transportSeconds;

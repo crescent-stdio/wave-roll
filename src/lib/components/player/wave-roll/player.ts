@@ -194,27 +194,23 @@ export class WaveRollPlayer {
       // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
       // the piano-roll playhead on its own update loop.
 
-      // Register audio player's visual update callback only once to avoid
-      // repeated registrations and UI jank.
-      if (!this.audioVisualHooked) {
-        try {
-          const anyEngine = this.visualizationEngine as unknown as { coreEngine?: any };
-          const audioPlayer = anyEngine.coreEngine?.audioPlayer;
-          if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === 'function') {
-            audioPlayer.setOnVisualUpdate(({ currentTime, duration, isPlaying }: { currentTime: number; duration: number; isPlaying: boolean }) => {
-              const deps2 = this.getUIDependencies();
-              // Recompute effective duration in case playback rate changed
-              const st2 = this.visualizationEngine.getState();
-              const pr2 = st2.playbackRate ?? 100;
-              const speed2 = pr2 / 100;
-              const effDur2 = speed2 > 0 ? st2.duration / speed2 : st2.duration;
-              deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
-              this.updateTimeDisplay(currentTime);
-            });
-            this.audioVisualHooked = true;
-          }
-        } catch {}
-      }
+      // Re-register audio player's visual update callback to ensure a newly
+      // recreated AudioPlayer instance also forwards visual updates.
+      try {
+        const anyEngine = this.visualizationEngine as unknown as { coreEngine?: any };
+        const audioPlayer = anyEngine.coreEngine?.audioPlayer;
+        if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === 'function') {
+          audioPlayer.setOnVisualUpdate(({ currentTime, duration, isPlaying }: { currentTime: number; duration: number; isPlaying: boolean }) => {
+            const deps2 = this.getUIDependencies();
+            const st2 = this.visualizationEngine.getState();
+            const pr2 = st2.playbackRate ?? 100;
+            const speed2 = pr2 / 100;
+            const effDur2 = speed2 > 0 ? st2.duration / speed2 : st2.duration;
+            deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
+            this.updateTimeDisplay(currentTime);
+          });
+        }
+      } catch {}
     });
 
     this.pianoRollManager = createPianoRollManager();

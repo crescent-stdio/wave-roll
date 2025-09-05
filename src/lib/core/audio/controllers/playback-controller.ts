@@ -22,6 +22,7 @@ export interface PlaybackControllerDeps {
   options: { repeat?: boolean };
   pianoRoll: { setTime(time: number): void };
   onPlaybackEnd?: () => void;
+  uiSync?: (time: number, force?: boolean) => void;
 }
 
 export class PlaybackController {
@@ -214,9 +215,10 @@ export class PlaybackController {
     state.currentTime = clampedVisual;
     this.pausedTime = transportSeconds;
 
-    // Update visual immediately to reduce perceived lag
+    // Update visual immediately to reduce perceived lag (centralized path)
     if (updateVisual) {
-      pianoRoll.setTime(clampedVisual);
+      if (this.deps.uiSync) this.deps.uiSync(clampedVisual, true);
+      else pianoRoll.setTime(clampedVisual);
     }
 
     if (wasPlaying) {

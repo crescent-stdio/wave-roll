@@ -120,20 +120,20 @@ export function createCoreLoopControls(
     audioPlayer?.toggleRepeat?.(isLoopRestartActive);
 
     if (isLoopRestartActive) {
-      // Apply loop points immediately
+      // Always set loop window; prefer jumping to A (if defined)
       if (pointA !== null || pointB !== null) {
-        // When activating loop, always start from A point
-        audioPlayer?.setLoopPoints(pointA, pointB, false); // preservePosition=false to jump to start
-      }
-      // Always seek to start point when enabling loop
-      const startPoint = pointA ?? 0;
-      audioPlayer?.seek(startPoint);
-      // Start playing if not already playing
-      if (!audioPlayer?.getState().isPlaying) {
-        audioPlayer?.play();
+        const st = audioPlayer?.getState();
+        audioPlayer?.setLoopPoints(pointA, pointB, false);
+        if (pointA !== null) {
+          audioPlayer?.seek(pointA, true);
+          if (st && !st.isPlaying) {
+            audioPlayer?.play();
+          }
+        }
       }
     } else {
-      audioPlayer?.setLoopPoints(null, null);
+      // Disable loop but preserve current position
+      audioPlayer?.setLoopPoints(null, null, true);
     }
     // Refresh seek bar overlay to reflect current loop state
     updateSeekBar();
@@ -165,7 +165,11 @@ export function createCoreLoopControls(
     }
     updateSeekBar();
     if (pointA !== null) {
-      pianoRoll?.setTime?.(pointA);
+      if (audioPlayer?.getState()?.isPlaying) {
+        audioPlayer?.seek(pointA, true);
+      } else {
+        pianoRoll?.setTime?.(pointA);
+      }
     }
   });
   // Add default border to A button
@@ -210,9 +214,14 @@ export function createCoreLoopControls(
     btnB.style.background = "transparent";
     btnB.style.color = "var(--text-muted)";
     btnB.style.border = `2px solid ${COLOR_B}`;  // Restore B border
-    const isPlaying = audioPlayer?.getState()?.isPlaying || false;
-    audioPlayer?.setLoopPoints(null, null, isPlaying);
+    // Always preserve current position when clearing loop
+    audioPlayer?.setLoopPoints(null, null, true);
     pianoRoll?.setLoopWindow?.(null, null);
+    // Keep UI in sync with current playback position
+    const st = audioPlayer?.getState();
+    if (st?.isPlaying) {
+      audioPlayer?.seek(st.currentTime, true);
+    }
     updateSeekBar();
   });
   btnClear.style.fontSize = "16px";

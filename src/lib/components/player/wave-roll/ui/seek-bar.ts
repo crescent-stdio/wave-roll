@@ -32,6 +32,11 @@ export interface SeekBarInstance {
 export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   const { audioPlayer, pianoRoll, formatTime } = deps;
 
+  const calculateEffectiveDuration = (duration: number, playbackRate: number): number => {
+    const speed = playbackRate / 100;
+    return speed > 0 ? duration / speed : duration;
+  };
+
   /* ---- DOM skeleton ------------------------------------------------ */
   const root = document.createElement("div");
   root.style.cssText = `
@@ -247,8 +252,10 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
 
     // Show initial value immediately
     const pct01 = Number(slider.value) / 100;
-    const durationSec = audioPlayer ? audioPlayer.getState().duration : 0;
-    labelCurrent.textContent = formatTime(pct01 * durationSec);
+    const st = audioPlayer ? audioPlayer.getState() : null;
+    const pr = st?.playbackRate ?? 100;
+    const effectiveDuration = st ? calculateEffectiveDuration(st.duration, pr) : 0;
+    labelCurrent.textContent = formatTime(pct01 * effectiveDuration);
   });
 
   // Apply the seek only once the user releases the pointer. This prevents
@@ -261,11 +268,17 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
 
     const pct = Number(slider.value);
     const pct01 = pct / 100;
-    const durationSec = audioPlayer.getState().duration;
+    const st = audioPlayer.getState();
+    const pr = st.playbackRate ?? 100;
+    const effectiveDuration = calculateEffectiveDuration(st.duration, pr);
+    const targetSec = pct01 * effectiveDuration;
     console.info("[UI-seek] requested", {
-      targetSec: pct01 * durationSec,
+      targetSec,
+      pct,
+      effectiveDuration,
+      playbackRate: pr,
     });
-    audioPlayer.seek(pct01 * durationSec);
+    audioPlayer.seek(targetSec);
   };
 
   slider.addEventListener("pointerup", (e: PointerEvent) => {
@@ -282,10 +295,11 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     // console.log("%c[SB] input", "color:#2b90d9", { pct: slider.value });
     const pct = Number(slider.value); // 0-100
     const pct01 = pct / 100;
-    const durationSec = audioPlayer?.getState().duration ?? 0;
-
+    const st = audioPlayer?.getState();
+    const pr = st?.playbackRate ?? 100;
+    const effectiveDuration = st ? calculateEffectiveDuration(st.duration, pr) : 0;
     progress.style.width = `${pct}%`;
-    labelCurrent.textContent = formatTime(pct01 * durationSec);
+    labelCurrent.textContent = formatTime(pct01 * effectiveDuration);
   });
 
   /* ---- Update function -------------------------------------------- */
@@ -317,6 +331,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
 
     // console.log("[SeekBar.update]", current.toFixed(3));
 
+    // duration argument is engine-provided effectiveDuration. Use it for totals.
     labelCurrent.textContent = formatTime(current);
     labelTotal.textContent = formatTime(duration);
 
