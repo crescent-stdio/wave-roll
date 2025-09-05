@@ -273,6 +273,18 @@ export class VisualizationEngine {
 
   public setTempo(tempo: number): void {
     this.coreEngine.setTempo(tempo);
+    // Immediately notify visual update callbacks so UI (seekbar/time)
+    // can reflect the new effective duration/tempo even when paused.
+    const state = this.coreEngine.getState();
+    this.notifyVisualUpdateCallbacks({
+      currentTime: state.currentTime,
+      duration: state.duration,
+      zoomLevel: this.pianoRollManager.getZoom(),
+      isPlaying: state.isPlaying,
+      volume: state.volume,
+      tempo: state.tempo,
+      pan: state.pan || 0,
+    });
   }
 
   /**

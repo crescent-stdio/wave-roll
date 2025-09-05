@@ -123,19 +123,22 @@ export class UIUpdater {
 
         this.updatePianoRoll();
 
-        // Update seek bar with current state
-        if (uiDeps?.updateSeekBar) {
-          const pr = state.playbackRate ?? 100;
-          const speed = pr / 100;
-          const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-          uiDeps.updateSeekBar({
-            currentTime: state.currentTime,
-            duration: effectiveDuration,
-          });
-        }
+        // During playback the core engine dispatches visual updates; avoid
+        // duplicating seekbar/time updates here to reduce jank.
+        if (!state.isPlaying) {
+          if (uiDeps?.updateSeekBar) {
+            const pr = state.playbackRate ?? 100;
+            const speed = pr / 100;
+            const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+            uiDeps.updateSeekBar({
+              currentTime: state.currentTime,
+              duration: effectiveDuration,
+            });
+          }
 
-        // Update time display
-        this.updateTimeDisplay(state.currentTime);
+          // Update time display only when not playing
+          this.updateTimeDisplay(state.currentTime);
+        }
       } else {
         // Fallback if state is not available
         this.updateSeekBar(uiDeps);

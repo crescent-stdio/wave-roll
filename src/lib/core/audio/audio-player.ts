@@ -60,11 +60,15 @@ export class AudioPlayer implements AudioPlayerContainer {
   private fileAudioController: FileAudioController;
   private autoPauseController: AutoPauseController;
 
+  // Visual update callback
+  private visualUpdateCallback?: (params: { currentTime: number; duration: number; isPlaying: boolean }) => void;
+
   // Player state
   private state: AudioPlayerState;
   private originalTempo: number;
   private isInitialized = false;
   private isHandlingLoop = false;
+  private initPromise: Promise<void>;
 
   // Refactored operation state management
   private operationState: OperationState = {
@@ -118,14 +122,25 @@ export class AudioPlayer implements AudioPlayerContainer {
       this.loopManager.loopEndVisual
     );
 
-    // Only restart Part if we're actually playing or if this was triggered from stopped state
-    // Don't restart if Part hasn't been set up yet
-    const part = this.samplerManager.getPart();
-    if (part && !wasStoppedAtEnd) {
-      try { part.stop(0); } catch {}
-      try { part.cancel(); } catch {}
-      // Start Part again immediately at the loop start
-      try { part.start(0, 0); } catch {}
+    // Use SamplerManager methods instead of direct Part manipulation
+    if (!wasStoppedAtEnd) {
+      // Stop current part safely
+      this.samplerManager.stopPart();
+      
+      // Re-setup and start Part at loop start
+      this.samplerManager.setupNotePart(
+        this.loopManager.loopStartVisual,
+        this.loopManager.loopEndVisual,
+        {
+          repeat: this.options.repeat,
+          duration: this.state.duration,
+          tempo: this.state.tempo,
+          originalTempo: this.originalTempo,
+        }
+      );
+      
+      // Start Part immediately at the loop start
+      this.samplerManager.startPart(0, 0);
     } else if (wasStoppedAtEnd) {
       // If we were stopped at the end, reset position to start
       this.playbackController.setPausedTime(0);
@@ -247,6 +262,11 @@ export class AudioPlayer implements AudioPlayerContainer {
       options: this.options,
       pianoRoll: this.pianoRoll,
       onVolumeChange: () => this.maybeAutoPauseIfSilent(),
+      onVisualUpdate: (params) => {
+        if (this.visualUpdateCallback) {
+          this.visualUpdateCallback(params);
+        }
+      },
     });
 
     this.autoPauseController = new AutoPauseController({
@@ -257,8 +277,8 @@ export class AudioPlayer implements AudioPlayerContainer {
       onAutoResume: () => this.play().catch(() => {}),
     });
 
-    // Initialize audio system
-    this.initialize();
+    // Initialize audio system (defer play/seek until ready)
+    this.initPromise = this.initialize();
   }
 
   private async initialize(): Promise<void> {
@@ -336,6 +356,10 @@ export class AudioPlayer implements AudioPlayerContainer {
   // Public API - delegate to controllers
 
   public async play(): Promise<void> {
+    // Ensure audio context/samplers/transport are ready before starting
+    try {
+      await this.initPromise;
+    } catch {}
     await this.playbackController.play();
   }
 
@@ -561,6 +585,11 @@ export class AudioPlayer implements AudioPlayerContainer {
         }
       }, 50);
     }
+  }
+
+  // Visual update callback management
+  public setOnVisualUpdate(callback: (params: { currentTime: number; duration: number; isPlaying: boolean }) => void): void {
+    this.visualUpdateCallback = callback;
   }
 }
 

@@ -22,6 +22,7 @@ export interface AudioSettingsControllerDeps {
   options: { volume?: number; repeat?: boolean };
   pianoRoll: { setTime(time: number): void };
   onVolumeChange?: () => void;
+  onVisualUpdate?: (params: { currentTime: number; duration: number; isPlaying: boolean }) => void;
 }
 
 export class AudioSettingsController {
@@ -81,7 +82,7 @@ export class AudioSettingsController {
       operationState.isRestarting = true;
 
       const currentVisualTime = state.currentTime;
-      const newTransportSeconds = (currentVisualTime * originalTempo) / clampedTempo;
+      const newTransportSeconds = transportSyncManager.visualToTransportTimeWithTempo(currentVisualTime, clampedTempo);
 
       // Rescale A-B loop window to preserve transport-anchored positions
       loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
@@ -171,7 +172,7 @@ export class AudioSettingsController {
       operationState.isRestarting = true;
 
       const currentVisualTime = state.currentTime;
-      const newTransportSeconds = (currentVisualTime * originalTempo) / clampedTempo;
+      const newTransportSeconds = transportSyncManager.visualToTransportTimeWithTempo(currentVisualTime, clampedTempo);
 
       loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
 
@@ -256,6 +257,17 @@ export class AudioSettingsController {
     // Configure transport loop
     loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
 
+    // Helper function to trigger UI update
+    const triggerUIUpdate = (newPosition: number) => {
+      if (this.deps.onVisualUpdate) {
+        this.deps.onVisualUpdate({
+          currentTime: newPosition,
+          duration: state.duration,
+          isPlaying: state.isPlaying
+        });
+      }
+    };
+
     // Rebuild the Part with new loop bounds
     if (wasPlaying) {
       operationState.isSeeking = true;
@@ -283,6 +295,9 @@ export class AudioSettingsController {
       
       // Update visual position immediately
       this.deps.pianoRoll.setTime(newPosition);
+      
+      // Trigger UI update callback for seek bar and time display
+      triggerUIUpdate(newPosition);
 
       // Rebuild Part with new bounds
       samplerManager.setupNotePart(
@@ -327,6 +342,9 @@ export class AudioSettingsController {
         
         // Update visual position immediately
         this.deps.pianoRoll.setTime(newPosition);
+        
+        // Trigger UI update callback for seek bar and time display
+        triggerUIUpdate(newPosition);
       }
     }
   }

@@ -12,6 +12,7 @@ export interface TransportSyncOptions {
 }
 
 export class TransportSyncManager {
+  private static DEBUG = false;
   // Performance monitoring
   private performanceMetrics = {
     updateCount: 0,
@@ -163,10 +164,12 @@ export class TransportSyncManager {
         this.stopSyncScheduler();
         
         // Stop at the end instead of continuing beyond duration
-        console.log("[TransportSync] End reached", {
-          visualTime: visualTime.toFixed(3),
-          duration: effectiveDuration.toFixed(3),
-        });
+        if (TransportSyncManager.DEBUG) {
+          console.log("[TransportSync] End reached", {
+            visualTime: visualTime.toFixed(3),
+            duration: effectiveDuration.toFixed(3),
+          });
+        }
         
         // Call the end callback to handle pause
         if (this.onEndCallback) {
@@ -193,11 +196,13 @@ export class TransportSyncManager {
       
       if (updateTime > 16) { // More than one frame (60fps)
         this.performanceMetrics.slowUpdates++;
-        console.warn(`[TransportSync] Slow update: ${updateTime.toFixed(2)}ms`);
+        if (TransportSyncManager.DEBUG) {
+          console.warn(`[TransportSync] Slow update: ${updateTime.toFixed(2)}ms`);
+        }
       }
       
-      // Log every 100 updates
-      if (this.performanceMetrics.updateCount % 100 === 0) {
+      // Log every 100 updates (disabled by default)
+      if (TransportSyncManager.DEBUG && this.performanceMetrics.updateCount % 100 === 0) {
         const avgTime = this.performanceMetrics.totalUpdateTime / this.performanceMetrics.updateCount;
         console.log(`[TransportSync] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowUpdates}/${this.performanceMetrics.updateCount}`);
       }
@@ -273,14 +278,16 @@ export class TransportSyncManager {
       return false;
     }
 
-    console.log("[Transport.stop] fired", {
-      transportState: Tone.getTransport().state,
-      transportSec: transportSec.toFixed(3),
-      visualSec: visualSec.toFixed(3),
-      currentTime: this.state.currentTime.toFixed(3),
-      isSeeking: this.operationState.isSeeking,
-      isRestarting: this.operationState.isRestarting,
-    });
+    if (TransportSyncManager.DEBUG) {
+      console.log("[Transport.stop] fired", {
+        transportState: Tone.getTransport().state,
+        transportSec: transportSec.toFixed(3),
+        visualSec: visualSec.toFixed(3),
+        currentTime: this.state.currentTime.toFixed(3),
+        isSeeking: this.operationState.isSeeking,
+        isRestarting: this.operationState.isRestarting,
+      });
+    }
 
     this.state.isPlaying = false;
     this.stopSyncScheduler();
@@ -343,6 +350,14 @@ export class TransportSyncManager {
    */
   visualToTransportTime(visualSeconds: number): number {
     return (visualSeconds * this.options.originalTempo) / this.state.tempo;
+  }
+
+  /**
+   * Calculate transport time from visual time using a specific tempo
+   * Useful for tempo changes where we need to calculate with new tempo before updating state
+   */
+  visualToTransportTimeWithTempo(visualSeconds: number, targetTempo: number): number {
+    return (visualSeconds * this.options.originalTempo) / targetTempo;
   }
 
   /**

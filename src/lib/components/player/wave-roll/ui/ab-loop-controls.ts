@@ -99,8 +99,17 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     pianoRoll.setLoopWindow?.(pointA, pointB);
 
     // audio loop only when restart-mode is active
-    if (loopRestart) audioPlayer.setLoopPoints(pointA, pointB);
-    else audioPlayer.setLoopPoints(null, null);
+    if (loopRestart) {
+      // Set loop points with preservePosition=false to immediately jump to loop start
+      // This ensures UI components (seek bar, time display, piano roll) are synchronized
+      audioPlayer.setLoopPoints(pointA, pointB, false);
+      
+      // The setLoopPoints method now handles UI synchronization directly
+      // No need for setTimeout - UI updates happen synchronously
+    } else {
+      // Clear loop but preserve current playback position
+      audioPlayer.setLoopPoints(null, null, true);
+    }
 
     // Notify seek-bar overlay to refresh via bubbling custom event
     updateSeekBar();
@@ -130,8 +139,12 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     start = clamp(start);
     end = clamp(end);
 
+    // Percent should reflect effective duration (tempo / playbackRate)
+    const pr = state.playbackRate ?? 100;
+    const speed = pr / 100;
+    const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
     const toPct = (v: number | null) =>
-      v !== null ? (v / state.duration) * 100 : null;
+      v !== null ? (v / effectiveDuration) * 100 : null;
 
     const loopWindow =
       start === null && end === null
@@ -165,7 +178,8 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   function clear() {
     pointA = pointB = null;
     loopRestart = false;
-    audioPlayer.setLoopPoints(null, null);
+    // Preserve position when clearing loop from UI
+    audioPlayer.setLoopPoints(null, null, true);
     pianoRoll.setLoopWindow?.(null, null);
     restartBtn.dataset.active = "";
     restartBtn.style.background = "transparent";

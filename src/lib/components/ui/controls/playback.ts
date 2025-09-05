@@ -6,6 +6,7 @@ import { setupPlayButton } from "@/core/controls/utils/play-button";
 import { attachRepeatToggle } from "@/core/controls/utils/repeat-toggle";
 import { createIconButton } from "../utils/icon-button";
 import { UIComponentDependencies } from "../types";
+import { ensureAudioContextReady } from "@/lib/core/audio/utils/audio-context";
 // Removed MasterVolumeControl - global volume is managed by createVolumeControlUI
 
 /**
@@ -52,9 +53,23 @@ export function createPlaybackControlsUI(
   `;
   playBtn.classList.add("wr-focusable");
 
+  const waitUntil = async (predicate: () => boolean, timeoutMs = 2000, intervalMs = 50) => {
+    const start = Date.now();
+    while (!predicate()) {
+      if (Date.now() - start > timeoutMs) break;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  };
+
   const updatePlayButton = setupPlayButton({
     playBtn,
     audioPlayer: dependencies.audioPlayer,
+    prePlay: async () => {
+      // 1) Start/resume AudioContext immediately on user gesture
+      try { await ensureAudioContextReady(); } catch {}
+      // 2) Ensure underlying audio player exists before calling play()
+      await waitUntil(() => !!dependencies.audioPlayer?.isInitialized?.());
+    },
     postPlay: () => dependencies.updateSeekBar?.(),
   });
 
@@ -63,6 +78,37 @@ export function createPlaybackControlsUI(
   updatePlayButton();
 
   dependencies.updatePlayButton = updatePlayButton;
+
+  // Disable play until the underlying audio player is fully initialized
+  const setPlayEnabled = (enabled: boolean) => {
+    (playBtn as HTMLButtonElement).disabled = !enabled;
+    playBtn.style.opacity = enabled ? "1" : "0.6";
+    playBtn.style.cursor = enabled ? "pointer" : "default";
+  };
+  const isReady = () => {
+    try {
+      return !!dependencies.audioPlayer?.isInitialized?.();
+    } catch {
+      return false;
+    }
+  };
+  // Initial state
+  setPlayEnabled(isReady());
+  // Poll briefly until ready (fast settle once files parsed)
+  let readyCheckId: number | null = null;
+  if (!isReady()) {
+    readyCheckId = window.setInterval(() => {
+      if (isReady()) {
+        setPlayEnabled(true);
+        // sync icon state once enabled
+        updatePlayButton();
+        if (readyCheckId) {
+          clearInterval(readyCheckId);
+          readyCheckId = null;
+        }
+      }
+    }, 100);
+  }
 
   /* restart */
   const restartBtn = createIconButton(PLAYER_ICONS.restart, () => {

@@ -1,4 +1,5 @@
 import { UIComponentDependencies } from "@/lib/components/ui";
+import { ensureAudioContextReady } from "@/lib/core/audio/utils/audio-context";
 
 export class KeyboardHandler {
   private isTogglingPlayback = false;
@@ -80,23 +81,34 @@ export class KeyboardHandler {
       }, 100);
     } else {
       // Currently paused -> play via space-bar
-      audioPlayer
-        .play()
-        .then(() => {
-          // Playback has effectively started - refresh UI once.
+      const waitUntil = async (pred: () => boolean, toMs = 2000, step = 50) => {
+        const start = Date.now();
+        while (!pred()) {
+          if (Date.now() - start > toMs) break;
+          await new Promise((r) => setTimeout(r, step));
+        }
+      };
+
+      (async () => {
+        try {
+          // 1) Ensure AudioContext is started within this user gesture
+          try { await ensureAudioContextReady(); } catch {}
+          // 2) Wait until engine is initialized (piano-roll + audio player ready)
+          await waitUntil(() => !!deps.audioPlayer?.isInitialized?.());
+          // 3) Play
+          await audioPlayer.play();
+          // 4) Refresh UI
           startUpdateLoop();
           deps.updatePlayButton?.();
           deps.updateSeekBar?.();
-        })
-        .catch((error: any) => {
+        } catch (error) {
           console.error("Failed to play:", error);
-        })
-        .finally(() => {
-          // Always release the debounce lock, even if play() fails
+        } finally {
           setTimeout(() => {
             this.isTogglingPlayback = false;
           }, 100);
-        });
+        }
+      })();
     }
   };
 

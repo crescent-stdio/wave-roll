@@ -210,7 +210,8 @@ export function createCoreLoopControls(
     btnB.style.background = "transparent";
     btnB.style.color = "var(--text-muted)";
     btnB.style.border = `2px solid ${COLOR_B}`;  // Restore B border
-    audioPlayer?.setLoopPoints(null, null);
+    const isPlaying = audioPlayer?.getState()?.isPlaying || false;
+    audioPlayer?.setLoopPoints(null, null, isPlaying);
     pianoRoll?.setLoopWindow?.(null, null);
     updateSeekBar();
   });
@@ -234,18 +235,24 @@ export function createCoreLoopControls(
       let start = pointA;
       let end = pointB;
       if (end !== null && start > end) [start, end] = [end, start];
-      const clampedEnd = end !== null ? Math.min(end, state.duration) : null;
-      loopInfo.a = (start / state.duration) * 100;
+      const pr = state.playbackRate ?? 100;
+      const speed = pr / 100;
+      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+      const clampedEnd = end !== null ? Math.min(end, effectiveDuration) : null;
+      loopInfo.a = (start / effectiveDuration) * 100;
       loopInfo.b =
-        clampedEnd !== null ? (clampedEnd / state.duration) * 100 : null;
+        clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
 
       // Preserve position when updating loop points during playback
       const isPlaying = audioPlayer?.getState()?.isPlaying || false;
       if (isLoopRestartActive) audioPlayer?.setLoopPoints(start, clampedEnd, isPlaying);
       pianoRoll?.setLoopWindow?.(start, clampedEnd);
     } else if (pointB !== null) {
-      const clampedB = Math.min(pointB, state.duration);
-      loopInfo.b = (clampedB / state.duration) * 100;
+      const pr = state.playbackRate ?? 100;
+      const speed = pr / 100;
+      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+      const clampedB = Math.min(pointB, effectiveDuration);
+      loopInfo.b = (clampedB / effectiveDuration) * 100;
       const isPlaying = audioPlayer?.getState()?.isPlaying || false;
       if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, clampedB, isPlaying);
       pianoRoll?.setLoopWindow?.(null, clampedB);

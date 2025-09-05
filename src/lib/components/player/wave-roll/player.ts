@@ -112,6 +112,7 @@ export class WaveRollPlayer {
   private fileLoader!: FileLoader;
   private silenceDetector!: SilenceDetector;
   private pausedBySilence: boolean = false;
+  private audioVisualHooked: boolean = false;
 
   constructor(
     container: HTMLElement,
@@ -180,13 +181,40 @@ export class WaveRollPlayer {
     });
 
     // Keep seek bar and time display tightly synced with the engine's visual updates.
-    this.visualizationEngine.onVisualUpdate(({ currentTime, duration }) => {
+    this.visualizationEngine.onVisualUpdate(({ currentTime, duration, isPlaying }) => {
       // Always get fresh dependencies to ensure updateSeekBar is available
       const deps = this.getUIDependencies();
-      deps.updateSeekBar?.({ currentTime, duration });
+      // Use absolute (full-length) policy with tempo-aware duration
+      const st = this.visualizationEngine.getState();
+      const pr = st.playbackRate ?? 100;
+      const speed = pr / 100;
+      const effectiveDuration = speed > 0 ? st.duration / speed : st.duration;
+      deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
       this.updateTimeDisplay(currentTime);
       // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
       // the piano-roll playhead on its own update loop.
+
+      // Register audio player's visual update callback only once to avoid
+      // repeated registrations and UI jank.
+      if (!this.audioVisualHooked) {
+        try {
+          const anyEngine = this.visualizationEngine as unknown as { coreEngine?: any };
+          const audioPlayer = anyEngine.coreEngine?.audioPlayer;
+          if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === 'function') {
+            audioPlayer.setOnVisualUpdate(({ currentTime, duration, isPlaying }: { currentTime: number; duration: number; isPlaying: boolean }) => {
+              const deps2 = this.getUIDependencies();
+              // Recompute effective duration in case playback rate changed
+              const st2 = this.visualizationEngine.getState();
+              const pr2 = st2.playbackRate ?? 100;
+              const speed2 = pr2 / 100;
+              const effDur2 = speed2 > 0 ? st2.duration / speed2 : st2.duration;
+              deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
+              this.updateTimeDisplay(currentTime);
+            });
+            this.audioVisualHooked = true;
+          }
+        } catch {}
+      }
     });
 
     this.pianoRollManager = createPianoRollManager();
@@ -322,12 +350,15 @@ export class WaveRollPlayer {
         silenceDetector: this.silenceDetector,
       };
 
-      // After creation, convert seconds -> % once we know duration.
-      const durationSec = playbackState.duration;
-      if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
+      // After creation, convert seconds -> % once we know (tempo-aware) duration.
+      const st = this.visualizationEngine.getState();
+      const pr = st.playbackRate ?? 100;
+      const speed = pr / 100;
+      const effectiveDuration = speed > 0 ? st.duration / speed : st.duration;
+      if (effectiveDuration > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps!.loopPoints = {
-          a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
-          b: loopPoints.b !== null ? (loopPoints.b / durationSec) * 100 : null,
+          a: loopPoints.a !== null ? (loopPoints.a / effectiveDuration) * 100 : null,
+          b: loopPoints.b !== null ? (loopPoints.b / effectiveDuration) * 100 : null,
         };
       }
     } else {
@@ -342,12 +373,15 @@ export class WaveRollPlayer {
       this.uiDeps.lastVolumeBeforeMute = uiState.lastVolumeBeforeMute;
       this.uiDeps.minorTimeStep = uiState.minorTimeStep;
 
-      // Convert loopPoints (seconds) -> % for seek-bar visualisation
-      const durationSec = playbackState.duration;
-      if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
+      // Convert loopPoints (seconds) -> % for seek-bar visualisation (tempo-aware)
+      const st2 = this.visualizationEngine.getState();
+      const pr2 = st2.playbackRate ?? 100;
+      const speed2 = pr2 / 100;
+      const effectiveDuration2 = speed2 > 0 ? st2.duration / speed2 : st2.duration;
+      if (effectiveDuration2 > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps.loopPoints = {
-          a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
-          b: loopPoints.b !== null ? (loopPoints.b / durationSec) * 100 : null,
+          a: loopPoints.a !== null ? (loopPoints.a / effectiveDuration2) * 100 : null,
+          b: loopPoints.b !== null ? (loopPoints.b / effectiveDuration2) * 100 : null,
         };
       }
       this.uiDeps.seeking = uiState.seeking;
@@ -437,10 +471,22 @@ export class WaveRollPlayer {
         (deps as UIComponentDependencies & { loopPoints?: { a: number | null; b: number | null } | null }).loopPoints = lp;
 
         // Force a seek-bar refresh immediately for snappy feedback.
+        // Use absolute (full-length) policy and reflect tempo/rate changes
+        // by computing effective duration.
         const state = this.visualizationEngine.getState();
+        const pr = state.playbackRate ?? 100;
+        const speed = pr / 100;
+        const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+
+        // If loop A exists, snap seekbar preview to A for an instant visual anchor.
+        const startPct = lp?.a;
+        const startSec = startPct !== null && startPct !== undefined && effectiveDuration > 0
+          ? (startPct / 100) * effectiveDuration
+          : state.currentTime;
+
         deps.updateSeekBar?.({
-          currentTime: state.currentTime,
-          duration: state.duration,
+          currentTime: startSec,
+          duration: effectiveDuration,
         });
       }
     );
