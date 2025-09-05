@@ -568,9 +568,9 @@ export class WavPlayerManager {
   /**
    * Restart at position
    */
-  restartAtPosition(position: number): void {
+  restartAtPosition(position: number, startAt?: string | number): void {
     this.stopAllAudioPlayers();
-    this.startActiveAudioAt(position);
+    this.startActiveAudioAt(position, startAt ?? "+0");
   }
 
   /**

@@ -185,10 +185,8 @@ export class WaveRollPlayer {
       const deps = this.getUIDependencies();
       deps.updateSeekBar?.({ currentTime, duration });
       this.updateTimeDisplay(currentTime);
-
-      // NEW: keep piano-roll playhead in perfect sync with audio
-      const piano = this.visualizationEngine.getPianoRollInstance();
-      piano?.setTime(currentTime);
+      // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
+      // the piano-roll playhead on its own update loop.
     });
 
     this.pianoRollManager = createPianoRollManager();

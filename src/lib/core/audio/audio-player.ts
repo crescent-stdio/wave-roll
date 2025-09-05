@@ -101,21 +101,58 @@ export class AudioPlayer implements AudioPlayerContainer {
     this.isHandlingLoop = true;
     
     const visualStart = this.loopManager.handleLoopEvent();
+    
+    // Check if transport loop was triggered while we were stopped at the end
+    // This can happen when enabling loop after playback ended
+    const wasStoppedAtEnd = !this.state.isPlaying && 
+                            this.state.currentTime >= this.state.duration - 0.01;
+    
+    // Make sure we're marked as playing when loop restarts
+    if (!this.state.isPlaying) {
+      this.state.isPlaying = true;
+      this.transportSyncManager.startSyncScheduler();
+    }
+    
     this.transportSyncManager.handleTransportLoop(
       this.loopManager.loopStartVisual,
       this.loopManager.loopEndVisual
     );
 
-    // Cancel current Part events and restart immediately
-    // This is necessary because Part doesn't automatically loop with Transport
-    if (this.samplerManager.getPart()) {
-      this.samplerManager.getPart()?.cancel();
+    // Only restart Part if we're actually playing or if this was triggered from stopped state
+    // Don't restart if Part hasn't been set up yet
+    const part = this.samplerManager.getPart();
+    if (part && !wasStoppedAtEnd) {
+      try { part.stop(0); } catch {}
+      try { part.cancel(); } catch {}
       // Start Part again immediately at the loop start
-      this.samplerManager.getPart()?.start(0, 0);
+      try { part.start(0, 0); } catch {}
+    } else if (wasStoppedAtEnd) {
+      // If we were stopped at the end, reset position to start
+      this.playbackController.setPausedTime(0);
+      this.state.currentTime = 0;
+      this.pianoRoll.setTime(0);
+      
+      // Also reset Transport position
+      Tone.getTransport().seconds = 0;
+      
+      // Set up the Part properly but don't start it
+      this.samplerManager.setupNotePart(
+        this.loopManager.loopStartVisual,
+        this.loopManager.loopEndVisual,
+        {
+          repeat: this.options.repeat,
+          duration: this.state.duration,
+          tempo: this.state.tempo,
+          originalTempo: this.originalTempo,
+        }
+      );
+      // Mark as not playing since we're waiting for user action
+      this.state.isPlaying = false;
+      this.transportSyncManager.stopSyncScheduler();
     }
     
-    // Restart WAV players at the loop start position
-    if (this.wavPlayerManager.isAudioActive() && visualStart !== null) {
+    // Restart WAV players at the loop start position only if actually playing
+    if (this.wavPlayerManager.isAudioActive() && visualStart !== null && !wasStoppedAtEnd) {
       this.wavPlayerManager.restartAtPosition(visualStart);
     }
     
@@ -208,6 +245,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       loopManager: this.loopManager,
       originalTempo: this.originalTempo,
       options: this.options,
+      pianoRoll: this.pianoRoll,
       onVolumeChange: () => this.maybeAutoPauseIfSilent(),
     });
 
@@ -408,6 +446,13 @@ export class AudioPlayer implements AudioPlayerContainer {
           setTimeout(() => {
             this.samplerManager.retriggerHeldNotes(fileId, this.state.currentTime);
           }, 30);
+
+          // Ensure WAV playback for newly unmuted files starts at current position
+          try {
+            if (this.wavPlayerManager.isAudioActive()) {
+              this.wavPlayerManager.startActiveAudioAt(this.state.currentTime, "+0.01");
+            }
+          } catch {}
         }
       }
     }

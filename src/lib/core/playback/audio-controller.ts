@@ -179,9 +179,9 @@ export class AudioController {
   /**
    * Set A-B loop points
    */
-  public setLoopPoints(start: number | null, end: number | null): void {
+  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
     this.loopPoints = { a: start, b: end };
-    this.coreEngine.setLoopPoints(start, end);
+    this.coreEngine.setLoopPoints(start, end, preservePosition);
   }
 
   /**

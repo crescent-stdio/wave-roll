@@ -20,6 +20,7 @@ export interface AudioSettingsControllerDeps {
   loopManager: LoopManager;
   originalTempo: number;
   options: { volume?: number; repeat?: boolean };
+  pianoRoll: { setTime(time: number): void };
   onVolumeChange?: () => void;
 }
 
@@ -279,6 +280,9 @@ export class AudioSettingsController {
       const transportSeconds = transportSyncManager.visualToTransportTime(newPosition);
       transport.seconds = transportSeconds;
       state.currentTime = newPosition;
+      
+      // Update visual position immediately
+      this.deps.pianoRoll.setTime(newPosition);
 
       // Rebuild Part with new bounds
       samplerManager.setupNotePart(
@@ -296,7 +300,11 @@ export class AudioSettingsController {
       const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
       const startAt = Tone.now() + RESTART_DELAY;
       transport.start(startAt);
-      samplerManager.startPart(startAt, transportSeconds);
+      
+      // Calculate relative offset for Part (within loop window)
+      const relativeVisualOffset = loopManager.getPartOffset(newPosition, transportSeconds);
+      const relativeTransportOffset = transportSyncManager.visualToTransportTime(relativeVisualOffset);
+      samplerManager.startPart(startAt, relativeTransportOffset);
 
       if (wavPlayerManager.isAudioActive()) {
         wavPlayerManager.stopAllAudioPlayers();
@@ -316,6 +324,9 @@ export class AudioSettingsController {
         const transportSeconds = transportSyncManager.visualToTransportTime(newPosition);
         Tone.getTransport().seconds = transportSeconds;
         state.currentTime = newPosition;
+        
+        // Update visual position immediately
+        this.deps.pianoRoll.setTime(newPosition);
       }
     }
   }

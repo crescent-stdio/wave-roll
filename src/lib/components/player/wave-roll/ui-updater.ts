@@ -179,11 +179,13 @@ export class UIUpdater {
    * Update piano roll
    */
   private updatePianoRoll(): void {
-    const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
-    if (pianoRollInstance) {
-      pianoRollInstance.setTime(
-        this.visualizationEngine.getState().currentTime
-      );
+    // Avoid duplicate setTime during playback; Core engine drives playhead.
+    const state = this.visualizationEngine.getState();
+    if (!state?.isPlaying) {
+      const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
+      if (pianoRollInstance) {
+        pianoRollInstance.setTime(state?.currentTime ?? 0);
+      }
     }
   }
 
@@ -209,10 +211,13 @@ export class UIUpdater {
         duration: effectiveDuration,
       });
 
-      // Also ensure piano roll is synced
-      const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
-      if (pianoRollInstance) {
-        pianoRollInstance.setTime(state.currentTime);
+      // Also ensure piano roll is synced when paused; skip while playing to
+      // prevent redundant updates (Core engine already updates the playhead).
+      if (!state.isPlaying) {
+        const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
+        if (pianoRollInstance) {
+          pianoRollInstance.setTime(state.currentTime);
+        }
       }
     } else {
       // Fallback to existing logic if state is unavailable

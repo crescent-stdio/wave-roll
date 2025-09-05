@@ -341,9 +341,9 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     this.audioPlayer?.setTempo(clampedTempo);
   }
 
-  public setLoopPoints(start: number | null, end: number | null): void {
+  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
     this.loopPoints = { a: start, b: end };
-    this.audioPlayer?.setLoopPoints(start, end);
+    this.audioPlayer?.setLoopPoints(start, end, preservePosition);
 
     if (this.config.enableStateSync && this.stateManager) {
       this.stateManager.setLoopPoints(start, end);

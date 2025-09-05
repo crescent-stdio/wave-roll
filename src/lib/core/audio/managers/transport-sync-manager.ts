@@ -20,6 +20,7 @@ export class TransportSyncManager {
     lastUpdateTime: 0,
   };
   private pianoRoll: PianoRollSync;
+  private syncRafId: number | null = null;
   private syncScheduler: number | null = null;
   private _schedulerToken = 0;
   private _lastSeekTimestamp = 0;
@@ -210,7 +211,7 @@ export class TransportSyncManager {
         const effectiveDuration = this.getEffectiveDuration();
         const hasReachedEnd = !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
         if (this.state.isPlaying && token === this._schedulerToken && !hasReachedEnd) {
-          this.syncRafId = window.requestAnimationFrame(rafTick);
+          this.syncRafId = window.requestAnimationFrame(rafTick) as unknown as number;
         }
       };
       // Start immediately without delay
@@ -319,12 +320,7 @@ export class TransportSyncManager {
     const loopStart = Tone.getTransport().loopStart as number;
     const loopEnd = Tone.getTransport().loopEnd as number;
 
-    console.log("[Transport.loop] A-B loop started", {
-      loopStart: loopStart.toFixed(3),
-      loopEnd: loopEnd.toFixed(3),
-      visualStart: loopStartVisual,
-      visualEnd: loopEndVisual,
-    });
+    // Debug log suppressed to avoid main-thread jank during loop boundaries
 
     // Use immediate timing to ensure clean transition
     const visualStart =

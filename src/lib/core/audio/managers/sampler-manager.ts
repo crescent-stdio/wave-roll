@@ -151,9 +151,12 @@ export class SamplerManager {
     }
     
     this.part = new Tone.Part(callback as any, events as any);
-    // Enable Part loop to match Transport loop for seamless playback
-    // When Transport loops, Part will also loop automatically
-    this.part.loop = options?.repeat || false;
+    // Important: do NOT enable Part.loop. We explicitly handle Transport
+    // loop events in AudioPlayer.handleTransportLoop() by cancelling and
+    // restarting the Part at the loop start. Enabling Part.loop here would
+    // cause double scheduling (Partʼs own loop + manual restart) and yield
+    // “중복 재생(겹쳐 들림)” 현상.
+    this.part.loop = false;
     this.part.loopStart = 0;
     this.part.loopEnd = options?.duration || 0;
     // Add slight humanization to reduce mechanical sound
@@ -379,14 +382,31 @@ export class SamplerManager {
    * Start the part at specified offset
    */
   startPart(time: string | number, offset?: number): void {
-    if (this.part) {
-      // Ensure the part is completely stopped before starting
+    if (!this.part) {
+      console.warn("[SamplerManager] No Part to start");
+      return;
+    }
+    
+    // Check Part state to prevent duplicate starts
+    const partState = (this.part as any).state;
+    if (partState === "started") {
+      console.warn("[SamplerManager] Part already started, stopping first");
       this.part.stop(0);
-      this.part.cancel();
-      
-      // Start part with a safe non-negative offset (avoid tiny negative epsilons)
-      const off = typeof offset === 'number' && Number.isFinite(offset) ? Math.max(0, offset) : 0;
+      this.part.cancel(0);
+    }
+    
+    // Ensure the part is completely stopped before starting
+    this.part.stop(0);
+    this.part.cancel(0);
+    
+    // Start part with a safe non-negative offset (avoid tiny negative epsilons)
+    const off = typeof offset === 'number' && Number.isFinite(offset) ? Math.max(0, offset) : 0;
+    
+    try {
       (this.part as Tone.Part).start(time, off);
+      console.log("[SamplerManager] Part started", { time, offset: off });
+    } catch (e) {
+      console.error("[SamplerManager] Failed to start Part:", e);
     }
   }
 

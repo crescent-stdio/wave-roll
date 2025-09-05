@@ -58,9 +58,12 @@ export class PlaybackController {
       }
 
       // Handle play-after-end: rewind to start (0) and start playback
-      if (state.currentTime >= state.duration - 0.001 && !state.isRepeating) {
+      // Also handle case where we're at the end and repeating is on
+      if (state.currentTime >= state.duration - 0.001) {
         this.pausedTime = 0;
         state.currentTime = 0;
+        // Update visual immediately
+        this.deps.pianoRoll.setTime(0);
       }
 
       // Setup transport and parts
@@ -270,16 +273,40 @@ export class PlaybackController {
    * Enable or disable repeat mode
    */
   toggleRepeat(enabled: boolean): void {
-    const { state, loopManager } = this.deps;
+    const { state, loopManager, transportSyncManager, samplerManager, wavPlayerManager } = this.deps;
     
     state.isRepeating = enabled;
     this.deps.options.repeat = enabled;
     
+    // Check if we're at the end and enabling loop
+    const isAtEnd = state.currentTime >= state.duration - 0.01;
+    const transportState = Tone.getTransport().state;
+    const transportIsPlaying = transportState === "started";
+    
+    // Configure transport loop (this may trigger loop event if transport is running)
     loopManager.configureTransportLoop(
       enabled,
       state,
       state.duration
     );
+    
+    // Only manually restart if:
+    // 1. We're enabling loop
+    // 2. We're at the end
+    // 3. Transport is NOT already playing (to avoid duplicate start)
+    if (enabled && isAtEnd && !transportIsPlaying) {
+      // Reset position to start
+      this.pausedTime = 0;
+      state.currentTime = 0;
+      this.deps.pianoRoll.setTime(0);
+      
+      // Clear any previous Part
+      samplerManager.stopPart();
+      
+      // Don't call play() here - let the user press play or space bar
+      // This avoids the duplicate Part issue
+      state.isPlaying = false;
+    }
   }
 
   /**

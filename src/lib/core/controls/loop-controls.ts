@@ -122,11 +122,13 @@ export function createCoreLoopControls(
     if (isLoopRestartActive) {
       // Apply loop points immediately
       if (pointA !== null || pointB !== null) {
-        audioPlayer?.setLoopPoints(pointA, pointB);
+        // When activating loop, always start from A point
+        audioPlayer?.setLoopPoints(pointA, pointB, false); // preservePosition=false to jump to start
       }
-      // Seek & play from start point
+      // Always seek to start point when enabling loop
       const startPoint = pointA ?? 0;
       audioPlayer?.seek(startPoint);
+      // Start playing if not already playing
       if (!audioPlayer?.getState().isPlaying) {
         audioPlayer?.play();
       }
@@ -237,15 +239,19 @@ export function createCoreLoopControls(
       loopInfo.b =
         clampedEnd !== null ? (clampedEnd / state.duration) * 100 : null;
 
-      if (isLoopRestartActive) audioPlayer?.setLoopPoints(start, clampedEnd);
+      // Preserve position when updating loop points during playback
+      const isPlaying = audioPlayer?.getState()?.isPlaying || false;
+      if (isLoopRestartActive) audioPlayer?.setLoopPoints(start, clampedEnd, isPlaying);
       pianoRoll?.setLoopWindow?.(start, clampedEnd);
     } else if (pointB !== null) {
       const clampedB = Math.min(pointB, state.duration);
       loopInfo.b = (clampedB / state.duration) * 100;
-      if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, clampedB);
+      const isPlaying = audioPlayer?.getState()?.isPlaying || false;
+      if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, clampedB, isPlaying);
       pianoRoll?.setLoopWindow?.(null, clampedB);
     } else {
-      if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, null);
+      const isPlaying = audioPlayer?.getState()?.isPlaying || false;
+      if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, null, isPlaying);
       pianoRoll?.setLoopWindow?.(null, null);
     }
 
