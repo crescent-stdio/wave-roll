@@ -80,6 +80,18 @@ export class KeyboardHandler {
         this.isTogglingPlayback = false;
       }, 100);
     } else {
+      // Check buffer status before attempting to play
+      const wavPlayerManager = (audioPlayer as any).wavPlayerManager;
+      if (wavPlayerManager && typeof wavPlayerManager.areAllBuffersReady === 'function') {
+        const buffersReady = wavPlayerManager.areAllBuffersReady();
+        if (!buffersReady) {
+          console.log("[KeyboardHandler] Audio buffers are not ready yet. Please wait...");
+          // Optional: Show a toast or notification to user
+          this.isTogglingPlayback = false;
+          return;
+        }
+      }
+
       // Currently paused -> play via space-bar
       const waitUntil = async (pred: () => boolean, toMs = 2000, step = 50) => {
         const start = Date.now();

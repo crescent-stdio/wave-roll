@@ -47,6 +47,9 @@ export class PlaybackController {
     try {
       const { state, samplerManager, wavPlayerManager, transportSyncManager, loopManager } = this.deps;
 
+      // Ensure WavPlayerManager has reference to TransportSyncManager
+      wavPlayerManager.setTransportSyncManager(transportSyncManager);
+
       if (state.isPlaying) {
         console.log("[PlaybackController.play] Already playing");
         return;
@@ -83,31 +86,34 @@ export class PlaybackController {
         }
       );
 
-      // CRITICAL: Ensure ALL WAV buffers are fully loaded before starting
-      if (wavPlayerManager.isAudioActive()) {
-        console.log("[PlaybackController] Waiting for WAV buffers to load...");
-        await wavPlayerManager.waitForAllBuffersReady();
-        console.log("[PlaybackController] All WAV buffers ready");
-      }
+      // Compute offsets ONCE using the same logic for both MIDI and WAV
+      const visualAtStart = transportSyncManager.transportToVisualTime(this.pausedTime);
+      const relativeVisualOffset = loopManager.getPartOffset(visualAtStart, this.pausedTime);
+      const relativeTransportOffset = transportSyncManager.visualToTransportTime(relativeVisualOffset);
+
+      console.log("[PlaybackController] Calculated offsets:", {
+        pausedTime: this.pausedTime,
+        visualAtStart,
+        relativeVisualOffset,
+        relativeTransportOffset
+      });
 
       // Use a single unified start time for perfect synchronization
       const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
       
+      console.log("[PlaybackController] Starting synchronized playback at", startAt);
+      
       // Start transport
       transport.start(startAt);
       
-      // Compute part offset relative to current loop window (visual -> transport)
-      const visualAtStart = transportSyncManager.transportToVisualTime(this.pausedTime);
-      const relativeVisualOffset = loopManager.getPartOffset(visualAtStart, this.pausedTime);
-      const relativeTransportOffset = transportSyncManager.visualToTransportTime(relativeVisualOffset);
-      
-      // Start MIDI part at exactly the same time as transport
+      // Start MIDI part with computed offset
       samplerManager.startPart(startAt, relativeTransportOffset);
 
-      // Start WAV audio at exactly the same time using synchronized method
+      // Start WAV audio with SAME relative visual offset (unified calculation)
+      // Remove buffer waiting - let Tone.Player handle buffer management internally
       if (wavPlayerManager.isAudioActive()) {
-        const visualOffset = transportSyncManager.transportToVisualTime(this.pausedTime);
-        wavPlayerManager.startActiveAudioAtSync(visualOffset, startAt);
+        console.log("[PlaybackController] Starting WAV immediately with unified offset");
+        wavPlayerManager.startActiveAudioAtSync(relativeVisualOffset, startAt);
       }
 
       state.isPlaying = true;
