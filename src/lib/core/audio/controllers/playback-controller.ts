@@ -83,19 +83,31 @@ export class PlaybackController {
         }
       );
 
-      // Start transport and part at an absolute AudioContext time
+      // CRITICAL: Ensure ALL WAV buffers are fully loaded before starting
+      if (wavPlayerManager.isAudioActive()) {
+        console.log("[PlaybackController] Waiting for WAV buffers to load...");
+        await wavPlayerManager.waitForAllBuffersReady();
+        console.log("[PlaybackController] All WAV buffers ready");
+      }
+
+      // Use a single unified start time for perfect synchronization
       const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
+      
+      // Start transport
       transport.start(startAt);
+      
       // Compute part offset relative to current loop window (visual -> transport)
       const visualAtStart = transportSyncManager.transportToVisualTime(this.pausedTime);
       const relativeVisualOffset = loopManager.getPartOffset(visualAtStart, this.pausedTime);
       const relativeTransportOffset = transportSyncManager.visualToTransportTime(relativeVisualOffset);
+      
+      // Start MIDI part at exactly the same time as transport
       samplerManager.startPart(startAt, relativeTransportOffset);
 
-      // Start external audio if needed
+      // Start WAV audio at exactly the same time using synchronized method
       if (wavPlayerManager.isAudioActive()) {
         const visualOffset = transportSyncManager.transportToVisualTime(this.pausedTime);
-        wavPlayerManager.startActiveAudioAt(visualOffset, "+0.01");
+        wavPlayerManager.startActiveAudioAtSync(visualOffset, startAt);
       }
 
       state.isPlaying = true;
@@ -204,9 +216,17 @@ export class PlaybackController {
     operationState.pendingSeek = null;
     operationState.isSeeking = true;
 
-    // Read transport state
-    const wasPlaying = Tone.getTransport().state === "started";
-    state.isPlaying = wasPlaying;
+    // Use high-level engine state rather than Transport state.
+    // Users may trigger a second seek during the short window where we stop
+    // and reschedule Transport; relying on Transport.state would incorrectly
+    // treat the player as paused and skip the restart. The engine-level
+    // state.isPlaying faithfully represents the intended mode.
+    const wasPlaying = state.isPlaying;
+    console.log("[PlaybackController.seek] request", {
+      seconds,
+      wasPlaying,
+      midiDuration: state.duration,
+    });
 
     // Clamp and convert time against max(MIDI, WAV) so WAV tails are seekable
     let maxWav = 0;
@@ -217,22 +237,30 @@ export class PlaybackController {
       maxWav = ds.length > 0 ? Math.max(...ds) : 0;
     } catch {}
     const maxVisual = Math.max(state.duration, maxWav);
-    const clampedVisual = clamp(seconds, 0, maxVisual);
-    const transportSeconds = transportSyncManager.visualToTransportTime(clampedVisual);
+    const requestedVisual = clamp(seconds, 0, maxVisual);
+    const transportSeconds = transportSyncManager.visualToTransportTime(requestedVisual);
+    console.log("[PlaybackController.seek] computed", {
+      maxWav,
+      maxVisual,
+      requestedVisual,
+      transportSeconds,
+    });
 
     // Update state immediately for responsiveness
-    state.currentTime = clampedVisual;
+    state.currentTime = requestedVisual; // keep UI aligned with requested time
     this.pausedTime = transportSeconds;
 
     // Update visual immediately to reduce perceived lag (centralized path)
     if (updateVisual) {
-      if (this.deps.uiSync) this.deps.uiSync(clampedVisual, true);
-      else pianoRoll.setTime(clampedVisual);
+      if (this.deps.uiSync) this.deps.uiSync(requestedVisual, true);
+      else pianoRoll.setTime(requestedVisual);
+      console.log("[PlaybackController.seek] UI sync", { requestedVisual });
     }
 
     if (wasPlaying) {
       // Stop sync first but don't wait
       transportSyncManager.stopSyncScheduler();
+      console.log("[PlaybackController.seek] restarting transport/part");
       
       // Batch all stop operations
       samplerManager.stopPart();
@@ -242,6 +270,7 @@ export class PlaybackController {
       transport.stop();
       transport.cancel();
       transport.seconds = transportSeconds;
+      console.log("[PlaybackController.seek] transport positioned", { transportSeconds });
 
       // Re-setup Part
       samplerManager.setupNotePart(
@@ -254,25 +283,44 @@ export class PlaybackController {
           originalTempo: this.deps.originalTempo,
         }
       );
+      console.log("[PlaybackController.seek] part setup", {
+        loopStartVisual: loopManager.loopStartVisual,
+        loopEndVisual: loopManager.loopEndVisual,
+      });
 
       // Start transport and part (use loop-relative offset for Part)
-      const startAt2 = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
+      const hasUnloadedWav2 = wavPlayerManager.hasActiveUnloadedPlayers?.() === true;
+      const extra2 = hasUnloadedWav2 ? 0.35 : AUDIO_CONSTANTS.LOOKAHEAD_TIME;
+      const startAt2 = Tone.now() + extra2;
       transport.start(startAt2);
-      const relVisual = loopManager.getPartOffset(clampedVisual, transportSeconds);
+      // Ensure MIDI Part offset stays within MIDI duration to avoid silent starts
+      const midiDur = Math.max(0, state.duration || 0);
+      const safeVisualForPart = midiDur > 0
+        ? Math.min(requestedVisual, Math.max(0, midiDur - 0.001))
+        : 0;
+      const relVisual = loopManager.getPartOffset(safeVisualForPart, transportSeconds);
       const relTransport = transportSyncManager.visualToTransportTime(relVisual);
       samplerManager.startPart(startAt2, relTransport);
+      console.log("[PlaybackController.seek] start", {
+        startAt: startAt2,
+        safeVisualForPart,
+        relVisual,
+        relTransport,
+      });
 
       // Restart Sync
       state.isPlaying = true;
       transportSyncManager.startSyncScheduler();
 
-      // Start external audio
+      // Start external audio at the same absolute time as Transport/Part
       if (wavPlayerManager.isAudioActive()) {
         wavPlayerManager.stopAllAudioPlayers();
-        wavPlayerManager.startActiveAudioAt(clampedVisual, "+0.01");
+        wavPlayerManager.startActiveAudioAt(requestedVisual, startAt2);
+        console.log("[PlaybackController.seek] wav restart", { requestedVisual, startAt: startAt2 });
       }
     } else {
       Tone.getTransport().seconds = transportSeconds;
+      console.log("[PlaybackController.seek] paused seek", { transportSeconds });
     }
 
     // Clear seeking flag

@@ -38,9 +38,9 @@ export interface AudioPlayerState {
   isPlaying: boolean;
   /** Whether repeat mode is enabled */
   isRepeating: boolean;
-  /** Current playback position in seconds */
+  /** Current playback position in seconds (unified time reference) */
   currentTime: number;
-  /** Total duration in seconds */
+  /** Total duration in seconds (affected by tempo) */
   duration: number;
   /** Current volume level 0-1 */
   volume: number;
@@ -52,6 +52,20 @@ export interface AudioPlayerState {
   pan: number;
   /** Current playback rate as percentage (10-200, 100 = normal speed) */
   playbackRate?: number;
+  
+  // New unified state management fields
+  /** Master volume for all audio sources */
+  masterVolume: number;
+  /** Loop mode configuration */
+  loopMode: 'off' | 'all' | 'ab';
+  /** AB loop start marker in seconds */
+  markerA: number | null;
+  /** AB loop end marker in seconds */
+  markerB: number | null;
+  /** Unified current time for all sources (real-time playback position) */
+  nowTime: number;
+  /** Total time accounting for tempo changes */
+  totalTime: number;
 }
 
 /**

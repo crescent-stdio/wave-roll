@@ -11,6 +11,7 @@ import { toDb, fromDb, clamp01, isSilentDb, mixLinear } from "../utils";
 
 export interface SamplerTrack {
   sampler: Tone.Sampler;
+  delay: Tone.Delay | null;
   panner: Tone.Panner;
   muted: boolean;
 }
@@ -28,6 +29,8 @@ export class SamplerManager {
   private notes: NoteData[];
   /** MIDI manager reference */
   private midiManager: any;
+  /** Alignment delay in seconds to compensate downstream (e.g., WAV PitchShift) latency */
+  private alignmentDelaySec: number = 0;
   
   constructor(notes: NoteData[], midiManager?: any) {
     this.notes = notes;
@@ -139,7 +142,7 @@ export class SamplerManager {
   /** Build Tone.Part from events and callback, configure loop settings. */
   private buildPart<T extends { time: number }>(
     events: T[],
-    options: { repeat?: boolean; duration?: number } | undefined,
+    options: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number } | undefined,
     callback: (time: number, event: T) => void
   ): void {
     // Dispose of existing part to prevent memory leak and double triggering
@@ -158,7 +161,13 @@ export class SamplerManager {
     // double playback (audible overlap).
     this.part.loop = false;
     this.part.loopStart = 0;
-    this.part.loopEnd = options?.duration || 0;
+    // Align loopEnd with the same time space as event.time (transport seconds).
+    // When tempo != originalTempo, convert visual duration to transport duration.
+    const durVisual = options?.duration || 0;
+    const tempo = options?.tempo;
+    const original = options?.originalTempo;
+    const scale = original && tempo ? original / tempo : 1;
+    this.part.loopEnd = durVisual * scale;
     // Add slight humanization to reduce mechanical sound
     this.part.humanize = 0.005; // 5ms humanization
     // Ensure all notes play (no probability dropping)
@@ -212,6 +221,8 @@ export class SamplerManager {
     fileNotes.forEach((_notes, fid) => {
       if (!this.trackSamplers.has(fid)) {
         const panner = new Tone.Panner(0).toDestination();
+        // Optional alignment delay node between sampler and panner
+        const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
         const sampler = new Tone.Sampler({
           urls: DEFAULT_SAMPLE_MAP,
           baseUrl:
@@ -223,7 +234,8 @@ export class SamplerManager {
           onerror: (error: Error) => {
             console.error(`Failed to load sampler for file ${fid}:`, error);
           },
-        }).connect(panner);
+        }).connect(delay ? delay : panner);
+        if (delay) delay.connect(panner);
 
         // Initialize volume
         const currentVolume = options.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME;
@@ -239,7 +251,7 @@ export class SamplerManager {
           }
         }
 
-        this.trackSamplers.set(fid, { sampler, panner, muted: initialMuted });
+        this.trackSamplers.set(fid, { sampler, delay, panner, muted: initialMuted });
       }
     });
 
@@ -251,11 +263,13 @@ export class SamplerManager {
    */
   private async setupLegacySampler(options: { soundFont?: string; volume?: number }): Promise<void> {
     this.panner = new Tone.Panner(0).toDestination();
+    const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
     this.sampler = new Tone.Sampler({
       urls: DEFAULT_SAMPLE_MAP,
       baseUrl:
         options.soundFont || "https://tonejs.github.io/audio/salamander/",
-    }).connect(this.panner);
+    }).connect(delay ? delay : this.panner);
+    if (delay) delay.connect(this.panner);
 
     // Set initial volume
     const currentVolume = options.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME;
@@ -337,7 +351,16 @@ export class SamplerManager {
         }
       }
     };
-    this.buildPart(events, { repeat: options?.repeat, duration: options?.duration }, callback);
+    this.buildPart(
+      events,
+      {
+        repeat: options?.repeat,
+        duration: options?.duration,
+        tempo: options?.tempo,
+        originalTempo: options?.originalTempo,
+      },
+      callback
+    );
   }
 
   private setupLegacyPart(
@@ -375,7 +398,16 @@ export class SamplerManager {
         );
       }
     };
-    this.buildPart(events, { repeat: options?.repeat, duration: options?.duration }, callback);
+    this.buildPart(
+      events,
+      {
+        repeat: options?.repeat,
+        duration: options?.duration,
+        tempo: options?.tempo,
+        originalTempo: options?.originalTempo,
+      },
+      callback
+    );
   }
 
   /**
@@ -466,6 +498,39 @@ export class SamplerManager {
     this.trackSamplers.forEach(({ panner }) => {
       this.applyPannerPan(panner, pan);
     });
+  }
+
+  /**
+   * Set alignment delay in seconds for all sampler outputs (compensate external FX latency).
+   */
+  setAlignmentDelaySec(delaySec: number): void {
+    const d = Math.max(0, delaySec || 0);
+    this.alignmentDelaySec = d;
+    // Update existing tracks
+    this.trackSamplers.forEach((track) => {
+      if (!track.delay && d > 0) {
+        // Insert delay node dynamically
+        try {
+          const newDelay = new Tone.Delay(d);
+          track.sampler.disconnect();
+          track.sampler.connect(newDelay);
+          newDelay.connect(track.panner);
+          track.delay = newDelay;
+        } catch {}
+      } else if (track.delay && d === 0) {
+        try {
+          track.sampler.disconnect();
+          track.delay.disconnect();
+          track.delay.dispose();
+          track.delay = null;
+          track.sampler.connect(track.panner);
+        } catch {}
+      } else if (track.delay) {
+        try { track.delay.delayTime.value = d; } catch {}
+      }
+    });
+    // Legacy sampler path: cannot easily rewire if already connected; best-effort
+    // (We keep legacy path minimal as multi-track is preferred.)
   }
 
   /**

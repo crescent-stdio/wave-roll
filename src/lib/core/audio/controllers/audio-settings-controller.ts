@@ -76,6 +76,9 @@ export class AudioSettingsController {
     // Keep playbackRate in sync with tempo relative to originalTempo
     const ratePct = (clampedTempo / originalTempo) * 100;
     state.playbackRate = ratePct;
+    
+    // Update totalTime based on tempo change
+    state.totalTime = state.duration * (originalTempo / clampedTempo);
 
     if (state.isPlaying) {
       // Ensure AudioContext is running (safety in browsers)
@@ -127,11 +130,11 @@ export class AudioSettingsController {
       }
       samplerManager.startPart(startAt, newTransportSeconds);
 
-      // WAV speed + start
+      // WAV speed + start using synchronized method
       try { wavPlayerManager.setPlaybackRate(ratePct); } catch {}
       try {
         wavPlayerManager.stopAllAudioPlayers();
-        wavPlayerManager.startActiveAudioAt(currentVisualTime, startAt);
+        wavPlayerManager.startActiveAudioAtSync(currentVisualTime, startAt);
       } catch {}
 
       state.isPlaying = true;

@@ -121,6 +121,7 @@ export class TransportSyncManager {
       if (visualTime >= this.state.currentTime - TOLERANCE_SEC) {
         // Update state and visual only if not stale
         this.state.currentTime = visualTime;
+        this.state.nowTime = visualTime; // Update unified time reference
         this.pianoRoll.setTime(visualTime);
       }
     }
@@ -165,6 +166,7 @@ export class TransportSyncManager {
         
         // Update state and visual one last time at exact duration
         this.state.currentTime = visualTime;
+        this.state.nowTime = visualTime; // Update unified time reference
         this.pianoRoll.setTime(visualTime);
         
         // Mark as not playing and stop the scheduler immediately to prevent further updates
@@ -191,8 +193,9 @@ export class TransportSyncManager {
         visualTime = effectiveDuration;
       }
       
-      // Sync internal state and visual playhead
+      // Sync internal state and visual playhead with unified time
       this.state.currentTime = visualTime;
+      this.state.nowTime = visualTime; // Update unified time reference
       this.pianoRoll.setTime(visualTime);
       
       // Performance monitoring end

@@ -59,23 +59,47 @@ export function createTempoControlUI(
     input.style.background = "rgba(37, 99, 235, 0.10)";
   });
 
-  // Playback speed control logic
-  input.addEventListener("input", () => {
+  // Helper to apply playback rate safely
+  const applyRate = (rate: number) => {
+    const r = Math.max(10, Math.min(200, Math.round(rate)));
+    input.value = String(r);
+    dependencies.audioPlayer?.setPlaybackRate(r);
+    const state = dependencies.audioPlayer?.getState();
+    if (state && dependencies.updateSeekBar) {
+      dependencies.updateSeekBar({ currentTime: state.currentTime, duration: state.duration });
+    }
+  };
+
+  // Apply on change (avoid partial 2 → 20 → 200 while typing)
+  input.addEventListener("change", () => {
     const rate = parseFloat(input.value);
-    if (!isNaN(rate) && rate >= 10 && rate <= 200) {
-      dependencies.audioPlayer?.setPlaybackRate(rate);
-      // Force immediate UI update
-      // Get fresh state after rate change
-      const state = dependencies.audioPlayer?.getState();
-      if (state && dependencies.updateSeekBar) {
-        // Update seek bar with minimal, typed payload
-        dependencies.updateSeekBar({
-          currentTime: state.currentTime,
-          duration: state.duration,
-        });
-      }
+    if (!isNaN(rate)) applyRate(rate);
+  });
+  // Apply on Enter
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const rate = parseFloat(input.value);
+      if (!isNaN(rate)) applyRate(rate);
+      input.blur();
     }
   });
+
+  // Adjust tempo button: prompt to enter percentage (10-200)
+  const adjustBtn = document.createElement("button");
+  adjustBtn.textContent = "Adjust tempo";
+  adjustBtn.title = "Set playback speed (10-200%)";
+  adjustBtn.style.cssText = `
+    height: 28px; padding: 0 8px; border: none; border-radius: 6px;
+    background: rgba(0,0,0,0.06); color: var(--text-primary); cursor: pointer; font-size: 12px; font-weight: 700;
+  `;
+  adjustBtn.onclick = () => {
+    const current = parseFloat(input.value) || 100;
+    const ans = window.prompt("Playback speed (10-200%)", String(current));
+    if (ans !== null) {
+      const val = Number(ans);
+      if (!isNaN(val)) applyRate(val);
+    }
+  };
 
   // Initialize with current playback rate if available
   const currentState = dependencies.audioPlayer?.getState();
@@ -85,6 +109,7 @@ export function createTempoControlUI(
 
   container.appendChild(input);
   container.appendChild(label);
+  container.appendChild(adjustBtn);
 
   return container;
 }

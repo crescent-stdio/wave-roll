@@ -56,11 +56,20 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
           // No-op, keep disabled
           return;
         }
-        // Enabling: apply loop to engine, jump to A
+        // Enable repeat mode and apply loop to engine (jump to A)
+        try { audioPlayer.toggleRepeat?.(true); } catch {}
         applyLoopToEngine(true);
+        // Ensure we are in playing mode after jumping to A
+        try {
+          const st = audioPlayer.getState?.();
+          if (!st?.isPlaying) {
+            void audioPlayer.play?.();
+          }
+        } catch {}
         loopRestart = true;
       } else {
-        // Disabling: clear engine loop, keep position
+        // Disabling: clear engine loop, keep position; also turn off repeat
+        try { audioPlayer.toggleRepeat?.(false); } catch {}
         applyLoopToEngine(false);
         loopRestart = false;
       }

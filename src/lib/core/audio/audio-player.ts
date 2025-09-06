@@ -160,8 +160,8 @@ export class AudioPlayer implements AudioPlayerContainer {
     if (!wasStoppedAtEnd) {
       // Stop current part safely
       this.samplerManager.stopPart();
-      
-      // Re-setup and start Part at loop start
+
+      // Re-setup Part at loop window
       this.samplerManager.setupNotePart(
         this.loopManager.loopStartVisual,
         this.loopManager.loopEndVisual,
@@ -172,9 +172,14 @@ export class AudioPlayer implements AudioPlayerContainer {
           originalTempo: this.originalTempo,
         }
       );
-      
-      // Start Part immediately at the loop start
-      this.samplerManager.startPart(0, 0);
+
+      // Start both Part and WAV at the same absolute time for tight alignment
+      const startAt = Tone.now() + 0.02;
+      this.samplerManager.startPart(startAt, 0);
+
+      if (this.wavPlayerManager.isAudioActive() && visualStart !== null) {
+        this.wavPlayerManager.restartAtPosition(visualStart, startAt);
+      }
     } else if (wasStoppedAtEnd) {
       // If we were stopped at the end, reset position to start
       this.playbackController.setPausedTime(0);
@@ -238,7 +243,7 @@ export class AudioPlayer implements AudioPlayerContainer {
       ? Math.max(...notes.map(n => n.time + n.duration))
       : 0;
 
-    // Initialize state
+    // Initialize state with new unified fields
     this.originalTempo = this.options.tempo;
     this.state = {
       isPlaying: false,
@@ -250,6 +255,13 @@ export class AudioPlayer implements AudioPlayerContainer {
       originalTempo: this.originalTempo,
       pan: 0,
       playbackRate: 100,
+      // New unified state management fields
+      masterVolume: this.options.volume ?? 0.7,
+      loopMode: 'off' as const,
+      markerA: null,
+      markerB: null,
+      nowTime: 0,
+      totalTime: duration,
     };
 
     // Initialize managers
@@ -314,6 +326,8 @@ export class AudioPlayer implements AudioPlayerContainer {
 
     // Initialize audio system (defer play/seek until ready)
     this.initPromise = this.initialize();
+
+    // No static alignment delay by default; we keep both paths tight via absolute-time scheduling.
   }
 
   private async initialize(): Promise<void> {
@@ -496,12 +510,14 @@ export class AudioPlayer implements AudioPlayerContainer {
             );
             const relativeOffset = this.loopManager.getPartOffset(visualPosition, transportSeconds);
             const relativeTransportOffset = this.transportSyncManager.visualToTransportTime(relativeOffset);
-            this.samplerManager.startPart("+0.01", relativeTransportOffset);
+            const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
+            this.samplerManager.startPart(startAt, relativeTransportOffset);
             
             // Restart WAV players at the same position
             if (this.wavPlayerManager.isAudioActive()) {
               this.wavPlayerManager.stopAllAudioPlayers();
-              this.wavPlayerManager.startActiveAudioAt(visualPosition, "+0.01");
+              const startAtAbs = startAt;
+              this.wavPlayerManager.startActiveAudioAt(visualPosition, startAtAbs);
             }
           } catch (e) {
             console.error("[setFileMute] Error syncing after auto-resume:", e);
@@ -515,7 +531,8 @@ export class AudioPlayer implements AudioPlayerContainer {
           // Ensure WAV playback for newly unmuted files starts at current position
           try {
             if (this.wavPlayerManager.isAudioActive()) {
-              this.wavPlayerManager.startActiveAudioAt(this.state.currentTime, "+0.01");
+              const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
+              this.wavPlayerManager.startActiveAudioAt(this.state.currentTime, startAt);
             }
           } catch {}
         }
@@ -621,8 +638,9 @@ export class AudioPlayer implements AudioPlayerContainer {
         // Refresh WAV player positions to match current transport position
         if (this.wavPlayerManager.isAudioActive()) {
           const currentVisual = this.state.currentTime;
+          const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
           this.wavPlayerManager.stopAllAudioPlayers();
-          this.wavPlayerManager.startActiveAudioAt(currentVisual, "+0.01");
+          this.wavPlayerManager.startActiveAudioAt(currentVisual, startAt);
         }
       }, 50);
     }

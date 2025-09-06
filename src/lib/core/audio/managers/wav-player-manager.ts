@@ -1,6 +1,7 @@
 /**
  * WAV Player Manager
- * Handles external audio file (WAV/MP3) playback using Tone.js GrainPlayer
+ * Handles external audio file (WAV/MP3) playback using Tone.Player + PitchShift
+ * to preserve pitch while changing playback rate.
  */
 
 import * as Tone from "tone";
@@ -9,7 +10,8 @@ import { clamp } from "../../utils";
 import { toDb, fromDb, isSilentDb, clamp01, effectiveVolume, mixLinear } from "../utils";
 
 export interface AudioPlayerEntry {
-  player: Tone.GrainPlayer;
+  player: Tone.Player;
+  pitch: Tone.PitchShift;
   panner: Tone.Panner;
   url: string;
   muted?: boolean;
@@ -58,18 +60,18 @@ export class WavPlayerManager {
         if (!this.audioPlayers.has(it.id)) {
           try {
             const panner = new Tone.Panner(it.pan ?? 0).toDestination();
+            const pitch = new Tone.PitchShift(0).connect(panner);
 
             // Create player with error handling
-            const player = new Tone.GrainPlayer({
+            const player = new Tone.Player({
               url: it.url,
               onload: () => {
                 console.debug(`Audio buffer loaded for ${it.id}`);
               },
               onerror: (error: Error) => {
-                // Some audio formats may not be supported - this is not critical
                 console.warn(
                   `Audio file could not be loaded for ${it.id}:`,
-                  error.message
+                  (error as Error).message
                 );
                 // Clean up on error
                 setTimeout(() => {
@@ -83,20 +85,16 @@ export class WavPlayerManager {
                           entry.scheduledTimer = null;
                         }
                       } catch {}
-                      entry.player.dispose();
-                      entry.panner.dispose();
+                      try { entry.player.dispose(); } catch {}
+                      try { entry.pitch.dispose(); } catch {}
+                      try { entry.panner.dispose(); } catch {}
                       this.audioPlayers.delete(it.id);
                     }
                   }
                 }, 100);
               },
-            }).connect(panner);
+            }).connect(pitch);
 
-            // Optimize grain player settings for smoother, pitch-preserving time-stretch
-            // GrainPlayer supports rate changes without shifting pitch; adjust grains per speed
-            player.detune = 0; // Explicitly avoid pitch shifting
-            const speedInit = (state?.playbackRate ?? AUDIO_CONSTANTS.DEFAULT_PLAYBACK_RATE) / 100;
-            this.applyGrainParams(player, speedInit);
             player.loop = false; // No looping at player level
             // Apply mute state to WAV player volume
             const volumeValue = effectiveVolume(
@@ -104,11 +102,16 @@ export class WavPlayerManager {
               it.isMuted
             );
             player.volume.value = toDb(volumeValue);
-            // Apply current playback rate if set
-            if (state?.playbackRate) {
-              player.playbackRate = state.playbackRate / 100;
-            }
-            this.audioPlayers.set(it.id, { player, panner, url: it.url, startToken: 0, scheduledTimer: null });
+            // Apply current playback rate + pitch compensation
+            const ratePct = state?.playbackRate ?? AUDIO_CONSTANTS.DEFAULT_PLAYBACK_RATE;
+            const speed = Math.max(0.1, ratePct / 100);
+            player.playbackRate = speed;
+            try {
+              const semitones = -12 * Math.log2(speed);
+              pitch.pitch = isFinite(semitones) ? semitones : 0;
+              (pitch as any).windowSize = (pitch as any).windowSize ?? 0.06;
+            } catch {}
+            this.audioPlayers.set(it.id, { player, pitch, panner, url: it.url, startToken: 0, scheduledTimer: null });
           } catch (error) {
             console.error(`Failed to create audio player for ${it.id}:`, error);
           }
@@ -124,17 +127,17 @@ export class WavPlayerManager {
           entry.player.volume.value = toDb(volumeValue);
 
           if (entry.url !== it.url) {
-            entry.player.dispose();
+            try { entry.player.dispose(); } catch {}
             entry.url = it.url;
-            entry.player = new Tone.GrainPlayer(it.url, () => {
-              // Buffer loaded callback
-            }).connect(entry.panner);
-            this.applyGrainParams(entry.player, (state?.playbackRate ?? AUDIO_CONSTANTS.DEFAULT_PLAYBACK_RATE) / 100);
+            entry.player = new Tone.Player(it.url).connect(entry.pitch);
             entry.player.volume.value = toDb(volumeValue);
-            // Apply current playback rate if set
-            if (state?.playbackRate) {
-              entry.player.playbackRate = state.playbackRate / 100;
-            }
+            const ratePct = state?.playbackRate ?? AUDIO_CONSTANTS.DEFAULT_PLAYBACK_RATE;
+            const speed = Math.max(0.1, ratePct / 100);
+            entry.player.playbackRate = speed;
+            try {
+              const semitones = -12 * Math.log2(speed);
+              entry.pitch.pitch = isFinite(semitones) ? semitones : 0;
+            } catch {}
             entry.startToken = 0;
             entry.scheduledTimer = null;
           }
@@ -212,9 +215,9 @@ export class WavPlayerManager {
       if (!entry) return;
 
       // If the underlying buffer is not yet loaded, defer start until it is.
-      type GrainPlayerWithBuffer = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
-      type LoadablePlayer = Tone.GrainPlayer & { load?: (url: string) => Promise<unknown> };
-      const buffer = (entry.player as GrainPlayerWithBuffer).buffer;
+      type PlayerWithBuffer = Tone.Player & { buffer?: { loaded?: boolean } };
+      type LoadablePlayer = Tone.Player & { load?: (url: string) => Promise<unknown> };
+      const buffer = (entry.player as PlayerWithBuffer).buffer;
       // Debug info suppressed in production
       if (!buffer || buffer.loaded === false) {
         // No reliable load() promise on GrainPlayer; poll until buffer is ready
@@ -223,7 +226,7 @@ export class WavPlayerManager {
         const targetStart = this.resolveStartAt(startAt);
         const poll = () => {
           if (token !== entry.startToken) return;
-          const b = (entry.player as GrainPlayerWithBuffer).buffer;
+          const b = (entry.player as PlayerWithBuffer).buffer;
           const ready = !!b && b.loaded !== false;
           const now = Tone.now();
           if (ready) {
@@ -308,12 +311,13 @@ export class WavPlayerManager {
    * Set playback rate for all WAV players
    */
   setPlaybackRate(rate: number): void {
-    const speedMultiplier = rate / 100;
-    this.audioPlayers.forEach(({ player }) => {
-      if (player) {
-        player.playbackRate = speedMultiplier;
-        this.applyGrainParams(player, speedMultiplier);
-      }
+    const speed = Math.max(0.1, rate / 100);
+    this.audioPlayers.forEach(({ player, pitch }) => {
+      try { player.playbackRate = speed; } catch {}
+      try {
+        const semitones = -12 * Math.log2(speed);
+        pitch.pitch = isFinite(semitones) ? semitones : 0;
+      } catch {}
     });
   }
 
@@ -350,11 +354,11 @@ export class WavPlayerManager {
     const wasEffectivelyMuted = isSilentDb(wasDb); // ~silent threshold in dB
     if (clampedVolume > 0 && wasEffectivelyMuted && opts?.isPlaying) {
       const offsetSeconds = Math.max(0, opts?.currentTime ?? 0);
-      type GrainPlayerWithBuffer2 = Tone.GrainPlayer & { buffer?: { loaded?: boolean } };
-      const buffer = (entry.player as GrainPlayerWithBuffer2).buffer;
+      type PlayerWithBuffer2 = Tone.Player & { buffer?: { loaded?: boolean } };
+      const buffer = (entry.player as PlayerWithBuffer2).buffer;
       try {
         if (!buffer || buffer.loaded === false) {
-          type LoadablePlayer = Tone.GrainPlayer & { load?: (url: string) => Promise<unknown> };
+          type LoadablePlayer = Tone.Player & { load?: (url: string) => Promise<unknown> };
           const maybePromise = (entry.player as LoadablePlayer).load?.(entry.url);
           if (maybePromise && typeof maybePromise.then === "function") {
             maybePromise
@@ -578,9 +582,12 @@ export class WavPlayerManager {
    * Clean up resources
    */
   destroy(): void {
-    this.audioPlayers.forEach(({ player, panner }) => {
+    this.audioPlayers.forEach(({ player, pitch, panner }) => {
       try {
         player.dispose();
+      } catch {}
+      try {
+        pitch.dispose();
       } catch {}
       try {
         panner.dispose();
@@ -608,33 +615,157 @@ export class WavPlayerManager {
     // This method only syncs the registry and builds/refreshes players.
   }
 
+  // Grain parameters removed; using Tone.PitchShift for pitch preservation.
+
   /**
-   * Adjust GrainPlayer parameters for better pitch-preserving time-stretch
-   * across a range of speeds. Smaller grains at slow speeds reduce smearing;
-   * moderate overlap smooths transitions.
+   * Check if there are any visible & unmuted WAV players whose buffers are not yet loaded.
+   * Useful to decide whether to delay a synchronized start a bit longer.
    */
-  private applyGrainParams(player: Tone.GrainPlayer, speed: number): void {
+  hasActiveUnloadedPlayers(): boolean {
     try {
-      // Clamp speed to [0.1, 2.0] typical UI range
-      const s = Math.max(0.1, Math.min(2.0, speed || 1));
-      if (s <= 0.5) {
-        player.grainSize = 0.08;
-        player.overlap = 0.06;
-      } else if (s <= 0.75) {
-        player.grainSize = 0.12;
-        player.overlap = 0.08;
-      } else if (s <= 1.25) {
-        player.grainSize = 0.2;
-        player.overlap = 0.1;
-      } else if (s <= 1.5) {
-        player.grainSize = 0.16;
-        player.overlap = 0.1;
-      } else {
-        player.grainSize = 0.14;
-        player.overlap = 0.08;
+      // Ensure players reflect current registry
+      this.setupAudioPlayersFromRegistry({});
+
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const items = api?.getFiles?.() as AudioFileInfo[] | undefined;
+      if (!items || items.length === 0) return false;
+
+      // Iterate active (visible & unmuted) items
+      for (const it of items) {
+        if (!it.isVisible || it.isMuted) continue;
+        const entry = this.audioPlayers.get(it.id);
+        if (!entry) return true; // not built yet => effectively unloaded
+        const buffer = (entry.player as unknown as { buffer?: { loaded?: boolean } }).buffer;
+        if (!buffer || buffer.loaded === false) return true;
       }
-      // Ensure no explicit detuning
-      player.detune = 0;
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Wait until all active (visible & unmuted) WAV buffers are ready or timeout.
+   * Returns true if ready within the timeout, false otherwise.
+   */
+  async waitUntilActiveReady(timeoutMs: number = 800, pollMs: number = 25): Promise<boolean> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (!this.hasActiveUnloadedPlayers()) return true;
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+    return !this.hasActiveUnloadedPlayers();
+  }
+
+  /**
+   * Wait for all active WAV buffers to be fully loaded before playback
+   * Returns a promise that resolves when all buffers are ready
+   */
+  async waitForAllBuffersReady(): Promise<void> {
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+    if (!api?.getFiles) return;
+    
+    const items = api.getFiles() as AudioFileInfo[];
+    const promises: Promise<void>[] = [];
+    
+    // Check all visible and unmuted audio files
+    items.forEach((item) => {
+      const localEntry = this.audioPlayers.get(item.id);
+      const isMuted = item.isMuted || localEntry?.muted;
+      
+      if (!item.isVisible || isMuted) return;
+      
+      const entry = this.audioPlayers.get(item.id);
+      if (!entry) return;
+      
+      // Create promise for each buffer that needs loading
+      type PlayerWithBuffer = Tone.Player & { buffer?: { loaded?: boolean } };
+      const buffer = (entry.player as PlayerWithBuffer).buffer;
+      
+      if (!buffer || buffer.loaded === false) {
+        promises.push(new Promise<void>((resolve) => {
+          const checkBuffer = () => {
+            const b = (entry.player as PlayerWithBuffer).buffer;
+            if (b && b.loaded !== false) {
+              resolve();
+            } else {
+              setTimeout(checkBuffer, 10);
+            }
+          };
+          checkBuffer();
+        }));
+      }
+    });
+    
+    // Wait for all buffers to be ready
+    if (promises.length > 0) {
+      await Promise.all(promises);
+    }
+  }
+
+  /**
+   * Start all active audio with guaranteed synchronization
+   * All buffers must be loaded before calling this method
+   */
+  startActiveAudioAtSync(offsetSeconds: number, startAt: string | number = "+0"): void {
+    // Ensure players exist for registry items before attempting to start
+    try {
+      this.setupAudioPlayersFromRegistry({});
     } catch {}
+    
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+    if (!api?.getFiles) return;
+    
+    const items = api.getFiles() as AudioFileInfo[];
+    const targetStart = this.resolveStartAt(startAt);
+    
+    // Start ALL unmuted WAV files at exactly the same time
+    items.forEach((item) => {
+      const localEntry = this.audioPlayers.get(item.id);
+      const isMuted = item.isMuted || localEntry?.muted;
+      
+      if (!item.isVisible || isMuted) return;
+      
+      const entry = this.audioPlayers.get(item.id);
+      if (!entry) return;
+      
+      // Stop any existing playback
+      try { entry.player.stop("+0"); } catch {}
+      
+      // Clear any existing timers
+      if (entry.scheduledTimer) {
+        clearTimeout(entry.scheduledTimer);
+        entry.scheduledTimer = null;
+      }
+      
+      // Start at exact target time with offset
+      try {
+        const safeStart = Math.max(targetStart, Tone.now() + 0.001);
+        entry.player.start(safeStart, Math.max(0, offsetSeconds));
+      } catch (e) {
+        console.error("[WavPlayerManager] Failed to start player:", e);
+      }
+    });
+  }
+
+  /**
+   * Estimate processing latency introduced by PitchShift (in seconds).
+   * Uses windowSize if available; falls back to 0.06s.
+   */
+  getEstimatedLatencySec(): number {
+    let maxWin = 0;
+    try {
+      this.audioPlayers.forEach(({ pitch }) => {
+        try {
+          const ws = (pitch as unknown as { windowSize?: number }).windowSize;
+          if (typeof ws === 'number' && isFinite(ws)) {
+            maxWin = Math.max(maxWin, ws);
+          }
+        } catch {}
+      });
+    } catch {}
+    // Empirically, PitchShift audible latency is closer to ~windowSize/2
+    const win = maxWin > 0 ? maxWin : 0.06;
+    return win * 0.5;
   }
 }

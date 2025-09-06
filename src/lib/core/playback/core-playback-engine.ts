@@ -434,6 +434,13 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         originalTempo: this.config.defaultTempo,
         pan: 0,
         isRepeating: false,
+        // New unified state management fields
+        masterVolume: this.config.defaultVolume,
+        loopMode: 'off' as const,
+        markerA: null,
+        markerB: null,
+        nowTime: 0,
+        totalTime: 0,
       };
     }
 

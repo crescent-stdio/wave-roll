@@ -570,29 +570,7 @@ export class WaveRollPlayer {
           this.silenceDetector.checkSilence(this.midiManager);
         }
 
-        // Default mixing policy: If both MIDI and WAV are present at first load,
-        // mute WAV tracks by default to avoid double playback (audible overlap).
-        try {
-          const hasMidi = this.midiManager.getState().files.length > 0;
-          const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean }> ; toggleMute?: (id: string) => void } })._waveRollAudio;
-          const wavItems = api?.getFiles?.() || [];
-          const hasWav = wavItems.length > 0;
-          if (hasMidi && hasWav) {
-            // Mark registry as muted first so future refreshes respect mute state
-            for (const it of wavItems) {
-              if (!it.isMuted) {
-                api?.toggleMute?.(it.id);
-              }
-            }
-            // Also ensure current players (if already built) are muted at engine level
-            wavItems.forEach((it) => {
-              try {
-                // Route via visualizationEngine -> coreEngine -> wavPlayerManager
-                (this.visualizationEngine as any).setFileMute?.(it.id, true);
-              } catch {}
-            });
-          }
-        } catch {}
+        // Note: We no longer auto-mute WAV on first load to avoid confusion.
 
         // Ensure AudioPlayer visual update callback is attached once audio exists
         try {
