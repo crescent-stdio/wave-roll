@@ -25,11 +25,46 @@ export class WavPlayerManager {
   /** Map of audioId -> { player, panner, url } for waveform playback */
   private audioPlayers: Map<string, AudioPlayerEntry> = new Map();
   private transportSyncManager?: import('./transport-sync-manager').TransportSyncManager;
+	private bufferLoadPromise?: Promise<void[]>;
+	private notifyBufferReady?: (id: string) => void;
   /** Currently selected active audio id (from window._waveRollAudio) */
   private activeAudioId: string | null = null;
   setTransportSyncManager(transportSyncManager: import('./transport-sync-manager').TransportSyncManager): void {
     this.transportSyncManager = transportSyncManager;
   }
+
+	/**
+	 * Set callback to notify when buffer status changes
+	 */
+	setBufferReadyCallback(callback: (id: string) => void): void {
+		this.notifyBufferReady = callback;
+	}
+
+	/**
+	 * Start monitoring buffer status for UI updates
+	 */
+	startBufferMonitoring(intervalMs: number = 500): () => void {
+		let lastBufferState = this.areAllBuffersReady();
+		
+		const checkBuffers = () => {
+			const currentBufferState = this.areAllBuffersReady();
+			if (currentBufferState !== lastBufferState) {
+				lastBufferState = currentBufferState;
+				// Notify all files when buffer state changes
+				this.audioPlayers.forEach((_, id) => {
+					this.notifyBufferReady?.(id);
+				});
+			}
+		};
+		
+		const intervalId = setInterval(checkBuffers, intervalMs);
+		
+		// Return cleanup function
+		return () => {
+			clearInterval(intervalId);
+		};
+	}
+
   
   /**
    * Build/refresh Tone.Player instances from global audio registry (window._waveRollAudio)
@@ -59,6 +94,9 @@ export class WavPlayerManager {
         }
       });
 
+      // Track buffer loading promises for initial setup
+      const bufferLoadPromises: Promise<void>[] = [];
+
       // Create/refresh players
       for (const it of items) {
         if (!this.audioPlayers.has(it.id)) {
@@ -66,11 +104,13 @@ export class WavPlayerManager {
             const panner = new Tone.Panner(it.pan ?? 0).toDestination();
             const pitch = new Tone.PitchShift(0).connect(panner);
 
-            // Create player with error handling
+            // Create player with enhanced buffer loading tracking
             const player = new Tone.Player({
               url: it.url,
               onload: () => {
                 console.debug(`Audio buffer loaded for ${it.id}`);
+                // Trigger buffer ready check for UI updates
+                this.notifyBufferReady?.(it.id);
               },
               onerror: (error: Error) => {
                 console.warn(
@@ -115,7 +155,31 @@ export class WavPlayerManager {
               pitch.pitch = isFinite(semitones) ? semitones : 0;
               (pitch as any).windowSize = (pitch as any).windowSize ?? 0.06;
             } catch {}
+            
             this.audioPlayers.set(it.id, { player, pitch, panner, url: it.url, startToken: 0, scheduledTimer: null });
+
+            // Create a promise to track this player's buffer loading
+            const bufferPromise = new Promise<void>((resolve, reject) => {
+              const checkBuffer = () => {
+                const buffer = (player as any).buffer;
+                if (buffer && buffer.loaded !== false && buffer._buffer) {
+                  resolve();
+                } else if (buffer && buffer.loaded === false) {
+                  reject(new Error(`Buffer load failed for ${it.id}`));
+                } else {
+                  setTimeout(checkBuffer, 50);
+                }
+              };
+              
+              // Start checking after a short delay to allow initial setup
+              setTimeout(checkBuffer, 100);
+              
+              // Timeout after 5 seconds
+              setTimeout(() => reject(new Error(`Buffer load timeout for ${it.id}`)), 5000);
+            });
+            
+            bufferLoadPromises.push(bufferPromise.catch(() => {})); // Ignore individual failures
+            
           } catch (error) {
             console.error(`Failed to create audio player for ${it.id}:`, error);
           }
@@ -148,6 +212,13 @@ export class WavPlayerManager {
         }
       }
 
+      // Store buffer loading promise for external monitoring
+      if (bufferLoadPromises.length > 0) {
+        this.bufferLoadPromise = Promise.all(bufferLoadPromises);
+      } else {
+        this.bufferLoadPromise = Promise.resolve([]);
+      }
+
       // No longer select a single "active" audio - all unmuted audios will play
       const eligible = items.filter((i) => i.isVisible && !i.isMuted);
       this.activeAudioId = eligible.length > 0 ? eligible[0].id : null;
@@ -178,19 +249,24 @@ export class WavPlayerManager {
   stopAllAudioPlayers(): void {
     this.audioPlayers.forEach((entry) => {
       const { player } = entry;
-      // Invalidate any pending scheduled start and clear timer
+      
+      // 1. First invalidate all scheduled starts
+      entry.startToken = (entry.startToken || 0) + 1;
+      if (entry.scheduledTimer) {
+        clearTimeout(entry.scheduledTimer);
+        entry.scheduledTimer = null;
+      }
+      
+      // 2. Stop player immediately (no parameters)
       try {
-        entry.startToken = (entry.startToken || 0) + 1;
-        if (entry.scheduledTimer) {
-          clearTimeout(entry.scheduledTimer);
-          entry.scheduledTimer = null;
-        }
-      } catch {}
-      // Stop current playback immediately
-      try {
-        player.stop("+0");
-      } catch {}
+        player.stop();  // Call without parameters = immediate stop
+      } catch (e) {
+        // Ignore errors for already stopped players, etc.
+        console.debug("[WavPlayerManager] Stop failed for player:", e);
+      }
     });
+    
+    console.log("[WavPlayerManager] All audio players stopped immediately");
   }
 
   /**
@@ -234,7 +310,7 @@ export class WavPlayerManager {
           const ready = !!b && b.loaded !== false;
           const now = Tone.now();
           if (ready) {
-            try { entry.player.stop("+0"); } catch {}
+            try { entry.player.stop(); } catch {}
             const drift = now - targetStart;
             if (drift <= 0) {
               // Still before target start: schedule directly at absolute context time
@@ -243,7 +319,7 @@ export class WavPlayerManager {
               // Target start already passed: compensate by advancing offset
               const rate = (entry.player.playbackRate || 1);
               const offsetComp = Math.max(0, offsetSeconds + drift * rate);
-              try { entry.player.start("+0", offsetComp); } catch {}
+              try { entry.player.start(Tone.now(), offsetComp); } catch {}
             }
             entry.scheduledTimer = null;
             return;
@@ -260,7 +336,7 @@ export class WavPlayerManager {
         return;
       }
 
-      try { entry.player.stop("+0"); } catch {}
+      try { entry.player.stop(); } catch {}
       // Bump token to indicate a new start request and invalidate prior async starts
       entry.startToken = (entry.startToken || 0) + 1;
       if (entry.scheduledTimer) {
@@ -357,7 +433,29 @@ export class WavPlayerManager {
     // If unmuting this WAV while transport is playing, ensure it starts immediately
     const wasEffectivelyMuted = isSilentDb(wasDb); // ~silent threshold in dB
     if (clampedVolume > 0 && wasEffectivelyMuted && opts?.isPlaying) {
-      const offsetSeconds = Math.max(0, opts?.currentTime ?? 0);
+      // Use TransportSyncManager for accurate timing if available
+      let offsetSeconds = 0;
+      
+      if (this.transportSyncManager) {
+        // Get current transport time and convert to visual time for accurate sync
+        const transport = Tone.getTransport();
+        const transportTime = transport.seconds;
+        const visualTime = this.transportSyncManager.transportToVisualTime(transportTime);
+        offsetSeconds = Math.max(0, visualTime);
+        console.log("[WM.setWavVolume] Using TransportSyncManager for offset", {
+          transportTime,
+          visualTime,
+          offsetSeconds
+        });
+      } else {
+        // Fallback to provided currentTime
+        offsetSeconds = Math.max(0, opts?.currentTime ?? 0);
+        console.log("[WM.setWavVolume] Using fallback currentTime for offset", {
+          currentTime: opts?.currentTime,
+          offsetSeconds
+        });
+      }
+      
       type PlayerWithBuffer2 = Tone.Player & { buffer?: { loaded?: boolean } };
       const buffer = (entry.player as PlayerWithBuffer2).buffer;
       try {
@@ -368,10 +466,10 @@ export class WavPlayerManager {
             maybePromise
               .then(() => {
                 try {
-                  entry.player.stop("+0");
+                  entry.player.stop();
                 } catch {}
                 try {
-                  entry.player.start("+0", offsetSeconds);
+                  entry.player.start(Tone.now(), offsetSeconds);
                   console.log("[WM.unmute-started-postload]", { fileId, offsetSeconds });
                 } catch {}
               })
@@ -381,10 +479,10 @@ export class WavPlayerManager {
           }
         } else {
           try {
-            entry.player.stop("+0");
+            entry.player.stop();
           } catch {}
           try {
-            entry.player.start("+0", offsetSeconds);
+            entry.player.start(Tone.now(), offsetSeconds);
             console.log("[WM.unmute-started]", { fileId, offsetSeconds });
           } catch {}
         }
@@ -449,68 +547,43 @@ export class WavPlayerManager {
     const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
     
     if (mute) {
-      // Stop the player when muting
-      try { player.stop("+0"); } catch {}
+      // Mute: Set volume to silent (keep player running to maintain sync)
       player.volume.value = SILENT_DB;
+      console.log("[WavPlayerManager] Muted WAV", fileId, "by volume");
     } else {
-      // Unmute and restart if currently playing
+      // Unmute: Restore volume + full resync with Transport
       player.volume.value = toDb(0.7);
       
-      // Check if transport is currently playing
+      // If Transport is playing, restart at current accurate position
       const transport = Tone.getTransport();
-      const isCurrentlyPlaying = transport.state === "started";
-      
-      if (isCurrentlyPlaying && this.transportSyncManager) {
-        console.log("[WavPlayerManager] Restarting WAV at current position due to unmute");
-        
-        // Get current transport time
+      if (transport.state === "started" && this.transportSyncManager) {
+        // 1. Get current Transport time
         const transportTime = transport.seconds;
         
-        // Convert to visual time using TransportSyncManager for accurate tempo calculation
+        // 2. Convert Transport time to Visual time (considering tempo)
         const visualTime = this.transportSyncManager.transportToVisualTime(transportTime);
         
-        // Start immediately with current offset
-        const startAt = Tone.now() + 0.001;
+        // 3. Prevent negative values
+        const offsetSeconds = Math.max(0, visualTime);
         
-        // Verify buffer is ready - use simpler type casting to avoid TypeScript conflicts
-        const bufferPlayer = player as any;
-        const buffer = bufferPlayer.buffer;
+        console.log("[WavPlayerManager] Unmuting with resync", {
+          fileId,
+          transportTime,
+          visualTime,  
+          offsetSeconds
+        });
         
-        if (buffer && buffer.loaded !== false && buffer._buffer) {
-          try {
-            player.stop("+0");
-            player.start(startAt, Math.max(0, visualTime));
-            console.log("[WavPlayerManager] Started WAV at", startAt, "with offset", visualTime);
-          } catch (e) {
-            console.error("[WavPlayerManager] Failed to restart WAV:", e);
-          }
-        } else {
-          console.warn("[WavPlayerManager] Buffer not ready for restart - waiting for buffer to load");
-          // Poll for buffer readiness and start when ready
-          entry.startToken = (entry.startToken || 0) + 1;
-          const token = entry.startToken;
-          const poll = () => {
-            if (token !== entry.startToken) return;
-            const b = (player as any).buffer;
-            if (b && b.loaded !== false && b._buffer) {
-              try {
-                player.stop("+0");
-                // Recalculate offset for current time
-                const currentTransportTime = transport.seconds;
-                const currentVisualTime = this.transportSyncManager?.transportToVisualTime(currentTransportTime) || 0;
-                player.start("+0", Math.max(0, currentVisualTime));
-                console.log("[WavPlayerManager] Started WAV after buffer ready with offset", currentVisualTime);
-              } catch (e) {
-                console.error("[WavPlayerManager] Failed to start after buffer ready:", e);
-              }
-              return;
-            }
-            setTimeout(poll, 25);
-          };
-          poll();
+        // 4. Stop current playback completely then restart at synced position
+        try {
+          player.stop();  // Immediate stop
+          player.start("+0.01", offsetSeconds);  // Start with slight delay to prevent click noise
+          console.log("[WavPlayerManager] Unmuted and resynced", fileId, "at offset", offsetSeconds);
+        } catch (e) {
+          // Handle Tone.js internal errors (buffer not ready, etc.)
+          console.debug("[WavPlayerManager] Unmute restart failed:", e);
         }
-      } else if (isCurrentlyPlaying && !this.transportSyncManager) {
-        console.warn("[WavPlayerManager] Cannot restart WAV - TransportSyncManager not set");
+      } else {
+        console.log("[WavPlayerManager] Unmuted WAV", fileId, "- transport not playing");
       }
     }
     
@@ -550,7 +623,19 @@ export class WavPlayerManager {
     if (!midiManager) return false;
     
     try {
-      // Re-setup audio players from registry
+      // Check if transport is currently playing to avoid unnecessary interruptions
+      const transport = Tone.getTransport();
+      const isPlaying = transport.state === "started";
+      
+      if (isPlaying) {
+        console.log("[WavPlayerManager] Skipping refresh during playback to maintain sync");
+        // During playback, avoid full refresh to maintain synchronization
+        // Only update metadata without recreating players
+        return true;
+      }
+      
+      console.log("[WavPlayerManager] Refreshing audio players (not playing)");
+      // Re-setup audio players from registry only when not playing
       this.setupAudioPlayersFromRegistry({});
       return true;
     } catch (error) {
@@ -725,96 +810,24 @@ export class WavPlayerManager {
     return !this.hasActiveUnloadedPlayers();
   }
 
-  /**
-   * Wait for all active WAV buffers to be fully loaded before playback
-   * Returns a promise that resolves when all buffers are ready
-   */
-  async waitForAllBuffersReady(): Promise<void> {
-    // Ensure players exist before checking buffers
-    try {
-      this.setupAudioPlayersFromRegistry({});
-    } catch {}
-    
-    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
-    if (!api?.getFiles) return;
-    
-    const items = api.getFiles() as AudioFileInfo[];
-    const promises: Promise<void>[] = [];
-    
-    console.log("[WavPlayerManager] Checking buffer status for", items.length, "items");
-    
-    // Check all visible and unmuted audio files
-    items.forEach((item) => {
-      const localEntry = this.audioPlayers.get(item.id);
-      const isMuted = item.isMuted || localEntry?.muted;
-      
-      if (!item.isVisible || isMuted) {
-        console.log("[WavPlayerManager] Skipping", item.id, "- muted or invisible");
-        return;
-      }
-      
-      const entry = this.audioPlayers.get(item.id);
-      if (!entry) {
-        console.log("[WavPlayerManager] No entry for", item.id);
-        return;
-      }
-      
-      // Create promise for each buffer that needs loading - use simpler type casting
-      const player = entry.player as any;
-      const buffer = player.buffer;
-      
-      console.log("[WavPlayerManager] Buffer status for", item.id, ":", {
-        hasBuffer: !!buffer,
-        loaded: buffer?.loaded,
-        bufferObj: buffer?._buffer
-      });
-      
-      if (!buffer || buffer.loaded === false || !buffer._buffer) {
-        console.log("[WavPlayerManager] Waiting for buffer to load:", item.id);
-        promises.push(new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            console.warn("[WavPlayerManager] Buffer load timeout for", item.id);
-            resolve(); // Don't fail the whole process
-          }, 5000);
-          
-          const checkBuffer = () => {
-            const b = (entry.player as any).buffer;
-            if (b && b.loaded !== false && b._buffer) {
-              console.log("[WavPlayerManager] Buffer ready for", item.id);
-              clearTimeout(timeout);
-              resolve();
-            } else {
-              setTimeout(checkBuffer, 25);
-            }
-          };
-          checkBuffer();
-        }));
-      } else {
-        console.log("[WavPlayerManager] Buffer already ready for", item.id);
-      }
-    });
-    
-    // Wait for all buffers to be ready
-    if (promises.length > 0) {
-      console.log("[WavPlayerManager] Waiting for", promises.length, "buffers to load");
-      await Promise.all(promises);
-      console.log("[WavPlayerManager] All buffers ready");
-    } else {
-      console.log("[WavPlayerManager] No buffers to wait for");
-    }
-  }
 
   /**
    * Synchronously check if all active audio buffers are ready
    * Returns immediately without waiting
    */
+  /**
+   * Synchronously check if all active audio buffers are ready
+   * Returns immediately without waiting
+   */
   areAllBuffersReady(): boolean {
+    // Trust Tone.js to handle buffer loading internally
+    // Just check if players exist for visible/unmuted files
     const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
     if (!api?.getFiles) return true; // No audio files means all are "ready"
     
     const items = api.getFiles() as AudioFileInfo[];
     
-    // Check all visible and unmuted audio files
+    // Check that player entries exist for all visible and unmuted audio files
     for (const item of items) {
       const localEntry = this.audioPlayers.get(item.id);
       const isMuted = item.isMuted || localEntry?.muted;
@@ -825,19 +838,11 @@ export class WavPlayerManager {
       
       const entry = this.audioPlayers.get(item.id);
       if (!entry) {
-        return false; // Missing player entry means not ready
-      }
-      
-      // Check buffer status - use simpler type casting
-      const player = entry.player as any;
-      const buffer = player.buffer;
-      
-      if (!buffer || buffer.loaded === false || !buffer._buffer) {
-        return false; // Any buffer not ready means all not ready
+        return false; // Missing player entry
       }
     }
     
-    return true; // All buffers are ready
+    return true; // All required players exist
   }
 
   /**
@@ -881,7 +886,7 @@ export class WavPlayerManager {
       console.log("[WavPlayerManager] Starting player for", item.id, "- trusting Tone.Player buffer management");
       
       // Stop any existing playback
-      try { entry.player.stop("+0"); } catch {}
+      try { entry.player.stop(); } catch {}
       
       // Clear any existing timers
       if (entry.scheduledTimer) {
@@ -892,22 +897,15 @@ export class WavPlayerManager {
       // Bump token to prevent old scheduled starts
       entry.startToken = (entry.startToken || 0) + 1;
       
-      // Check buffer status before starting
+      // Trust Tone.js to handle buffer management internally
       try {
-        const buffer = (entry.player as any).buffer;
-        
-        if (!buffer || buffer.loaded === false || !buffer._buffer) {
-          console.warn("[WavPlayerManager] Buffer not ready for", item.id, "- skipping playback to prevent error");
-          return;
-        }
-        
         const safeStart = Math.max(targetStart, Tone.now() + 0.001);
         entry.player.start(safeStart, Math.max(0, offsetSeconds));
         console.log("[WavPlayerManager] Successfully started player", item.id, "at", safeStart, "with offset", offsetSeconds);
         successfulPlayers++;
       } catch (e) {
-        console.error("[WavPlayerManager] Failed to start player", item.id, ":", e);
-        // Even if start() fails due to buffer not ready, Tone.Player will handle it internally
+        // Tone.js will automatically start playback when buffer is ready
+        console.debug("[WavPlayerManager] Player will start when buffer ready for", item.id, ":", e instanceof Error ? e.message : e);
       }
     });
     

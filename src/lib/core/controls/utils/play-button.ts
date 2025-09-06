@@ -33,6 +33,7 @@ export interface SetupPlayButtonOptions {
    */
   playingColor?: string;
   idleColor?: string;
+  loadingColor?: string;
 }
 
 /**
@@ -49,6 +50,7 @@ export function setupPlayButton(opts: SetupPlayButtonOptions): () => void {
     postPause,
     playingColor = "#28a745",
     idleColor = COLOR_PRIMARY,
+    loadingColor = "#999999",
   } = opts;
 
   const updatePlayButton = () => {
@@ -69,7 +71,7 @@ export function setupPlayButton(opts: SetupPlayButtonOptions): () => void {
       };
     } else {
       playBtn.innerHTML = buffersReady ? PLAYER_ICONS.play : "⏳";
-      playBtn.style.background = buffersReady ? idleColor : "#999999";
+      playBtn.style.background = buffersReady ? idleColor : loadingColor;
       playBtn.style.opacity = buffersReady ? "1" : "0.6";
       playBtn.style.cursor = buffersReady ? "pointer" : "not-allowed";
       (playBtn as HTMLButtonElement).disabled = !buffersReady;

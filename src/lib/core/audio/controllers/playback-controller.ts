@@ -324,6 +324,12 @@ export class PlaybackController {
         wavPlayerManager.startActiveAudioAt(requestedVisual, startAt2);
         console.log("[PlaybackController.seek] wav restart", { requestedVisual, startAt: startAt2 });
       }
+
+      // Retrigger held notes for all unmuted tracks at the seek position
+      // This ensures long-duration notes that started before the seek position are audible
+      samplerManager.retriggerAllUnmutedHeldNotes(requestedVisual);
+      console.log("[PlaybackController.seek] retriggered held notes", { requestedVisual });
+      
     } else {
       Tone.getTransport().seconds = transportSeconds;
       console.log("[PlaybackController.seek] paused seek", { transportSeconds });

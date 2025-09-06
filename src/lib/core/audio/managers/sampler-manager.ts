@@ -617,6 +617,25 @@ export class SamplerManager {
   }
 
   /**
+   * Retrigger held notes for all unmuted tracks at the current time
+   * Useful after seeking to ensure long notes are audible at the new position
+   */
+  retriggerAllUnmutedHeldNotes(currentTime: number): void {
+    let totalRetriggered = 0;
+    
+    // Retrigger for all unmuted tracks
+    this.trackSamplers.forEach((track, fileId) => {
+      if (!track.muted) {
+        const beforeCount = totalRetriggered;
+        this.retriggerHeldNotes(fileId, currentTime);
+        // Note: retriggerHeldNotes doesn't return count, so we can't track exact numbers
+      }
+    });
+    
+    console.log("[SamplerManager] Retriggered held notes for all unmuted tracks at", currentTime);
+  }
+
+  /**
    * Set volume for a specific file
    */
   setFileVolume(fileId: string, volume: number, masterVolume: number): void {
