@@ -127,7 +127,9 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         fileIds.add(note.fileId);
       }
     });
-    const signature = Array.from(fileIds).sort().join(",") + ":" + notes.length;
+    // Signature based only on file IDs to avoid unnecessary audio player
+    // recreation when note lists change due to UI transforms (tempo/loop/seek).
+    const signature = Array.from(fileIds).sort().join(",");
 
     // Skip if file structure hasn't changed
     if (signature === this.lastAudioSignature && this.audioPlayer) {

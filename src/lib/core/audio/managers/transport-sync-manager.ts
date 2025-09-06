@@ -133,7 +133,15 @@ export class TransportSyncManager {
       if (token !== this._schedulerToken) {
         return;
       }
-      if (!this.state.isPlaying || this.operationState.isSeeking) {
+      if (!this.state.isPlaying) {
+        return;
+      }
+      
+      // Allow UI updates to continue during seeking operations for immediate feedback
+      // Only skip transport time calculations during the initial seeking phase
+      if (this.operationState.isSeeking && this.operationState.isRestarting) {
+        // Still update UI with current state during restart operations
+        this.pianoRoll.setTime(this.state.currentTime);
         return;
       }
 

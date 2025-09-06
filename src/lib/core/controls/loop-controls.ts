@@ -125,7 +125,7 @@ export function createCoreLoopControls(
         const st = audioPlayer?.getState();
         audioPlayer?.setLoopPoints(pointA, pointB, false);
         if (pointA !== null) {
-          audioPlayer?.seek(pointA, true);
+          // setLoopPoints with preservePosition=false already repositions to A
           if (st && !st.isPlaying) {
             audioPlayer?.play();
           }
@@ -251,10 +251,6 @@ export function createCoreLoopControls(
       loopInfo.a = (start / effectiveDuration) * 100;
       loopInfo.b =
         clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
-
-      // Preserve position when updating loop points during playback
-      const isPlaying = audioPlayer?.getState()?.isPlaying || false;
-      if (isLoopRestartActive) audioPlayer?.setLoopPoints(start, clampedEnd, isPlaying);
       pianoRoll?.setLoopWindow?.(start, clampedEnd);
     } else if (pointB !== null) {
       const pr = state.playbackRate ?? 100;
@@ -262,12 +258,8 @@ export function createCoreLoopControls(
       const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
       const clampedB = Math.min(pointB, effectiveDuration);
       loopInfo.b = (clampedB / effectiveDuration) * 100;
-      const isPlaying = audioPlayer?.getState()?.isPlaying || false;
-      if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, clampedB, isPlaying);
       pianoRoll?.setLoopWindow?.(null, clampedB);
     } else {
-      const isPlaying = audioPlayer?.getState()?.isPlaying || false;
-      if (isLoopRestartActive) audioPlayer?.setLoopPoints(null, null, isPlaying);
       pianoRoll?.setLoopWindow?.(null, null);
     }
 

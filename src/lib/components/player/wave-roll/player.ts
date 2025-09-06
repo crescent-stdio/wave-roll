@@ -112,6 +112,7 @@ export class WaveRollPlayer {
   private fileLoader!: FileLoader;
   private silenceDetector!: SilenceDetector;
   private pausedBySilence: boolean = false;
+  private lastHookedAudioPlayer: any = null;
   private audioVisualHooked: boolean = false;
 
   constructor(
@@ -193,14 +194,12 @@ export class WaveRollPlayer {
       this.updateTimeDisplay(currentTime);
       // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
       // the piano-roll playhead on its own update loop.
-
-      // Re-register audio player's visual update callback to ensure a newly
-      // recreated AudioPlayer instance also forwards visual updates.
+      // Hook audio player's visual update callback only once per new instance
       try {
         const anyEngine = this.visualizationEngine as unknown as { coreEngine?: any };
-        const audioPlayer = anyEngine.coreEngine?.audioPlayer;
-        if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === 'function') {
-          audioPlayer.setOnVisualUpdate(({ currentTime, duration, isPlaying }: { currentTime: number; duration: number; isPlaying: boolean }) => {
+        const ap = anyEngine.coreEngine?.audioPlayer;
+        if (ap && ap !== this.lastHookedAudioPlayer && typeof ap.setOnVisualUpdate === 'function') {
+          ap.setOnVisualUpdate(({ currentTime }: { currentTime: number; duration: number; isPlaying: boolean }) => {
             const deps2 = this.getUIDependencies();
             const st2 = this.visualizationEngine.getState();
             const pr2 = st2.playbackRate ?? 100;
@@ -209,6 +208,7 @@ export class WaveRollPlayer {
             deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
             this.updateTimeDisplay(currentTime);
           });
+          this.lastHookedAudioPlayer = ap;
         }
       } catch {}
     });
@@ -563,6 +563,23 @@ export class WaveRollPlayer {
         if (this.silenceDetector) {
           this.silenceDetector.checkSilence(this.midiManager);
         }
+
+        // Ensure AudioPlayer visual update callback is attached once audio exists
+        try {
+          const anyEngine = this.visualizationEngine as unknown as { coreEngine?: any };
+          const audioPlayer = anyEngine.coreEngine?.audioPlayer;
+          if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === 'function') {
+            audioPlayer.setOnVisualUpdate(({ currentTime }: { currentTime: number; duration: number; isPlaying: boolean }) => {
+              const st = this.visualizationEngine.getState();
+              const pr = st.playbackRate ?? 100;
+              const speed = pr / 100;
+              const effectiveDuration = speed > 0 ? st.duration / speed : st.duration;
+              const deps = this.getUIDependencies();
+              deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
+              this.updateTimeDisplay(currentTime);
+            });
+          }
+        } catch {}
       },
     });
   }

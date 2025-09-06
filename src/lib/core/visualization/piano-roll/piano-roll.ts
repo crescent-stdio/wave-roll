@@ -627,7 +627,7 @@ export class PianoRoll {
     // Log every 100 renders
     if (this.performanceMetrics.renderCount % 100 === 0) {
       const avgTime = this.performanceMetrics.totalRenderTime / this.performanceMetrics.renderCount;
-      console.log(`[PianoRoll] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowRenders}/${this.performanceMetrics.renderCount}, Skipped: ${this.performanceMetrics.skippedRenders}`);
+      // console.log(`[PianoRoll] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowRenders}/${this.performanceMetrics.renderCount}, Skipped: ${this.performanceMetrics.skippedRenders}`);
     }
   }
 

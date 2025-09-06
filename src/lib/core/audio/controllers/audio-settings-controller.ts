@@ -181,6 +181,19 @@ export class AudioSettingsController {
     state.tempo = clampedTempo;
     state.playbackRate = finalRate;
 
+    // Helper function to trigger UI update consistently
+    const triggerUIUpdate = (newPosition: number) => {
+      if (this.deps.onVisualUpdate) {
+        this.deps.onVisualUpdate({
+          currentTime: newPosition,
+          duration: state.duration,
+          isPlaying: state.isPlaying,
+        });
+      }
+      // Also sync piano-roll immediately for snappy feedback
+      try { this.deps.pianoRoll?.setTime(newPosition); } catch {}
+    };
+
     if (state.isPlaying) {
       try { void ensureAudioContextReady(); } catch {}
       // Same logic as setTempo for playing state
@@ -204,6 +217,10 @@ export class AudioSettingsController {
 
       loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
       transport.seconds = newTransportSeconds;
+
+      // Update visual position immediately before restarting
+      this.deps.pianoRoll.setTime(currentVisualTime);
+      triggerUIUpdate(currentVisualTime);
 
       samplerManager.setupNotePart(
         loopManager.loopStartVisual,
@@ -233,6 +250,8 @@ export class AudioSettingsController {
       setTimeout(() => {
         operationState.isSeeking = false;
         operationState.isRestarting = false;
+        // Trigger another UI update after restart completes
+        triggerUIUpdate(state.currentTime);
       }, 100);
     } else {
       Tone.getTransport().bpm.value = clampedTempo;
@@ -241,14 +260,9 @@ export class AudioSettingsController {
       
       loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
       loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
+      
       // Trigger UI update when paused so seekbar/time reflect new rate
-      if (this.deps.onVisualUpdate) {
-        this.deps.onVisualUpdate({
-          currentTime: state.currentTime,
-          duration: state.duration,
-          isPlaying: state.isPlaying,
-        });
-      }
+      triggerUIUpdate(state.currentTime);
     }
   }
 
@@ -264,6 +278,11 @@ export class AudioSettingsController {
     
     console.log("[AudioSettingsController.setLoopPoints]", { start, end, preservePosition });
 
+    // Re-entrancy guard: ignore overlapping requests
+    if (operationState.isSeeking || operationState.isRestarting) {
+      return;
+    }
+
     const wasPlaying = state.isPlaying;
     const currentVisualTime = state.currentTime;
 
@@ -274,7 +293,7 @@ export class AudioSettingsController {
     }
 
     // Set the loop points (setLoopPoints requires 4 parameters)
-    loopManager.setLoopPoints(start, end, state.duration, state);
+    const res = loopManager.setLoopPoints(start, end, state.duration, state);
 
     // Get the effective loop bounds
     const effectiveStart = loopManager.loopStartVisual ?? 0;
@@ -286,7 +305,21 @@ export class AudioSettingsController {
     // Determine if this call clears the loop window entirely
     const isClearing = start === null && end === null;
 
-    // Helper function to trigger UI update
+    // If nothing actually changed, just refresh UI/transport loop config and exit
+    if (!res.changed) {
+      loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
+      if (this.deps.onVisualUpdate) {
+        this.deps.onVisualUpdate({
+          currentTime: state.currentTime,
+          duration: state.duration,
+          isPlaying: state.isPlaying,
+        });
+      }
+      try { this.deps.pianoRoll?.setTime(state.currentTime); } catch {}
+      return;
+    }
+
+    // Helper function to trigger UI update consistently
     const triggerUIUpdate = (newPosition: number) => {
       if (this.deps.onVisualUpdate) {
         this.deps.onVisualUpdate({
@@ -333,7 +366,7 @@ export class AudioSettingsController {
       // Update visual position immediately
       this.deps.pianoRoll.setTime(newPosition);
       
-      // Trigger UI update callback for seek bar and time display
+      // Trigger UI update callback for seek bar and time display immediately
       triggerUIUpdate(newPosition);
 
       // Rebuild Part with new bounds
@@ -368,6 +401,8 @@ export class AudioSettingsController {
 
       setTimeout(() => {
         operationState.isSeeking = false;
+        // Trigger another UI update after restart completes to ensure continuity
+        triggerUIUpdate(state.currentTime);
       }, 100);
     } else {
       // Not playing - just update position if needed

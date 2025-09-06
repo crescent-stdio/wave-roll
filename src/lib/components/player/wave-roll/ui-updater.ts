@@ -110,12 +110,6 @@ export class UIUpdater {
           this.hasSeenNonZeroTime = true;
         }
 
-        // Skip redundant 0-second frames that occur immediately after
-        // playback starts.
-        if (state.isPlaying && state.currentTime === 0 && !this.hasSeenNonZeroTime) {
-          return;
-        }
-
         // Reset tracking when playback stops
         if (!state.isPlaying) {
           this.hasSeenNonZeroTime = false;
@@ -123,22 +117,17 @@ export class UIUpdater {
 
         this.updatePianoRoll();
 
-        // During playback the core engine dispatches visual updates; avoid
-        // duplicating seekbar/time updates here to reduce jank.
-        if (!state.isPlaying) {
-          if (uiDeps?.updateSeekBar) {
-            const pr = state.playbackRate ?? 100;
-            const speed = pr / 100;
-            const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-            uiDeps.updateSeekBar({
-              currentTime: state.currentTime,
-              duration: effectiveDuration,
-            });
-          }
-
-          // Update time display only when not playing
-          this.updateTimeDisplay(state.currentTime);
+        // Always refresh seekbar/time using tempo-aware duration
+        if (uiDeps?.updateSeekBar) {
+          const pr = state.playbackRate ?? 100;
+          const speed = pr / 100;
+          const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+          uiDeps.updateSeekBar({
+            currentTime: state.currentTime,
+            duration: effectiveDuration,
+          });
         }
+        this.updateTimeDisplay(state.currentTime);
       } else {
         // Fallback if state is not available
         this.updateSeekBar(uiDeps);
