@@ -32,9 +32,18 @@ export interface SeekBarInstance {
 export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   const { audioPlayer, pianoRoll, formatTime } = deps;
 
-  const calculateEffectiveDuration = (duration: number, playbackRate: number): number => {
+  const calculateEffectiveDuration = (midiDuration: number, playbackRate: number): number => {
     const speed = playbackRate / 100;
-    return speed > 0 ? duration / speed : duration;
+    // Pull WAV max duration from global registry if present
+    let wavMax = 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const files = api?.getFiles?.() || [];
+      const ds = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+      wavMax = ds.length > 0 ? Math.max(...ds) : 0;
+    } catch {}
+    const raw = Math.max(midiDuration || 0, wavMax || 0);
+    return speed > 0 ? raw / speed : raw;
   };
 
   /* ---- DOM skeleton ------------------------------------------------ */

@@ -104,8 +104,23 @@ export class LoopManager {
       };
     }
 
-    // Normalize end
-    if (end === null || end <= start) {
+    // Policy update: If only A is provided (end is null), DO NOT activate loop.
+    // Treat this as "no custom loop window" to satisfy the UX requirement
+    // that A-only should not produce section looping.
+    if (end === null) {
+      this._loopStartVisual = null;
+      this._loopEndVisual = null;
+      this._loopCounter = 0;
+      return {
+        changed: true,
+        transportStart: 0,
+        transportEnd: duration,
+        shouldPreservePosition: true,
+      };
+    }
+
+    // Normalize end (A and B both present)
+    if (end <= start) {
       end = duration;
     } else {
       end = Math.min(end, duration);

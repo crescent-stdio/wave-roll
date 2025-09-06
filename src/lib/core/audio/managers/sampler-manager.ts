@@ -154,8 +154,8 @@ export class SamplerManager {
     // Important: do NOT enable Part.loop. We explicitly handle Transport
     // loop events in AudioPlayer.handleTransportLoop() by cancelling and
     // restarting the Part at the loop start. Enabling Part.loop here would
-    // cause double scheduling (Partʼs own loop + manual restart) and yield
-    // “중복 재생(겹쳐 들림)” 현상.
+    // cause double scheduling (Part's own loop + manual restart) and lead to
+    // double playback (audible overlap).
     this.part.loop = false;
     this.part.loopStart = 0;
     this.part.loopEnd = options?.duration || 0;

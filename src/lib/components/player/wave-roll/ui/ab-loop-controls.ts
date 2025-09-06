@@ -19,9 +19,9 @@ export interface ABLoopAPI {
 export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   const { audioPlayer, pianoRoll } = deps;
 
-  /* internal state (seconds) */
-  let pointA: number | null = null;
-  let pointB: number | null = null;
+  /* internal state (percent of effective duration, 0-100) */
+  let pointAPct: number | null = null;
+  let pointBPct: number | null = null;
   let loopRestart = false;
 
   /* ---------- build DOM ---------- */
@@ -45,17 +45,31 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     return b;
   };
 
-  /* Loop-Restart ) */
+  /* Loop-Restart */
   const restartBtn = makeBtn(
     () => {
-      loopRestart = !loopRestart;
+      // Toggle requested state, but validate A/B before applying
+      const next = !loopRestart;
+      if (next) {
+        // Require both A and B to enable loop
+        if (pointAPct === null || pointBPct === null) {
+          // No-op, keep disabled
+          return;
+        }
+        // Enabling: apply loop to engine, jump to A
+        applyLoopToEngine(true);
+        loopRestart = true;
+      } else {
+        // Disabling: clear engine loop, keep position
+        applyLoopToEngine(false);
+        loopRestart = false;
+      }
+      // Reflect UI state
       restartBtn.dataset.active = loopRestart ? "true" : "";
-      restartBtn.style.background = loopRestart
-        ? "rgba(0,123,255,.1)"
-        : "transparent";
+      restartBtn.style.background = loopRestart ? "rgba(0,123,255,.1)" : "transparent";
       restartBtn.style.color = loopRestart ? "#007bff" : "#495057";
-      // apply / clear loop on the player
-      applyLoopToPlayer();
+      // Always refresh overlay
+      updateSeekBar();
     },
     undefined,
     PLAYER_ICONS.loop_restart
@@ -69,9 +83,31 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   root.append(restartBtn, btnA, btnB, btnClear);
 
   /* ---------- helpers ---------- */
+  function getEffectiveDurationForUI(): number {
+    try {
+      const st = audioPlayer.getState();
+      const pr = st.playbackRate ?? 100;
+      const speed = pr / 100;
+      const midiDur = st.duration || 0;
+      let wavMax = 0;
+      try {
+        const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+        const files = api?.getFiles?.() || [];
+        const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+        wavMax = durations.length > 0 ? Math.max(...durations) : 0;
+      } catch {}
+      const rawMax = Math.max(midiDur, wavMax);
+      return speed > 0 ? rawMax / speed : rawMax;
+    } catch {
+      return audioPlayer.getState().duration;
+    }
+  }
   function setPoint(kind: "A" | "B") {
     const state = audioPlayer.getState();
     const t = state.currentTime;
+    const effectiveDuration = getEffectiveDurationForUI();
+    if (effectiveDuration <= 0) return;
+    const pct = (t / effectiveDuration) * 100;
 
     // console.log(`[AB-Loop] Setting point ${kind}:`, {
     //   currentTime: t,
@@ -79,40 +115,38 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     //   percent: (t / state.duration) * 100
     // });
 
-    if (kind === "A") pointA = t;
-    else pointB = t;
+    if (kind === "A") pointAPct = pct;
+    else pointBPct = pct;
 
     // keep A <= B
-    if (pointA !== null && pointB !== null && pointA > pointB) {
-      [pointA, pointB] = [pointB, pointA];
+    if (pointAPct !== null && pointBPct !== null && pointAPct > pointBPct) {
+      [pointAPct, pointBPct] = [pointBPct, pointAPct];
     }
-    applyLoopToPlayer();
-    // Seek-bar will refresh via applyLoopToPlayer -> updateSeekBar
+    // Update UI overlays only; do NOT touch engine until loop button is enabled
+    applyMarkersToUI();
+    updateSeekBar();
   }
 
-  function applyLoopToPlayer() {
-    // Compute loop points in seconds -> percent conversion happens only when
-    // dispatching the `wr-loop-update` event.
+  function applyMarkersToUI() {
+    const dur = getEffectiveDurationForUI();
+    const toSec = (p: number | null) => (p !== null ? (p / 100) * dur : null);
+    pianoRoll.setLoopWindow?.(toSec(pointAPct), toSec(pointBPct));
+  }
 
-    // forward to seek-bar overlay via public getter -> handled by Player loop
-    // forward to piano-roll shading
-    pianoRoll.setLoopWindow?.(pointA, pointB);
-
-    // audio loop only when restart-mode is active
-    if (loopRestart) {
-      // Set loop points with preservePosition=false to immediately jump to loop start
-      // This ensures UI components (seek bar, time display, piano roll) are synchronized
-      audioPlayer.setLoopPoints(pointA, pointB, false);
-      
-      // The setLoopPoints method now handles UI synchronization directly
-      // No need for setTimeout - UI updates happen synchronously
+  function applyLoopToEngine(enable: boolean) {
+    if (enable) {
+      // Enable loop only if both markers exist and valid
+      if (pointAPct === null || pointBPct === null) return;
+      const dur = getEffectiveDurationForUI();
+      if (dur <= 0) return;
+      const start = (pointAPct / 100) * dur;
+      const end = (pointBPct / 100) * dur;
+      // Jump to A and start loop (preservePosition=false)
+      audioPlayer.setLoopPoints(start, end, false);
     } else {
-      // Clear loop but preserve current playback position
+      // Clear loop, preserve current position
       audioPlayer.setLoopPoints(null, null, true);
     }
-
-    // Notify seek-bar overlay to refresh via bubbling custom event
-    updateSeekBar();
   }
 
   /* ---------------------------------------------------------------
@@ -124,32 +158,10 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     const state = audioPlayer.getState();
     if (!state || state.duration === 0) return;
 
-    let start = pointA;
-    let end = pointB;
-
-    // Ensure chronological order
-    if (start !== null && end !== null && start > end) {
-      [start, end] = [end, start];
-    }
-
-    // Clamp within track duration
-    const clamp = (v: number | null) =>
-      v !== null ? Math.min(v, state.duration) : null;
-
-    start = clamp(start);
-    end = clamp(end);
-
-    // Percent should reflect effective duration (tempo / playbackRate)
-    const pr = state.playbackRate ?? 100;
-    const speed = pr / 100;
-    const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-    const toPct = (v: number | null) =>
-      v !== null ? (v / effectiveDuration) * 100 : null;
-
     const loopWindow =
-      start === null && end === null
+      pointAPct === null && pointBPct === null
         ? null
-        : ({ prev: toPct(start), next: toPct(end) } as const);
+        : ({ prev: pointAPct, next: pointBPct } as const);
 
     // console.log("[AB-Loop] Sending loop update:", {
     //   pointA,
@@ -176,7 +188,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   setTimeout(updateSeekBar, 0);
 
   function clear() {
-    pointA = pointB = null;
+    pointAPct = pointBPct = null;
     loopRestart = false;
     // Preserve position when clearing loop from UI
     audioPlayer.setLoopPoints(null, null, true);
@@ -190,12 +202,8 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
 
   /* ---------- public API ---------- */
   const getLoopPoints = () => {
-    if (pointA === null && pointB === null) return null;
-    const dur = audioPlayer.getState().duration;
-    return {
-      a: pointA !== null ? (pointA / dur) * 100 : null,
-      b: pointB !== null ? (pointB / dur) * 100 : null,
-    };
+    if (pointAPct === null && pointBPct === null) return null;
+    return { a: pointAPct, b: pointBPct };
   };
 
   return { element: root, getLoopPoints, clear };

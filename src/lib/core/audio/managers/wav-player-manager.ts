@@ -92,10 +92,11 @@ export class WavPlayerManager {
               },
             }).connect(panner);
 
-            // Optimize grain player settings for smoother playback
-            player.grainSize = 0.2; // Larger grain size for more stable playback
-            player.overlap = 0.1; // More overlap for smoother transitions
-            player.detune = 0; // No pitch shift
+            // Optimize grain player settings for smoother, pitch-preserving time-stretch
+            // GrainPlayer supports rate changes without shifting pitch; adjust grains per speed
+            player.detune = 0; // Explicitly avoid pitch shifting
+            const speedInit = (state?.playbackRate ?? AUDIO_CONSTANTS.DEFAULT_PLAYBACK_RATE) / 100;
+            this.applyGrainParams(player, speedInit);
             player.loop = false; // No looping at player level
             // Apply mute state to WAV player volume
             const volumeValue = effectiveVolume(
@@ -128,8 +129,7 @@ export class WavPlayerManager {
             entry.player = new Tone.GrainPlayer(it.url, () => {
               // Buffer loaded callback
             }).connect(entry.panner);
-            entry.player.grainSize = 0.1;
-            entry.player.overlap = 0.05;
+            this.applyGrainParams(entry.player, (state?.playbackRate ?? AUDIO_CONSTANTS.DEFAULT_PLAYBACK_RATE) / 100);
             entry.player.volume.value = toDb(volumeValue);
             // Apply current playback rate if set
             if (state?.playbackRate) {
@@ -312,6 +312,7 @@ export class WavPlayerManager {
     this.audioPlayers.forEach(({ player }) => {
       if (player) {
         player.playbackRate = speedMultiplier;
+        this.applyGrainParams(player, speedMultiplier);
       }
     });
   }
@@ -605,5 +606,35 @@ export class WavPlayerManager {
     // - Unmuted files are started immediately in setWavVolume() at current position
     // - Explicit calls from seek()/play()/loop will start via startActiveAudioAt()
     // This method only syncs the registry and builds/refreshes players.
+  }
+
+  /**
+   * Adjust GrainPlayer parameters for better pitch-preserving time-stretch
+   * across a range of speeds. Smaller grains at slow speeds reduce smearing;
+   * moderate overlap smooths transitions.
+   */
+  private applyGrainParams(player: Tone.GrainPlayer, speed: number): void {
+    try {
+      // Clamp speed to [0.1, 2.0] typical UI range
+      const s = Math.max(0.1, Math.min(2.0, speed || 1));
+      if (s <= 0.5) {
+        player.grainSize = 0.08;
+        player.overlap = 0.06;
+      } else if (s <= 0.75) {
+        player.grainSize = 0.12;
+        player.overlap = 0.08;
+      } else if (s <= 1.25) {
+        player.grainSize = 0.2;
+        player.overlap = 0.1;
+      } else if (s <= 1.5) {
+        player.grainSize = 0.16;
+        player.overlap = 0.1;
+      } else {
+        player.grainSize = 0.14;
+        player.overlap = 0.08;
+      }
+      // Ensure no explicit detuning
+      player.detune = 0;
+    } catch {}
   }
 }

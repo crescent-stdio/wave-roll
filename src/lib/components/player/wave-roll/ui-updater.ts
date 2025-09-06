@@ -18,6 +18,31 @@ export class UIUpdater {
   ) {}
 
   /**
+   * Compute the effective total duration for UI (seekbar/time labels),
+   * taking the maximum of MIDI duration and registered WAV duration,
+   * and scaling by current playbackRate (tempo).
+   */
+  private computeEffectiveDuration(): number {
+    const st = this.visualizationEngine.getState();
+    if (!st) return 0;
+    const pr = st.playbackRate ?? 100;
+    const speed = pr / 100;
+    const midiDuration = st.duration || 0;
+
+    // Query global WAV registry for maximum buffer duration
+    let wavMax = 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const files = api?.getFiles?.() || [];
+      const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+      wavMax = durations.length > 0 ? Math.max(...durations) : 0;
+    } catch {}
+
+    const rawMax = Math.max(midiDuration, wavMax);
+    return speed > 0 ? rawMax / speed : rawMax;
+  }
+
+  /**
    * Get UI dependencies object for UIComponents
    */
   getUIDependencies(uiDeps: UIComponentDependencies | null): UIComponentDependencies {
@@ -54,8 +79,8 @@ export class UIUpdater {
         silenceDetector: null,
       };
 
-      // After creation, convert seconds -> % once we know duration.
-      const durationSec = playbackState.duration;
+      // After creation, convert seconds -> % once we know duration (tempo/WAV-aware).
+      const durationSec = this.computeEffectiveDuration();
       if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         uiDeps!.loopPoints = {
           a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
@@ -75,8 +100,8 @@ export class UIUpdater {
       uiDeps.lastVolumeBeforeMute = uiState.lastVolumeBeforeMute;
       uiDeps.minorTimeStep = uiState.minorTimeStep;
 
-      // Convert loopPoints (seconds) -> % for seek-bar visualisation
-      const durationSec = playbackState.duration;
+      // Convert loopPoints (seconds) -> % for seek-bar visualisation (tempo/WAV-aware)
+      const durationSec = this.computeEffectiveDuration();
       if (durationSec > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         uiDeps.loopPoints = {
           a: loopPoints.a !== null ? (loopPoints.a / durationSec) * 100 : null,
@@ -119,9 +144,7 @@ export class UIUpdater {
 
         // Always refresh seekbar/time using tempo-aware duration
         if (uiDeps?.updateSeekBar) {
-          const pr = state.playbackRate ?? 100;
-          const speed = pr / 100;
-          const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+          const effectiveDuration = this.computeEffectiveDuration();
           uiDeps.updateSeekBar({
             currentTime: state.currentTime,
             duration: effectiveDuration,
@@ -195,9 +218,7 @@ export class UIUpdater {
     const state = this.visualizationEngine.getState();
     if (state) {
       // Always pass explicit state to ensure seekbar is updated
-      const pr = state.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+      const effectiveDuration = this.computeEffectiveDuration();
       uiDeps.updateSeekBar({
         currentTime: state.currentTime,
         duration: effectiveDuration,

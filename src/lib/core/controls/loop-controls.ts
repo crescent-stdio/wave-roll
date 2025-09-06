@@ -163,14 +163,9 @@ export function createCoreLoopControls(
       btnB.style.color = "var(--text-muted)";
       btnB.style.border = `2px solid ${COLOR_B}`;  // Show B border when inactive
     }
+    // Do not touch the engine when setting markers (no play/seek).
+    // Update only UI (overlay/markers).
     updateSeekBar();
-    if (pointA !== null) {
-      if (audioPlayer?.getState()?.isPlaying) {
-        audioPlayer?.seek(pointA, true);
-      } else {
-        pianoRoll?.setTime?.(pointA);
-      }
-    }
   });
   // Add default border to A button
   btnA.style.border = `2px solid ${COLOR_A}`;

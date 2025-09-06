@@ -208,8 +208,16 @@ export class PlaybackController {
     const wasPlaying = Tone.getTransport().state === "started";
     state.isPlaying = wasPlaying;
 
-    // Clamp and convert time
-    const clampedVisual = clamp(seconds, 0, state.duration);
+    // Clamp and convert time against max(MIDI, WAV) so WAV tails are seekable
+    let maxWav = 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const items = api?.getFiles?.() || [];
+      const ds = items.map((i) => i.audioBuffer?.duration || 0).filter((d) => d > 0);
+      maxWav = ds.length > 0 ? Math.max(...ds) : 0;
+    } catch {}
+    const maxVisual = Math.max(state.duration, maxWav);
+    const clampedVisual = clamp(seconds, 0, maxVisual);
     const transportSeconds = transportSyncManager.visualToTransportTime(clampedVisual);
 
     // Update state immediately for responsiveness

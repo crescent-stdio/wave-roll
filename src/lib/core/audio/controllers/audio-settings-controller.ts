@@ -286,6 +286,15 @@ export class AudioSettingsController {
     const wasPlaying = state.isPlaying;
     const currentVisualTime = state.currentTime;
 
+    // UX policy: A-only should NOT activate a loop window.
+    // Interpret (A set, B null) as "clear loop" while preserving position
+    // to avoid unexpected jumps.
+    if (start !== null && end === null) {
+      start = null;
+      end = null;
+      preservePosition = true;
+    }
+
     // Validate and set loop points
     if (start !== null && end !== null && start >= end) {
       console.warn("[AudioSettingsController.setLoopPoints] Invalid loop points: start >= end");

@@ -115,6 +115,27 @@ export class WaveRollPlayer {
   private lastHookedAudioPlayer: any = null;
   private audioVisualHooked: boolean = false;
 
+  // Compute effective UI duration considering tempo and WAV length
+  private getEffectiveDuration(): number {
+    try {
+      const st = this.visualizationEngine.getState();
+      const pr = st.playbackRate ?? 100;
+      const speed = pr / 100;
+      const midiDur = st.duration || 0;
+      let wavMax = 0;
+      try {
+        const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+        const files = api?.getFiles?.() || [];
+        const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+        wavMax = durations.length > 0 ? Math.max(...durations) : 0;
+      } catch {}
+      const rawMax = Math.max(midiDur, wavMax);
+      return speed > 0 ? rawMax / speed : rawMax;
+    } catch {
+      return 0;
+    }
+  }
+
   constructor(
     container: HTMLElement,
     initialFileItemList: Array<{
@@ -185,11 +206,8 @@ export class WaveRollPlayer {
     this.visualizationEngine.onVisualUpdate(({ currentTime, duration, isPlaying }) => {
       // Always get fresh dependencies to ensure updateSeekBar is available
       const deps = this.getUIDependencies();
-      // Use absolute (full-length) policy with tempo-aware duration
-      const st = this.visualizationEngine.getState();
-      const pr = st.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? st.duration / speed : st.duration;
+      // Use max(MIDI, WAV) with tempo/playback-rate awareness
+      const effectiveDuration = this.getEffectiveDuration();
       deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
       this.updateTimeDisplay(currentTime);
       // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
@@ -201,10 +219,7 @@ export class WaveRollPlayer {
         if (ap && ap !== this.lastHookedAudioPlayer && typeof ap.setOnVisualUpdate === 'function') {
           ap.setOnVisualUpdate(({ currentTime }: { currentTime: number; duration: number; isPlaying: boolean }) => {
             const deps2 = this.getUIDependencies();
-            const st2 = this.visualizationEngine.getState();
-            const pr2 = st2.playbackRate ?? 100;
-            const speed2 = pr2 / 100;
-            const effDur2 = speed2 > 0 ? st2.duration / speed2 : st2.duration;
+            const effDur2 = this.getEffectiveDuration();
             deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
             this.updateTimeDisplay(currentTime);
           });
@@ -346,11 +361,8 @@ export class WaveRollPlayer {
         silenceDetector: this.silenceDetector,
       };
 
-      // After creation, convert seconds -> % once we know (tempo-aware) duration.
-      const st = this.visualizationEngine.getState();
-      const pr = st.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? st.duration / speed : st.duration;
+      // After creation, convert seconds -> % once we know (tempo/WAV-aware) duration.
+      const effectiveDuration = this.getEffectiveDuration();
       if (effectiveDuration > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps!.loopPoints = {
           a: loopPoints.a !== null ? (loopPoints.a / effectiveDuration) * 100 : null,
@@ -369,11 +381,8 @@ export class WaveRollPlayer {
       this.uiDeps.lastVolumeBeforeMute = uiState.lastVolumeBeforeMute;
       this.uiDeps.minorTimeStep = uiState.minorTimeStep;
 
-      // Convert loopPoints (seconds) -> % for seek-bar visualisation (tempo-aware)
-      const st2 = this.visualizationEngine.getState();
-      const pr2 = st2.playbackRate ?? 100;
-      const speed2 = pr2 / 100;
-      const effectiveDuration2 = speed2 > 0 ? st2.duration / speed2 : st2.duration;
+      // Convert loopPoints (seconds) -> % for seek-bar visualisation (tempo/WAV-aware)
+      const effectiveDuration2 = this.getEffectiveDuration();
       if (effectiveDuration2 > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps.loopPoints = {
           a: loopPoints.a !== null ? (loopPoints.a / effectiveDuration2) * 100 : null,
@@ -469,16 +478,13 @@ export class WaveRollPlayer {
         // Force a seek-bar refresh immediately for snappy feedback.
         // Use absolute (full-length) policy and reflect tempo/rate changes
         // by computing effective duration.
-        const state = this.visualizationEngine.getState();
-        const pr = state.playbackRate ?? 100;
-        const speed = pr / 100;
-        const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+        const effectiveDuration = this.getEffectiveDuration();
 
         // If loop A exists, snap seekbar preview to A for an instant visual anchor.
         const startPct = lp?.a;
         const startSec = startPct !== null && startPct !== undefined && effectiveDuration > 0
           ? (startPct / 100) * effectiveDuration
-          : state.currentTime;
+          : this.visualizationEngine.getState().currentTime;
 
         deps.updateSeekBar?.({
           currentTime: startSec,
@@ -564,16 +570,37 @@ export class WaveRollPlayer {
           this.silenceDetector.checkSilence(this.midiManager);
         }
 
+        // Default mixing policy: If both MIDI and WAV are present at first load,
+        // mute WAV tracks by default to avoid double playback (audible overlap).
+        try {
+          const hasMidi = this.midiManager.getState().files.length > 0;
+          const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean }> ; toggleMute?: (id: string) => void } })._waveRollAudio;
+          const wavItems = api?.getFiles?.() || [];
+          const hasWav = wavItems.length > 0;
+          if (hasMidi && hasWav) {
+            // Mark registry as muted first so future refreshes respect mute state
+            for (const it of wavItems) {
+              if (!it.isMuted) {
+                api?.toggleMute?.(it.id);
+              }
+            }
+            // Also ensure current players (if already built) are muted at engine level
+            wavItems.forEach((it) => {
+              try {
+                // Route via visualizationEngine -> coreEngine -> wavPlayerManager
+                (this.visualizationEngine as any).setFileMute?.(it.id, true);
+              } catch {}
+            });
+          }
+        } catch {}
+
         // Ensure AudioPlayer visual update callback is attached once audio exists
         try {
           const anyEngine = this.visualizationEngine as unknown as { coreEngine?: any };
           const audioPlayer = anyEngine.coreEngine?.audioPlayer;
           if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === 'function') {
             audioPlayer.setOnVisualUpdate(({ currentTime }: { currentTime: number; duration: number; isPlaying: boolean }) => {
-              const st = this.visualizationEngine.getState();
-              const pr = st.playbackRate ?? 100;
-              const speed = pr / 100;
-              const effectiveDuration = speed > 0 ? st.duration / speed : st.duration;
+              const effectiveDuration = this.getEffectiveDuration();
               const deps = this.getUIDependencies();
               deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
               this.updateTimeDisplay(currentTime);
