@@ -14,7 +14,7 @@ import { describe, it, expect, vi } from "vitest";
 describe("Section A - A-B Loop Issues", () => {
   describe("A button click during playback", () => {
     it("should update piano roll/seekbar/time display when A is clicked during playback", () => {
-      // Issue: 재생되고 있는 상태에서 A를 했더니 소리만 나오고 피아노롤/seekbar/시간표시가 바뀌지 않음
+      // Issue: While playing, pressing A produced sound only; piano roll/seekbar/time display did not update
       // Expected: UI should update immediately to show A position
       
       const mockAudioPlayer = {
@@ -45,7 +45,7 @@ describe("Section A - A-B Loop Issues", () => {
     });
     
     it("should preserve position when A is clicked while not playing", () => {
-      // Issue: 재생하고 있지 않은 상태에서 A를 했더니 현재 위치 유지 (의도된 결과)
+      // Issue: When not playing, pressing A keeps the current position (intended)
       // This is the expected behavior - just verify it works
       
       const mockAudioPlayer = {
@@ -71,7 +71,7 @@ describe("Section A - A-B Loop Issues", () => {
 
   describe("AB Loop enable behavior", () => {
     it("should jump to A when enabling loop during playback", () => {
-      // Issue: 재생중에 "A 클릭 → B 클릭 → AB루프 재생 클릭"에서 0s로 점프
+      // Issue: During playback, "Click A → Click B → Click AB loop play" jumps to 0 s
       // Expected: Should jump to A position, not 0
       
       const mockAudioPlayer = {
@@ -98,7 +98,7 @@ describe("Section A - A-B Loop Issues", () => {
     });
     
     it("should jump to A when enabling loop while not playing", () => {
-      // Issue: 재생중이지 않은 상태에서 "A 클릭 → B 클릭 → AB루프 재생 클릭"에서 A로 점프
+      // Issue: When not playing, "Click A → Click B → Click AB loop play" jumps to A (correct)
       // This is correct behavior - verify it works
       
       const mockAudioPlayer = {
@@ -126,7 +126,7 @@ describe("Section A - A-B Loop Issues", () => {
 
   describe("Clear button behavior", () => {
     it("should update UI when clearing during playback", () => {
-      // Issue: 구간 재생 중에도 X(클리어) 시 소리만 나오고 피아노롤/seekbar/시간표시가 바뀌지 않음
+      // Issue: During looped playback, pressing X (clear) produces sound only; piano roll/seekbar/time display does not update
       // Expected: UI should update while preserving position
       
       const mockAudioPlayer = {
@@ -163,7 +163,7 @@ describe("Section A - A-B Loop Issues", () => {
 describe("Section B - Tempo/Playback Rate Issues", () => {
   describe("Tempo change UI updates", () => {
     it("should update UI immediately when tempo changes to 200%", () => {
-      // Issue: 200%을 템포 조절 창에서 입력하면 UI가 즉시 갱신X. spacebar를 눌러야 재생
+      // Issue: Entering 200% in the tempo control does not update the UI immediately; must press spacebar to play
       // Expected: UI should update immediately without needing to play
       
       const mockAudioPlayer = {
@@ -199,7 +199,7 @@ describe("Section B - Tempo/Playback Rate Issues", () => {
 
   describe("Seek bar click accuracy", () => {
     it("should calculate correct position with playback rate", () => {
-      // Issue: 클릭 seeking 정확하지 않음 (클릭한 위치와 seek된 위치가 같지 않음)
+      // Issue: Click seeking is inaccurate (clicked position and seeked position differ)
       // Root cause: Effective duration calculation with playback rate
       
       const duration = 10;

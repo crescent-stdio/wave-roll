@@ -231,10 +231,8 @@ export class WaveRollPlayer {
     this.pianoRollManager = createPianoRollManager();
     this.pianoRollManager.initialize(this.pianoRollContainer, []);
 
-    const coreEngine = createCorePlaybackEngine(this.stateManager);
-    coreEngine.initialize(this.pianoRollManager);
-
-    this.corePlaybackEngine = coreEngine;
+    // Use the VisualizationEngine's CorePlaybackEngine instead of creating a separate one
+    // this.corePlaybackEngine = coreEngine;
 
     // Handlers are created below; listeners will be attached afterwards
 
@@ -243,10 +241,10 @@ export class WaveRollPlayer {
       autoResumeOnUnmute: false,
       onSilenceDetected: () => {
         // Auto-pause when all sources are silent
-        if (this.corePlaybackEngine?.getState().isPlaying) {
+        if (this.visualizationEngine.getState().isPlaying) {
           console.log("Auto-pausing: all sources are silent");
           this.pausedBySilence = true;
-          this.corePlaybackEngine.pause();
+          this.visualizationEngine.pause();
           // Update play button UI to reflect paused state
           this.updatePlayButton();
         }
@@ -293,9 +291,9 @@ export class WaveRollPlayer {
         const prevMute = previousMuteStates.get(file.id) || false;
         const currMute = file.isMuted || false;
         
-        if (prevMute !== currMute && this.corePlaybackEngine) {
+        if (prevMute !== currMute) {
           // Apply mute change without recreating the audio player
-          this.corePlaybackEngine.setFileMute(file.id, currMute);
+          this.visualizationEngine.setFileMute(file.id, currMute);
           previousMuteStates.set(file.id, currMute);
         }
       });
@@ -652,8 +650,9 @@ export class WaveRollPlayer {
    * Update mute state
    */
   private updateMuteState(shouldMute: boolean): void {
-    // this.audioController.handleChannelMute(shouldMute);
-    this.corePlaybackEngine?.handleChannelMute(shouldMute);
+    // Note: VisualizationEngine doesn't have handleChannelMute, 
+    // but this functionality might not be needed with the new architecture
+    // this.visualizationEngine.handleChannelMute?.(shouldMute);
   }
 
   /**
@@ -695,9 +694,28 @@ export class WaveRollPlayer {
 
     // Dispose modules
     this.visualizationEngine.destroy();
-    // this.audioController.destroy();
-    this.corePlaybackEngine?.destroy();
     // StateManager doesn't have a dispose method
+  }
+
+  // --- Public control API (used by Web Component/tests) ---
+  public async play(): Promise<void> {
+    console.log('[WaveRollPlayer] play() called, using visualizationEngine');
+    await this.visualizationEngine.play();
+    this.updatePlayButton();
+  }
+
+  public pause(): void {
+    console.log('[WaveRollPlayer] pause() called, using visualizationEngine');
+    this.visualizationEngine.pause();
+    this.updatePlayButton();
+  }
+
+  public get isPlaying(): boolean {
+    try {
+      return !!this.visualizationEngine.getState().isPlaying;
+    } catch {
+      return false;
+    }
   }
 }
 

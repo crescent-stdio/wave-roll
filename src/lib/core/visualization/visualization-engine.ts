@@ -127,6 +127,7 @@ export class VisualizationEngine {
     visibleNotes: ColoredNote[],
     audioNotesOverride?: NoteData[]
   ): Promise<void> {
+    console.log('[VisualizationEngine] updateVisualization called with', visibleNotes.length, 'visible notes, audioNotesOverride:', audioNotesOverride ? audioNotesOverride.length : 'none');
     // ------------------------------------------------------------
     // Conditional overlap recoloring (legacy path). If the calling code
     // already provided pre-split overlap segments, we can skip this pass by
@@ -170,6 +171,7 @@ export class VisualizationEngine {
       audioNotesOverride ??
       recolored.filter((cn) => !cn.isMuted).map((cn) => cn.note);
 
+    console.log('[VisualizationEngine] Calling coreEngine.updateAudio with', audioNotes.length, 'audio notes');
     await this.coreEngine.updateAudio(audioNotes);
   }
 

@@ -94,9 +94,28 @@ class WaveRollElement extends HTMLElement {
     // Always create the player, even with no files (shows empty state)
     try {
       this.player = await createWaveRollPlayer(this.container, files);
+      // Notify listeners the component has finished initialization
+      this.dispatchEvent(new Event('load'));
     } catch (e) {
       console.error('Failed to initialize WaveRoll player:', e);
     }
+  }
+
+  // Expose minimal control API for tests/integration
+  public async play(): Promise<void> {
+    if (this.player?.play) {
+      await this.player.play();
+    }
+  }
+
+  public pause(): void {
+    if (this.player?.pause) {
+      this.player.pause();
+    }
+  }
+
+  public get isPlaying(): boolean {
+    return !!this.player?.isPlaying;
   }
 }
 

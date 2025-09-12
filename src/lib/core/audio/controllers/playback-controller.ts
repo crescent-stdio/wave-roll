@@ -47,6 +47,13 @@ export class PlaybackController {
     try {
       const { state, samplerManager, wavPlayerManager, transportSyncManager, loopManager } = this.deps;
 
+      // === GHOST AUDIO PREVENTION ===
+      // Increment generation token to prevent ghost audio
+      state.playbackGeneration = (state.playbackGeneration || 0) + 1;
+      const currentGeneration = state.playbackGeneration;
+      
+      console.log("[PlaybackController.play] Starting playback with generation", currentGeneration);
+
       // Ensure WavPlayerManager has reference to TransportSyncManager
       wavPlayerManager.setTransportSyncManager(transportSyncManager);
 
@@ -66,9 +73,13 @@ export class PlaybackController {
       if (state.currentTime >= state.duration - 0.001) {
         this.pausedTime = 0;
         state.currentTime = 0;
+        state.nowTime = 0; // Update unified time reference
         // Update visual immediately
         this.deps.pianoRoll.setTime(0);
       }
+
+      // Update unified time reference
+      state.nowTime = state.currentTime;
 
       // Setup transport and parts
       const transport = Tone.getTransport();
@@ -95,29 +106,57 @@ export class PlaybackController {
         pausedTime: this.pausedTime,
         visualAtStart,
         relativeVisualOffset,
-        relativeTransportOffset
+        relativeTransportOffset,
+        generation: currentGeneration
       });
 
       // Use a single unified start time for perfect synchronization
       const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
       
-      console.log("[PlaybackController] Starting synchronized playback at", startAt);
+      console.log("[PlaybackController] Starting synchronized playback at", startAt, "generation", currentGeneration);
       
+      // Check generation before each critical operation
+      if (state.playbackGeneration !== currentGeneration) {
+        console.log("[PlaybackController.play] Generation changed during setup, aborting");
+        return;
+      }
+      
+      // Unmute sampler track gates just-in-time
+      try { this.deps.samplerManager.hardUnmuteAllGates(); } catch {}
+
       // Start transport
       transport.start(startAt);
       
       // Start MIDI part with computed offset
+      if (state.playbackGeneration !== currentGeneration) {
+        console.log("[PlaybackController.play] Generation changed before MIDI start, aborting");
+        return;
+      }
+      
       samplerManager.startPart(startAt, relativeTransportOffset);
 
       // Start WAV audio with SAME relative visual offset (unified calculation)
-      // Remove buffer waiting - let Tone.Player handle buffer management internally
+      // Use Tone.js Transport scheduling for perfect sync
       if (wavPlayerManager.isAudioActive()) {
+        if (state.playbackGeneration !== currentGeneration) {
+          console.log("[PlaybackController.play] Generation changed before WAV start, aborting");
+          return;
+        }
+        
         console.log("[PlaybackController] Starting WAV immediately with unified offset");
         wavPlayerManager.startActiveAudioAtSync(relativeVisualOffset, startAt);
       }
 
+      // Final generation check before updating state
+      if (state.playbackGeneration !== currentGeneration) {
+        console.log("[PlaybackController.play] Generation changed before state update, aborting");
+        return;
+      }
+
       state.isPlaying = true;
       transportSyncManager.startSyncScheduler();
+      
+      console.log("[PlaybackController.play] Successfully started generation", currentGeneration);
     } finally {
       this._playLock = false;
     }
@@ -136,6 +175,9 @@ export class PlaybackController {
 
     // Stop sync first
     transportSyncManager.stopSyncScheduler();
+
+    // Hard mute gates to ensure immediate silence
+    try { samplerManager.hardMuteAllGates(); } catch {}
 
     // Save position before stopping
     this.pausedTime = Tone.getTransport().seconds;
@@ -162,6 +204,8 @@ export class PlaybackController {
     // Stop everything
     transportSyncManager.stopSyncScheduler();
     samplerManager.stopPart();
+    try { samplerManager.stopAllVoicesImmediate(); } catch {}
+    try { samplerManager.hardMuteAllGates(); } catch {}
     wavPlayerManager.stopAllAudioPlayers();
 
     const transport = Tone.getTransport();
@@ -192,6 +236,7 @@ export class PlaybackController {
       const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
       const startAt = Tone.now() + RESTART_DELAY;
       
+      try { samplerManager.hardUnmuteAllGates(); } catch {}
       transport.start(startAt);
       samplerManager.startPart(startAt, this.pausedTime);
 
@@ -215,6 +260,13 @@ export class PlaybackController {
   seek(seconds: number, updateVisual: boolean = true): void {
     const { state, operationState, samplerManager, wavPlayerManager, transportSyncManager, loopManager, pianoRoll } = this.deps;
 
+    // === GHOST AUDIO PREVENTION ===
+    // Increment generation token to invalidate any pending operations
+    state.playbackGeneration = (state.playbackGeneration || 0) + 1;
+    const currentGeneration = state.playbackGeneration;
+    
+    console.log("[PlaybackController.seek] Starting with generation", currentGeneration);
+
     // Update timestamp for guard
     transportSyncManager.updateSeekTimestamp();
 
@@ -232,6 +284,7 @@ export class PlaybackController {
       seconds,
       wasPlaying,
       midiDuration: state.duration,
+      generation: currentGeneration,
     });
 
     // Clamp and convert time against max(MIDI, WAV) so WAV tails are seekable
@@ -250,34 +303,46 @@ export class PlaybackController {
       maxVisual,
       requestedVisual,
       transportSeconds,
+      generation: currentGeneration,
     });
 
     // Update state immediately for responsiveness
     state.currentTime = requestedVisual; // keep UI aligned with requested time
+    state.nowTime = requestedVisual; // Update unified time reference
     this.pausedTime = transportSeconds;
 
     // Update visual immediately to reduce perceived lag (centralized path)
     if (updateVisual) {
       if (this.deps.uiSync) this.deps.uiSync(requestedVisual, true);
       else pianoRoll.setTime(requestedVisual);
-      console.log("[PlaybackController.seek] UI sync", { requestedVisual });
+      console.log("[PlaybackController.seek] UI sync", { requestedVisual, generation: currentGeneration });
     }
 
     if (wasPlaying) {
+      // === ATOMIC STOP PHASE ===
+      console.log("[PlaybackController.seek] Stopping all audio atomically for generation", currentGeneration);
+      
       // Stop sync first but don't wait
       transportSyncManager.stopSyncScheduler();
-      console.log("[PlaybackController.seek] restarting transport/part");
       
-      // Batch all stop operations
+      // Batch all stop operations with generation awareness
       samplerManager.stopPart();
+      
+      // Ensure all currently sounding voices are immediately silenced to avoid bleed
+      try { samplerManager.stopAllVoicesImmediate(); } catch {}
+      // Hard mute gates to kill any residuals in the chain
+      try { samplerManager.hardMuteAllGates(); } catch {}
+      
+      // Stop WAV players with Transport cleanup
       wavPlayerManager.stopAllAudioPlayers();
 
       const transport = Tone.getTransport();
       transport.stop();
       transport.cancel();
       transport.seconds = transportSeconds;
-      console.log("[PlaybackController.seek] transport positioned", { transportSeconds });
+      console.log("[PlaybackController.seek] transport positioned", { transportSeconds, generation: currentGeneration });
 
+      // === ATOMIC UPDATE PHASE ===
       // Re-setup Part
       samplerManager.setupNotePart(
         loopManager.loopStartVisual,
@@ -292,13 +357,29 @@ export class PlaybackController {
       console.log("[PlaybackController.seek] part setup", {
         loopStartVisual: loopManager.loopStartVisual,
         loopEndVisual: loopManager.loopEndVisual,
+        generation: currentGeneration,
       });
 
+      // === GENERATION-AWARE START PHASE ===
       // Start transport and part (use loop-relative offset for Part)
       const hasUnloadedWav2 = wavPlayerManager.hasActiveUnloadedPlayers?.() === true;
       const extra2 = hasUnloadedWav2 ? 0.35 : AUDIO_CONSTANTS.LOOKAHEAD_TIME;
       const startAt2 = Tone.now() + extra2;
+      
+      // Check generation before each start operation
+      if (state.playbackGeneration !== currentGeneration) {
+        console.log("[PlaybackController.seek] Generation changed during seek, aborting", {
+          expected: currentGeneration,
+          actual: state.playbackGeneration
+        });
+        operationState.isSeeking = false;
+        return;
+      }
+      
+      // Unmute gates just-in-time before starting
+      try { samplerManager.hardUnmuteAllGates(); } catch {}
       transport.start(startAt2);
+      
       // Ensure MIDI Part offset stays within MIDI duration to avoid silent starts
       const midiDur = Math.max(0, state.duration || 0);
       const safeVisualForPart = midiDur > 0
@@ -306,12 +387,21 @@ export class PlaybackController {
         : 0;
       const relVisual = loopManager.getPartOffset(safeVisualForPart, transportSeconds);
       const relTransport = transportSyncManager.visualToTransportTime(relVisual);
+      
+      // Final generation check before starting MIDI
+      if (state.playbackGeneration !== currentGeneration) {
+        console.log("[PlaybackController.seek] Generation changed before MIDI start, aborting");
+        operationState.isSeeking = false;
+        return;
+      }
+      
       samplerManager.startPart(startAt2, relTransport);
       console.log("[PlaybackController.seek] start", {
         startAt: startAt2,
         safeVisualForPart,
         relVisual,
         relTransport,
+        generation: currentGeneration,
       });
 
       // Restart Sync
@@ -320,24 +410,32 @@ export class PlaybackController {
 
       // Start external audio at the same absolute time as Transport/Part
       if (wavPlayerManager.isAudioActive()) {
+        // Final generation check before starting WAV
+        if (state.playbackGeneration !== currentGeneration) {
+          console.log("[PlaybackController.seek] Generation changed before WAV start, aborting");
+          operationState.isSeeking = false;
+          return;
+        }
+        
         wavPlayerManager.stopAllAudioPlayers();
-        wavPlayerManager.startActiveAudioAt(requestedVisual, startAt2);
-        console.log("[PlaybackController.seek] wav restart", { requestedVisual, startAt: startAt2 });
+        wavPlayerManager.startActiveAudioAtSync(requestedVisual, startAt2);
+        console.log("[PlaybackController.seek] wav restart", { requestedVisual, startAt: startAt2, generation: currentGeneration });
       }
 
       // Retrigger held notes for all unmuted tracks at the seek position
       // This ensures long-duration notes that started before the seek position are audible
       samplerManager.retriggerAllUnmutedHeldNotes(requestedVisual);
-      console.log("[PlaybackController.seek] retriggered held notes", { requestedVisual });
+      console.log("[PlaybackController.seek] retriggered held notes", { requestedVisual, generation: currentGeneration });
       
     } else {
       Tone.getTransport().seconds = transportSeconds;
-      console.log("[PlaybackController.seek] paused seek", { transportSeconds });
+      console.log("[PlaybackController.seek] paused seek", { transportSeconds, generation: currentGeneration });
     }
 
     // Clear seeking flag
     setTimeout(() => {
       operationState.isSeeking = false;
+      console.log("[PlaybackController.seek] Completed generation", currentGeneration);
     }, 50);
   }
 

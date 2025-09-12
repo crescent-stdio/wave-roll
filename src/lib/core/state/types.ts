@@ -18,6 +18,25 @@ export interface PlaybackState {
   duration: number;
   isPlaying: boolean;
   volume: number;
+  
+  /** Generation token to prevent ghost audio - increments on play/seek/tempo changes */
+  playbackGeneration: number;
+  
+  /** Unified time reference - single source of truth for current playback position */
+  nowTime: number;
+  
+  /** Master volume that affects all audio output */
+  masterVolume: number;
+  
+  /** Current tempo in BPM */
+  tempo: number;
+  
+  /** Loop mode state */
+  loopMode: 'off' | 'repeat' | 'ab';
+  
+  /** A/B loop markers */
+  markerA: number | null;
+  markerB: number | null;
 }
 
 /**

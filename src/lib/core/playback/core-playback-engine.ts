@@ -54,7 +54,7 @@ const DEFAULT_CONFIG: Required<CorePlaybackEngineConfig> = {
   defaultTempo: 120,
   minTempo: 30,
   maxTempo: 300,
-  updateInterval: 50,
+  updateInterval: 150, // Reduced to 150ms (6.7fps) to avoid conflicts with requestAnimationFrame while maintaining sync
   enableStateSync: true,
 };
 
@@ -119,6 +119,8 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Update audio with new notes
    */
   public async updateAudio(notes: NoteData[]): Promise<void> {
+    console.log('[CorePlaybackEngine] updateAudio called with', notes.length, 'notes');
+    
     // Calculate signature based on file IDs present in notes, not the actual notes
     // This prevents recreation when only mute states change
     const fileIds = new Set<string>();
@@ -130,14 +132,20 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     // Signature based only on file IDs to avoid unnecessary audio player
     // recreation when note lists change due to UI transforms (tempo/loop/seek).
     const signature = Array.from(fileIds).sort().join(",");
+    
+    console.log('[CorePlaybackEngine] File IDs found:', Array.from(fileIds));
+    console.log('[CorePlaybackEngine] Current signature:', signature, 'Last signature:', this.lastAudioSignature);
 
     // Skip if file structure hasn't changed
     if (signature === this.lastAudioSignature && this.audioPlayer) {
+      console.log('[CorePlaybackEngine] Signature unchanged, skipping recreation');
       return;
     }
 
+    console.log('[CorePlaybackEngine] Creating audio player...');
     await this.recreateAudioPlayer(notes);
     this.lastAudioSignature = signature;
+    console.log('[CorePlaybackEngine] Audio player created successfully');
   }
 
   /**
@@ -170,11 +178,11 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     }
 
     // Create new player with preserved settings
-    this.audioPlayer = createAudioPlayer(notes, pianoRollInstance, {
+    this.audioPlayer = await createAudioPlayer(notes, {
       tempo: prevState?.tempo || this.config.defaultTempo,
       volume: prevState?.volume || this.config.defaultVolume,
       repeat: prevState?.isRepeating || false,
-    });
+    }, pianoRollInstance);
 
     // Restore state
     if (prevState) {
@@ -251,8 +259,13 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * AudioPlayerContainer implementation
    */
   public async play(): Promise<void> {
-    ensureInitialized(this.audioPlayer, "Audio player");
-
+    console.log('[CorePlaybackEngine] Play called, audioPlayer exists:', !!this.audioPlayer);
+    
+    if (!this.audioPlayer) {
+      console.error('[CorePlaybackEngine] audioPlayer is null, cannot play');
+      return;
+    }
+    
     // Get state before playing to check if we're starting from the beginning
     const stateBefore = this.audioPlayer!.getState();
     const isStartingFromBeginning = stateBefore.currentTime === 0;
@@ -290,7 +303,6 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       if (this.audioPlayer && this.pianoRollManager) {
         const state = this.audioPlayer.getState();
         this.pianoRollManager.setTime(state.currentTime);
-
         // Trigger visual update callbacks again
         this.dispatchVisualUpdateFromState(state);
       }
@@ -568,14 +580,12 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   private startUpdateLoop(): void {
     if (this.updateLoopId !== null) return;
 
-    // // console.log("[CorePlaybackEngine] startUpdateLoop");
     const performUpdate = () => {
-      // console.log("[CorePlaybackEngine] performUpdate");
       if (!this.audioPlayer || this.seeking) return;
 
       const state = this.audioPlayer.getState();
 
-      // NEW: keep piano roll playhead in sync with transport at all times
+      // Keep piano roll playhead in sync with transport at all times
       if (this.pianoRollManager) {
         // Avoid redundant calls if already at the same time - PianoRoll internally throttles renders anyway.
         this.pianoRollManager.setTime(state.currentTime);
@@ -598,7 +608,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     // Immediate update
     performUpdate();
 
-    // Start interval
+    // Start interval with optimized frequency
     this.updateLoopId = window.setInterval(
       performUpdate,
       this.config.updateInterval
@@ -628,9 +638,20 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 /**
  * Factory function to create CorePlaybackEngine
  */
+let __activeCorePlaybackEngine: CorePlaybackEngine | null = null;
 export function createCorePlaybackEngine(
   stateManager?: StateManager,
   config?: CorePlaybackEngineConfig
 ): CorePlaybackEngine {
-  return new CorePlaybackEngine(stateManager, config);
+  // Replace policy: if an active engine exists, destroy it safely and replace
+  if (__activeCorePlaybackEngine) {
+    try {
+      __activeCorePlaybackEngine.destroy();
+    } catch {}
+    __activeCorePlaybackEngine = null;
+  }
+
+  const engine = new CorePlaybackEngine(stateManager, config);
+  __activeCorePlaybackEngine = engine;
+  return engine;
 }

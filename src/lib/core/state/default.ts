@@ -28,7 +28,14 @@ export const DEFAULT_PLAYBACK_STATE: PlaybackState = {
   duration: 0,
   isPlaying: false,
   volume: DEFAULT_STATE_CONFIG.defaultVolume,
-};
+  playbackGeneration: 0,
+  nowTime: 0,
+  masterVolume: DEFAULT_STATE_CONFIG.defaultVolume,
+  tempo: 120,
+  loopMode: 'off',
+  markerA: null,
+  markerB: null,
+};;
 
 export const DEFAULT_FILE_VISIBILITY_STATE: FileVisibilityState = {
   visibleFileIds: new Set(),

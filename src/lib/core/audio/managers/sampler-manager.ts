@@ -12,6 +12,7 @@ import { toDb, fromDb, clamp01, isSilentDb, mixLinear } from "../utils";
 export interface SamplerTrack {
   sampler: Tone.Sampler;
   delay: Tone.Delay | null;
+  gate: Tone.Gain;
   panner: Tone.Panner;
   muted: boolean;
 }
@@ -21,6 +22,8 @@ export class SamplerManager {
   private sampler: Tone.Sampler | null = null;
   /** Global panner for legacy single-sampler path */
   private panner: Tone.Panner | null = null;
+  /** Hard gate for legacy single-sampler path */
+  private gate: Tone.Gain | null = null;
   /** Map of fileId -> {sampler, panner, muted} for multi-file playback */
   private trackSamplers: Map<string, SamplerTrack> = new Map();
   /** Current Tone.Part for scheduling note events */
@@ -221,7 +224,8 @@ export class SamplerManager {
     fileNotes.forEach((_notes, fid) => {
       if (!this.trackSamplers.has(fid)) {
         const panner = new Tone.Panner(0).toDestination();
-        // Optional alignment delay node between sampler and panner
+        const gate = new Tone.Gain(1).connect(panner);
+        // Optional alignment delay node between sampler and gate
         const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
         const sampler = new Tone.Sampler({
           urls: DEFAULT_SAMPLE_MAP,
@@ -234,8 +238,8 @@ export class SamplerManager {
           onerror: (error: Error) => {
             console.error(`Failed to load sampler for file ${fid}:`, error);
           },
-        }).connect(delay ? delay : panner);
-        if (delay) delay.connect(panner);
+        }).connect(delay ? delay : gate);
+        if (delay) delay.connect(gate);
 
         // Initialize volume
         const currentVolume = options.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME;
@@ -251,7 +255,7 @@ export class SamplerManager {
           }
         }
 
-        this.trackSamplers.set(fid, { sampler, delay, panner, muted: initialMuted });
+        this.trackSamplers.set(fid, { sampler, delay, gate, panner, muted: initialMuted });
       }
     });
 
@@ -263,13 +267,14 @@ export class SamplerManager {
    */
   private async setupLegacySampler(options: { soundFont?: string; volume?: number }): Promise<void> {
     this.panner = new Tone.Panner(0).toDestination();
+    this.gate = new Tone.Gain(1).connect(this.panner);
     const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
     this.sampler = new Tone.Sampler({
       urls: DEFAULT_SAMPLE_MAP,
       baseUrl:
         options.soundFont || "https://tonejs.github.io/audio/salamander/",
-    }).connect(delay ? delay : this.panner);
-    if (delay) delay.connect(this.panner);
+    }).connect(delay ? delay : this.gate);
+    if (delay) delay.connect(this.gate);
 
     // Set initial volume
     const currentVolume = options.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME;
@@ -729,6 +734,10 @@ export class SamplerManager {
       this.panner.dispose();
       this.panner = null;
     }
+    if (this.gate) {
+      try { this.gate.dispose(); } catch {}
+      this.gate = null;
+    }
 
     // Dispose per-track samplers / panners
     this.trackSamplers.forEach(({ sampler, panner }) => {
@@ -739,10 +748,67 @@ export class SamplerManager {
   }
 
   /**
+   * Immediately stop/kill any currently sounding voices to prevent tail/bleed.
+   * Best-effort: tries Sampler/PolySynth-specific release helpers if available.
+   */
+  stopAllVoicesImmediate(): void {
+    const now = (Tone as any).now?.() ?? 0;
+
+    // Multi-track samplers
+    this.trackSamplers.forEach(({ sampler }) => {
+      try {
+        // Try PolySynth-like API if available
+        const anyS = sampler as unknown as { releaseAll?: (time?: number) => void; triggerRelease?: (notes?: any, time?: number) => void };
+        if (typeof anyS.releaseAll === "function") {
+          anyS.releaseAll(now);
+          return;
+        }
+        if (typeof anyS.triggerRelease === "function") {
+          // Trigger release for any held voices
+          anyS.triggerRelease(undefined as any, now);
+          return;
+        }
+      } catch {}
+    });
+
+    // Legacy single sampler
+    if (this.sampler) {
+      try {
+        const anyS = this.sampler as unknown as { releaseAll?: (time?: number) => void; triggerRelease?: (notes?: any, time?: number) => void };
+        if (typeof anyS.releaseAll === "function") {
+          anyS.releaseAll(now);
+        } else if (typeof anyS.triggerRelease === "function") {
+          anyS.triggerRelease(undefined as any, now);
+        }
+      } catch {}
+    }
+  }
+
+  /**
    * Get the current part instance
    */
   getPart(): Tone.Part | null {
     return this.part;
+  }
+
+  /**
+   * Hard mute all track gates to instantly silence any residual sound.
+   */
+  hardMuteAllGates(): void {
+    try {
+      this.trackSamplers.forEach(({ gate }) => { try { gate.gain.value = 0; } catch {} });
+      if (this.gate) { try { this.gate.gain.value = 0; } catch {} }
+    } catch {}
+  }
+
+  /**
+   * Unmute all track gates.
+   */
+  hardUnmuteAllGates(): void {
+    try {
+      this.trackSamplers.forEach(({ gate }) => { try { gate.gain.value = 1; } catch {} });
+      if (this.gate) { try { this.gate.gain.value = 1; } catch {} }
+    } catch {}
   }
 
   /**

@@ -13,6 +13,11 @@
  * ```
  */
 export function formatTime(seconds: number): string {
+  // Handle NaN, null, undefined, and negative values
+  if (!isFinite(seconds) || isNaN(seconds) || seconds == null) {
+    return "00:00:00";
+  }
+  
   // Clamp negative values to 0 to avoid displaying "-00:00:00" in edge cases
   const safeSeconds = Math.max(0, seconds);
 

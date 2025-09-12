@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAV/MIDI Synchronization Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .controls { margin: 20px 0; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+        .log { background: #f0f0f0; padding: 10px; height: 300px; overflow-y: auto; font-family: monospace; }
+        wave-roll { display: block; width: 100%; height: 400px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WAV/MIDI Synchronization Test</h1>
+        
+        <div class="controls">
+            <button id="playBtn">Play</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="clearLogBtn">Clear Logs</button>
+        </div>
+
+        <wave-roll id="waveRoll"
+            style="height: 400px; display: block; width: 100%"
+            files='[
+                {"path": "./src/sample_midi/chopin/chopin_audio.mp3", "displayName": "Chopin Audio", "type": "audio"},
+                {"path": "./src/sample_midi/chopin/chopin_groud_truth.midi", "displayName": "Ground Truth", "type": "midi"},
+                {"path": "./src/sample_midi/chopin/chopin_yourmt3plus.midi", "displayName": "YourMT3+", "type": "midi"}
+            ]'></wave-roll>
+
+        <div class="log" id="logContainer"></div>
+    </div>
+
+    <script type="module">
+        import '/src/index.ts';
+
+        const waveRoll = document.getElementById('waveRoll');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const logContainer = document.getElementById('logContainer');
+
+        // Store original console.log before overriding
+        const originalConsoleLog = console.log;
+
+        // Logging helper
+        function logMessage(message) {
+            const timestamp = new Date().toLocaleTimeString() + '.' + String(Date.now() % 1000).padStart(3, '0');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            originalConsoleLog(message); // Use original console.log to avoid recursion
+        }
+
+        // Capture console logs
+        console.log = function(...args) {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+            if (message.includes('[PlaybackController]') || 
+                message.includes('[WavPlayerManager]') || 
+                message.includes('[SamplerManager]') ||
+                message.includes('Starting') ||
+                message.includes('synchronized')) {
+                logMessage(message);
+            }
+            originalConsoleLog.apply(console, args);
+        };
+
+        // Synchronization monitoring
+        let playbackStartTime = null;
+        let wavStartTime = null;
+        let midiStartTime = null;
+
+        // Transport time monitoring
+        let monitoringInterval = null;
+
+        function startSyncMonitoring() {
+            logMessage('Sync monitoring started');
+            playbackStartTime = performance.now();
+            
+            monitoringInterval = setInterval(() => {
+                try {
+                    if (window.Tone && window.Tone.getTransport) {
+                        const transport = window.Tone.getTransport();
+                        const transportTime = transport.seconds;
+                        const state = transport.state;
+                        
+                        if (state === 'started') {
+                            logMessage(`Transport: ${transportTime.toFixed(3)}s, State: ${state}`);
+                        }
+                    }
+                } catch (e) {
+                    // Ignore errors accessing Transport
+                }
+            }, 100);
+        }
+
+        function stopSyncMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+            }
+            logMessage('Sync monitoring stopped');
+        }
+
+        // Event listeners
+        playBtn.addEventListener('click', () => {
+            logMessage('Play button clicked');
+            startSyncMonitoring();
+            if (waveRoll && waveRoll.play) {
+                waveRoll.play();
+            }
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            logMessage('Pause button clicked');
+            stopSyncMonitoring();
+            if (waveRoll && waveRoll.pause) {
+                waveRoll.pause();
+            }
+        });
+
+        clearLogBtn.addEventListener('click', () => {
+            logContainer.innerHTML = '';
+        });
+
+        // Spacebar event
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                logMessage('Spacebar pressed');
+                
+                if (waveRoll && waveRoll.isPlaying) {
+                    stopSyncMonitoring();
+                    waveRoll.pause();
+                } else {
+                    startSyncMonitoring();
+                    if (waveRoll && waveRoll.play) {
+                        waveRoll.play();
+                    }
+                }
+            }
+        });
+
+        // Wait for web component to finish loading
+        waveRoll.addEventListener('load', () => {
+            logMessage('WaveRoll component loaded');
+        });
+
+        logMessage('Test page initialized');
+    </script>
+</body>
+</html>

@@ -71,7 +71,13 @@ export class AudioSettingsController {
     
     const clampedTempo = clamp(bpm, AUDIO_CONSTANTS.MIN_TEMPO, AUDIO_CONSTANTS.MAX_TEMPO);
     const oldTempo = state.tempo;
+    
+    // Increment generation token to prevent ghost audio
+    state.playbackGeneration = (state.playbackGeneration || 0) + 1;
+    
+    // Update state atomically
     state.tempo = clampedTempo;
+    state.nowTime = state.currentTime; // Update unified time reference
     
     // Keep playbackRate in sync with tempo relative to originalTempo
     const ratePct = (clampedTempo / originalTempo) * 100;
@@ -80,37 +86,56 @@ export class AudioSettingsController {
     // Update totalTime based on tempo change
     state.totalTime = state.duration * (originalTempo / clampedTempo);
 
+    console.log("[AudioSettingsController] Atomic tempo change:", {
+      oldTempo,
+      newTempo: clampedTempo,
+      generation: state.playbackGeneration,
+      ratePct
+    });
+
     if (state.isPlaying) {
       // Ensure AudioContext is running (safety in browsers)
       try { void ensureAudioContextReady(); } catch {}
-      // Restart-style tempo change to flush scheduled events and avoid overlap
+      
+      // Mark as seeking/restarting for UI feedback
       operationState.isSeeking = true;
       operationState.isRestarting = true;
 
       const currentVisualTime = state.currentTime;
       const newTransportSeconds = transportSyncManager.visualToTransportTimeWithTempo(currentVisualTime, clampedTempo);
 
-      // Rescale A-B loop window to preserve transport-anchored positions
-      loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
-
-      // Stop sync and Part, then fully reset Transport
+      console.log("[AudioSettingsController] Stopping all audio atomically");
+      
+      // === ATOMIC STOP PHASE ===
+      // Stop everything synchronously to prevent audio leakage
       transportSyncManager.stopSyncScheduler();
       samplerManager.stopPart();
-
+      
+      // Stop and fully clear WAV players immediately
+      wavPlayerManager.stopAllAudioPlayers();
+      
+      // Stop transport and clear all scheduled events
       const transport = Tone.getTransport();
-      // Capture current transport time BEFORE stopping/cancelling.
-      const prevTransportSeconds = transport.seconds;
       transport.stop();
       transport.cancel();
-      transport.bpm.value = clampedTempo;
+      
+      // Kill any remaining voices immediately 
+      try { samplerManager.stopAllVoicesImmediate(); } catch {}
+      try { samplerManager.hardMuteAllGates(); } catch {}
 
-      // Configure loop window under new tempo
+      // === ATOMIC UPDATE PHASE ===
+      // Update transport settings
+      transport.bpm.value = clampedTempo;
+      transport.seconds = newTransportSeconds;
+      
+      // Rescale A-B loop window to preserve transport-anchored positions
+      loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
       loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
 
-      // Set transport to new position
-      transport.seconds = newTransportSeconds;
+      // Update WAV playback rate before starting
+      try { wavPlayerManager.setPlaybackRate(ratePct); } catch {}
 
-      // Rebuild Part
+      // Rebuild Part with new settings
       samplerManager.setupNotePart(
         loopManager.loopStartVisual,
         loopManager.loopEndVisual,
@@ -122,30 +147,40 @@ export class AudioSettingsController {
         }
       );
 
-      // Schedule synchronized start for both Transport/Part and WAV
+      // === ATOMIC START PHASE ===
+      // Schedule synchronized restart for perfect timing
       const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
       const startAt = Tone.now() + RESTART_DELAY;
-      if (typeof (transport as any).start === 'function') {
-        transport.start(startAt);
-      }
+      
+      console.log("[AudioSettingsController] Starting synchronized restart at", startAt);
+      
+      // Unmute gates just before starting
+      try { samplerManager.hardUnmuteAllGates(); } catch {}
+      
+      // Start transport
+      transport.start(startAt);
+      
+      // Start MIDI Part
       samplerManager.startPart(startAt, newTransportSeconds);
 
-      // WAV speed + start using synchronized method
-      try { wavPlayerManager.setPlaybackRate(ratePct); } catch {}
-      try {
-        wavPlayerManager.stopAllAudioPlayers();
+      // Start WAV audio using Tone.js scheduling
+      if (wavPlayerManager.isAudioActive()) {
         wavPlayerManager.startActiveAudioAtSync(currentVisualTime, startAt);
-      } catch {}
+      }
 
+      // Resume state management
       state.isPlaying = true;
       transportSyncManager.startSyncScheduler();
 
+      // Clear operation flags after settling time
       setTimeout(() => {
         operationState.isSeeking = false;
         operationState.isRestarting = false;
       }, 100);
+      
+      console.log("[AudioSettingsController] Atomic tempo change completed");
     } else {
-      // Not playing - just update tempo
+      // Not playing - just update tempo without restart
       Tone.getTransport().bpm.value = clampedTempo;
       
       // Update WAV playback rate for when it starts
@@ -154,6 +189,7 @@ export class AudioSettingsController {
       // Rescale loop points
       loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
       loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
+      
       // Trigger UI update when paused
       if (this.deps.onVisualUpdate) {
         this.deps.onVisualUpdate({
@@ -180,9 +216,21 @@ export class AudioSettingsController {
     // Recalculate rate based on clamped tempo
     const finalRate = (clampedTempo / originalTempo) * 100;
     
+    // Increment generation token to prevent ghost audio
+    state.playbackGeneration = (state.playbackGeneration || 0) + 1;
+    
     const oldTempo = state.tempo;
+    
+    // Update state atomically
     state.tempo = clampedTempo;
     state.playbackRate = finalRate;
+    state.nowTime = state.currentTime; // Update unified time reference
+    
+    console.log("[AudioSettingsController] Atomic playback rate change:", {
+      oldRate: (oldTempo / originalTempo) * 100,
+      newRate: finalRate,
+      generation: state.playbackGeneration
+    });
 
     // Helper function to trigger UI update consistently
     const triggerUIUpdate = (newPosition: number) => {
@@ -199,32 +247,48 @@ export class AudioSettingsController {
 
     if (state.isPlaying) {
       try { void ensureAudioContextReady(); } catch {}
-      // Same logic as setTempo for playing state
+      
+      // Mark as seeking/restarting for UI feedback
       operationState.isSeeking = true;
       operationState.isRestarting = true;
 
       const currentVisualTime = state.currentTime;
       const newTransportSeconds = transportSyncManager.visualToTransportTimeWithTempo(currentVisualTime, clampedTempo);
 
-      loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
-
+      console.log("[AudioSettingsController] Stopping all audio atomically for rate change");
+      
+      // === ATOMIC STOP PHASE ===
       transportSyncManager.stopSyncScheduler();
       samplerManager.stopPart();
+      
+      // Stop WAV players immediately
+      wavPlayerManager.stopAllAudioPlayers();
 
       const transport = Tone.getTransport();
-      // Capture BEFORE stopping to preserve anchor for preservePosition=true
-      const prevTransportSeconds = transport.seconds;
       transport.stop();
       transport.cancel();
-      transport.bpm.value = clampedTempo;
+      
+      // Kill any remaining voices immediately 
+      try { samplerManager.stopAllVoicesImmediate(); } catch {}
+      try { samplerManager.hardMuteAllGates(); } catch {}
 
-      loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
+      // === ATOMIC UPDATE PHASE ===
+      // Update transport settings
+      transport.bpm.value = clampedTempo;
       transport.seconds = newTransportSeconds;
+      
+      // Rescale loop points
+      loopManager.rescaleLoopForTempoChange(oldTempo, clampedTempo, state.duration);
+      loopManager.configureTransportLoop(state.isRepeating, state, state.duration);
 
       // Update visual position immediately before restarting
       this.deps.pianoRoll.setTime(currentVisualTime);
       triggerUIUpdate(currentVisualTime);
 
+      // Update WAV playback rate before starting
+      try { wavPlayerManager.setPlaybackRate(finalRate); } catch {}
+
+      // Rebuild Part with new settings
       samplerManager.setupNotePart(
         loopManager.loopStartVisual,
         loopManager.loopEndVisual,
@@ -236,17 +300,28 @@ export class AudioSettingsController {
         }
       );
 
+      // === ATOMIC START PHASE ===
+      // Schedule synchronized restart for perfect timing
       const RESTART_DELAY = AUDIO_CONSTANTS.RESTART_DELAY;
       const startAt = Tone.now() + RESTART_DELAY;
+      
+      console.log("[AudioSettingsController] Starting synchronized restart for rate change at", startAt);
+      
+      // Unmute gates just before starting
+      try { samplerManager.hardUnmuteAllGates(); } catch {}
+      
+      // Start transport
       transport.start(startAt);
+      
+      // Start MIDI Part 
       samplerManager.startPart(startAt, newTransportSeconds);
 
-      try { wavPlayerManager.setPlaybackRate(finalRate); } catch {}
-      try {
-        wavPlayerManager.stopAllAudioPlayers();
-        wavPlayerManager.startActiveAudioAt(currentVisualTime, startAt);
-      } catch {}
+      // Start WAV audio using synchronized scheduling
+      if (wavPlayerManager.isAudioActive()) {
+        wavPlayerManager.startActiveAudioAtSync(currentVisualTime, startAt);
+      }
 
+      // Resume state management
       state.isPlaying = true;
       transportSyncManager.startSyncScheduler();
 
@@ -256,7 +331,10 @@ export class AudioSettingsController {
         // Trigger another UI update after restart completes
         triggerUIUpdate(state.currentTime);
       }, 100);
+      
+      console.log("[AudioSettingsController] Atomic rate change completed");
     } else {
+      // Not playing - just update rate without restart
       Tone.getTransport().bpm.value = clampedTempo;
       
       try { wavPlayerManager.setPlaybackRate(finalRate); } catch {}
