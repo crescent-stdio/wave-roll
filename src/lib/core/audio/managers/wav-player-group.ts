@@ -264,7 +264,8 @@ export class WavPlayerGroup implements PlayerGroup {
         const finalVolume = this.masterVolume * entry.volume * (isMuted ? 0 : 1);
         entry.gate.gain.value = finalVolume;
         
-        // Start precisely with master clock's AudioContext time - always start for timing sync
+        // Align with Transport: schedule audio at the same absolute anchor as Transport.start
+        // Use audioContextTime as absolute start and masterTime as offset into buffer
         entry.player.start(syncInfo.audioContextTime, syncInfo.masterTime);
         entry.isStarted = true;
         startedCount++;
@@ -399,6 +400,61 @@ export class WavPlayerGroup implements PlayerGroup {
     entry.gate.gain.value = this.masterVolume * entry.volume * (entry.muted ? 0 : 1);
     
     // no-op log
+  }
+
+  /**
+   * Ensure a specific WAV player is started and aligned to the given master time.
+   * Used when a track is unmuted or made visible during ongoing playback.
+   */
+  syncStartIfNeeded(playerId: string, masterTime: number, lookahead: number = 0.03): void {
+    const entry = this.audioPlayers.get(playerId);
+    if (!entry) return;
+
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const item = api?.getFiles?.()?.find((f) => f.id === playerId);
+      if (!item) return;
+
+      const shouldPlay = !!item.isVisible && !(item.isMuted || entry.muted);
+      if (!shouldPlay) return;
+      if (!entry.player.buffer?.loaded) return;
+
+      if (!entry.isStarted) {
+        const startAt = Tone.now() + lookahead;
+        // Volume gate respects masterVolume * entry.volume (mute already applied)
+        const finalVolume = this.masterVolume * entry.volume;
+        entry.gate.gain.value = finalVolume;
+        entry.player.start(startAt, masterTime);
+        entry.isStarted = true;
+        // Debug log
+        // console.log('[WavPlayerGroup] syncStartIfNeeded: started', playerId, 'at', startAt, 'offset', masterTime);
+      }
+    } catch {}
+  }
+
+  /**
+   * Iterate over all players and start any pending unmuted+visible players at the current master time.
+   * Lightweight O(N) check, safe to call from a visual update loop.
+   */
+  syncPendingPlayers(masterTime: number, lookahead: number = 0.03): void {
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const items = api?.getFiles?.() || [];
+      for (const [id, entry] of this.audioPlayers) {
+        const item = items.find((f) => f.id === id);
+        if (!item) continue;
+        const shouldPlay = !!item.isVisible && !(item.isMuted || entry.muted);
+        if (!shouldPlay) continue;
+        if (entry.isStarted) continue;
+        if (!entry.player.buffer?.loaded) continue;
+
+        const startAt = Tone.now() + lookahead;
+        const finalVolume = this.masterVolume * entry.volume;
+        entry.gate.gain.value = finalVolume;
+        entry.player.start(startAt, masterTime);
+        entry.isStarted = true;
+      }
+    } catch {}
   }
   
   /**

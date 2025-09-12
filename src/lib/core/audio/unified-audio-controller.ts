@@ -64,7 +64,7 @@ export class UnifiedAudioController {
       console.log('[UnifiedAudioController] Starting initialization');
       
       // Ensure Tone.js context is running
-      if (Tone.context.state !== 'running') {
+      if ((Tone as any).context && (Tone as any).context.state !== 'running') {
         console.log('[UnifiedAudioController] AudioContext state:', Tone.context.state);
         await Tone.start();
         console.log('[UnifiedAudioController] Tone.js context started, new state:', Tone.context.state);
@@ -73,7 +73,7 @@ export class UnifiedAudioController {
         if (Tone.context.state !== 'running') {
           console.warn('[UnifiedAudioController] AudioContext still not running after Tone.start()');
           // Try direct resume as fallback
-          if (Tone.context.resume) {
+          if ((Tone.context as any).resume) {
             await Tone.context.resume();
             console.log('[UnifiedAudioController] Direct context.resume() called, state:', Tone.context.state);
           }
@@ -366,16 +366,26 @@ export class UnifiedAudioController {
       }
       
       if (this.masterClock.state.isPlaying) {
-        this.visualUpdateLoop = requestAnimationFrame(update);
+        // Use RAF in browsers; fallback to setTimeout in non-DOM test envs
+        const raf = typeof requestAnimationFrame !== 'undefined'
+          ? requestAnimationFrame
+          : ((cb: FrameRequestCallback) => setTimeout(() => cb(performance.now?.() ?? Date.now()), 16) as unknown as number);
+        this.visualUpdateLoop = raf(update);
       }
     };
     
-    this.visualUpdateLoop = requestAnimationFrame(update);
+    const raf = typeof requestAnimationFrame !== 'undefined'
+      ? requestAnimationFrame
+      : ((cb: FrameRequestCallback) => setTimeout(() => cb(performance.now?.() ?? Date.now()), 16) as unknown as number);
+    this.visualUpdateLoop = raf(update);
   }
 
   private stopVisualUpdateLoop(): void {
     if (this.visualUpdateLoop) {
-      cancelAnimationFrame(this.visualUpdateLoop);
+      const caf = typeof cancelAnimationFrame !== 'undefined'
+        ? cancelAnimationFrame
+        : ((id: number) => clearTimeout(id as unknown as any));
+      caf(this.visualUpdateLoop);
       this.visualUpdateLoop = undefined;
     }
   }

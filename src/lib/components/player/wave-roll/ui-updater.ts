@@ -130,6 +130,10 @@ export class UIUpdater {
       // Get current state from visualization engine
       const state = this.visualizationEngine.getState();
       if (state) {
+        // Guard against invalid time values breaking UI updates
+        if (!Number.isFinite(state.currentTime) || state.currentTime < 0) {
+          state.currentTime = 0;
+        }
         // Track when we see non-zero time
         if (state.currentTime > 0) {
           this.hasSeenNonZeroTime = true;
@@ -217,6 +221,9 @@ export class UIUpdater {
 
     const state = this.visualizationEngine.getState();
     if (state) {
+      if (!Number.isFinite(state.currentTime) || state.currentTime < 0) {
+        state.currentTime = 0;
+      }
       // Always pass explicit state to ensure seekbar is updated
       const effectiveDuration = this.computeEffectiveDuration();
       uiDeps.updateSeekBar({
@@ -229,7 +236,8 @@ export class UIUpdater {
       if (!state.isPlaying) {
         const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
         if (pianoRollInstance) {
-          pianoRollInstance.setTime(state.currentTime);
+          const safeTime = Number.isFinite(state.currentTime) && state.currentTime >= 0 ? state.currentTime : 0;
+          pianoRollInstance.setTime(safeTime);
         }
       }
     } else {

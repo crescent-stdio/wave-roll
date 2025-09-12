@@ -548,7 +548,7 @@ export class MidiPlayerGroup implements PlayerGroup {
         return; // Don't play muted players (not counted as error)
       }
       
-      console.log('[MidiPlayerGroup] Playing note:', event.note, 'at time:', time);
+      // console.log('[MidiPlayerGroup] Playing note:', event.note, 'at time:', time);
       
       try {
         // Additional validation at runtime
@@ -575,7 +575,7 @@ export class MidiPlayerGroup implements PlayerGroup {
           finalVolume
         );
         
-        console.log('[MidiPlayerGroup] Note triggered successfully:', event.note, 'volume:', finalVolume);
+        // console.log('[MidiPlayerGroup] Note triggered successfully:', event.note, 'volume:', finalVolume);
         
       } catch (error) {
         this.updateErrorStats('failedNote');
@@ -661,11 +661,12 @@ export class MidiPlayerGroup implements PlayerGroup {
         this.part.stop(0);
         this.part.cancel(0);
         
-        // Start precisely with Transport time
-        this.part.start(syncInfo.audioContextTime, 0);
+        // Start at Transport timeline 0 so it aligns exactly when Transport starts.
+        // Transport position is preset to masterTime by the master clock.
+        this.part.start(0);
         
-        // Align with tests expecting 'Part started'
-        console.log('Part started', syncInfo.audioContextTime);
+        // Log for debugging
+        console.log('Part scheduled at transport 0');
       } catch (error) {
         console.error('[MidiPlayerGroup] Failed to start MIDI Part:', error);
       }

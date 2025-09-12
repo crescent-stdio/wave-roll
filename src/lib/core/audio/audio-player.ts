@@ -34,7 +34,7 @@ export class AudioPlayer {
   public autoPauseController: any;
   
   // Visual update callback
-  public visualUpdateCallback: ((time: number) => void) | null = null;
+  public visualUpdateCallback: ((update: any) => void) | null = null;
   
   // Operation state
   public operationState: any = {
@@ -377,18 +377,30 @@ export class AudioPlayer {
   /**
    * Set visual update callback
    */
-  public setOnVisualUpdate(callback: (time: number) => void): void {
+  public setOnVisualUpdate(callback: (update: any) => void): void {
     console.log('[AudioPlayer] V2 setting visual update callback');
     this.visualUpdateCallback = callback;
     
     // Set the callback on UnifiedAudioController
-    this.unifiedController.setOnVisualUpdate((time: number) => {
-      // console.log('[AudioPlayer] Visual update called with time:', time);
-      if (this.visualUpdateCallback) {
-        this.visualUpdateCallback(time);
+    this.unifiedController.setOnVisualUpdate((payload: any) => {
+      if (!this.visualUpdateCallback) return;
+      try {
+        // Support legacy numeric payloads and new object payloads
+        if (typeof payload === 'number') {
+          const state = this.unifiedController.getState();
+          this.visualUpdateCallback({
+            currentTime: payload,
+            duration: state.duration,
+            isPlaying: state.isPlaying,
+          });
+        } else {
+          this.visualUpdateCallback(payload);
+        }
+      } catch (e) {
+        console.error('[AudioPlayer] Visual update callback error:', e);
       }
     });
-  }    // console.log('[AudioPlayer] V2 setting visual update callback');\n    this.visualUpdateCallback = callback;\n    this.unifiedController.setOnVisualUpdate(callback);\n  }
+  }
   
   /**
    * Refresh audio players (compatibility)
@@ -465,8 +477,4 @@ export function createAudioPlayer(notes: any[], options: any, pianoRoll: any): A
 }
 
 // Legacy compatibility exports
-export type AudioPlayerContainer = AudioPlayer;
-
-// Legacy compatibility exports
-export type AudioPlayerContainer = AudioPlayer;
 export { AudioPlayer as AudioPlayerContainer };

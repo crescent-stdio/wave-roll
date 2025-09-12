@@ -256,6 +256,10 @@ export class WaveRollPlayer {
       }
     });
 
+    // Ensure silence detector is aware of current MIDI state so that
+    // muting WAV alone does not pause overall playback.
+    this.silenceDetector.attachMidiManager(this.midiManager);
+
     // Initialize handler modules
     this.visualizationHandler = new VisualizationHandler(
       this.midiManager,

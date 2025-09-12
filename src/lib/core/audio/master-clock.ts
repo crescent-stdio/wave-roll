@@ -128,9 +128,9 @@ export class AudioMasterClock {
     const transport = Tone.getTransport();
     transport.seconds = startPosition;
     
-    // Calculate unified start times
+    // Calculate unified start times (absolute anchor + transport offset)
     const audioStartTime = this.toAudioContextTime(startPosition, lookahead);
-    const toneStartTime = this.toToneTransportTime(startPosition);
+    const toneStartTime = 0; // Transport will be set to startPosition, then started at absolute anchor
     
     console.log('[AudioMasterClock] Calculated sync times:', {
       audioStartTime,
@@ -158,11 +158,12 @@ export class AudioMasterClock {
       }
     });
     
-    // Start Transport
-    transport.start(audioStartTime);
-    
-    // Wait for all groups to start
+    // Wait for all groups to schedule their starts first
     await Promise.all(startPromises);
+
+    // Position Transport to desired start and start at absolute anchor
+    transport.seconds = startPosition;
+    transport.start(audioStartTime);
     
     // Final state check
     if (this.state.generation === currentGeneration) {

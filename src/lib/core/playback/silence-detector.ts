@@ -19,6 +19,7 @@ export class SilenceDetector {
   private masterVolume: number = 1.0;
   private wasPausedBySilence: boolean = false;
   private options: SilenceDetectorOptions;
+  private midiManager: any | null = null;
 
   constructor(options: SilenceDetectorOptions = {}) {
     this.options = options;
@@ -27,6 +28,16 @@ export class SilenceDetector {
     // We'll manually check for silence changes to have better control
     this.fileVolumeManager = new VolumeStateManager();
     this.wavVolumeManager = new VolumeStateManager();
+  }
+
+  /**
+   * Attach MIDI manager so WAV mute/volume updates can consider current MIDI state.
+   * This prevents false "all silent" detections when only WAV is muted.
+   */
+  public attachMidiManager(midiManager: any): void {
+    this.midiManager = midiManager;
+    // Initial sync
+    this.syncFromMidiManagerIfAvailable();
   }
 
   /**
@@ -43,8 +54,12 @@ export class SilenceDetector {
    * Set WAV file volume (0-1)
    */
   public setWavVolume(fileId: string, volume: number): void {
+    // Ensure MIDI state is reflected before evaluating silence
+    this.syncFromMidiManagerIfAvailable();
     const wasAllSilent = this.isAllSilent();
     this.wavVolumeManager.setVolume(fileId, volume);
+    // Re-sync after change as well (in case UI didn't touch MIDI state)
+    this.syncFromMidiManagerIfAvailable();
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -63,8 +78,12 @@ export class SilenceDetector {
    * Set WAV mute state
    */
   public setWavMute(fileId: string, muted: boolean): void {
+    // Ensure MIDI state is reflected before evaluating silence
+    this.syncFromMidiManagerIfAvailable();
     const wasAllSilent = this.isAllSilent();
     this.wavVolumeManager.setMuted(fileId, muted);
+    // Re-sync after change as well
+    this.syncFromMidiManagerIfAvailable();
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -90,18 +109,9 @@ export class SilenceDetector {
     
     // Sync with MIDI manager if available
     if (midiManager) {
-      const state = midiManager.getState();
-      state.files.forEach((file: any) => {
-        // Initialize from current manager state if missing
-        const currentVol = this.fileVolumeManager.getVolume(file.id);
-        // Consider both our tracked volume and MIDI manager mute flag
-        const isMuted = currentVol === 0 || file.isMuted === true;
-        this.fileVolumeManager.setMuted(file.id, isMuted);
-        // Ensure a volume entry exists so source is tracked
-        if (currentVol === undefined) {
-          this.fileVolumeManager.setVolume(file.id, isMuted ? 0 : 1.0);
-        }
-      });
+      this.syncFromMidiManager(midiManager);
+    } else {
+      this.syncFromMidiManagerIfAvailable();
     }
 
     // Check WAV files from global audio object
@@ -120,6 +130,30 @@ export class SilenceDetector {
     
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
+  }
+
+  /**
+   * Sync MIDI file mute/volume status into the internal file manager.
+   */
+  private syncFromMidiManager(midiManager: any): void {
+    try {
+      const state = midiManager?.getState?.();
+      const files = state?.files || [];
+      files.forEach((file: any) => {
+        const currentVol = this.fileVolumeManager.getVolume(file.id);
+        const isMuted = currentVol === 0 || file.isMuted === true;
+        this.fileVolumeManager.setMuted(file.id, isMuted);
+        if (currentVol === undefined) {
+          this.fileVolumeManager.setVolume(file.id, isMuted ? 0 : 1.0);
+        }
+      });
+    } catch {}
+  }
+
+  private syncFromMidiManagerIfAvailable(): void {
+    if (this.midiManager) {
+      this.syncFromMidiManager(this.midiManager);
+    }
   }
 
   /**
@@ -159,6 +193,11 @@ export class SilenceDetector {
    */
   private handleSilenceChange(wasAllSilent: boolean, isAllSilent: boolean): void {
     if (!wasAllSilent && isAllSilent) {
+      // Double-check with external sources to avoid false positives when
+      // internal managers have not yet been populated.
+      if (this.hasAnyExternalAudible()) {
+        return; // Do not pause; there are audible sources outside our cache
+      }
       // Just became silent
       this.wasPausedBySilence = true;
       if (this.options.onSilenceDetected) {
@@ -174,6 +213,32 @@ export class SilenceDetector {
         this.wasPausedBySilence = false;
       }
     }
+  }
+
+  /**
+   * External sanity check: detect any audible sources directly from providers.
+   * Returns true if at least one source (MIDI or WAV) is currently unmuted/visible.
+   */
+  private hasAnyExternalAudible(): boolean {
+    try {
+      // Check MIDI manager
+      if (this.midiManager?.getState) {
+        const m = this.midiManager.getState();
+        if (Array.isArray(m?.files)) {
+          const anyAudibleMidi = m.files.some((f: any) => f && f.isMuted === false);
+          if (anyAudibleMidi) return true;
+        }
+      }
+
+      // Check WAV registry
+      const audioAPI = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean; isVisible: boolean }> } })._waveRollAudio;
+      if (audioAPI?.getFiles) {
+        const wavFiles = audioAPI.getFiles() || [];
+        const anyAudibleWav = wavFiles.some((w) => w && w.isVisible && w.isMuted === false);
+        if (anyAudibleWav) return true;
+      }
+    } catch {}
+    return false;
   }
 
   /**
