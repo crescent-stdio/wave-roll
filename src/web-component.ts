@@ -117,6 +117,39 @@ class WaveRollElement extends HTMLElement {
   public get isPlaying(): boolean {
     return !!this.player?.isPlaying;
   }
+
+  /**
+   * Seek to a specific time (seconds).
+   * Provided for E2E/manual testing via index.html.
+   */
+  public seek(time: number): void {
+    try {
+      // Prefer direct method on player if available
+      if (typeof this.player?.seek === 'function') {
+        this.player.seek(time);
+        return;
+      }
+      // Fallback: try visualization engine behind the player
+      (this.player as any)?.visualizationEngine?.seek?.(time, true);
+    } catch (e) {
+      console.error('WaveRollElement.seek failed:', e);
+    }
+  }
+
+  /**
+   * Return lightweight state for assertions in tests.
+   */
+  public getState(): any {
+    try {
+      if (typeof this.player?.getState === 'function') {
+        return this.player.getState();
+      }
+      return (this.player as any)?.visualizationEngine?.getState?.();
+    } catch (e) {
+      console.error('WaveRollElement.getState failed:', e);
+      return null;
+    }
+  }
 }
 
 // Register the custom element

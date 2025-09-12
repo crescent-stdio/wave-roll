@@ -49,8 +49,12 @@ export class AudioMasterClock {
       return this.masterTime;
     }
     
-    // Calculate real-time when running
-    const audioElapsed = Tone.context.currentTime - this.audioContextStartTime;
+    // Calculate real-time when running; clamp to start when anchor is in the future
+    const now = Tone.context.currentTime;
+    const audioElapsed = now - this.audioContextStartTime;
+    if (audioElapsed < 0) {
+      return this.startTime;
+    }
     return this.startTime + audioElapsed;
   }
   
@@ -117,7 +121,8 @@ export class AudioMasterClock {
     // Set master time
     this.masterTime = startPosition;
     this.startTime = startPosition;
-    this.audioContextStartTime = Tone.context.currentTime + lookahead;
+    const safeLookahead = Math.max(0.15, lookahead);
+    this.audioContextStartTime = Tone.context.currentTime + safeLookahead;
     this.toneTransportStartTime = this.audioContextStartTime;
     
     // Update state
@@ -129,8 +134,8 @@ export class AudioMasterClock {
     transport.seconds = startPosition;
     
     // Calculate unified start times (absolute anchor + transport offset)
-    const audioStartTime = this.toAudioContextTime(startPosition, lookahead);
-    const toneStartTime = 0; // Transport will be set to startPosition, then started at absolute anchor
+    const audioStartTime = this.toAudioContextTime(startPosition, safeLookahead);
+    const toneStartTime = 0; // Transport will be set to startPosition
     
     console.log('[AudioMasterClock] Calculated sync times:', {
       audioStartTime,
@@ -151,19 +156,18 @@ export class AudioMasterClock {
           audioContextTime: audioStartTime,
           toneTransportTime: toneStartTime,
           masterTime: startPosition,
-          generation: currentGeneration
+          generation: currentGeneration,
+          mode: 'play'
         });
       } catch (error) {
         console.error('[AudioMasterClock] Failed to start group:', group.constructor.name, error);
       }
     });
     
-    // Wait for all groups to schedule their starts first
-    await Promise.all(startPromises);
-
-    // Position Transport to desired start and start at absolute anchor
+    // Start Transport at the common anchor immediately; avoid waiting for group awaits to prevent anchor drift
     transport.seconds = startPosition;
     transport.start(audioStartTime);
+    Promise.allSettled(startPromises).catch(() => {});
     
     // Final state check
     if (this.state.generation === currentGeneration) {
@@ -235,19 +239,67 @@ export class AudioMasterClock {
     this.masterTime = time;
     this.state.nowTime = time;
     this.state.generation += 1; // Prevent ghost audio
+    const currentGeneration = this.state.generation;
     
-    // Sync Transport time
     const transport = Tone.getTransport();
-    transport.seconds = time;
+    const wasRunning = this.isRunning;
     
-    // Notify all player groups of seek
+    if (!wasRunning) {
+      // Paused: just reposition transport and notify groups
+      transport.seconds = time;
+      console.log('[AudioMasterClock.seek] Paused mode: transport.seconds =', transport.seconds);
+      this.playerGroups.forEach(group => {
+        try {
+          group.seekTo(time);
+        } catch (error) {
+          console.error('[AudioMasterClock] Failed to seek group:', group.constructor.name, error);
+        }
+      });
+      return;
+    }
+    
+    // Playing: perform atomic re-start at a common absolute anchor
+    const lookahead = 0.1; // reduce latency on seek
+    this.audioContextStartTime = Tone.context.currentTime + lookahead;
+    this.toneTransportStartTime = this.audioContextStartTime;
+    // Critical: baseline for getCurrentTime() after seek
+    this.startTime = time;
+    
+    // Stop groups to clear any scheduled events
     this.playerGroups.forEach(group => {
+      console.log('[AudioMasterClock.seek] Stopping group before restart:', group.constructor.name);
       try {
-        group.seekTo(time);
+        group.stopSynchronized();
       } catch (error) {
-        console.error('[AudioMasterClock] Failed to seek group:', group.constructor.name, error);
+        console.error('[AudioMasterClock] Failed to stop group before seek restart:', group.constructor.name, error);
       }
     });
+    
+    // Reposition transport to target time and restart at the absolute anchor
+    transport.stop();
+    transport.seconds = time;
+    console.log('[AudioMasterClock.seek] Transport positioned to', time, 'anchor', this.audioContextStartTime, 'now', Tone.context.currentTime);
+    
+    // Schedule re-start for all groups with identical anchor and masterTime
+    const startPromises = this.playerGroups.map(async (group) => {
+      try {
+        await group.startSynchronized({
+          audioContextTime: this.audioContextStartTime + 0.002, // 2ms safety so Part events at t=0 are not lost
+          toneTransportTime: 0,
+          masterTime: time,
+          generation: currentGeneration,
+          mode: 'seek'
+        });
+      } catch (error) {
+        console.error('[AudioMasterClock] Failed to restart group on seek:', group.constructor.name, error);
+      }
+    });
+    
+    // Start Transport at the common anchor immediately; avoid waiting to prevent drift
+    transport.start(this.audioContextStartTime);
+    this.isRunning = true;
+    Promise.allSettled(startPromises).catch(() => {});
+    console.log('[AudioMasterClock] Seek restart committed at', this.audioContextStartTime, 'masterTime', time);
   }
   
   /**
@@ -328,4 +380,5 @@ export interface SynchronizationInfo {
   toneTransportTime: number;   // Tone.js Transport time
   masterTime: number;          // Master clock time
   generation: number;          // Token to prevent ghost audio
+  mode?: 'play' | 'seek';      // Start context
 }

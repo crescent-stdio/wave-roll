@@ -311,17 +311,11 @@ export class AudioPlayer {
    */
   public setFileMute(fileId: string, muted: boolean): void {
     console.log('[AudioPlayer] V2 setting file mute:', { fileId, muted });
-    
-    // Try both WAV and MIDI players
-    try {
+
+    if (this.isWavFileId(fileId)) {
       this.unifiedController.setWavPlayerMute(fileId, muted);
-    } catch (e) {
-      // If WAV fails, try MIDI
-      try {
-        this.unifiedController.setMidiPlayerMute(fileId, muted);
-      } catch (e2) {
-        console.warn('[AudioPlayer] V2 failed to set mute for:', fileId);
-      }
+    } else {
+      this.unifiedController.setMidiPlayerMute(fileId, muted);
     }
   }
   
@@ -330,15 +324,11 @@ export class AudioPlayer {
    */
   public setFilePan(fileId: string, pan: number): void {
     console.log('[AudioPlayer] V2 setting file pan:', { fileId, pan });
-    
-    try {
+
+    if (this.isWavFileId(fileId)) {
       this.unifiedController.setWavPlayerPan(fileId, pan);
-    } catch (e) {
-      try {
-        this.unifiedController.setMidiPlayerPan(fileId, pan);
-      } catch (e2) {
-        console.warn('[AudioPlayer] V2 failed to set pan for:', fileId);
-      }
+    } else {
+      this.unifiedController.setMidiPlayerPan(fileId, pan);
     }
   }
   
@@ -347,15 +337,11 @@ export class AudioPlayer {
    */
   public setFileVolume(fileId: string, volume: number): void {
     console.log('[AudioPlayer] V2 setting file volume:', { fileId, volume });
-    
-    try {
+
+    if (this.isWavFileId(fileId)) {
       this.unifiedController.setWavPlayerVolume(fileId, volume);
-    } catch (e) {
-      try {
-        this.unifiedController.setMidiPlayerVolume(fileId, volume);
-      } catch (e2) {
-        console.warn('[AudioPlayer] V2 failed to set volume for:', fileId);
-      }
+    } else {
+      this.unifiedController.setMidiPlayerVolume(fileId, volume);
     }
   }
   
@@ -365,6 +351,17 @@ export class AudioPlayer {
   public setWavVolume(playerId: string, volume: number): void {
     console.log('[AudioPlayer] V2 setting WAV volume:', { playerId, volume });
     this.unifiedController.setWavPlayerVolume(playerId, volume);
+  }
+
+  /** Determine if the given id belongs to WAV registry */
+  private isWavFileId(fileId: string): boolean {
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string }> } })._waveRollAudio;
+      const items = api?.getFiles?.() || [];
+      return items.some((it) => it.id === fileId);
+    } catch {
+      return false;
+    }
   }
   
   /**

@@ -194,6 +194,8 @@ export function createTimeDisplayUI(
    */
   // Cache for last valid non-zero currentTime
   let lastValidCurrentTime = 0;
+  // Cache for last known effective duration (tempo/WAV-aware)
+  let lastEffectiveDuration = 0;
 
   const updateSeekBar = (override?: {
     currentTime: number;
@@ -268,12 +270,20 @@ export function createTimeDisplayUI(
     // Update time labels even if duration is 0
     currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
     
-    // Adjust total time based on playback rate if available from audio player
-    const rate = dependencies.audioPlayer?.getState().playbackRate ?? 100;
-    const adjustedDuration = state.duration * (100 / rate);
-    totalTimeLabel.textContent = dependencies.formatTime(adjustedDuration);
+    // Use provided override duration (already tempo/WAV-aware) when available
+    if (override) {
+      lastEffectiveDuration = Math.max(0, override.duration || 0);
+      totalTimeLabel.textContent = dependencies.formatTime(lastEffectiveDuration);
+    } else {
+      // Fallback: derive from audio player duration, scaled by playbackRate
+      const rate = dependencies.audioPlayer?.getState().playbackRate ?? 100;
+      const rawDur = state.duration || 0;
+      const adjustedDuration = rawDur * (100 / rate);
+      lastEffectiveDuration = adjustedDuration;
+      totalTimeLabel.textContent = dependencies.formatTime(adjustedDuration);
+    }
 
-    if (state.duration === 0) {
+    if ((override ? override.duration : state.duration) === 0) {
       // Set progress to 0 when duration is 0
       progressBar.style.width = "0%";
       seekHandle.style.left = "0%";
@@ -292,7 +302,8 @@ export function createTimeDisplayUI(
     //   dbgCounters.normal++;
     // }
 
-    const percent = (state.currentTime / state.duration) * 100;
+    const denom = override ? Math.max(override.duration, 0.000001) : Math.max(lastEffectiveDuration || state.duration, 0.000001);
+    const percent = (state.currentTime / denom) * 100;
     // Only log percent changes for debugging
     if (shouldLog) {
       // // console.log(
@@ -344,11 +355,12 @@ export function createTimeDisplayUI(
     const rect = seekBarContainer.getBoundingClientRect();
     const percent = (evt.clientX - rect.left) / rect.width;
     const state = dependencies.audioPlayer?.getState();
-    if (!state || state.duration === 0) {
+    const duration = lastEffectiveDuration || state?.duration || 0;
+    if (!state || duration === 0) {
       return;
     }
 
-    const newTime = clamp(state.duration * percent, 0, state.duration);
+    const newTime = clamp(duration * percent, 0, duration);
     dependencies.audioPlayer?.seek(newTime, true);
     updateSeekBar();
   };
@@ -374,7 +386,7 @@ export function createTimeDisplayUI(
     const percent = clamp((evt.clientX - rect.left) / rect.width, 0, 1);
 
     const state = dependencies.audioPlayer?.getState();
-    const duration = state?.duration ?? 0;
+    const duration = lastEffectiveDuration || state?.duration || 0;
     const newTime = duration * percent;
 
     // Cache the target time so we can apply it once on pointerup.

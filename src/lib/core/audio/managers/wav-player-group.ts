@@ -20,6 +20,7 @@ interface AudioFileInfo {
 interface AudioPlayerEntry {
   player: Tone.Player;
   gate: Tone.Gain;
+  panner: Tone.Panner;
   isStarted: boolean;
   muted: boolean;
   startToken: number;
@@ -67,12 +68,12 @@ export class WavPlayerGroup implements PlayerGroup {
     }
     
     const items = api.getFiles() as AudioFileInfo[];
-    console.log('[WavPlayerGroup] Found', items.length, 'audio files in registry:', items.map(i => i.displayName || i.id));
+    console.log('[WavPlayerGroup] Found', items.length, 'audio files in registry:', items.map(i => (i as any).displayName || i.id));
     // Prepare audio players for all registered files
     
     for (const item of items) {
       if (!this.audioPlayers.has(item.id)) {
-        console.log('[WavPlayerGroup] Creating player for:', item.displayName || item.id);
+        console.log('[WavPlayerGroup] Creating player for:', (item as any).displayName || item.id);
         await this.createPlayerEntry(item);
       }
     }
@@ -102,23 +103,28 @@ export class WavPlayerGroup implements PlayerGroup {
       });
       
       const gate = new Tone.Gain(1);
+      const panner = new Tone.Panner(item.pan ?? 0);
       
-      // Connection: Player → Gate → Destination
+      // Connection: Player → Gate → Panner → Destination
       player.connect(gate);
-      gate.toDestination();
+      gate.connect(panner);
+      panner.toDestination();
       
       // Create entry
       const entry: AudioPlayerEntry = {
         player,
         gate,
+        panner,
         isStarted: false,
         muted: item.isMuted || false,
         startToken: 0,
         volume: 1.0,
-        pan: 0.0,
+        pan: item.pan ?? 0.0,
       };
       
       this.audioPlayers.set(item.id, entry);
+      // Ensure initial pan is applied to the panner node
+      try { entry.panner.pan.value = entry.pan; } catch {}
       
       // If registry already has a decoded AudioBuffer, use it
       if (item.audioBuffer && (Tone as any).ToneAudioBuffer) {
@@ -156,6 +162,22 @@ export class WavPlayerGroup implements PlayerGroup {
       };
       checkBuffers();
     });
+  }
+
+  /**
+   * Wait until all WAV buffers are ready (or resolve immediately if none).
+   */
+  async waitUntilReady(): Promise<void> {
+    // Ensure monitoring is active
+    this.startBufferMonitoring();
+    if (!this.bufferLoadPromise) {
+      return;
+    }
+    try {
+      await this.bufferLoadPromise;
+    } catch {
+      // Swallow errors to avoid blocking playback forever; caller decides policy
+    }
   }
   
   /**
@@ -232,7 +254,7 @@ export class WavPlayerGroup implements PlayerGroup {
       
       // Only skip if not visible - always start playback for timing synchronization
       if (!item.isVisible) {
-        console.log('[WavPlayerGroup] Skipping invisible item:', item.displayName || item.id);
+        console.log('[WavPlayerGroup] Skipping invisible item:', (item as any).displayName || item.id);
         continue;
       }
       
@@ -264,13 +286,23 @@ export class WavPlayerGroup implements PlayerGroup {
         const finalVolume = this.masterVolume * entry.volume * (isMuted ? 0 : 1);
         entry.gate.gain.value = finalVolume;
         
+        // Compute safe offset within buffer duration (if known)
+        const bufferDuration = (entry.player.buffer as any)?.duration ?? item.audioBuffer?.duration ?? 0;
+        let offset = syncInfo.masterTime;
+        if (bufferDuration && (offset < 0 || offset > bufferDuration - 0.001)) {
+          const clamped = Math.max(0, Math.min(bufferDuration - 0.001, offset));
+          console.log('[WavPlayerGroup] Clamping offset from', offset, 'to', clamped, '(bufferDuration=', bufferDuration, ')');
+          offset = clamped;
+        }
+        
         // Align with Transport: schedule audio at the same absolute anchor as Transport.start
-        // Use audioContextTime as absolute start and masterTime as offset into buffer
-        entry.player.start(syncInfo.audioContextTime, syncInfo.masterTime);
+        // Use audioContextTime as absolute start and clamped offset into buffer
+        entry.player.start(syncInfo.audioContextTime, offset);
+        console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', offset);
         entry.isStarted = true;
         startedCount++;
         
-        console.log('[WavPlayerGroup] Started WAV', item.displayName || item.id, 'at audio time', syncInfo.audioContextTime, 'offset', syncInfo.masterTime, 'volume', finalVolume, 'muted:', isMuted);
+        console.log('[WavPlayerGroup] Started WAV', (item as any).displayName || item.id, 'at audio time', syncInfo.audioContextTime, 'offset', offset, 'volume', finalVolume, 'muted:', isMuted);
         
       } catch (error) {
         console.error('[WavPlayerGroup] Failed to start', item.id, ':', error);
@@ -310,6 +342,7 @@ export class WavPlayerGroup implements PlayerGroup {
    */
   seekTo(time: number): void {
     // WAV players may need restart as real-time seek is difficult
+    console.log('[WavPlayerGroup] Seeking to', time, '- stopping synchronized playback for restart');
     this.stopSynchronized();
   }
   
@@ -381,7 +414,9 @@ export class WavPlayerGroup implements PlayerGroup {
     }
     
     entry.pan = Math.max(-1, Math.min(1, pan));
-    // Implement pan node here if needed
+    try {
+      entry.panner.pan.value = entry.pan;
+    } catch {}
     
     // no-op log
   }

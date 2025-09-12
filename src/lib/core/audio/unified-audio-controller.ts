@@ -27,6 +27,21 @@ export class UnifiedAudioController {
   // Visual update handling
   private visualUpdateCallback?: (time: number) => void;
   private visualUpdateLoop?: number;
+  private lastJoinRequestTs = new Map<string, number>();
+  private handleWavVisibilityChange = (e: Event) => {
+    const detail = (e as CustomEvent<{ id: string; isVisible: boolean }>).detail;
+    if (!detail) return;
+    if (detail.isVisible) {
+      this.alignWavJoin(detail.id);
+    }
+  };
+  private handleWavMuteChange = (e: Event) => {
+    const detail = (e as CustomEvent<{ id: string; isMuted: boolean }>).detail;
+    if (!detail) return;
+    if (!detail.isMuted) {
+      this.alignWavJoin(detail.id);
+    }
+  };
   
   constructor() {
     // console.log('[UnifiedAudioController] Initializing');
@@ -43,6 +58,12 @@ export class UnifiedAudioController {
     this.masterClock.registerPlayerGroup(this.midiPlayerGroup);
     
     // console.log('[UnifiedAudioController] Created with master clock and player groups');
+
+    // Event-based WAV join alignment (avoid RAF-based rescheduling)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wr-wav-visibility-changed', this.handleWavVisibilityChange as EventListener);
+      window.addEventListener('wr-wav-mute-changed', this.handleWavMuteChange as EventListener);
+    }
   }
   
   /**
@@ -113,8 +134,20 @@ export class UnifiedAudioController {
     // console.log('[UnifiedAudioController] Starting unified playback');
     
     try {
+      // Gate: ensure all audio backends are ready before first playback
+      await this.midiPlayerGroup.waitUntilReady();
+      await this.wavPlayerGroup.waitUntilReady();
+
+      // If the anchor is too close, refresh nowTime and let master clock compute a fresh anchor
+      const now = Tone.now();
+      const lastAnchor = (this as any)._lastPlayAnchor as number | undefined;
+      if (lastAnchor && now > lastAnchor - 0.01) {
+        this.masterClock.state.nowTime = this.masterClock.getCurrentTime();
+      }
+      
       // Perfectly synchronized playback via the master clock
       await this.masterClock.startPlayback(this.masterClock.state.nowTime, 0.1);
+      (this as any)._lastPlayAnchor = Tone.now() + 0.1;
       
       // Start visual update loop
       this.startVisualUpdateLoop();
@@ -146,6 +179,7 @@ export class UnifiedAudioController {
    * Seek to a specific time
    */
   seek(time: number): void {
+    console.log('[UnifiedAudioController] seek called with', time);
     this.masterClock.seekTo(time);
   }
   
@@ -215,7 +249,7 @@ export class UnifiedAudioController {
   }
   
   set loopMode(mode: 'off' | 'repeat' | 'ab') {
-    this.masterClock.setLoopMode(mode, this.masterClock.state.markerA, this.masterClock.state.markerB);
+    this.masterClock.setLoopMode(mode, this.masterClock.state.markerA ?? undefined, this.masterClock.state.markerB ?? undefined);
   }
   
   /**
@@ -406,11 +440,34 @@ export class UnifiedAudioController {
     this.wavPlayerGroup.destroy();
     this.midiPlayerGroup.destroy();
     
+    // Remove listeners
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wr-wav-visibility-changed', this.handleWavVisibilityChange as EventListener);
+      window.removeEventListener('wr-wav-mute-changed', this.handleWavMuteChange as EventListener);
+    }
+
     // Reset state
     this.isInitialized = false;
     this.initPromise = null;
     this.visualUpdateCallback = undefined;
     
     // console.log('[UnifiedAudioController] Destroyed');
+  }
+
+  /**
+   * Public: Align a WAV track to join playback at the exact master time, if appropriate.
+   */
+  alignWavJoin(fileId: string, lookahead: number = 0.03): void {
+    try {
+      if (!this.masterClock.state.isPlaying) return;
+      // throttle per id
+      const now = Tone.now();
+      const last = this.lastJoinRequestTs.get(fileId) || 0;
+      if (now - last < 0.05) return;
+      this.lastJoinRequestTs.set(fileId, now);
+      // Use current master time for offset
+      const masterTime = this.masterClock.getCurrentTime();
+      this.wavPlayerGroup.syncStartIfNeeded(fileId, masterTime, lookahead);
+    } catch {}
   }
 }
