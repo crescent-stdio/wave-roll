@@ -721,6 +721,13 @@ export class WaveRollPlayer {
       return false;
     }
   }
+
+  /**
+   * Seek to a specific time position
+   */
+  public seek(time: number): void {
+    this.visualizationEngine.seek(time, true);
+  }
 }
 
 /**

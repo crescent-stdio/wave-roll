@@ -45,6 +45,8 @@ export class WavPlayerGroup implements PlayerGroup {
   
   // Master volume (controlled from above)
   private masterVolume: number = 1.0;
+  // WAV group mix gain to balance vs MIDI
+  private mixGain: number = 0.8;
   
   constructor() {
     // Intentionally quiet to reduce console noise
@@ -68,7 +70,7 @@ export class WavPlayerGroup implements PlayerGroup {
     }
     
     const items = api.getFiles() as AudioFileInfo[];
-    console.log('[WavPlayerGroup] Found', items.length, 'audio files in registry:', items.map(i => (i as any).displayName || i.id));
+    // console.log('[WavPlayerGroup] Found', items.length, 'audio files in registry:', items.map(i => (i as any).displayName || i.id));
     // Prepare audio players for all registered files
     
     for (const item of items) {
@@ -210,12 +212,12 @@ export class WavPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
-    console.log('[WavPlayerGroup] Starting synchronized playback', syncInfo);
+    // console.log('[WavPlayerGroup] Starting synchronized playback', syncInfo);
     
     // Setup audio players first
     try {
       await this.setupAudioPlayersFromRegistry({});
-      console.log('[WavPlayerGroup] Audio players setup completed, players count:', this.audioPlayers.size);
+      // console.log('[WavPlayerGroup] Audio players setup completed, players count:', this.audioPlayers.size);
     } catch (error) {
       console.error('[WavPlayerGroup] Setup failed:', error);
       return;
@@ -239,7 +241,7 @@ export class WavPlayerGroup implements PlayerGroup {
     }
     
     const items = api.getFiles() as AudioFileInfo[];
-    console.log('[WavPlayerGroup] Found', items.length, 'audio files to process for sync start');
+    // console.log('[WavPlayerGroup] Found', items.length, 'audio files to process for sync start');
     
     let startedCount = 0;
     
@@ -254,7 +256,7 @@ export class WavPlayerGroup implements PlayerGroup {
       
       // Only skip if not visible - always start playback for timing synchronization
       if (!item.isVisible) {
-        console.log('[WavPlayerGroup] Skipping invisible item:', (item as any).displayName || item.id);
+        // console.log('[WavPlayerGroup] Skipping invisible item:', (item as any).displayName || item.id);
         continue;
       }
       
@@ -270,7 +272,7 @@ export class WavPlayerGroup implements PlayerGroup {
       
       // Check buffer load status
       if (!entry.player.buffer?.loaded) {
-        console.warn('[WavPlayerGroup] Buffer not loaded for:', item.id, 'buffer state:', entry.player.buffer);
+        // console.warn('[WavPlayerGroup] Buffer not loaded for:', item.id);
         continue;
       }
       
@@ -283,7 +285,7 @@ export class WavPlayerGroup implements PlayerGroup {
         
         // Calculate volume considering both global mute states and individual mute
         const isMuted = item.isMuted || entry.muted;
-        const finalVolume = this.masterVolume * entry.volume * (isMuted ? 0 : 1);
+        const finalVolume = this.masterVolume * this.mixGain * entry.volume * (isMuted ? 0 : 1);
         entry.gate.gain.value = finalVolume;
         
         // Compute safe offset within buffer duration (if known)
@@ -298,7 +300,8 @@ export class WavPlayerGroup implements PlayerGroup {
         // Align with Transport: schedule audio at the same absolute anchor as Transport.start
         // Use audioContextTime as absolute start and clamped offset into buffer
         entry.player.start(syncInfo.audioContextTime, offset);
-        console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', offset);
+        const tr = Tone.getTransport();
+        console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', offset, 'transport.seconds(now)=', tr.seconds);
         entry.isStarted = true;
         startedCount++;
         
@@ -309,7 +312,7 @@ export class WavPlayerGroup implements PlayerGroup {
       }
     }
     
-    console.log('[WavPlayerGroup] Successfully started', startedCount, 'of', items.length, 'audio files');
+    // console.log('[WavPlayerGroup] Successfully started', startedCount, 'of', items.length, 'audio files');
   }
   
   /**
@@ -342,7 +345,7 @@ export class WavPlayerGroup implements PlayerGroup {
    */
   seekTo(time: number): void {
     // WAV players may need restart as real-time seek is difficult
-    console.log('[WavPlayerGroup] Seeking to', time, '- stopping synchronized playback for restart');
+    // console.log('[WavPlayerGroup] Seeking to', time, '- stopping synchronized playback for restart');
     this.stopSynchronized();
   }
   
@@ -371,7 +374,7 @@ export class WavPlayerGroup implements PlayerGroup {
     // Apply to all players
     for (const [id, entry] of this.audioPlayers) {
       try {
-        entry.gate.gain.value = this.masterVolume * entry.volume * (entry.muted ? 0 : 1);
+        entry.gate.gain.value = this.masterVolume * this.mixGain * entry.volume * (entry.muted ? 0 : 1);
       } catch (error) {
         console.error('[WavPlayerGroup] Failed to set master volume for', id, ':', error);
       }
@@ -393,12 +396,20 @@ export class WavPlayerGroup implements PlayerGroup {
   setPlayerVolume(playerId: string, volume: number): void {
     const entry = this.audioPlayers.get(playerId);
     if (!entry) {
-      console.warn('[WavPlayerGroup] Player not found:', playerId);
+      console.warn('[WavPlayerGroup] Player not found:', playerId, '→ attempting setup and retry');
+      try {
+        this.setupAudioPlayersFromRegistry({}).then(() => {
+          const e2 = this.audioPlayers.get(playerId);
+          if (!e2) return;
+          e2.volume = Math.max(0, Math.min(1, volume));
+          e2.gate.gain.value = this.masterVolume * this.mixGain * e2.volume * (e2.muted ? 0 : 1);
+        }).catch(() => {});
+      } catch {}
       return;
     }
     
     entry.volume = Math.max(0, Math.min(1, volume));
-    entry.gate.gain.value = this.masterVolume * entry.volume * (entry.muted ? 0 : 1);
+    entry.gate.gain.value = this.masterVolume * this.mixGain * entry.volume * (entry.muted ? 0 : 1);
     
     // no-op log
   }
@@ -409,7 +420,15 @@ export class WavPlayerGroup implements PlayerGroup {
   setPlayerPan(playerId: string, pan: number): void {
     const entry = this.audioPlayers.get(playerId);
     if (!entry) {
-      console.warn('[WavPlayerGroup] Player not found:', playerId);
+      console.warn('[WavPlayerGroup] Player not found:', playerId, '→ attempting setup and retry');
+      try {
+        this.setupAudioPlayersFromRegistry({}).then(() => {
+          const e2 = this.audioPlayers.get(playerId);
+          if (!e2) return;
+          e2.pan = Math.max(-1, Math.min(1, pan));
+          try { e2.panner.pan.value = e2.pan; } catch {}
+        }).catch(() => {});
+      } catch {}
       return;
     }
     
@@ -427,14 +446,32 @@ export class WavPlayerGroup implements PlayerGroup {
   setPlayerMute(playerId: string, muted: boolean): void {
     const entry = this.audioPlayers.get(playerId);
     if (!entry) {
-      console.warn('[WavPlayerGroup] Player not found:', playerId);
+      console.warn('[WavPlayerGroup] Player not found:', playerId, '→ attempting setup and retry');
+      try {
+        this.setupAudioPlayersFromRegistry({}).then(() => {
+          const e2 = this.audioPlayers.get(playerId);
+          if (!e2) return;
+          e2.muted = muted;
+          e2.gate.gain.value = this.masterVolume * this.mixGain * e2.volume * (e2.muted ? 0 : 1);
+        }).catch(() => {});
+      } catch {}
       return;
     }
     
     entry.muted = muted;
-    entry.gate.gain.value = this.masterVolume * entry.volume * (entry.muted ? 0 : 1);
+    entry.gate.gain.value = this.masterVolume * this.mixGain * entry.volume * (entry.muted ? 0 : 1);
     
     // no-op log
+  }
+
+  /**
+   * Adjust WAV group mix gain (0-1) to balance against MIDI group
+   */
+  setGroupMixGain(gain: number): void {
+    this.mixGain = Math.max(0, Math.min(1, gain));
+    for (const [, entry] of this.audioPlayers) {
+      entry.gate.gain.value = this.masterVolume * this.mixGain * entry.volume * (entry.muted ? 0 : 1);
+    }
   }
 
   /**

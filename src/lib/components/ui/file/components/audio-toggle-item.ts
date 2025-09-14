@@ -88,6 +88,18 @@ export class AudioToggleItem {
             FileToggleManager.updateFileToggleSection(container, dependencies);
           }
         }
+
+        // Dispatch visibility-change event so audio layer can react (join on become-visible)
+        try {
+          const files = api?.getFiles?.() || [];
+          const f = files.find((x: any) => x.id === audio.id);
+          const isVisible = !!f?.isVisible;
+          window.dispatchEvent(
+            new CustomEvent('wr-wav-visibility-changed', {
+              detail: { id: audio.id, isVisible },
+            })
+          );
+        } catch {}
       },
       "Toggle waveform visibility",
       { size: 24 }
@@ -120,6 +132,14 @@ export class AudioToggleItem {
           const f = files.find((x: any) => x.id === audio.id);
           if (f && f.isMuted !== shouldMute) {
             api.toggleMute?.(audio.id);
+            // Emit mute-changed so controller can align WAV join on unmute
+            try {
+              window.dispatchEvent(
+                new CustomEvent('wr-wav-mute-changed', {
+                  detail: { id: audio.id, isMuted: shouldMute },
+                })
+              );
+            } catch {}
           }
         }
 

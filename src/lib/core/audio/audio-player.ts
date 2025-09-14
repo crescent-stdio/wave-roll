@@ -356,11 +356,23 @@ export class AudioPlayer {
   /** Determine if the given id belongs to WAV registry */
   private isWavFileId(fileId: string): boolean {
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string }> } })._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; type?: string }> } })._waveRollAudio;
       const items = api?.getFiles?.() || [];
-      return items.some((it) => it.id === fileId);
+      // Check if the file exists in WAV registry and verify type if available
+      const wavItem = items.find((it) => it.id === fileId);
+      if (wavItem) {
+        // If type field exists, use it for accurate detection
+        if (wavItem.type) {
+          return wavItem.type === 'audio' || wavItem.type === 'wav';
+        }
+        // If no type field, assume it's WAV since it's in the registry
+        return true;
+      }
+      // Fallback: check fileId pattern for common audio extensions
+      return fileId.includes('audio') || fileId.includes('.mp3') || fileId.includes('.wav');
     } catch {
-      return false;
+      // Error fallback: check fileId pattern
+      return fileId.includes('audio') || fileId.includes('.mp3') || fileId.includes('.wav');
     }
   }
   
@@ -375,6 +387,7 @@ export class AudioPlayer {
    * Set visual update callback
    */
   public setOnVisualUpdate(callback: (update: any) => void): void {
+    console.log('[AudioPlayer] V2 current time:', this.unifiedController.getCurrentTime());
     console.log('[AudioPlayer] V2 setting visual update callback');
     this.visualUpdateCallback = callback;
     

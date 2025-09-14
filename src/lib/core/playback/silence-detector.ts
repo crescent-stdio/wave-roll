@@ -4,6 +4,7 @@
  */
 
 import { VolumeStateManager } from './utils';
+import * as Tone from 'tone';
 
 export interface SilenceDetectorOptions {
   onSilenceDetected?: () => void;
@@ -20,6 +21,8 @@ export class SilenceDetector {
   private wasPausedBySilence: boolean = false;
   private options: SilenceDetectorOptions;
   private midiManager: any | null = null;
+  private pendingPauseTimer: number | null = null;
+  private static readonly PAUSE_DEBOUNCE_MS = 400;
 
   constructor(options: SilenceDetectorOptions = {}) {
     this.options = options;
@@ -160,6 +163,16 @@ export class SilenceDetector {
    * Check if all audio sources are effectively silent
    */
   private isAllSilent(): boolean {
+    // If MIDI has any unmuted file, we are not silent regardless of WAV state
+    try {
+      if (this.midiManager?.getState) {
+        const m = this.midiManager.getState();
+        if (Array.isArray(m?.files) && m.files.some((f: any) => f && f.isMuted === false)) {
+          return false;
+        }
+      }
+    } catch {}
+
     // Check if there are any audio sources at all
     const fileState = this.fileVolumeManager.getState();
     const wavState = this.wavVolumeManager.getState();
@@ -193,17 +206,39 @@ export class SilenceDetector {
    */
   private handleSilenceChange(wasAllSilent: boolean, isAllSilent: boolean): void {
     if (!wasAllSilent && isAllSilent) {
+      // Debounce pause to avoid pausing during quick mute/unmute sequences
+      if (this.pendingPauseTimer !== null) {
+        clearTimeout(this.pendingPauseTimer);
+        this.pendingPauseTimer = null;
+      }
       // Double-check with external sources to avoid false positives when
       // internal managers have not yet been populated.
       if (this.hasAnyExternalAudible()) {
-        return; // Do not pause; there are audible sources outside our cache
+        return; // audible sources exist → do not pause
       }
-      // Just became silent
-      this.wasPausedBySilence = true;
-      if (this.options.onSilenceDetected) {
-        this.options.onSilenceDetected();
-      }
+      this.pendingPauseTimer = (setTimeout as unknown as (h: any, t: number) => number)(() => {
+        this.pendingPauseTimer = null;
+        // Re-validate before pausing
+        if (!this.isAllSilent()) {
+          return;
+        }
+        // Do not auto-pause while transport is running (user-intended mute of all sources)
+        try {
+          if (Tone.getTransport().state === 'started') {
+            return;
+          }
+        } catch {}
+        this.wasPausedBySilence = true;
+        if (this.options.onSilenceDetected) {
+          this.options.onSilenceDetected();
+        }
+      }, SilenceDetector.PAUSE_DEBOUNCE_MS) as unknown as number;
     } else if (wasAllSilent && !isAllSilent) {
+      // Cancel pending pause if any
+      if (this.pendingPauseTimer !== null) {
+        clearTimeout(this.pendingPauseTimer);
+        this.pendingPauseTimer = null;
+      }
       // Just became audible
       if (this.options.onSoundDetected) {
         this.options.onSoundDetected();

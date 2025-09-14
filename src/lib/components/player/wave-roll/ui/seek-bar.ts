@@ -46,6 +46,22 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     return speed > 0 ? raw / speed : raw;
   };
 
+  // Content-time duration (unscaled by playback rate) for precise seek mapping
+  const calculateRawDuration = (midiDuration: number): number => {
+    let wavMax = 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer; isVisible?: boolean; isMuted?: boolean; volume?: number }> } })._waveRollAudio;
+      const files = api?.getFiles?.() || [];
+      const ds = files
+        // Only consider active (visible & unmuted & volume>0 if provided)
+        .filter((f) => (f?.isVisible !== false) && (f?.isMuted !== true) && (f?.volume === undefined || f.volume > 0))
+        .map((f) => f.audioBuffer?.duration || 0)
+        .filter((d) => d > 0);
+      wavMax = ds.length > 0 ? Math.max(...ds) : 0;
+    } catch {}
+    return Math.max(midiDuration || 0, wavMax || 0);
+  };
+
   /* ---- DOM skeleton ------------------------------------------------ */
   const root = document.createElement("div");
   root.style.cssText = `
@@ -262,9 +278,8 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     // Show initial value immediately
     const pct01 = Number(slider.value) / 100;
     const st = audioPlayer ? audioPlayer.getState() : null;
-    const pr = st?.playbackRate ?? 100;
-    const effectiveDuration = st ? calculateEffectiveDuration(st.duration, pr) : 0;
-    labelCurrent.textContent = formatTime(pct01 * effectiveDuration);
+    const midiDuration = st?.duration || 0;
+    labelCurrent.textContent = formatTime(pct01 * midiDuration);
   });
 
   // Apply the seek only once the user releases the pointer. This prevents
@@ -278,14 +293,13 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     const pct = Number(slider.value);
     const pct01 = pct / 100;
     const st = audioPlayer.getState();
-    const pr = st.playbackRate ?? 100;
-    const effectiveDuration = calculateEffectiveDuration(st.duration, pr);
-    const targetSec = pct01 * effectiveDuration;
+    const midiDuration = st?.duration || 0;
+    const targetSec = pct01 * midiDuration;
+    
     console.info("[UI-seek] requested", {
-      targetSec,
+      targetSec, // MIDI content-time seconds
       pct,
-      effectiveDuration,
-      playbackRate: pr,
+      midiDuration
     });
     audioPlayer.seek(targetSec);
   };
@@ -305,10 +319,9 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     const pct = Number(slider.value); // 0-100
     const pct01 = pct / 100;
     const st = audioPlayer?.getState();
-    const pr = st?.playbackRate ?? 100;
-    const effectiveDuration = st ? calculateEffectiveDuration(st.duration, pr) : 0;
+    const midiDuration = st?.duration || 0;
     progress.style.width = `${pct}%`;
-    labelCurrent.textContent = formatTime(pct01 * effectiveDuration);
+    labelCurrent.textContent = formatTime(pct01 * midiDuration);
   });
 
   /* ---- Update function -------------------------------------------- */

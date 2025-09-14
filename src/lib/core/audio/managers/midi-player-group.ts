@@ -40,6 +40,7 @@ export class MidiPlayerGroup implements PlayerGroup {
   private players = new Map<string, MidiPlayerInfo>();
   private part: Tone.Part | null = null;
   private notes: MidiNote[] = [];
+  private applyZeroEps: boolean = false;
   
   // Master volume (controlled from above)
   private masterVolume: number = 1.0;
@@ -63,20 +64,20 @@ export class MidiPlayerGroup implements PlayerGroup {
    * Set MIDI manager (compatibility with existing code)
    */
   setMidiManager(midiManager: any): void {
-    console.log('[MidiPlayerGroup] Setting MIDI manager:', midiManager);
+    // console.log('[MidiPlayerGroup] Setting MIDI manager:', midiManager);
     this.midiManager = midiManager;
     if (midiManager?.notes) {
       this.notes = midiManager.notes;
-      console.log('[MidiPlayerGroup] Set notes from MIDI manager:', this.notes.length);
-      console.log('[MidiPlayerGroup] Sample notes:', this.notes.slice(0, 3).map(note => ({
-        time: note.time,
-        pitch: note.pitch,
-        duration: note.duration,
-        velocity: note.velocity,
-        fileId: note.fileId
-      })));
+      // console.log('[MidiPlayerGroup] Set notes from MIDI manager:', this.notes.length);
+      // console.log('[MidiPlayerGroup] Sample notes:', this.notes.slice(0, 3).map(note => ({
+      //   time: note.time,
+      //   pitch: note.pitch,
+      //   duration: note.duration,
+      //   velocity: note.velocity,
+      //   fileId: note.fileId
+      // })));
     } else {
-      console.log('[MidiPlayerGroup] No notes found in MIDI manager');
+      // console.log('[MidiPlayerGroup] No notes found in MIDI manager');
     }
   }
   
@@ -84,7 +85,7 @@ export class MidiPlayerGroup implements PlayerGroup {
    * Initialize MIDI samplers
    */
   async initialize(): Promise<void> {
-    console.log('[MidiPlayerGroup] Initializing samplers');
+    // console.log('[MidiPlayerGroup] Initializing samplers');
     
     if (!this.notes.length) {
       console.warn('[MidiPlayerGroup] No notes available');
@@ -93,7 +94,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     
     // Create unique sampler for each file ID
     const fileIds = new Set(this.notes.map(note => note.fileId).filter(Boolean));
-    console.log('[MidiPlayerGroup] Found file IDs:', Array.from(fileIds));
+    // console.log('[MidiPlayerGroup] Found file IDs:', Array.from(fileIds));
     
     // Create all samplers in parallel for faster loading
     const createPromises = Array.from(fileIds).map(async (fileId) => {
@@ -103,11 +104,11 @@ export class MidiPlayerGroup implements PlayerGroup {
     }).filter(Boolean);
     
     if (createPromises.length > 0) {
-      console.log('[MidiPlayerGroup] Loading', createPromises.length, 'samplers...');
+      // console.log('[MidiPlayerGroup] Loading', createPromises.length, 'samplers...');
       await Promise.all(createPromises);
-      console.log('[MidiPlayerGroup] All samplers loaded successfully');
+      // console.log('[MidiPlayerGroup] All samplers loaded successfully');
     } else {
-      console.log('[MidiPlayerGroup] No new samplers to create');
+      // console.log('[MidiPlayerGroup] No new samplers to create');
     }
   }
 
@@ -445,27 +446,27 @@ export class MidiPlayerGroup implements PlayerGroup {
     const report = this.getPerformanceReport();
     
     console.group('[MidiPlayerGroup] Health Status Report');
-    console.log('📊 Performance:', {
+    console.log('Performance:', {
       successRate: report.playbackPerformance.successRate + '%',
       healthStatus: report.playbackPerformance.healthStatus,
       totalAttempts: report.playbackPerformance.totalNoteAttempts,
       failures: report.playbackPerformance.failedNotes
     });
     
-    console.log('🎵 Data Quality:', {
+    console.log('Data Quality:', {
       totalNotes: report.dataQuality.totalNotes,
       validNotes: report.dataQuality.dataQuality.validNotes,
       qualityPercent: ((report.dataQuality.dataQuality.validNotes / report.dataQuality.totalNotes) * 100).toFixed(1) + '%'
     });
     
-    console.log('⚙️ System Status:', report.systemStatus);
+    console.log('System Status:', report.systemStatus);
     
     if (report.dataQuality.issues.length > 0) {
-      console.warn('⚠️ Issues:', report.dataQuality.issues);
+      console.warn('Issues:', report.dataQuality.issues);
     }
     
     if (report.recommendations.length > 0) {
-      console.info('💡 Recommendations:', report.recommendations);
+      console.info('Recommendations:', report.recommendations);
     }
     
     console.groupEnd();
@@ -505,55 +506,77 @@ export class MidiPlayerGroup implements PlayerGroup {
   }
 
   private createMidiPart(startTime: number = 0, endTime?: number): void {
-    console.log('[MidiPlayerGroup] createMidiPart called with startTime:', startTime, 'endTime:', endTime);
-    console.log('[MidiPlayerGroup] Available notes:', this.notes ? this.notes.length : 0);
+    // console.log('[MidiPlayerGroup] createMidiPart called with startTime:', startTime, 'endTime:', endTime);
+    // console.log('[MidiPlayerGroup] Available notes:', this.notes ? this.notes.length : 0);
     
     if (this.part) {
-      console.log('[MidiPlayerGroup] Disposing existing Part');
+      // console.log('[MidiPlayerGroup] Disposing existing Part');
       this.part.dispose();
       this.part = null;
     }
     
     if (!this.notes || this.notes.length === 0) {
-      console.warn('[MidiPlayerGroup] No notes available for Part creation');
+      // console.warn('[MidiPlayerGroup] No notes available for Part creation');
       return;
     }
     
     // First, sanitize all MIDI notes
     const { validNotes, stats } = this.sanitizeMidiNotes(this.notes);
-    console.log('[MidiPlayerGroup] Sanitization results:', stats);
+    // console.log('[MidiPlayerGroup] Sanitization results:', stats);
     
     // Filter by time range and convert note events
-    const filteredNotes = validNotes.filter(note => {
-      // Filter by time range
-      if (note.time < startTime) return false;
+    // Clamp startTime within available MIDI time range to avoid unintended wrap to tail.
+    const minTime = 0;
+    const maxTime = validNotes.length > 0 ? Math.max(...validNotes.map(n => n.time)) : 0;
+    let safeStart = Math.max(minTime, Math.min(startTime, maxTime));
+
+    let filteredNotes = validNotes.filter(note => {
+      if (note.time < safeStart) return false;
       if (endTime && note.time > endTime) return false;
       return true;
     });
+
+    // If no notes at/after the requested time, shift start slightly earlier to include nearest note
+    if (filteredNotes.length === 0 && validNotes.length > 0) {
+      const FALLBACK_WINDOW = 0.2; // seconds
+      const prevTimes = validNotes
+        .map(n => n.time)
+        .filter(t => t <= safeStart);
+      if (prevTimes.length > 0) {
+        const prevNoteTime = Math.max(...prevTimes);
+        const fallbackStart = Math.max(0, prevNoteTime - FALLBACK_WINDOW);
+        safeStart = fallbackStart;
+        filteredNotes = validNotes.filter(note => {
+          if (note.time < safeStart) return false;
+          if (endTime && note.time > endTime) return false;
+          return true;
+        });
+        // console.info('[MidiPlayerGroup] Fallback start applied', { requested: startTime, safeStart, prevNoteTime });
+      }
+    }
     
     let events = filteredNotes.map(note => ({
-      time: note.time - startTime, // Convert to relative time
+      time: note.time - safeStart, // Convert to relative time
       note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60), // Use name field if available, fallback to normalized pitch
       velocity: note.velocity,
       duration: note.duration,
       fileId: note.fileId
     }));
 
-    // Seek safety: if seeking (startTime > 0), bump events at t=0 by tiny epsilon
-    // to avoid race at the exact anchor causing the first note to be dropped.
-    if (startTime > 0) {
-      const EPS = 0.002; // 2ms safety margin
+    // Seek safety: apply EPS at t=0 only when scheduling at future anchor (not for immediate starts)
+    if (this.applyZeroEps) {
+      const EPS = 0.02; // 20ms safety margin
       events = events.map(e => (e.time === 0 ? { ...e, time: EPS } : e));
     }
     
-    console.log('[MidiPlayerGroup] Creating Part with', events.length, 'events');
-    console.log('[MidiPlayerGroup] Sample events:', events.slice(0, 5));
+    // console.log('[MidiPlayerGroup] Creating Part with', events.length, 'events');
+    // console.log('[MidiPlayerGroup] Sample events:', events.slice(0, 5));
     if (stats.invalid > 0) {
       console.log(`[MidiPlayerGroup] Data quality: ${stats.valid}/${stats.total} valid notes (${((stats.valid/stats.total)*100).toFixed(1)}%)`);
     }
     
     // Check player availability
-    console.log('[MidiPlayerGroup] Available players:', Array.from(this.players.keys()));
+    // console.log('[MidiPlayerGroup] Available players:', Array.from(this.players.keys()));
     
     // Create Part with enhanced error recovery
     this.part = new Tone.Part((time, event) => {
@@ -629,7 +652,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     }, events);
     
     this.part.loop = false; // Loop is managed from above
-    console.log('[MidiPlayerGroup] Part created successfully with', events.length, 'events');
+    // console.log('[MidiPlayerGroup] Part created successfully with', events.length, 'events');
   }
   
   /**
@@ -659,13 +682,13 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
-    console.log('[MidiPlayerGroup] Starting synchronized playback', syncInfo);
+    // console.log('[MidiPlayerGroup] Starting synchronized playback', syncInfo);
     
     // Initialize samplers
     await this.initialize();
     
     if (this.players.size === 0) {
-      console.warn('[MidiPlayerGroup] No synthesizers available');
+      // console.warn('[MidiPlayerGroup] No synthesizers available');
       return;
     }
     
@@ -676,8 +699,16 @@ export class MidiPlayerGroup implements PlayerGroup {
       }
     }
     
-    // Create and start MIDI Part
-    this.createMidiPart(syncInfo.masterTime);
+    // Decide start mode ahead to control zero-time EPS application
+    const trProbe = Tone.getTransport();
+    const isStartedProbe = trProbe.state === 'started';
+    const timeToAnchor = syncInfo.audioContextTime - Tone.context.currentTime;
+    this.applyZeroEps = !isStartedProbe && timeToAnchor > 0.05;
+
+    // Create and start MIDI Part (add small preroll for boundary safety on seek)
+    const preroll = syncInfo.mode === 'seek' ? 0.03 : 0;
+    const partStartTime = Math.max(0, syncInfo.masterTime - preroll);
+    this.createMidiPart(partStartTime);
     
     if (this.part) {
       try {
@@ -687,13 +718,27 @@ export class MidiPlayerGroup implements PlayerGroup {
         
         // First play vs seek: Use best anchor per mode to avoid drift
         if (syncInfo.mode === 'seek') {
-          // Seek: absolute anchor aligns with WAV and avoids transport race
-          this.part.start(syncInfo.audioContextTime, 0);
-          console.log('[MidiPlayerGroup] Part start (seek): anchor=', syncInfo.audioContextTime, 'masterTime=', syncInfo.masterTime, 'relativeOffset=0');
+          // Seek: schedule at current transport position + EPS with offset relative to safe start (preroll)
+          const tr = Tone.getTransport();
+          const nowSec = tr.seconds;
+          const EPS = 0.02; // 20ms safety margin
+          const anchor = nowSec + EPS;
+          const offsetRel = Math.max(0, syncInfo.masterTime - partStartTime); // typically preroll
+          this.part.start(anchor, offsetRel);
+          console.log('[MidiPlayerGroup] Part start (seek, anchored): anchor=', anchor.toFixed(3), 'offset=', offsetRel.toFixed(3), 'transport.seconds=', nowSec.toFixed(3), 'masterTime=', syncInfo.masterTime.toFixed(3));
         } else {
-          // First play: transport 0 with pre-positioned transport.seconds ensures tight start
-          this.part.start(0);
-          console.log('[MidiPlayerGroup] Part start (play): transportTime=0, masterTime=', syncInfo.masterTime);
+          const tr = Tone.getTransport();
+          if (syncInfo.masterTime === 0) {
+            // First play: start at transport 0 to match WAV anchor exactly
+            this.part.start(0);
+            console.log('[MidiPlayerGroup] Part start (play, transport-0): masterTime=', syncInfo.masterTime);
+          } else {
+            // Resume from non-zero: anchor slightly in the future to avoid zero-time drop
+            const EPS = 0.02;
+            const anchor = tr.seconds + EPS;
+            this.part.start(anchor, 0);
+            console.log('[MidiPlayerGroup] Part start (resume, anchored): anchor=', anchor.toFixed(3), 'transport.seconds=', tr.seconds.toFixed(3));
+          }
         }
         
         // Log done above per mode
@@ -742,7 +787,7 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Seek to time
    */
   seekTo(time: number): void {
-    console.log('[MidiPlayerGroup] Seeking to:', time);
+    // console.log('[MidiPlayerGroup] Seeking to:', time);
     
     // Stop current playback
     this.stopSynchronized();
@@ -750,10 +795,18 @@ export class MidiPlayerGroup implements PlayerGroup {
     // Set Transport time
     const transport = Tone.getTransport();
     transport.seconds = time;
-    console.log('[MidiPlayerGroup] Transport.seconds set to', transport.seconds);
+    // console.log('[MidiPlayerGroup] Transport.seconds set to', transport.seconds);
     
     // Recreate Part from new time point
     this.createMidiPart(time);
+    
+    // Restore gate values for unmuted players (critical for paused seek)
+    for (const [fileId, playerInfo] of this.players.entries()) {
+      if (!playerInfo.muted) {
+        playerInfo.gate.gain.value = this.masterVolume * playerInfo.volume;
+      }
+    }
+    // console.log('[MidiPlayerGroup] Gate values restored after seek');
   }
   
   /**

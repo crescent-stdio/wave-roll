@@ -38,9 +38,14 @@ export class UnifiedAudioController {
   private handleWavMuteChange = (e: Event) => {
     const detail = (e as CustomEvent<{ id: string; isMuted: boolean }>).detail;
     if (!detail) return;
-    if (!detail.isMuted) {
-      this.alignWavJoin(detail.id);
-    }
+    try {
+      // Keep engine's mute state in sync with UI/registry
+      this.setWavPlayerMute(detail.id, detail.isMuted);
+      // If unmuted during playback, ensure immediate join
+      if (!detail.isMuted && this.masterClock.state.isPlaying) {
+        this.alignWavJoin(detail.id);
+      }
+    } catch {}
   };
   
   constructor() {
@@ -179,8 +184,17 @@ export class UnifiedAudioController {
    * Seek to a specific time
    */
   seek(time: number): void {
-    console.log('[UnifiedAudioController] seek called with', time);
+    // console.log('[UnifiedAudioController] seek called with', time);
     this.masterClock.seekTo(time);
+    try {
+      const tr = Tone.getTransport();
+      console.info('[SeekTrace][UAC] post-seek summary', {
+        requested: time,
+        transportSeconds: tr.seconds,
+        transportState: tr.state,
+        masterNow: this.masterClock.getCurrentTime(),
+      });
+    } catch {}
   }
   
   /**
@@ -292,6 +306,21 @@ export class UnifiedAudioController {
    */
   setWavPlayerVolume(playerId: string, volume: number): void {
     this.wavPlayerGroup.setPlayerVolume(playerId, volume);
+    // If currently playing and becoming audible, ensure the WAV joins immediately
+    try {
+      if (this.masterClock.state.isPlaying && volume > 0) {
+        this.alignWavJoin(playerId);
+      }
+    } catch {}
+  }
+
+  /**
+   * Adjust WAV group mix vs MIDI (0-1)
+   */
+  setWavGroupMix(gain: number): void {
+    try {
+      (this.wavPlayerGroup as any).setGroupMixGain?.(gain);
+    } catch {}
   }
   
   /**
@@ -398,6 +427,12 @@ export class UnifiedAudioController {
           console.error('[UnifiedAudioController] Visual update error:', error);
         }
       }
+      // Opportunistically start any pending WAV tracks that became visible/unmuted
+      try {
+        if (this.masterClock.state.isPlaying) {
+          this.wavPlayerGroup.syncPendingPlayers(this.masterClock.getCurrentTime());
+        }
+      } catch {}
       
       if (this.masterClock.state.isPlaying) {
         // Use RAF in browsers; fallback to setTimeout in non-DOM test envs

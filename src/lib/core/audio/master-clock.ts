@@ -234,7 +234,7 @@ export class AudioMasterClock {
    * Seek to specific time
    */
   seekTo(time: number): void {
-    console.log('[AudioMasterClock] Seeking to:', time);
+    // console.log('[AudioMasterClock] Seeking to:', time);
     
     this.masterTime = time;
     this.state.nowTime = time;
@@ -247,7 +247,8 @@ export class AudioMasterClock {
     if (!wasRunning) {
       // Paused: just reposition transport and notify groups
       transport.seconds = time;
-      console.log('[AudioMasterClock.seek] Paused mode: transport.seconds =', transport.seconds);
+      // console.log('[AudioMasterClock.seek] Paused mode: transport.seconds =', transport.seconds);
+      console.info('[SeekTrace][MasterClock] groups.seekTo dispatch', { time, groups: this.playerGroups.length });
       this.playerGroups.forEach(group => {
         try {
           group.seekTo(time);
@@ -259,15 +260,16 @@ export class AudioMasterClock {
     }
     
     // Playing: perform atomic re-start at a common absolute anchor
-    const lookahead = 0.1; // reduce latency on seek
+    const lookahead = 0.2; // Increased from 0.1 to 0.2 for better seek stability
     this.audioContextStartTime = Tone.context.currentTime + lookahead;
-    this.toneTransportStartTime = this.audioContextStartTime;
+    // Keep explicit transport anchor (0) and set transport.seconds = time before start
+    this.toneTransportStartTime = 0;
     // Critical: baseline for getCurrentTime() after seek
     this.startTime = time;
     
     // Stop groups to clear any scheduled events
     this.playerGroups.forEach(group => {
-      console.log('[AudioMasterClock.seek] Stopping group before restart:', group.constructor.name);
+      // console.log('[AudioMasterClock.seek] Stopping group before restart:', group.constructor.name);
       try {
         group.stopSynchronized();
       } catch (error) {
@@ -278,13 +280,18 @@ export class AudioMasterClock {
     // Reposition transport to target time and restart at the absolute anchor
     transport.stop();
     transport.seconds = time;
-    console.log('[AudioMasterClock.seek] Transport positioned to', time, 'anchor', this.audioContextStartTime, 'now', Tone.context.currentTime);
+    // console.log('[AudioMasterClock.seek] Transport positioned to', time, 'anchor', this.audioContextStartTime, 'now', Tone.context.currentTime);
+    console.info('[SeekTrace][MasterClock] restart scheduling', {
+      requested: time,
+      audioAnchor: this.audioContextStartTime,
+      transportSeconds: transport.seconds,
+    });
     
     // Schedule re-start for all groups with identical anchor and masterTime
     const startPromises = this.playerGroups.map(async (group) => {
       try {
         await group.startSynchronized({
-          audioContextTime: this.audioContextStartTime + 0.002, // 2ms safety so Part events at t=0 are not lost
+          audioContextTime: this.audioContextStartTime + 0.01, // 10ms safety
           toneTransportTime: 0,
           masterTime: time,
           generation: currentGeneration,
@@ -299,7 +306,11 @@ export class AudioMasterClock {
     transport.start(this.audioContextStartTime);
     this.isRunning = true;
     Promise.allSettled(startPromises).catch(() => {});
-    console.log('[AudioMasterClock] Seek restart committed at', this.audioContextStartTime, 'masterTime', time);
+    // console.log('[AudioMasterClock] Seek restart committed at', this.audioContextStartTime, 'masterTime', time);
+    console.info('[SeekTrace][MasterClock] transport.start', {
+      startAt: this.audioContextStartTime,
+      now: Tone.context.currentTime,
+    });
   }
   
   /**

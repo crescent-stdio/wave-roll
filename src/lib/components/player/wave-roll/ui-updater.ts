@@ -9,6 +9,7 @@ import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 export class UIUpdater {
   private updateLoopId: number | null = null;
   private hasSeenNonZeroTime = false;
+  private lastKnownDurationSec = 0;
 
   constructor(
     private stateManager: StateManager,
@@ -18,28 +19,30 @@ export class UIUpdater {
   ) {}
 
   /**
-   * Compute the effective total duration for UI (seekbar/time labels),
-   * taking the maximum of MIDI duration and registered WAV duration,
-   * and scaling by current playbackRate (tempo).
+   * Compute total duration for UI (seekbar/time labels) in raw content seconds.
+   * Takes the maximum of MIDI duration and registered WAV duration.
+   * Tempo/playback rate does NOT scale this value to avoid seek mismatches.
    */
   private computeEffectiveDuration(): number {
     const st = this.visualizationEngine.getState();
     if (!st) return 0;
-    const pr = st.playbackRate ?? 100;
-    const speed = pr / 100;
     const midiDuration = st.duration || 0;
 
     // Query global WAV registry for maximum buffer duration
     let wavMax = 0;
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer; isVisible?: boolean; isMuted?: boolean; volume?: number }> } })._waveRollAudio;
       const files = api?.getFiles?.() || [];
-      const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+      const durations = files
+        // Only consider active (visible & unmuted & volume>0 if provided)
+        .filter((f) => (f?.isVisible !== false) && (f?.isMuted !== true) && (f?.volume === undefined || f.volume > 0))
+        .map((f) => f.audioBuffer?.duration || 0)
+        .filter((d) => d > 0);
       wavMax = durations.length > 0 ? Math.max(...durations) : 0;
     } catch {}
 
     const rawMax = Math.max(midiDuration, wavMax);
-    return speed > 0 ? rawMax / speed : rawMax;
+    return rawMax;
   }
 
   /**
@@ -148,10 +151,17 @@ export class UIUpdater {
 
         // Always refresh seekbar/time using tempo-aware duration
         if (uiDeps?.updateSeekBar) {
+          // Use cached duration when current effective duration is 0 to avoid seekbar reset to 0 on pause
           const effectiveDuration = this.computeEffectiveDuration();
+          const durationForUI = effectiveDuration > 0
+            ? effectiveDuration
+            : (this.lastKnownDurationSec > 0 ? this.lastKnownDurationSec : (state.duration || 0));
+          if (durationForUI > 0) {
+            this.lastKnownDurationSec = durationForUI;
+          }
           uiDeps.updateSeekBar({
             currentTime: state.currentTime,
-            duration: effectiveDuration,
+            duration: durationForUI,
           });
         }
         this.updateTimeDisplay(state.currentTime);
@@ -226,9 +236,15 @@ export class UIUpdater {
       }
       // Always pass explicit state to ensure seekbar is updated
       const effectiveDuration = this.computeEffectiveDuration();
+      const durationForUI = effectiveDuration > 0
+        ? effectiveDuration
+        : (this.lastKnownDurationSec > 0 ? this.lastKnownDurationSec : (state.duration || 0));
+      if (durationForUI > 0) {
+        this.lastKnownDurationSec = durationForUI;
+      }
       uiDeps.updateSeekBar({
         currentTime: state.currentTime,
-        duration: effectiveDuration,
+        duration: durationForUI,
       });
 
       // Also ensure piano roll is synced when paused; skip while playing to

@@ -5,7 +5,7 @@ import { createWaveRollPlayer } from "./lib/components/player/wave-roll/player";
  * 
  * Usage:
  * <wave-roll 
- *   files='[{"path": "file.mid", "name": "File Name"}]'
+ *   files='[{"path": "file.mid", "name": "File Name", "type": "midi"}]'
  *   style="width: 100%; height: 600px;"
  * ></wave-roll>
  */

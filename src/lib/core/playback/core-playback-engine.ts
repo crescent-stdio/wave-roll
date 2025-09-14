@@ -133,19 +133,19 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     // recreation when note lists change due to UI transforms (tempo/loop/seek).
     const signature = Array.from(fileIds).sort().join(",");
     
-    console.log('[CorePlaybackEngine] File IDs found:', Array.from(fileIds));
+    // console.log('[CorePlaybackEngine] File IDs found:', Array.from(fileIds));
     console.log('[CorePlaybackEngine] Current signature:', signature, 'Last signature:', this.lastAudioSignature);
 
     // Skip if file structure hasn't changed
     if (signature === this.lastAudioSignature && this.audioPlayer) {
-      console.log('[CorePlaybackEngine] Signature unchanged, skipping recreation');
+      // console.log('[CorePlaybackEngine] Signature unchanged, skipping recreation');
       return;
     }
 
-    console.log('[CorePlaybackEngine] Creating audio player...');
+    // console.log('[CorePlaybackEngine] Creating audio player...');
     await this.recreateAudioPlayer(notes);
     this.lastAudioSignature = signature;
-    console.log('[CorePlaybackEngine] Audio player created successfully');
+    // console.log('[CorePlaybackEngine] Audio player created successfully');
   }
 
   /**
@@ -259,7 +259,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * AudioPlayerContainer implementation
    */
   public async play(): Promise<void> {
-    console.log('[CorePlaybackEngine] Play called, audioPlayer exists:', !!this.audioPlayer);
+    // console.log('[CorePlaybackEngine] Play called, audioPlayer exists:', !!this.audioPlayer);
     
     if (!this.audioPlayer) {
       console.error('[CorePlaybackEngine] audioPlayer is null, cannot play');
