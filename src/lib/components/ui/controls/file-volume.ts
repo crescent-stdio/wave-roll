@@ -22,6 +22,8 @@ export class FileVolumeControl {
   private isSliderVisible: boolean = false;
   private hideTimeout: number | null = null;
   private onVolumeChange?: (volume: number) => void;
+  private suppressOnChange: boolean = false;
+  private handleMasterMirrorBound?: (e: Event) => void;
 
   constructor(options: VolumeControlOptions = {}) {
     this.currentVolume = options.initialVolume ?? 1.0;
@@ -166,6 +168,9 @@ export class FileVolumeControl {
     this.sliderContainer.appendChild(this.volumeDisplay);
     this.sliderContainer.appendChild(sliderWrapper);
 
+    // Expose control instance on root for external sync (e.g., master double-click)
+    (this.container as any).__controlInstance = this;
+
     // Assemble main container
     this.container.appendChild(this.volumeBtn);
     this.container.appendChild(this.sliderContainer);
@@ -175,6 +180,26 @@ export class FileVolumeControl {
 
     // Ensure track background reflects the initial value immediately
     this.updateSliderTrack();
+
+    // Listen master mirror events to update UI without triggering engine changes
+    this.handleMasterMirrorBound = (e: Event) => {
+      try {
+        const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+        if (!detail || !detail.mode) return;
+        this.suppressOnChange = true;
+        if (detail.mode === 'mirror-mute') {
+          // No-op: master gating should not change per-file UI volume
+        } else if (detail.mode === 'mirror-restore') {
+          // Do nothing here; central controller decides whether to restore volumes
+        } else if (detail.mode === 'mirror-set') {
+          const v = typeof detail.volume === 'number' ? Math.max(0, Math.min(1, detail.volume)) : undefined;
+          if (typeof v === 'number') this.setVolume(v);
+        }
+      } finally {
+        this.suppressOnChange = false;
+      }
+    };
+    window.addEventListener('wr-master-mirror', this.handleMasterMirrorBound);
   }
 
   private setupEventHandlers(): void {
@@ -281,7 +306,7 @@ export class FileVolumeControl {
     this.volumeBtn.style.color = this.currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     this.updateSliderTrack();
 
-    if (this.onVolumeChange) {
+    if (this.onVolumeChange && !this.suppressOnChange) {
       this.onVolumeChange(this.currentVolume);
     }
   }
@@ -290,12 +315,20 @@ export class FileVolumeControl {
     return this.currentVolume;
   }
 
+  public getLastNonZeroVolume(): number {
+    return this.lastNonZeroVolume;
+  }
+
   public getElement(): HTMLElement {
     return this.container;
   }
 
   public destroy(): void {
     this.clearHideTimeout();
+    if (this.handleMasterMirrorBound) {
+      window.removeEventListener('wr-master-mirror', this.handleMasterMirrorBound);
+      this.handleMasterMirrorBound = undefined;
+    }
     this.container.remove();
   }
 }

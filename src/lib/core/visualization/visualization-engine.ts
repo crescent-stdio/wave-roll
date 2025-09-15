@@ -153,7 +153,7 @@ export class VisualizationEngine {
         }))
       );
 
-      recolored = visibleNotes.map((cn) => {
+      recolored = visibleNotes.map((cn) => {  
         const noteStart = cn.note.time;
         const noteEnd = noteStart + cn.note.duration;
         const intersects = overlaps.some(
@@ -235,6 +235,15 @@ export class VisualizationEngine {
   }
 
   public setVolume(volume: number): void {
+    this.coreEngine.setVolume(volume);
+  }
+
+  /** Master volume proxy for v2 engine */
+  public get masterVolume(): number {
+    return this.coreEngine.getState().volume;
+  }
+
+  public set masterVolume(volume: number) {
     this.coreEngine.setVolume(volume);
   }
 

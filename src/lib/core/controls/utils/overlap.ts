@@ -50,7 +50,7 @@ export function overlapping(tracks: Track[]): NoteInterval[] {
     const prevActive = active;
     active += delta;
 
-    // Transition into an overlap region (≥2 active -> start)
+    // Transition into an overlap region (>=2 active -> start)
     if (prevActive < 2 && active >= 2) {
       currentStart = time;
     }

@@ -7,7 +7,7 @@ export const OVERLAP_COLOR = 0xff0000;
 const OVERLAP_ALPHA = 0.25;
 
 /**
- * Draws translucent bars marking timeline segments where ≥2 tracks overlap.
+ * Draws translucent bars marking timeline segments where >=2 tracks overlap.
  */
 export function drawOverlapRegions(
   pianoRoll: PianoRoll,

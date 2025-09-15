@@ -15,6 +15,7 @@ export interface AudioFileInfo {
   isVisible: boolean;
   isMuted: boolean;
   pan: number;
+  volume?: number;
 }
 
 export class AudioToggleItem {
@@ -47,6 +48,21 @@ export class AudioToggleItem {
     item.appendChild(labelL);
     item.appendChild(slider);
     item.appendChild(labelR);
+
+    // Dim/tooltip when master muted
+    const handleMasterMirror = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+      if (!detail || !detail.mode) return;
+      if (detail.mode === 'mirror-mute') {
+        item.style.opacity = '0.6';
+        item.title = 'Master muted — changes apply after unmute';
+      } else if (detail.mode === 'mirror-restore') {
+        item.style.opacity = '';
+        item.removeAttribute('title');
+      }
+    };
+    window.addEventListener('wr-master-mirror', handleMasterMirror);
+    (item as any).__cleanupMasterMirror = () => window.removeEventListener('wr-master-mirror', handleMasterMirror);
 
     return item;
   }
@@ -119,9 +135,9 @@ export class AudioToggleItem {
     dependencies: UIComponentDependencies
   ): HTMLElement {
     const volumeControl = new FileVolumeControl({
-      initialVolume: audio.isMuted ? 0 : 1.0,
+      initialVolume: audio.isMuted ? 0 : (audio.volume ?? 1.0),
       fileId: audio.id,
-      lastNonZeroVolume: 1.0,
+      lastNonZeroVolume: audio.volume ?? 1.0,
       onVolumeChange: (volume) => {
         // Update mute state based on volume
         const shouldMute = volume === 0;
@@ -155,7 +171,10 @@ export class AudioToggleItem {
       },
     });
 
-    return volumeControl.getElement();
+    const el = volumeControl.getElement();
+    el.setAttribute('data-role', 'wav-volume');
+    el.setAttribute('data-file-id', audio.id);
+    return el;
   }
 
   private static createPanControls(

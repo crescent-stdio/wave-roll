@@ -44,6 +44,21 @@ export class FileToggleItem {
     item.appendChild(slider);
     item.appendChild(labelR);
 
+    // Dim/tooltip when master muted
+    const handleMasterMirror = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+      if (!detail || !detail.mode) return;
+      if (detail.mode === 'mirror-mute') {
+        item.style.opacity = '0.6';
+        item.title = 'Master muted — changes apply after unmute';
+      } else if (detail.mode === 'mirror-restore') {
+        item.style.opacity = '';
+        item.removeAttribute('title');
+      }
+    };
+    window.addEventListener('wr-master-mirror', handleMasterMirror);
+    (item as any).__cleanupMasterMirror = () => window.removeEventListener('wr-master-mirror', handleMasterMirror);
+
     return item;
   }
 
@@ -146,9 +161,9 @@ export class FileToggleItem {
     dependencies: UIComponentDependencies
   ): HTMLElement {
     const volumeControl = new FileVolumeControl({
-      initialVolume: file.isMuted ? 0 : 1.0,
+      initialVolume: file.isMuted ? 0 : (file.volume ?? 1.0),
       fileId: file.id,
-      lastNonZeroVolume: 1.0,
+      lastNonZeroVolume: file.volume ?? 1.0,
       onVolumeChange: (volume) => {
         // Update mute state based on volume
         const shouldMute = volume === 0;
@@ -172,7 +187,10 @@ export class FileToggleItem {
       },
     });
 
-    return volumeControl.getElement();
+    const el = volumeControl.getElement();
+    el.setAttribute('data-role', 'file-volume');
+    el.setAttribute('data-file-id', file.id);
+    return el;
   }
 
   private static createPanControls(

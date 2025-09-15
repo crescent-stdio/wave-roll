@@ -205,6 +205,12 @@ export class SilenceDetector {
    * Handle silence state changes
    */
   private handleSilenceChange(wasAllSilent: boolean, isAllSilent: boolean): void {
+    // Broadcast event for UI components that want to reflect all-silent state (e.g. master mute icon)
+    try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wr-silence-changed', { detail: { isAllSilent } }));
+      }
+    } catch {}
     if (!wasAllSilent && isAllSilent) {
       // Debounce pause to avoid pausing during quick mute/unmute sequences
       if (this.pendingPauseTimer !== null) {
@@ -248,6 +254,11 @@ export class SilenceDetector {
         this.wasPausedBySilence = false;
       }
     }
+  }
+
+  /** Public accessor for effective silence state (for initial UI sync) */
+  public isEffectivelySilent(): boolean {
+    return this.isAllSilent();
   }
 
   /**

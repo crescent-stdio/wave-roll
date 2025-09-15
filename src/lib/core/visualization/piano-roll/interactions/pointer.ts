@@ -40,9 +40,6 @@ export function onPointerMove(
 
   // Update currentTime based on new panX so external UI can stay in sync.
   pianoRoll.state.currentTime = pianoRoll.computeTimeAtPlayhead();
-  if (pianoRoll.onTimeChangeCallback) {
-    pianoRoll.onTimeChangeCallback(pianoRoll.state.currentTime);
-  }
 
   pianoRoll.requestRender();
 }
@@ -52,6 +49,11 @@ export function onPointerUp(
   pianoRoll: PianoRoll
 ): void {
   pianoRoll.state.isPanning = false;
+  // Commit final time to external listener once, to avoid heavy seeks during drag
+  pianoRoll.state.currentTime = pianoRoll.computeTimeAtPlayhead();
+  if (pianoRoll.onTimeChangeCallback) {
+    pianoRoll.onTimeChangeCallback(pianoRoll.state.currentTime);
+  }
 }
 
 export function getPointerPosition(

@@ -23,7 +23,7 @@ export interface OverlapResult {
  *
  * Two notes are deemed equal when both their onset and pitch lie within the
  * provided tolerances.  All notes fulfilling this condition form an undirected
- * graph; connected components of size ≥ 2 are returned as overlap groups.  For
+ * graph; connected components of size >= 2 are returned as overlap groups.  For
  * every group the function yields one representative note with averaged
  * onset/duration/pitch alongside the list of contributing file indices.
  *
@@ -88,7 +88,7 @@ export function groupOverlappingNotes(
   // --- 4) Aggregate --------------------------------------------------------
   const results: OverlapResult[] = [];
   clusters.forEach((group) => {
-    if (group.length < 2) return; // Need ≥2 notes to qualify as overlap
+    if (group.length < 2) return; // Need >=2 notes to qualify as overlap
 
     const onset = group.reduce((acc, g) => acc + g.note.time, 0) / group.length;
     const duration =

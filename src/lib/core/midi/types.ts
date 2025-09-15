@@ -28,6 +28,8 @@ export interface MidiFileEntry {
   /** Original file input (File or URL) for re-parsing */
   originalInput?: File | string;
   error?: string;
+  /** Volume level (0-1) */
+  volume?: number;
 }
 
 /**

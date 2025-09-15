@@ -101,6 +101,20 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   }
 
   /**
+   * Master volume property (0-1).
+   * Getter reads from current audio player state,
+   * setter delegates to setVolume() for consistent propagation.
+   */
+  public get masterVolume(): number {
+    const state = this.audioPlayer?.getState();
+    return state?.volume ?? this.config.defaultVolume;
+  }
+
+  public set masterVolume(volume: number) {
+    this.setVolume(volume);
+  }
+
+  /**
    * Initialize the engine with PianoRoll manager
    */
   public async initialize(pianoRollManager: PianoRollManager): Promise<void> {

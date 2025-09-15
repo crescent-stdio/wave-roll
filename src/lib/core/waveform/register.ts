@@ -47,9 +47,17 @@ function ensureAPI(): WaveRollAudioAPI {
         const a = store.items.find((x) => x.id === id);
         if (a) a.isVisible = !a.isVisible;
       },
+      setVisibility(id: string, visible: boolean): void {
+        const a = store.items.find((x) => x.id === id);
+        if (a) a.isVisible = !!visible;
+      },
       toggleMute(id: string): void {
         const a = store.items.find((x) => x.id === id);
         if (a) a.isMuted = !a.isMuted;
+      },
+      setMute(id: string, muted: boolean): void {
+        const a = store.items.find((x) => x.id === id);
+        if (a) a.isMuted = !!muted;
       },
       setPan(id: string, pan: number): void {
         const a = store.items.find((x) => x.id === id);
