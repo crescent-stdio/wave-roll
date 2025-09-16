@@ -27,6 +27,8 @@ export class UnifiedAudioController {
   // Visual update handling
   private visualUpdateCallback?: (time: number) => void;
   private visualUpdateLoop?: number;
+  private _prevTime: number = 0;
+  private _lastLoopJumpAtGen: number = -1;
   private lastJoinRequestTs = new Map<string, number>();
   private handleWavVisibilityChange = (e: Event) => {
     const detail = (e as CustomEvent<{ id: string; isVisible: boolean }>).detail;
@@ -423,6 +425,27 @@ export class UnifiedAudioController {
           // Update master clock state with current time
           this.masterClock.state.nowTime = currentTime;
           this.visualUpdateCallback(currentTime);
+
+          // AB-loop handling: jump back to A at (or just after) B using the
+          // same robust atomic restart path as seek(). This prevents any
+          // overlapping audio because groups are stopped before restart.
+          const st = this.masterClock.state;
+          if (st.loopMode === 'ab' && st.markerA !== null && st.markerB !== null) {
+            const a = Math.max(0, st.markerA);
+            const b = Math.max(a, st.markerB);
+            // Trigger only when we cross B (prev < B <= current)
+            if (this._prevTime < b && currentTime >= b) {
+              // Guard against duplicate triggers within the same generation
+              const gen = st.generation;
+              if (this._lastLoopJumpAtGen !== gen) {
+                this._lastLoopJumpAtGen = gen;
+                // Use seek with atomic restart to avoid layering
+                this.seek(a);
+              }
+            }
+          }
+
+          this._prevTime = currentTime;
         } catch (error) {
           console.error('[UnifiedAudioController] Visual update error:', error);
         }

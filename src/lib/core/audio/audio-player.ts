@@ -280,21 +280,112 @@ export class AudioPlayer {
   }
   
   /**
-   * Set loop points
+   * Set loop points (A-B) with optional position preservation.
+   * - Passing null,null clears loop and (optionally) preserves position.
+   * - Passing null,B sets [0,B) as loop window.
+   * - Passing A,null stores A only (does NOT activate loop by policy).
+   * - Passing A,B activates AB loop; when preservePosition=false, jumps to A.
    */
-  public setLoopPoints(start: number, end: number): void {
-    console.log('[AudioPlayer] V2 setting loop points:', { start, end });
-    this.unifiedController.setABLoop(start, end);
+  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
+    try {
+      const st = this.unifiedController.getState();
+      const total = Number.isFinite(st.totalTime) && st.totalTime > 0 ? st.totalTime : (Number.isFinite(st.duration) ? st.duration : 0);
+      const current = Number.isFinite(st.nowTime) ? st.nowTime : 0;
+
+      // Clear loop entirely
+      if (start === null && end === null) {
+        this.unifiedController.markerA = null;
+        this.unifiedController.markerB = null;
+        this.unifiedController.loopMode = 'off';
+        if (!preservePosition) {
+          this.seek(0);
+        }
+        return;
+      }
+
+      // Normalize A>B ordering when both provided
+      if (start !== null && end !== null && start > end) {
+        const tmp = start; start = end; end = tmp;
+      }
+
+      // B-only: treat A = 0
+      if (start === null && end !== null) {
+        const clampedEnd = total > 0 ? Math.max(0, Math.min(end, total)) : Math.max(0, end);
+        this.unifiedController.markerA = 0;
+        this.unifiedController.markerB = clampedEnd;
+        this.unifiedController.loopMode = 'ab';
+
+        if (preservePosition) {
+          const within = current >= 0 && current <= clampedEnd;
+          if (!within) {
+            this.seek(0);
+          }
+        } else {
+          this.seek(0);
+        }
+        return;
+      }
+
+      // A-only: do not activate loop, just store A
+      if (start !== null && end === null) {
+        // Policy: A-only should NOT activate a loop window
+        this.unifiedController.markerA = Math.max(0, start);
+        // Keep markerB as-is; loopMode unchanged
+        return;
+      }
+
+      // A & B provided: activate AB loop
+      if (start !== null && end !== null) {
+        const clampedStart = Math.max(0, start);
+        const clampedEnd = total > 0 ? Math.max(0, Math.min(end, total)) : Math.max(0, end);
+        if (clampedStart >= clampedEnd) {
+          console.warn('[AudioPlayer] Ignoring invalid loop points (start >= end):', { start, end });
+          return;
+        }
+        this.unifiedController.markerA = clampedStart;
+        this.unifiedController.markerB = clampedEnd;
+        this.unifiedController.loopMode = 'ab';
+
+        if (preservePosition) {
+          const within = current >= clampedStart && current <= clampedEnd;
+          if (!within) {
+            this.seek(clampedStart);
+          }
+        } else {
+          this.seek(clampedStart);
+        }
+        return;
+      }
+    } catch (e) {
+      console.error('[AudioPlayer] setLoopPoints failed:', e);
+    }
   }
   
   /**
-   * Toggle repeat mode
+   * Toggle or explicitly set repeat mode.
+   * - When enabled is provided: true → on, false → off.
+   * - Without argument: toggle current state.
+   * If AB markers are present and enabled=true, subsequent setLoopPoints will switch to 'ab'.
    */
-  public toggleRepeat(): void {
-    const currentMode = this.unifiedController.loopMode;
-    const newMode = currentMode === 'repeat' ? 'off' : 'repeat';
-    this.unifiedController.loopMode = newMode;
-    console.log('[AudioPlayer] V2 toggled repeat mode to:', newMode);
+  public toggleRepeat(enabled?: boolean): void {
+    try {
+      if (typeof enabled === 'boolean') {
+        if (enabled) {
+          // Default to full repeat unless AB is explicitly set afterwards
+          this.unifiedController.loopMode = 'repeat';
+        } else {
+          this.unifiedController.loopMode = 'off';
+        }
+        return;
+      }
+
+      // No argument: toggle
+      const currentMode = this.unifiedController.loopMode;
+      const next = currentMode === 'off' ? 'repeat' : 'off';
+      this.unifiedController.loopMode = next;
+    } catch (e) {
+      console.error('[AudioPlayer] toggleRepeat failed:', e);
+    }
   }
   
   /**
@@ -380,7 +471,10 @@ export class AudioPlayer {
    * Get current state
    */
   public getState(): any {
-    return this.unifiedController.getState();
+    const st = this.unifiedController.getState();
+    // Back-compat: expose isRepeating derived from loopMode
+    const isRepeating = st.loopMode && st.loopMode !== 'off';
+    return { ...st, isRepeating };
   }
   
   /**

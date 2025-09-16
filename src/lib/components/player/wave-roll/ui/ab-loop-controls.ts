@@ -134,6 +134,12 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     // Update UI overlays only; do NOT touch engine until loop button is enabled
     applyMarkersToUI();
     updateSeekBar();
+
+    // Log for index.html debugging convenience
+    try {
+      // eslint-disable-next-line no-console
+      console.log(`[AB-Loop] Set ${kind} marker`, { timeSec: t, percent: pct });
+    } catch {}
   }
 
   function applyMarkersToUI() {
@@ -186,6 +192,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       new CustomEvent("wr-loop-update", {
         detail: { loopWindow },
         bubbles: true,
+        composed: true,
       })
     );
   }

@@ -137,6 +137,31 @@ export function createTimeDisplayUI(
   const markerA = createMarker("A", COLOR_A, "wr-seekbar-marker-a", 14);
   const markerB = createMarker("B", COLOR_B, "wr-seekbar-marker-b", 14);
 
+  // Enable click interaction for markers to allow ad-hoc debugging
+  // without affecting seek/drag (stop propagation to avoid seeking).
+  markerA.style.pointerEvents = "auto";
+  markerB.style.pointerEvents = "auto";
+
+  const logMarkerClick = (label: "A" | "B", el: HTMLElement) => (evt: MouseEvent) => {
+    evt.stopPropagation();
+    // Prefer the current loopPoints percent; fallback to style.left.
+    const pct = (() => {
+      const lp = dependencies.loopPoints as { a: number | null; b: number | null } | null;
+      const v = label === "A" ? lp?.a : lp?.b;
+      if (typeof v === "number") return v;
+      const left = (el.style.left || "0%").replace("%", "");
+      const n = Number(left);
+      return Number.isFinite(n) ? n : 0;
+    })();
+    const duration = Math.max(lastEffectiveDuration || 0, 0);
+    const sec = duration > 0 ? (pct / 100) * duration : 0;
+    // eslint-disable-next-line no-console
+    console.log(`[Loop Marker] ${label} clicked`, { percent: pct, timeSec: sec.toFixed(3) });
+  };
+
+  markerA.addEventListener("click", logMarkerClick("A", markerA));
+  markerB.addEventListener("click", logMarkerClick("B", markerB));
+
   // Progress bar
   const progressBar = document.createElement("div");
   progressBar.style.cssText = `
@@ -303,7 +328,9 @@ export function createTimeDisplayUI(
     // }
 
     const denom = override ? Math.max(override.duration, 0.000001) : Math.max(lastEffectiveDuration || state.duration, 0.000001);
-    const percent = (state.currentTime / denom) * 100;
+    // Clamp current time to [0, denom] to prevent overflow beyond the end
+    const clampedCurrent = Math.min(Math.max(state.currentTime, 0), denom);
+    const percent = Math.min(Math.max((clampedCurrent / denom) * 100, 0), 100);
     // Only log percent changes for debugging
     if (shouldLog) {
       // // console.log(
@@ -316,7 +343,7 @@ export function createTimeDisplayUI(
     // Prevent the handle from being positioned slightly outside the bar when
     // the progress is extremely small (e.g., < 0.5%).
     const safePercent = Math.max(percent, 0);
-    seekHandle.style.left = `${safePercent}%`;
+    seekHandle.style.left = `${Math.min(safePercent, 100)}%`;
 
     /* ---------------------------------------------------------
      *   Loop overlay & markers
@@ -326,7 +353,9 @@ export function createTimeDisplayUI(
     // Here, dependencies.loopPoints follows { a:?, b:? } where the values are
     // percentages [0-100] (this is what loop-controls dispatches). Therefore
     // we can forward directly.
-    const shouldShowLoopMarkers = state.duration > 0;
+    // Show loop markers when we have a positive effective duration (override wins)
+    const effectiveForOverlay = override ? override.duration : (lastEffectiveDuration || state.duration || 0);
+    const shouldShowLoopMarkers = effectiveForOverlay > 0;
     updateLoopDisplay({
       loopPoints: shouldShowLoopMarkers ? (dependencies.loopPoints ?? null) : null,
       loopRegion,

@@ -147,6 +147,15 @@ export function createCoreLoopControls(
     if (!state) return;
     pointA = state.currentTime;
     if (pointB !== null && pointA !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
+    // Debug log for index.html: record A marker set
+    try {
+      const pr = state.playbackRate ?? 100;
+      const speed = pr / 100;
+      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+      const pct = effectiveDuration > 0 ? (pointA / effectiveDuration) * 100 : 0;
+      // eslint-disable-next-line no-console
+      console.log('[LoopControls] Set A marker', { timeSec: pointA, percent: pct });
+    } catch {}
     // Style
     btnA.dataset.active = "true";
     btnA.setAttribute("aria-pressed", "true");
@@ -176,18 +185,23 @@ export function createCoreLoopControls(
   const btnB = createLoopButton("B", () => {
     const state = audioPlayer?.getState();
     if (!state) return;
-    if (pointA === null) {
-      pointB = state.currentTime;
-    } else {
-      pointB = state.currentTime;
-      if (pointA !== null && pointB < pointA) [pointA, pointB] = [pointB, pointA];
-    }
+    pointB = state.currentTime;
+    if (pointA !== null && pointB !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
     btnB.dataset.active = "true";
     btnB.setAttribute("aria-pressed", "true");
     btnB.style.background = COLOR_B;
     btnB.style.color = isHexColorLight(COLOR_B) ? "black" : "white";
     btnB.style.fontWeight = "800";
     btnB.style.border = "none";  // Remove border when active
+    // Debug log for index.html: record B marker set
+    try {
+      const pr = state.playbackRate ?? 100;
+      const speed = pr / 100;
+      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+      const pct = effectiveDuration > 0 ? (pointB / effectiveDuration) * 100 : 0;
+      // eslint-disable-next-line no-console
+      console.log('[LoopControls] Set B marker', { timeSec: pointB, percent: pct });
+    } catch {}
     updateSeekBar();
   });
   // Add default border to B button
@@ -227,7 +241,22 @@ export function createCoreLoopControls(
    * ------------------------------------------------------------------ */
   const updateSeekBar = () => {
     const state = audioPlayer?.getState();
-    if (!state || state.duration === 0) return;
+    if (!state) return;
+
+    // Compute effective UI duration using max(MIDI, WAV) and playbackRate
+    const pr = state.playbackRate ?? 100;
+    const speed = pr / 100;
+    const midiDur = state.duration || 0;
+    let wavMax = 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const files = api?.getFiles?.() || [];
+      const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+      wavMax = durations.length > 0 ? Math.max(...durations) : 0;
+    } catch {}
+    const rawMax = Math.max(midiDur, wavMax);
+    const effectiveDuration = speed > 0 ? (rawMax > 0 ? rawMax / speed : 0) : rawMax;
+    if (effectiveDuration <= 0) return;
 
     // percent positions or null
     const loopInfo: { a: number | null; b: number | null } = {
@@ -239,19 +268,13 @@ export function createCoreLoopControls(
       let start = pointA;
       let end = pointB;
       if (end !== null && start > end) [start, end] = [end, start];
-      const pr = state.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-      const clampedEnd = end !== null ? Math.min(end, effectiveDuration) : null;
-      loopInfo.a = (start / effectiveDuration) * 100;
-      loopInfo.b =
-        clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
-      pianoRoll?.setLoopWindow?.(start, clampedEnd);
+      const clampedStart = Math.min(Math.max(0, start), effectiveDuration);
+      const clampedEnd = end !== null ? Math.min(Math.max(0, end), effectiveDuration) : null;
+      loopInfo.a = (clampedStart / effectiveDuration) * 100;
+      loopInfo.b = clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
+      pianoRoll?.setLoopWindow?.(clampedStart, clampedEnd);
     } else if (pointB !== null) {
-      const pr = state.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-      const clampedB = Math.min(pointB, effectiveDuration);
+      const clampedB = Math.min(Math.max(0, pointB), effectiveDuration);
       loopInfo.b = (clampedB / effectiveDuration) * 100;
       pianoRoll?.setLoopWindow?.(null, clampedB);
     } else {
@@ -272,6 +295,7 @@ export function createCoreLoopControls(
       new CustomEvent("wr-loop-update", {
         detail: { loopWindow },
         bubbles: true,
+        composed: true,
       })
     );
   };

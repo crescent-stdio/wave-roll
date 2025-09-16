@@ -477,6 +477,20 @@ export class WaveRollPlayer {
         const deps = this.getUIDependencies();
         (deps as UIComponentDependencies & { loopPoints?: { a: number | null; b: number | null } | null }).loopPoints = lp;
 
+        // Also persist A/B markers into the StateManager (in seconds) so that
+        // markers survive UI refreshes and re-renders even before enabling loop.
+        try {
+          const effDur = this.getEffectiveDuration();
+          if (!lp) {
+            this.stateManager.setLoopPoints(null, null);
+          } else {
+            const aSec = lp.a !== null && effDur > 0 ? (lp.a / 100) * effDur : null;
+            const bSec = lp.b !== null && effDur > 0 ? (lp.b / 100) * effDur : null;
+            this.stateManager.setLoopPoints(aSec, bSec);
+            console.log("setLoopPoints", aSec, bSec);
+          }
+        } catch {}
+
         // Force a seek-bar refresh immediately for snappy feedback.
         // Use absolute (full-length) policy and reflect tempo/rate changes
         // by computing effective duration.
