@@ -222,6 +222,17 @@ export class AudioPlayer {
     await this.initialize();
     
     try {
+      // Rewind to start if at end and not repeating
+      try {
+        const st = this.unifiedController.getState();
+        const duration = Number.isFinite(st.totalTime) ? st.totalTime : st.duration;
+        const position = Number.isFinite(st.nowTime) ? st.nowTime : 0;
+        const isLoopOff = !st.loopMode || st.loopMode === 'off';
+        if (isLoopOff && duration && position >= duration - 0.005) {
+          this.unifiedController.seek(0);
+        }
+      } catch {}
+
       await this.unifiedController.play();
       // console.log('[AudioPlayer] V2 playback started');
     } catch (error) {
@@ -370,19 +381,14 @@ export class AudioPlayer {
   public toggleRepeat(enabled?: boolean): void {
     try {
       if (typeof enabled === 'boolean') {
-        if (enabled) {
-          // Default to full repeat unless AB is explicitly set afterwards
-          this.unifiedController.loopMode = 'repeat';
-        } else {
-          this.unifiedController.loopMode = 'off';
-        }
+        // Use independent global repeat flag; leave loopMode for AB loop only
+        (this.unifiedController as any).isGlobalRepeat = !!enabled;
         return;
       }
 
       // No argument: toggle
-      const currentMode = this.unifiedController.loopMode;
-      const next = currentMode === 'off' ? 'repeat' : 'off';
-      this.unifiedController.loopMode = next;
+      const cur = (this.unifiedController as any).isGlobalRepeat === true;
+      (this.unifiedController as any).isGlobalRepeat = !cur;
     } catch (e) {
       console.error('[AudioPlayer] toggleRepeat failed:', e);
     }

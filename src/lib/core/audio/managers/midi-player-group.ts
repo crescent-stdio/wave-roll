@@ -848,8 +848,11 @@ export class MidiPlayerGroup implements PlayerGroup {
         this.part.loopEnd = markerB - markerA;
       }
     } else if (mode === 'repeat') {
+      // Full-repeat is handled by upper controller via atomic seek-to-start
+      // Ensure Part itself does NOT loop to avoid layered/duplicated playback
       if (this.part) {
-        this.part.loop = true;
+        this.part.loop = false;
+        try { (this.part as any).loopEnd = undefined; } catch {}
       }
     } else {
       if (this.part) {

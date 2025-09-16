@@ -26,6 +26,7 @@ export class AudioMasterClock {
     
     // Loop control
     loopMode: 'off' as 'off' | 'repeat' | 'ab',
+    globalRepeat: false,
     markerA: null as number | null,        // A marker
     markerB: null as number | null,        // B marker
     

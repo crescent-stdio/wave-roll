@@ -29,6 +29,7 @@ export class UnifiedAudioController {
   private visualUpdateLoop?: number;
   private _prevTime: number = 0;
   private _lastLoopJumpAtGen: number = -1;
+  private _lastRepeatWrapAtGen: number = -1;
   private lastJoinRequestTs = new Map<string, number>();
   private handleWavVisibilityChange = (e: Event) => {
     const detail = (e as CustomEvent<{ id: string; isVisible: boolean }>).detail;
@@ -73,6 +74,28 @@ export class UnifiedAudioController {
     }
   }
   
+  /**
+   * Compute effective total duration considering both MIDI and audible WAV sources.
+   * Falls back to master clock's totalTime when registry is unavailable.
+   */
+  private getEffectiveTotalTime(): number {
+    let duration = this.masterClock.state.totalTime || 0;
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ isVisible?: boolean; isMuted?: boolean; volume?: number; audioBuffer?: { duration?: number } }> } })._waveRollAudio;
+      const items = api?.getFiles?.();
+      if (items && Array.isArray(items)) {
+        const audioDurations = items
+          .filter((i) => i && (i.isVisible !== false) && (i.isMuted !== true) && (i.volume === undefined || i.volume > 0))
+          .map((i) => (i?.audioBuffer?.duration ?? 0))
+          .filter((d) => typeof d === 'number' && d > 0);
+        if (audioDurations.length > 0) {
+          duration = Math.max(duration, ...audioDurations);
+        }
+      }
+    } catch {}
+    return duration;
+  }
+
   /**
    * Initialize (async)
    */
@@ -267,6 +290,17 @@ export class UnifiedAudioController {
   set loopMode(mode: 'off' | 'repeat' | 'ab') {
     this.masterClock.setLoopMode(mode, this.masterClock.state.markerA ?? undefined, this.masterClock.state.markerB ?? undefined);
   }
+
+  /**
+   * Independent global repeat flag (separate from AB loop mode)
+   */
+  get isGlobalRepeat(): boolean {
+    return !!(this.masterClock.state as any).globalRepeat;
+  }
+
+  set isGlobalRepeat(enabled: boolean) {
+    (this.masterClock.state as any).globalRepeat = !!enabled;
+  }
   
   /**
    * Set/get marker A (user requirements)
@@ -422,6 +456,30 @@ export class UnifiedAudioController {
       if (this.masterClock.state.isPlaying && this.visualUpdateCallback) {
         try {
           const currentTime = this.masterClock.getCurrentTime();
+          const st = this.masterClock.state;
+          const effectiveDuration = this.getEffectiveTotalTime();
+          const globalRepeatOn = (this.masterClock.state as any).globalRepeat === true || st.loopMode === 'repeat';
+          // End-of-track handling when no repeat is enabled: clamp to duration and auto-pause
+          if (!globalRepeatOn && effectiveDuration > 0 && currentTime >= effectiveDuration) {
+            const finalTime = effectiveDuration;
+            // Clamp visual and notify once at exact end
+            this.masterClock.state.nowTime = finalTime;
+            try { this.visualUpdateCallback(finalTime); } catch {}
+            // Pause and set exact position to duration to avoid > duration drift
+            this.masterClock.pausePlayback();
+            this.masterClock.seekTo(finalTime);
+            return; // Do not schedule further frames
+          }
+          // End-of-track handling when full repeat is ON (independent flag): wrap to start and continue
+          const crossedEnd = this._prevTime < effectiveDuration && currentTime >= effectiveDuration;
+          if (globalRepeatOn && effectiveDuration > 0 && crossedEnd) {
+            if (this._lastRepeatWrapAtGen !== st.generation) {
+              this._lastRepeatWrapAtGen = st.generation;
+              // Use atomic seek to 0 to restart without layering
+              this.seek(0);
+              return;
+            }
+          }
           // Update master clock state with current time
           this.masterClock.state.nowTime = currentTime;
           this.visualUpdateCallback(currentTime);
@@ -429,7 +487,6 @@ export class UnifiedAudioController {
           // AB-loop handling: jump back to A at (or just after) B using the
           // same robust atomic restart path as seek(). This prevents any
           // overlapping audio because groups are stopped before restart.
-          const st = this.masterClock.state;
           if (st.loopMode === 'ab' && st.markerA !== null && st.markerB !== null) {
             const a = Math.max(0, st.markerA);
             const b = Math.max(a, st.markerB);

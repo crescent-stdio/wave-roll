@@ -282,6 +282,16 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     
     // Get state before playing to check if we're starting from the beginning
     const stateBefore = this.audioPlayer!.getState();
+    // Rewind if at end and not repeating
+    try {
+      const atOrBeyondEnd = stateBefore.currentTime >= (stateBefore.duration ?? 0) - 0.005;
+      const isLoopOff = !stateBefore.isRepeating;
+      if (isLoopOff && atOrBeyondEnd) {
+        this.audioPlayer.seek(0);
+        // Reflect in piano roll immediately if available
+        this.pianoRollManager?.setTime?.(0);
+      }
+    } catch {}
     const isStartingFromBeginning = stateBefore.currentTime === 0;
 
     await this.audioPlayer!.play();

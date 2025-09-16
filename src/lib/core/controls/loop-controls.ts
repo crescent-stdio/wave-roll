@@ -142,8 +142,7 @@ export function createCoreLoopControls(
     }
     isLoopRestartActive = !isLoopRestartActive;
     setLoopRestartUI();
-    // Toggle transport repeat to actually loop the selected window
-    audioPlayer?.toggleRepeat?.(isLoopRestartActive);
+    // Do not toggle global repeat here; AB loop is independent
 
     if (isLoopRestartActive) {
       // Always set loop window; prefer jumping to A (if defined)

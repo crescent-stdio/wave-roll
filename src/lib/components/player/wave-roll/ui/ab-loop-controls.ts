@@ -62,7 +62,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       const next = !loopRestart;
       if (next) {
         // Enable repeat mode and apply loop to engine (jump to A)
-        try { audioPlayer.toggleRepeat?.(true); } catch {}
+        // Keep global repeat untouched; AB loop is independent now
         applyLoopToEngine(true);
         // Ensure we are in playing mode after jumping to A
         try {
@@ -73,8 +73,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
         } catch {}
         loopRestart = true;
       } else {
-        // Disabling: clear engine loop, keep position; also turn off repeat
-        try { audioPlayer.toggleRepeat?.(false); } catch {}
+        // Disabling: clear engine loop, keep position; do not touch global repeat
         applyLoopToEngine(false);
         loopRestart = false;
       }
@@ -233,8 +232,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     restartBtn.dataset.active = "";
     restartBtn.style.background = "transparent";
     restartBtn.style.color = "#495057";
-    // Also disable transport repeat to ensure loop is off
-    try { audioPlayer.toggleRepeat?.(false); } catch {}
+    // Do not touch global repeat here
 
     updateSeekBar();
     syncRestartEnabled();

@@ -69,19 +69,19 @@ vi.mock('@/lib/core/audio/managers/loop-manager', () => ({
 import { AudioPlayer } from '@/lib/core/audio/audio-player';
 
 describe('Play-after-end rewinds to 0 and starts', () => {
-  it('when not repeating, pressing play at end starts from 0', async () => {
+  it('when not repeating, pressing play at end rewinds to 0 then starts', async () => {
     const pianoRoll = { setTime: vi.fn() } as any;
     const player = new AudioPlayer([
       { midi: 60, name: 'C4', time: 0, duration: 2, velocity: 0.8, ticks: 0, pitch: 'C', octave: 4 },
-    ] as any, pianoRoll, { tempo: 120, volume: 0.5, repeat: false });
+    ] as any, { tempo: 120, volume: 0.5, repeat: false }, pianoRoll);
 
     // Simulate end state
     (player as any).state.currentTime = 2; // == duration
+    (player as any).state.duration = 2;
     (player as any).state.isPlaying = false;
 
     await player.play();
 
-    // After play, it should have rewound to 0 and started
     const state = player.getState();
     expect(state.isPlaying).toBe(true);
     expect(state.currentTime).toBeGreaterThanOrEqual(0);
