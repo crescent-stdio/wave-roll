@@ -45,6 +45,13 @@ export function createCoreLoopControls(
   let pointB: number | null = null;
   let isLoopRestartActive = false;
 
+  /**
+   * Determine whether A/B loop range is valid.
+   */
+  function hasValidAbRange(a: number | null, b: number | null): boolean {
+    return a !== null && b !== null && b > a;
+  }
+
   /* ------------------------------------------------------------------
    * Helper to create square text buttons (A, B, ✕)
    * ------------------------------------------------------------------ */
@@ -99,6 +106,21 @@ export function createCoreLoopControls(
     transition: all 0.15s ease;
   `;
   btnLoopRestart.classList.add("wr-focusable");
+  /**
+   * Sync disabled state for loop-restart button based on A/B validity.
+   */
+  const syncLoopRestartEnabled = () => {
+    const enabled = hasValidAbRange(pointA, pointB);
+    (btnLoopRestart as any).disabled = !enabled;
+    btnLoopRestart.setAttribute("aria-disabled", String(!enabled));
+    if (!enabled) {
+      btnLoopRestart.style.opacity = "0.5";
+      btnLoopRestart.style.cursor = "not-allowed";
+    } else {
+      btnLoopRestart.style.opacity = "1";
+      btnLoopRestart.style.cursor = "pointer";
+    }
+  };
   const setLoopRestartUI = () => {
     if (isLoopRestartActive) {
       btnLoopRestart.dataset.active = "true";
@@ -114,6 +136,10 @@ export function createCoreLoopControls(
   };
   attachHoverBackground(btnLoopRestart);
   btnLoopRestart.onclick = () => {
+    // Guard: only allow toggle when both A and B are valid
+    if (!hasValidAbRange(pointA, pointB)) {
+      return;
+    }
     isLoopRestartActive = !isLoopRestartActive;
     setLoopRestartUI();
     // Toggle transport repeat to actually loop the selected window
@@ -147,15 +173,15 @@ export function createCoreLoopControls(
     if (!state) return;
     pointA = state.currentTime;
     if (pointB !== null && pointA !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
-    // Debug log for index.html: record A marker set
-    try {
-      const pr = state.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-      const pct = effectiveDuration > 0 ? (pointA / effectiveDuration) * 100 : 0;
-      // eslint-disable-next-line no-console
-      console.log('[LoopControls] Set A marker', { timeSec: pointA, percent: pct });
-    } catch {}
+    // Debug log commented out by request
+    // try {
+    //   const pr = state.playbackRate ?? 100;
+    //   const speed = pr / 100;
+    //   const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+    //   const pct = effectiveDuration > 0 ? (pointA / effectiveDuration) * 100 : 0;
+    //   // eslint-disable-next-line no-console
+    //   console.log('[LoopControls] Set A marker', { timeSec: pointA, percent: pct });
+    // } catch {}
     // Style
     btnA.dataset.active = "true";
     btnA.setAttribute("aria-pressed", "true");
@@ -174,6 +200,7 @@ export function createCoreLoopControls(
     }
     // Do not touch the engine when setting markers (no play/seek).
     // Update only UI (overlay/markers).
+    syncLoopRestartEnabled();
     updateSeekBar();
   });
   // Add default border to A button
@@ -193,15 +220,16 @@ export function createCoreLoopControls(
     btnB.style.color = isHexColorLight(COLOR_B) ? "black" : "white";
     btnB.style.fontWeight = "800";
     btnB.style.border = "none";  // Remove border when active
-    // Debug log for index.html: record B marker set
-    try {
-      const pr = state.playbackRate ?? 100;
-      const speed = pr / 100;
-      const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
-      const pct = effectiveDuration > 0 ? (pointB / effectiveDuration) * 100 : 0;
-      // eslint-disable-next-line no-console
-      console.log('[LoopControls] Set B marker', { timeSec: pointB, percent: pct });
-    } catch {}
+    // Debug log commented out by request
+    // try {
+    //   const pr = state.playbackRate ?? 100;
+    //   const speed = pr / 100;
+    //   const effectiveDuration = speed > 0 ? state.duration / speed : state.duration;
+    //   const pct = effectiveDuration > 0 ? (pointB / effectiveDuration) * 100 : 0;
+    //   // eslint-disable-next-line no-console
+    //   console.log('[LoopControls] Set B marker', { timeSec: pointB, percent: pct });
+    // } catch {}
+    syncLoopRestartEnabled();
     updateSeekBar();
   });
   // Add default border to B button
@@ -223,6 +251,12 @@ export function createCoreLoopControls(
     btnB.style.background = "transparent";
     btnB.style.color = "var(--text-muted)";
     btnB.style.border = `2px solid ${COLOR_B}`;  // Restore B border
+    // If loop restart is currently active, turn it off and disable repeat
+    if (isLoopRestartActive) {
+      isLoopRestartActive = false;
+      setLoopRestartUI();
+      try { audioPlayer?.toggleRepeat?.(false); } catch {}
+    }
     // Always preserve current position when clearing loop
     audioPlayer?.setLoopPoints(null, null, true);
     pianoRoll?.setLoopWindow?.(null, null);
@@ -231,6 +265,7 @@ export function createCoreLoopControls(
     if (st?.isPlaying) {
       audioPlayer?.seek(st.currentTime, true);
     }
+    syncLoopRestartEnabled();
     updateSeekBar();
   });
   btnClear.style.fontSize = "16px";
@@ -310,7 +345,12 @@ export function createCoreLoopControls(
   container.appendChild(btnClear);
 
   // Delay first sync to let seek bar build elsewhere
-  setTimeout(() => updateSeekBar(), 100);
+  // Immediate sync so initial disabled state is correct
+  syncLoopRestartEnabled();
+  setTimeout(() => {
+    syncLoopRestartEnabled();
+    updateSeekBar();
+  }, 100);
 
   return { element: container, updateSeekBar };
 }

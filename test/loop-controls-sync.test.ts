@@ -8,9 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { AudioPlayer } from "../src/lib/core/audio/audio-player";
 import { createCoreLoopControls } from "../src/lib/core/controls/loop-controls";
-import type { NoteData } from "../src/lib/core/types";
 import type { PianoRoll } from "../src/lib/core/visualization/piano-roll";
 import * as Tone from "tone";
 
@@ -37,6 +35,7 @@ const createMockElement = () => ({
     contains: vi.fn(),
   },
   title: "",
+  disabled: false,
 });
 
 global.document = {
@@ -127,14 +126,9 @@ vi.mock("tone", () => ({
 }));
 
 describe("Loop Controls Synchronization", () => {
-  let audioPlayer: AudioPlayer;
+  let audioPlayer: any;
   let pianoRoll: PianoRoll;
   let loopControls: any;
-  const mockNotes: NoteData[] = [
-    { note: 60, time: 0, duration: 0.5, velocity: 80 },
-    { note: 62, time: 1, duration: 0.5, velocity: 80 },
-    { note: 64, time: 2, duration: 0.5, velocity: 80 },
-  ];
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -146,14 +140,20 @@ describe("Loop Controls Synchronization", () => {
       getTime: vi.fn(() => 0),
     } as any;
 
-    // Initialize AudioPlayer
-    audioPlayer = new AudioPlayer(
-      mockNotes,
-      pianoRoll,
-      { repeat: false }
-    );
-    
-    await audioPlayer.initialize();
+    // Initialize minimal engine mock
+    audioPlayer = {
+      getState: vi.fn(() => ({
+        isPlaying: false,
+        currentTime: 0,
+        duration: 10,
+        playbackRate: 100,
+      })),
+      toggleRepeat: vi.fn(),
+      setLoopPoints: vi.fn(),
+      seek: vi.fn(),
+      play: vi.fn(),
+      destroy: vi.fn(),
+    };
 
     // Create loop controls
     loopControls = createCoreLoopControls({
@@ -163,7 +163,7 @@ describe("Loop Controls Synchronization", () => {
   });
 
   afterEach(() => {
-    audioPlayer.destroy();
+    audioPlayer?.destroy?.();
   });
 
   describe("A button behavior during playback", () => {
@@ -256,6 +256,29 @@ describe("Loop Controls Synchronization", () => {
   });
 
   describe("Loop restart button behavior", () => {
+    it("should be disabled until both A and B are set with B > A", () => {
+      const buttons = (global.document.createElement as any).mock.results;
+      const btnLoopRestart = buttons.find((r: any) => 
+        r.value.innerHTML?.includes && r.value.innerHTML.includes("svg"))?.value;
+
+      // Initially disabled
+      expect(btnLoopRestart.disabled).toBe(true);
+      expect(btnLoopRestart.setAttribute).toHaveBeenCalledWith("aria-disabled", "true");
+
+      // Set only A -> remains disabled
+      const btnA = buttons.find((r: any) => r.value.textContent === "A")?.value;
+      const state = audioPlayer.getState();
+      state.currentTime = 2;
+      if (btnA?.onclick) btnA.onclick();
+      expect(btnLoopRestart.disabled).toBe(true);
+
+      // Set only B (A already set) -> now enabled
+      const btnB = buttons.find((r: any) => r.value.textContent === "B")?.value;
+      state.currentTime = 6;
+      if (btnB?.onclick) btnB.onclick();
+      expect(btnLoopRestart.disabled).toBe(false);
+      expect(btnLoopRestart.setAttribute).toHaveBeenCalledWith("aria-disabled", "false");
+    });
     it("should jump to A point when enabling loop during playback", () => {
       const state = audioPlayer.getState();
       state.isPlaying = true;
@@ -321,6 +344,37 @@ describe("Loop Controls Synchronization", () => {
       // Should set loop points without preserving position (jump to start)
       expect(setLoopPointsSpy).toHaveBeenCalledWith(3, 7, false);
       expect(seekSpy).toHaveBeenCalledWith(3);
+    });
+
+    it("should turn off loop restart when Clear (X) is pressed", () => {
+      const state = audioPlayer.getState();
+      state.isPlaying = true;
+      state.currentTime = 0;
+      state.duration = 10;
+
+      const buttons = (global.document.createElement as any).mock.results;
+      const btnA = buttons.find((r: any) => r.value.textContent === "A")?.value;
+      const btnB = buttons.find((r: any) => r.value.textContent === "B")?.value;
+      const btnLoopRestart = buttons.find((r: any) => 
+        r.value.innerHTML?.includes && r.value.innerHTML.includes("svg"))?.value;
+      const btnClear = buttons.find((r: any) => r.value.textContent === "✕")?.value;
+
+      // Set A and B to enable loop
+      if (btnA?.onclick) { state.currentTime = 2; btnA.onclick(); }
+      if (btnB?.onclick) { state.currentTime = 6; btnB.onclick(); }
+      expect(btnLoopRestart.disabled).toBe(false);
+
+      // Turn on loop restart
+      if (btnLoopRestart?.onclick) { btnLoopRestart.onclick(); }
+      expect(btnLoopRestart.dataset.active).toBe("true");
+
+      // Press clear (X) should turn off loop and disable button
+      const toggleRepeatSpy = vi.spyOn(audioPlayer, 'toggleRepeat');
+      if (btnClear?.onclick) { btnClear.onclick(); }
+
+      expect(btnLoopRestart.dataset.active).toBeUndefined();
+      expect(btnLoopRestart.disabled).toBe(true);
+      expect(toggleRepeatSpy).toHaveBeenCalledWith(false);
     });
   });
 

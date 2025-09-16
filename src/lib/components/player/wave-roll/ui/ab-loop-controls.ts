@@ -24,6 +24,13 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   let pointBPct: number | null = null;
   let loopRestart = false;
 
+  /**
+   * Determine whether A/B loop range is valid in percent space.
+   */
+  function hasValidAbRangePct(a: number | null, b: number | null): boolean {
+    return a !== null && b !== null && b > a;
+  }
+
   /* ---------- build DOM ---------- */
   const root = document.createElement("div");
   root.style.cssText =
@@ -49,13 +56,11 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   const restartBtn = makeBtn(
     () => {
       // Toggle requested state, but validate A/B before applying
+      if (!hasValidAbRangePct(pointAPct, pointBPct)) {
+        return;
+      }
       const next = !loopRestart;
       if (next) {
-        // Require both A and B to enable loop
-        if (pointAPct === null || pointBPct === null) {
-          // No-op, keep disabled
-          return;
-        }
         // Enable repeat mode and apply loop to engine (jump to A)
         try { audioPlayer.toggleRepeat?.(true); } catch {}
         applyLoopToEngine(true);
@@ -91,6 +96,12 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
 
   root.append(restartBtn, btnA, btnB, btnClear);
 
+  // Initial disabled state
+  (restartBtn as any).disabled = true;
+  restartBtn.setAttribute("aria-disabled", "true");
+  restartBtn.style.opacity = ".5";
+  restartBtn.style.cursor = "not-allowed";
+
   /* ---------- helpers ---------- */
   function getEffectiveDurationForUI(): number {
     try {
@@ -111,6 +122,15 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       return audioPlayer.getState().duration;
     }
   }
+
+  function syncRestartEnabled(): void {
+    const enabled = hasValidAbRangePct(pointAPct, pointBPct);
+    (restartBtn as any).disabled = !enabled;
+    restartBtn.setAttribute("aria-disabled", String(!enabled));
+    restartBtn.style.opacity = enabled ? "1" : ".5";
+    restartBtn.style.cursor = enabled ? "pointer" : "not-allowed";
+  }
+
   function setPoint(kind: "A" | "B") {
     const state = audioPlayer.getState();
     const t = state.currentTime;
@@ -135,11 +155,12 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     applyMarkersToUI();
     updateSeekBar();
 
-    // Log for index.html debugging convenience
-    try {
-      // eslint-disable-next-line no-console
-      console.log(`[AB-Loop] Set ${kind} marker`, { timeSec: t, percent: pct });
-    } catch {}
+    // Debug log commented out by request
+    // try {
+    //   // eslint-disable-next-line no-console
+    //   console.log(`[AB-Loop] Set ${kind} marker`, { timeSec: t, percent: pct });
+    // } catch {}
+    syncRestartEnabled();
   }
 
   function applyMarkersToUI() {
@@ -201,7 +222,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   // Call update helper after initial render so existing loop points
   // (if any) appear on seek-bar immediately.
   // --------------------------------------------------------------
-  setTimeout(updateSeekBar, 0);
+  setTimeout(() => { updateSeekBar(); syncRestartEnabled(); }, 0);
 
   function clear() {
     pointAPct = pointBPct = null;
@@ -212,8 +233,11 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     restartBtn.dataset.active = "";
     restartBtn.style.background = "transparent";
     restartBtn.style.color = "#495057";
+    // Also disable transport repeat to ensure loop is off
+    try { audioPlayer.toggleRepeat?.(false); } catch {}
 
     updateSeekBar();
+    syncRestartEnabled();
   }
 
   /* ---------- public API ---------- */
