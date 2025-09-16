@@ -267,6 +267,27 @@ export class UnifiedAudioController {
   
   set tempo(bpm: number) {
     this.masterClock.setTempo(bpm);
+    // Propagate to groups for audio-rate changes
+    try { this.wavPlayerGroup.setTempo(bpm); } catch {}
+    try { this.midiPlayerGroup.setTempo(bpm); } catch {}
+    // If playing, perform atomic short restart at same visual position to re-schedule MIDI with new scale
+    try {
+      if (this.masterClock.state.isPlaying) {
+        const t = this.masterClock.getCurrentTime();
+        // Seek using atomic restart path to avoid layering and reschedule Part/WAV to new tempo
+        this.seek(t);
+      }
+    } catch {}
+  }
+
+  /**
+   * Update baseline/original tempo (used as 100%).
+   */
+  setOriginalTempo(bpm: number): void {
+    this.masterClock.setOriginalTempo(bpm);
+    // Propagate baseline to groups that need it (e.g., WAV/MIDI scaling)
+    this.wavPlayerGroup.setOriginalTempoBase(bpm);
+    this.midiPlayerGroup.setOriginalTempoBase(bpm);
   }
   
   /**

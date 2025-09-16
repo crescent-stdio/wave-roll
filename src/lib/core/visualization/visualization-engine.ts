@@ -118,6 +118,17 @@ export class VisualizationEngine {
 
     // Initialize core engine with piano roll manager
     await this.coreEngine.initialize(this.pianoRollManager);
+
+    // Expose a weak global hook so non-React flows (demo) can set baseline tempo after MIDI load
+    try {
+      (window as any)._waveRollViz = {
+        setOriginalTempo: (bpm: number) => {
+          try { (this.coreEngine as any).audioPlayer?.setOriginalTempo?.(bpm); } catch {}
+        },
+        setTempo: (bpm: number) => this.setTempo(bpm),
+        getState: () => this.getState(),
+      };
+    } catch {}
   }
 
   /**

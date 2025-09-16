@@ -41,6 +41,8 @@ export class MidiPlayerGroup implements PlayerGroup {
   private part: Tone.Part | null = null;
   private notes: MidiNote[] = [];
   private applyZeroEps: boolean = false;
+  private tempoScale: number = 1; // 1.0 = normal speed; 2.0 = 2x faster
+  private originalTempoBase: number = 120;
   
   // Master volume (controlled from above)
   private masterVolume: number = 1.0;
@@ -555,11 +557,12 @@ export class MidiPlayerGroup implements PlayerGroup {
       }
     }
     
+    const scale = Math.max(0.1, this.tempoScale || 1);
     let events = filteredNotes.map(note => ({
-      time: note.time - safeStart, // Convert to relative time
-      note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60), // Use name field if available, fallback to normalized pitch
+      time: (note.time - safeStart) / scale, // Scale to speed up/slow down
+      note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
       velocity: note.velocity,
-      duration: note.duration,
+      duration: note.duration / scale,
       fileId: note.fileId
     }));
 
@@ -811,9 +814,17 @@ export class MidiPlayerGroup implements PlayerGroup {
    */
   setTempo(bpm: number): void {
     console.log('[MidiPlayerGroup] Setting tempo:', bpm);
-    
-    // Transport BPM is already set by master clock
-    // Implement here only if additional processing is needed
+    // Update tempoScale so newly scheduled Parts reflect speed change
+    const base = this.originalTempoBase || 120;
+    this.tempoScale = Math.max(0.1, bpm / base);
+    // Part will be recreated on next seek/restart initiated by master clock
+  }
+
+  /** Set baseline tempo used to compute MIDI scheduling scale. */
+  setOriginalTempoBase(bpm: number): void {
+    if (Number.isFinite(bpm) && bpm > 0) {
+      this.originalTempoBase = bpm;
+    }
   }
   
   /**

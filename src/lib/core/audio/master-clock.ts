@@ -22,6 +22,7 @@ export class AudioMasterClock {
     totalTime: 0,                          // Total duration
     isPlaying: false,                      // Playing state
     tempo: 120,                            // Tempo (BPM)
+    originalTempo: 120,                    // Baseline tempo for scaling
     masterVolume: 1.0,                     // Master volume
     
     // Loop control
@@ -56,7 +57,10 @@ export class AudioMasterClock {
     if (audioElapsed < 0) {
       return this.startTime;
     }
-    return this.startTime + audioElapsed;
+    // Apply tempo scaling so UI time accelerates with tempo while totalTime stays constant
+    const tempoBase = this.state.originalTempo > 0 ? this.state.originalTempo : 120; // baseline
+    const speedFactor = Math.max(0.1, this.state.tempo / tempoBase);
+    return this.startTime + audioElapsed * speedFactor;
   }
   
   /**
@@ -335,6 +339,14 @@ export class AudioMasterClock {
         console.error('[AudioMasterClock] Failed to set tempo for group:', group.constructor.name, error);
       }
     });
+  }
+
+  /**
+   * Set baseline/original tempo. Does not start/stop playback.
+   */
+  setOriginalTempo(bpm: number): void {
+    if (!Number.isFinite(bpm) || bpm <= 0) return;
+    this.state.originalTempo = bpm;
   }
   
   /**

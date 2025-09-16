@@ -285,9 +285,22 @@ export class AudioPlayer {
    * Set playback rate
    */
   public setPlaybackRate(rate: number): void {
-    // Convert rate to tempo for unified controller
-    const newTempo = this.originalTempo * rate;
+    // Interpret input as PERCENT (10–200, 100=normal)
+    const clampedPercent = Math.max(10, Math.min(200, rate));
+    const factor = clampedPercent / 100;
+    const st = this.unifiedController.getState();
+    const base = Number.isFinite(st.originalTempo) && st.originalTempo > 0 ? st.originalTempo : this.originalTempo;
+    const newTempo = base * factor;
     this.setTempo(newTempo);
+  }
+
+  /**
+   * Update baseline/original tempo used as 100% reference.
+   */
+  public setOriginalTempo(bpm: number): void {
+    try {
+      this.unifiedController.setOriginalTempo(bpm);
+    } catch {}
   }
   
   /**

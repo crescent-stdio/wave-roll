@@ -30,3 +30,11 @@ export const COLOR_PLAYHEAD_OUTLINE = "#ffffff"; // White halo to ensure contras
 export const COLOR_LOOP_SHADE = "#fde68a"; // Amber-300: warm but light region fill for A-B
 export const COLOR_LOOP_LINE_A = "#0ea5e9"; // Sky-500: reserved for A-line (distinct from palette)
 export const COLOR_LOOP_LINE_B = "#e11d48"; // Rose-600: reserved for B-line (distinct from palette)
+
+// ---------------------------------------------------------------------------
+// Tempo / Playback Defaults
+// ---------------------------------------------------------------------------
+/**
+ * Default baseline tempo (BPM) used when MIDI does not provide an initial tempo.
+ */
+export const DEFAULT_BASELINE_TEMPO = 120;

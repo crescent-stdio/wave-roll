@@ -47,6 +47,7 @@ export class WavPlayerGroup implements PlayerGroup {
   private masterVolume: number = 1.0;
   // WAV group mix gain to balance vs MIDI
   private mixGain: number = 0.8;
+  private originalTempoBase: number = 120;
   
   constructor() {
     // Intentionally quiet to reduce console noise
@@ -361,7 +362,8 @@ export class WavPlayerGroup implements PlayerGroup {
    */
   setTempo(bpm: number): void {
     // WAV players handle tempo change with playbackRate
-    const rate = bpm / 120; // Based on 120 BPM
+    const base = this.originalTempoBase || 120;
+    const rate = bpm / base;
     
     for (const [id, entry] of this.audioPlayers) {
       try {
@@ -369,6 +371,13 @@ export class WavPlayerGroup implements PlayerGroup {
       } catch (error) {
         console.error('[WavPlayerGroup] Failed to set tempo for', id, ':', error);
       }
+    }
+  }
+
+  /** Set baseline tempo used to compute playbackRate. */
+  setOriginalTempoBase(bpm: number): void {
+    if (Number.isFinite(bpm) && bpm > 0) {
+      this.originalTempoBase = bpm;
     }
   }
   
