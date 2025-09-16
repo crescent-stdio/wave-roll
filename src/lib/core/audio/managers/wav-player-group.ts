@@ -297,9 +297,16 @@ export class WavPlayerGroup implements PlayerGroup {
           offset = clamped;
         }
         
-        // Align with Transport: schedule audio at the same absolute anchor as Transport.start
-        // Use audioContextTime as absolute start and clamped offset into buffer
-        entry.player.start(syncInfo.audioContextTime, offset);
+        // Align with Transport: for initial play (mode==='play'), prefer starting at transport anchor (0)
+        // to minimize drift vs MIDI. For seek, use audioContextTime anchor.
+        if (syncInfo.mode === 'seek') {
+          entry.player.start(syncInfo.audioContextTime, offset);
+        } else {
+          const tr = Tone.getTransport();
+          // In Tone.Player, start time is in AudioContext seconds; transport anchor was set to audioContextTime
+          // and transport.seconds to masterTime just before.
+          entry.player.start(syncInfo.audioContextTime, offset);
+        }
         const tr = Tone.getTransport();
         console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', offset, 'transport.seconds(now)=', tr.seconds);
         entry.isStarted = true;

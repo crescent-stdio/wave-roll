@@ -700,10 +700,9 @@ export class MidiPlayerGroup implements PlayerGroup {
     }
     
     // Decide start mode ahead to control zero-time EPS application
-    const trProbe = Tone.getTransport();
-    const isStartedProbe = trProbe.state === 'started';
     const timeToAnchor = syncInfo.audioContextTime - Tone.context.currentTime;
-    this.applyZeroEps = !isStartedProbe && timeToAnchor > 0.05;
+    // Apply zero-time EPS only for seek restarts to avoid initial start misalignment
+    this.applyZeroEps = (syncInfo.mode === 'seek') && timeToAnchor > 0.05;
 
     // Create and start MIDI Part (add small preroll for boundary safety on seek)
     const preroll = syncInfo.mode === 'seek' ? 0.03 : 0;
@@ -733,11 +732,9 @@ export class MidiPlayerGroup implements PlayerGroup {
             this.part.start(0);
             console.log('[MidiPlayerGroup] Part start (play, transport-0): masterTime=', syncInfo.masterTime);
           } else {
-            // Resume from non-zero: anchor slightly in the future to avoid zero-time drop
-            const EPS = 0.02;
-            const anchor = tr.seconds + EPS;
-            this.part.start(anchor, 0);
-            console.log('[MidiPlayerGroup] Part start (resume, anchored): anchor=', anchor.toFixed(3), 'transport.seconds=', tr.seconds.toFixed(3));
+            // Resume from non-zero: start exactly at current transport seconds for perfect alignment
+            this.part.start(tr.seconds, 0);
+            console.log('[MidiPlayerGroup] Part start (resume, transport-seconds): transport.seconds=', tr.seconds.toFixed(3));
           }
         }
         
