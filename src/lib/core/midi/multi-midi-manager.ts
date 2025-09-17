@@ -120,13 +120,13 @@ export class MultiMidiManager {
       // Set baseline/original tempo from MIDI header's first/initial tempo
       const tempos = parsedData.header?.tempos || [];
       const EPS = 1e-3;
-      const atZero = tempos.filter((t: any) => Math.abs(t.time || 0) <= EPS);
-      const first = (atZero.length > 0 ? atZero : tempos).sort((a: any, b: any) => (a.time || 0) - (b.time || 0))[0];
+      const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
+      const first = (atZero.length > 0 ? atZero : tempos).sort((a, b) => (a.time || 0) - (b.time || 0))[0];
       const bpm0 = Math.max(20, Math.min(300, first?.bpm || 120));
       // Push into visualization engine (core playback engine)
-      const viz = (window as any)._waveRollViz as { setTempo?: (n: number) => void; getState?: () => any } | undefined;
-      if (viz && typeof viz.setTempo === 'function') {
-        try { (viz as any).setOriginalTempo?.(bpm0); } catch {}
+      const viz = (window as unknown as { _waveRollViz?: { setTempo?: (n: number) => void; setOriginalTempo?: (n: number) => void } })._waveRollViz;
+      if (viz?.setOriginalTempo && viz?.setTempo) {
+        viz.setOriginalTempo(bpm0);
         viz.setTempo(bpm0);
       }
     } catch {}

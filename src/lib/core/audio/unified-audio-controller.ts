@@ -210,6 +210,8 @@ export class UnifiedAudioController {
    */
   seek(time: number): void {
     // console.log('[UnifiedAudioController] seek called with', time);
+    // Ensure both groups realign at exactly the same master time.
+    try { this.wavPlayerGroup.stopSynchronized(); } catch {}
     this.masterClock.seekTo(time);
     try {
       const tr = Tone.getTransport();
@@ -266,18 +268,16 @@ export class UnifiedAudioController {
   }
   
   set tempo(bpm: number) {
+    const wasPlaying = this.masterClock.state.isPlaying;
+    const current = this.masterClock.getCurrentTime();
     this.masterClock.setTempo(bpm);
-    // Propagate to groups for audio-rate changes
     try { this.wavPlayerGroup.setTempo(bpm); } catch {}
     try { this.midiPlayerGroup.setTempo(bpm); } catch {}
-    // If playing, perform atomic short restart at same visual position to re-schedule MIDI with new scale
-    try {
-      if (this.masterClock.state.isPlaying) {
-        const t = this.masterClock.getCurrentTime();
-        // Seek using atomic restart path to avoid layering and reschedule Part/WAV to new tempo
-        this.seek(t);
-      }
-    } catch {}
+    // If playing, re-align both groups at the same master time immediately to prevent drift.
+    if (wasPlaying) {
+      try { this.wavPlayerGroup.stopSynchronized(); } catch {}
+      this.masterClock.seekToWithLookahead(current, 0.03);
+    }
   }
 
   /**

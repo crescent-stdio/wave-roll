@@ -222,13 +222,14 @@ export class AudioPlayer {
     await this.initialize();
     
     try {
-      // Rewind to start if at end and not repeating
+      // Avoid unintended rewind: only if clearly past end
       try {
         const st = this.unifiedController.getState();
         const duration = Number.isFinite(st.totalTime) ? st.totalTime : st.duration;
         const position = Number.isFinite(st.nowTime) ? st.nowTime : 0;
         const isLoopOff = !st.loopMode || st.loopMode === 'off';
-        if (isLoopOff && duration && position >= duration - 0.005) {
+        const clearlyPastEnd = duration && position > duration + 0.05;
+        if (isLoopOff && clearlyPastEnd) {
           this.unifiedController.seek(0);
         }
       } catch {}

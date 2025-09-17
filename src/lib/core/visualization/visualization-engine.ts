@@ -123,7 +123,7 @@ export class VisualizationEngine {
     try {
       (window as any)._waveRollViz = {
         setOriginalTempo: (bpm: number) => {
-          try { (this.coreEngine as any).audioPlayer?.setOriginalTempo?.(bpm); } catch {}
+          try { (this.coreEngine as any).setOriginalTempo?.(bpm); } catch {}
         },
         setTempo: (bpm: number) => this.setTempo(bpm),
         getState: () => this.getState(),

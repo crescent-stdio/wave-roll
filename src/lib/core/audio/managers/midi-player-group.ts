@@ -532,13 +532,36 @@ export class MidiPlayerGroup implements PlayerGroup {
     const maxTime = validNotes.length > 0 ? Math.max(...validNotes.map(n => n.time)) : 0;
     let safeStart = Math.max(minTime, Math.min(startTime, maxTime));
 
-    let filteredNotes = validNotes.filter(note => {
+    // Notes that start at/after safeStart
+    const startingNotes = validNotes.filter(note => {
       if (note.time < safeStart) return false;
       if (endTime && note.time > endTime) return false;
       return true;
     });
 
+    // For seek/resume (no endTime specified): include sustaining notes that began before safeStart
+    // and are still active at safeStart by re-triggering them at t=0 with remaining duration.
+    const includeCarryOver = (endTime === undefined);
+    let carryOverEvents: Array<{ time: number; note: string; velocity: number; duration: number; fileId?: string } > = [];
+    if (includeCarryOver) {
+      const sustaining = validNotes.filter(note => {
+        const noteEnd = note.time + note.duration;
+        return note.time < safeStart && noteEnd > safeStart;
+      });
+      carryOverEvents = sustaining.map(note => {
+        const remaining = Math.max(0.01, (note.time + note.duration) - safeStart);
+        return {
+          time: 0,
+          note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
+          velocity: note.velocity,
+          duration: remaining,
+          fileId: note.fileId
+        };
+      });
+    }
+
     // If no notes at/after the requested time, shift start slightly earlier to include nearest note
+    let filteredNotes = startingNotes;
     if (filteredNotes.length === 0 && validNotes.length > 0) {
       const FALLBACK_WINDOW = 0.2; // seconds
       const prevTimes = validNotes
@@ -557,20 +580,29 @@ export class MidiPlayerGroup implements PlayerGroup {
       }
     }
     
-    const scale = Math.max(0.1, this.tempoScale || 1);
     let events = filteredNotes.map(note => ({
-      time: (note.time - safeStart) / scale, // Scale to speed up/slow down
+      time: note.time - safeStart, // Use raw times; tempo changes are handled by Transport BPM
       note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
       velocity: note.velocity,
-      duration: note.duration / scale,
-      fileId: note.fileId
+      duration: note.duration,
+      fileId: note.fileId as string | undefined
     }));
 
-    // Seek safety: apply EPS at t=0 only when scheduling at future anchor (not for immediate starts)
-    if (this.applyZeroEps) {
-      const EPS = 0.02; // 20ms safety margin
-      events = events.map(e => (e.time === 0 ? { ...e, time: EPS } : e));
+    // Prepend carry-over sustaining notes (if any)
+    if (carryOverEvents.length > 0) {
+      // Normalize types and ensure fileId presence
+      const normalizedCarry = carryOverEvents.map(e => ({
+        time: e.time,
+        note: e.note,
+        velocity: e.velocity,
+        duration: e.duration,
+        fileId: (e.fileId as string | undefined)
+      }));
+      events = [...normalizedCarry, ...events];
     }
+
+    // Seek safety: do NOT push events at t=0 when resuming live; allow immediate trigger.
+    // EPS only applies when we explicitly schedule into the future anchor (handled at startSynchronized).
     
     // console.log('[MidiPlayerGroup] Creating Part with', events.length, 'events');
     // console.log('[MidiPlayerGroup] Sample events:', events.slice(0, 5));

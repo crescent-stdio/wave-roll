@@ -15,6 +15,7 @@ export class AudioMasterClock {
   // Audio context reference times
   private audioContextStartTime: number = 0;
   private toneTransportStartTime: number = 0;
+  private seekLookaheadOverride: number | null = null;
   
   // Unified state (user requirements)
   public readonly state = {
@@ -265,7 +266,8 @@ export class AudioMasterClock {
     }
     
     // Playing: perform atomic re-start at a common absolute anchor
-    const lookahead = 0.2; // Increased from 0.1 to 0.2 for better seek stability
+    const lookahead = this.seekLookaheadOverride ?? 0.2; // default 0.2s; can be overridden for fast retime
+    this.seekLookaheadOverride = null;
     this.audioContextStartTime = Tone.context.currentTime + lookahead;
     // Keep explicit transport anchor (0) and set transport.seconds = time before start
     this.toneTransportStartTime = 0;
@@ -316,6 +318,17 @@ export class AudioMasterClock {
       startAt: this.audioContextStartTime,
       now: Tone.context.currentTime,
     });
+  }
+
+  /**
+   * Seek with a custom lookahead, used for seamless retime (e.g., live tempo changes).
+   */
+  seekToWithLookahead(time: number, lookahead: number): void {
+    if (!Number.isFinite(lookahead) || lookahead < 0) {
+      lookahead = 0.05;
+    }
+    this.seekLookaheadOverride = lookahead;
+    this.seekTo(time);
   }
   
   /**

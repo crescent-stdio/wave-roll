@@ -19,8 +19,11 @@ interface AudioFileInfo {
  */
 interface AudioPlayerEntry {
   player: Tone.Player;
+  pitchShift: Tone.PitchShift;
   gate: Tone.Gain;
   panner: Tone.Panner;
+  /** Estimated latency introduced by the FX chain (seconds) */
+  effectLatencySec: number;
   isStarted: boolean;
   muted: boolean;
   startToken: number;
@@ -91,7 +94,7 @@ export class WavPlayerGroup implements PlayerGroup {
     try {
       // console.log('[WavPlayerGroup] Creating player for', item.id, 'URL:', item.url);
       
-      // Create player and gain nodes
+      // Create player and nodes (pitch-preserving time-stretch)
       const player = new Tone.Player({
         url: item.url,
         onload: () => {
@@ -104,20 +107,26 @@ export class WavPlayerGroup implements PlayerGroup {
           console.error('[WavPlayerGroup] Buffer load failed for', item.id, ':', error);
         }
       });
+      const pitchShift = new Tone.PitchShift({ pitch: 0 });
+      // Reduce analysis window to minimize latency; typical trade-off quality vs latency
+      try { (pitchShift as unknown as { windowSize?: number }).windowSize = 0.03; } catch {}
       
       const gate = new Tone.Gain(1);
       const panner = new Tone.Panner(item.pan ?? 0);
       
-      // Connection: Player → Gate → Panner → Destination
-      player.connect(gate);
+      // Connection: Player → PitchShift → Gate → Panner → Destination
+      player.connect(pitchShift);
+      pitchShift.connect(gate);
       gate.connect(panner);
       panner.toDestination();
       
       // Create entry
       const entry: AudioPlayerEntry = {
         player,
+        pitchShift,
         gate,
         panner,
+        effectLatencySec: 0.03,
         isStarted: false,
         muted: item.isMuted || false,
         startToken: 0,
@@ -298,15 +307,12 @@ export class WavPlayerGroup implements PlayerGroup {
           offset = clamped;
         }
         
-        // Align with Transport: for initial play (mode==='play'), prefer starting at transport anchor (0)
-        // to minimize drift vs MIDI. For seek, use audioContextTime anchor.
+        // Align with Transport and compensate for FX latency by leading offset
+        const fxLead = entry.effectLatencySec || 0;
         if (syncInfo.mode === 'seek') {
-          entry.player.start(syncInfo.audioContextTime, offset);
+          entry.player.start(syncInfo.audioContextTime, Math.max(0, offset + fxLead));
         } else {
-          const tr = Tone.getTransport();
-          // In Tone.Player, start time is in AudioContext seconds; transport anchor was set to audioContextTime
-          // and transport.seconds to masterTime just before.
-          entry.player.start(syncInfo.audioContextTime, offset);
+          entry.player.start(syncInfo.audioContextTime, Math.max(0, offset + fxLead));
         }
         const tr = Tone.getTransport();
         console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', offset, 'transport.seconds(now)=', tr.seconds);
@@ -352,8 +358,7 @@ export class WavPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Seek to time
    */
   seekTo(time: number): void {
-    // WAV players may need restart as real-time seek is difficult
-    // console.log('[WavPlayerGroup] Seeking to', time, '- stopping synchronized playback for restart');
+    // For atomic seek restart, stop and allow Unified controller to reschedule at exact anchor
     this.stopSynchronized();
   }
   
@@ -361,13 +366,18 @@ export class WavPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Set tempo
    */
   setTempo(bpm: number): void {
-    // WAV players handle tempo change with playbackRate
+    // WAV players handle tempo change with playbackRate (no immediate restart here)
     const base = this.originalTempoBase || 120;
     const rate = bpm / base;
-    
+    const safeRate = Math.max(1e-6, rate);
+    const semitones = 12 * Math.log2(safeRate);
     for (const [id, entry] of this.audioPlayers) {
       try {
-        entry.player.playbackRate = rate;
+        entry.player.playbackRate = safeRate;
+        // Counter pitch-shift to preserve original pitch while changing speed
+        entry.pitchShift.pitch = -semitones;
+        // Reset and re-apply processing latency hint for stable sync after rate change
+        entry.effectLatencySec = 0.03;
       } catch (error) {
         console.error('[WavPlayerGroup] Failed to set tempo for', id, ':', error);
       }
@@ -573,6 +583,7 @@ export class WavPlayerGroup implements PlayerGroup {
     for (const [id, entry] of this.audioPlayers) {
       try {
         entry.player.dispose();
+        try { entry.pitchShift.dispose(); } catch {}
         entry.gate.dispose();
       } catch (error) {
         console.error('[WavPlayerGroup] Failed to dispose', id, ':', error);

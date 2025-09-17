@@ -282,16 +282,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     
     // Get state before playing to check if we're starting from the beginning
     const stateBefore = this.audioPlayer!.getState();
-    // Rewind if at end and not repeating
-    try {
-      const atOrBeyondEnd = stateBefore.currentTime >= (stateBefore.duration ?? 0) - 0.005;
-      const isLoopOff = !stateBefore.isRepeating;
-      if (isLoopOff && atOrBeyondEnd) {
-        this.audioPlayer.seek(0);
-        // Reflect in piano roll immediately if available
-        this.pianoRollManager?.setTime?.(0);
-      }
-    } catch {}
+    // Do not auto-rewind here; preserve last bookmark position exactly
     const isStartingFromBeginning = stateBefore.currentTime === 0;
 
     await this.audioPlayer!.play();
@@ -377,6 +368,14 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       this.config.maxTempo
     );
     this.audioPlayer?.setTempo(clampedTempo);
+  }
+
+  /**
+   * Set baseline/original tempo used as 100% reference for percent-based rate.
+   */
+  public setOriginalTempo(bpm: number): void {
+    if (!Number.isFinite(bpm) || bpm <= 0) return;
+    (this.audioPlayer as any)?.setOriginalTempo?.(bpm);
   }
 
   public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
