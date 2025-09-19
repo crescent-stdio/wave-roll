@@ -18,18 +18,26 @@ export function clampPanY(
   state: PianoRollViewState,
   viewportHeight: number
 ): void {
-  // Compute the total content height after applying vertical zoom.
-  const range = pitchScale.range();
-  const contentHeight = Math.abs(range[1] - range[0]) * state.zoomY;
+  // Derive reserved bottom band (waveform) from scale range definition used in createScales()
+  const r = pitchScale.range();
+  const reservedBottomPx = Math.max(0, viewportHeight - 20 - Math.max(r[0], r[1]));
+  const usableHeight = viewportHeight - reservedBottomPx;
 
-  // When content fits within viewport, lock panY to 0 so the view stays centred.
-  if (contentHeight <= viewportHeight) {
-    state.panY = 0;
-    return;
-  }
+  // Compute scaled content extents around canvas mid, consistent with render() math
+  const canvasMid = viewportHeight / 2;
+  const d = pitchScale.domain();
+  const midiMin = Math.min(d[0], d[1]);
+  const midiMax = Math.max(d[0], d[1]);
+  const yTopBase = pitchScale(midiMax);    // near ~20
+  const yBottomBase = pitchScale(midiMin); // near ~(viewportHeight - 20 - reserved)
+  const yTop = (yTopBase - canvasMid) * state.zoomY + canvasMid;
+  const yBottom = (yBottomBase - canvasMid) * state.zoomY + canvasMid;
 
-  // Allow scrolling between top and bottom extremes.
-  const maxPanY = 0; // Top-most position (content aligned with top edge)
-  const minPanY = viewportHeight - contentHeight; // Bottom-most (negative) value
+  // Clamp so that after applying panY, content stays within [0, usableHeight]
+  const lowerBound = -yTop;                 // ensures top >= 0
+  const upperBound = usableHeight - yBottom; // ensures bottom <= usableHeight
+  const minPanY = Math.min(lowerBound, upperBound);
+  const maxPanY = Math.max(lowerBound, upperBound);
+
   state.panY = clamp(state.panY, minPanY, maxPanY);
 }

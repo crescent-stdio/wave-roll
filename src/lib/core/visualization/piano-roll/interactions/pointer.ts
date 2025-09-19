@@ -31,9 +31,15 @@ export function onPointerMove(
     pianoRoll.state.panY += deltaY;
     clampPanY(pianoRoll.pitchScale, pianoRoll.state, pianoRoll.options.height);
   } else {
-    // Regular drag → horizontal panning only.
-    pianoRoll.state.panX += deltaX;
-    clampPanX(pianoRoll.timeScale, pianoRoll.state);
+    // Axis dominance heuristic: choose vertical pan when vertical delta is dominant.
+    const verticalDominant = Math.abs(deltaY) > Math.abs(deltaX) * 1.25;
+    if (verticalDominant) {
+      pianoRoll.state.panY += deltaY;
+      clampPanY(pianoRoll.pitchScale, pianoRoll.state, pianoRoll.options.height);
+    } else {
+      pianoRoll.state.panX += deltaX;
+      clampPanX(pianoRoll.timeScale, pianoRoll.state);
+    }
   }
 
   pianoRoll.state.lastPointerPos = pos;
