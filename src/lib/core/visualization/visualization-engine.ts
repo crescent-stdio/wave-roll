@@ -258,9 +258,7 @@ export class VisualizationEngine {
     this.coreEngine.setVolume(volume);
   }
 
-  public setPan(pan: number): void {
-    this.coreEngine.setPan(pan);
-  }
+  // Global pan control removed in v2 player
 
   /**
    * Set pan for a specific MIDI file track.

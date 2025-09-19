@@ -200,7 +200,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 
     // Restore state
     if (prevState) {
-      this.audioPlayer.setPan(prevState.pan);
+      // Global pan removed in v2; per-file pan is restored separately
 
       // IMPORTANT: Restore position BEFORE setting loop points
       // This ensures preservePosition works correctly in setLoopPoints
@@ -387,9 +387,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     }
   }
 
-  public setPan(pan: number): void {
-    this.audioPlayer?.setPan(pan);
-  }
+  // Global pan control removed; use per-file setFilePan instead
 
   /**
    * Set pan for a specific file track.

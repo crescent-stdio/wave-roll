@@ -4,7 +4,6 @@ import { createPlaybackControlsUI } from "./playback";
 import { createLoopControlsUI } from "./loop";
 import { createVolumeControlUI } from "./volume";
 import { createTempoControlUI } from "./tempo";
-import { createPanControlsUI } from "./pan";
 import { createZoomControlsUI } from "./zoom";
 import { createTimeDisplayUI } from "./time-display";
 import { createSettingsControlUI } from "./settings";
@@ -50,7 +49,6 @@ export function setupUI(
   row.appendChild(createLoopControlsUI(deps));
   row.appendChild(createVolumeControlUI(deps));
   row.appendChild(createTempoControlUI(deps));
-  // row.appendChild(createPanControlsUI(deps));
   row.appendChild(createZoomControlsUI(deps));
   row.appendChild(createHighlightModeGroup(deps));
   row.appendChild(createSettingsControlUI(deps));

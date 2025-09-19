@@ -114,8 +114,7 @@ export interface AudioPlayerContainer {
   /** Clean up resources */
   destroy(): void;
 
-  /** Set stereo pan value (-1 left, 0 center, 1 right) */
-  setPan(pan: number): void;
+  // Global pan control removed in v2. Use per-file setFilePan instead.
 
   /** Set stereo pan for a specific file when multiple MIDI files are playing */
   setFilePan(fileId: string, pan: number): void;

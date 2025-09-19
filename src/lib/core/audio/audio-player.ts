@@ -408,14 +408,7 @@ export class AudioPlayer {
     }
   }
   
-  /**
-   * Set pan
-   */
-  public setPan(pan: number): void {
-    console.log('[AudioPlayer] V2 setting pan:', pan);
-    // Apply to all players - this is a simplified implementation
-    // In a real implementation, you might want to set pan per group or player
-  }
+  // Global pan control removed in v2. Use setFilePan for per-file control.
   
   /**
    * Set file mute
