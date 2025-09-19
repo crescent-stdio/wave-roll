@@ -79,7 +79,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   onsetLabel.style.cssText = "font-size:12px;font-weight:600;color:var(--text-primary);";
   const onsetCheckbox = document.createElement("input");
   onsetCheckbox.type = "checkbox";
-  onsetCheckbox.checked = deps.stateManager.getState().visual.showOnsetMarkers ?? false;
+  onsetCheckbox.checked = deps.stateManager.getState().visual.showOnsetMarkers ?? true;
   onsetCheckbox.addEventListener("change", () => {
     deps.stateManager.updateVisualState({ showOnsetMarkers: onsetCheckbox.checked });
   });

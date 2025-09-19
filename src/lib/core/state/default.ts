@@ -60,7 +60,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   minOffsetTolerance: 0.05,
   pedalElongate: true,
   pedalThreshold: 64,
-  showOnsetMarkers: false,
+  showOnsetMarkers: true,
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {
