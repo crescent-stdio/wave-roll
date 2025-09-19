@@ -165,6 +165,24 @@ export class UIUpdater {
           });
         }
         this.updateTimeDisplay(state.currentTime);
+
+        // Sync zoom UI and focus outline scale with current zoom level
+        try {
+          const zoomLevel = this.visualizationEngine.getZoomLevel?.() ?? 1;
+          // Apply CSS scale for focus outline thickness
+          document.documentElement.style.setProperty(
+            "--wr-outline-scale",
+            String(Math.min(10, Math.max(0.1, zoomLevel)))
+          );
+          // Reflect zoom level in zoom input if available and not being edited
+          const zInput = (uiDeps as UIComponentDependencies | null)?.zoomInput;
+          if (zInput && document.activeElement !== zInput) {
+            const desired = zoomLevel.toFixed(1);
+            if (zInput.value !== desired) {
+              zInput.value = desired;
+            }
+          }
+        } catch {}
       } else {
         // Fallback if state is not available
         this.updateSeekBar(uiDeps);

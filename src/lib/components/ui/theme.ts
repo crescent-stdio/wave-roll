@@ -50,13 +50,17 @@ export function ensureThemeStylesInjected(): void {
 
     /* Focus-visible: thick and obvious for keyboard users */
     .wr-focusable:focus-visible {
-      outline: 3px solid var(--focus-ring);
+      outline-style: solid;
+      outline-color: var(--focus-ring);
+      outline-width: calc(3px / var(--wr-outline-scale, 1));
       outline-offset: 2px;
     }
 
     /* Range inputs: show focus via outline on container */
     .wr-slider:focus-visible {
-      outline: 3px solid var(--focus-ring);
+      outline-style: solid;
+      outline-color: var(--focus-ring);
+      outline-width: calc(3px / var(--wr-outline-scale, 1));
       outline-offset: 2px;
       border-radius: 6px;
     }

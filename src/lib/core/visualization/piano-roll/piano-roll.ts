@@ -739,12 +739,18 @@ export class PianoRoll {
    * Reset zoom and pan to default values
    */
   public resetView(): void {
+    // Preserve the current time under the fixed playhead while resetting zoom.
+    const currentTime = this.state.currentTime || 0;
     this.state.zoomX = 1;
     this.state.zoomY = 1;
-    this.state.panX = 0;
+    // Recompute panX so that `currentTime` remains under the playhead anchor
+    const pxPerSecond = this.timeScale(1) * this.state.zoomX;
+    this.state.panX = -currentTime * pxPerSecond;
     this.state.panY = 0;
     clampPanX(this.timeScale, this.state);
     clampPanY(this.pitchScale, this.state, this.options.height);
+    // Geometry changes due to zoom reset require full redraw
+    this.needsNotesRedraw = true;
     this.requestRender();
   }
 
