@@ -178,37 +178,28 @@ export class StateManager {
    */
   public assignNextUniqueOnsetMarker(fileId: string): OnsetMarkerStyle {
     const current = this.state.visual.fileOnsetMarkers[fileId];
-    const used = new Set(
+    // Build ordered ring of all combinations: filled first, then outlined
+    const ring: Array<OnsetMarkerStyle> = [
+      ...ONSET_MARKER_SHAPES.map((shape) => ({ shape: shape as OnsetMarkerStyle['shape'], variant: 'filled' as const, size: 12, strokeWidth: 2 })),
+      ...ONSET_MARKER_SHAPES.map((shape) => ({ shape: shape as OnsetMarkerStyle['shape'], variant: 'outlined' as const, size: 12, strokeWidth: 2 })),
+    ];
+    // Exclude combinations used by other files to keep uniqueness
+    const usedKeys = new Set(
       Object.entries(this.state.visual.fileOnsetMarkers)
-        .filter(([id]) => id !== fileId) // exclude self to allow moving forward
+        .filter(([id]) => id !== fileId)
         .map(([, s]) => `${s.shape}:${s.variant}`)
     );
+    const allowed = ring.filter((s) => !usedKeys.has(`${s.shape}:${s.variant}`));
 
-    // Try to find the first available from shapes list, preferring filled then outlined
-    const tryPick = (skip?: OnsetMarkerStyle): OnsetMarkerStyle | null => {
-      for (const shape of ONSET_MARKER_SHAPES) {
-        const keyF = `${shape}:filled`;
-        if (!used.has(keyF) && !(skip && skip.shape === shape && skip.variant === 'filled')) {
-          return { shape: shape as OnsetMarkerStyle['shape'], variant: 'filled', size: 12, strokeWidth: 2 };
-        }
-      }
-      for (const shape of ONSET_MARKER_SHAPES) {
-        const keyO = `${shape}:outlined`;
-        if (!used.has(keyO) && !(skip && skip.shape === shape && skip.variant === 'outlined')) {
-          return { shape: shape as OnsetMarkerStyle['shape'], variant: 'outlined', size: 12, strokeWidth: 2 };
-        }
-      }
-      return null;
-    };
-
-    let picked = tryPick(current);
-    if (!picked) {
-      // All combinations are used; cycle to the next shape relative to current
-      const idx = Math.max(0, ONSET_MARKER_SHAPES.indexOf((current?.shape as any) || ONSET_MARKER_SHAPES[0]));
-      const nextShape = ONSET_MARKER_SHAPES[(idx + 1) % ONSET_MARKER_SHAPES.length];
-      const nextVariant: OnsetMarkerStyle['variant'] = current?.variant === 'filled' ? 'outlined' : 'filled';
-      picked = { shape: nextShape as OnsetMarkerStyle['shape'], variant: nextVariant, size: 12, strokeWidth: 2 };
+    // If nothing allowed (all taken), keep current
+    if (allowed.length === 0) {
+      return current || this.ensureOnsetMarkerForFile(fileId);
     }
+
+    // Find current in allowed (if not present, start from index -1 so we pick 0)
+    const curIdx = current ? allowed.findIndex((s) => s.shape === current.shape && s.variant === current.variant) : -1;
+    const next = allowed[(curIdx + 1) % allowed.length];
+    const picked: OnsetMarkerStyle = { ...next };
 
     this.state.visual.fileOnsetMarkers[fileId] = picked;
     this.notify();
