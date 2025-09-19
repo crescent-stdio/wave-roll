@@ -298,7 +298,7 @@ export class AudioMasterClock {
     const startPromises = this.playerGroups.map(async (group) => {
       try {
         await group.startSynchronized({
-          audioContextTime: this.audioContextStartTime + 0.01, // 10ms safety
+          audioContextTime: this.audioContextStartTime, // align exactly with Transport.start anchor
           toneTransportTime: 0,
           masterTime: time,
           generation: currentGeneration,
@@ -335,7 +335,19 @@ export class AudioMasterClock {
    * Set tempo
    */
   setTempo(bpm: number): void {
-    console.log('[AudioMasterClock] Setting tempo:', bpm);
+    try {
+      const prev = this.state.tempo;
+      const base = this.state.originalTempo > 0 ? this.state.originalTempo : 120;
+      const prevFactor = prev / base;
+      const nextFactor = bpm / base;
+      console.log('[TEMPO][AudioMasterClock] setTempo', {
+        prevBpm: prev,
+        nextBpm: bpm,
+        base,
+        prevSpeedFactor: Number(prevFactor.toFixed?.(6) ?? prevFactor),
+        nextSpeedFactor: Number(nextFactor.toFixed?.(6) ?? nextFactor),
+      });
+    } catch {}
     
     this.state.tempo = bpm;
     this.state.generation += 1; // Prevent ghost audio

@@ -84,9 +84,9 @@ export function createTempoControlUI(
     }
   });
 
-  // Adjust tempo button: prompt to enter percentage (10-200)
+  // Adjust MIDI tempo button: prompt to enter percentage (10-200)
   const adjustBtn = document.createElement("button");
-  adjustBtn.textContent = "Adjust tempo";
+  adjustBtn.textContent = "Adjust MIDI tempo";
   adjustBtn.title = "Set playback speed (10-200%)";
   adjustBtn.style.cssText = `
     height: 28px; padding: 0 8px; border: none; border-radius: 6px;

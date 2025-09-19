@@ -45,6 +45,7 @@ export class WavPlayerGroup implements PlayerGroup {
   private bufferLoadPromise: Promise<void> | null = null;
   private notifyBufferReady: (() => void) | null = null;
   private activeAudioId: string | null = null;
+  private lastStartGen: number | null = null;
   
   // Master volume (controlled from above)
   private masterVolume: number = 1.0;
@@ -222,7 +223,22 @@ export class WavPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
+    // Dedupe: ignore duplicate start requests for the same generation
+    if (typeof syncInfo.generation === 'number') {
+      if (this.lastStartGen === syncInfo.generation) {
+        try { console.log('[SYNC][WavPlayerGroup] Duplicate start ignored for generation', syncInfo.generation); } catch {}
+        return;
+      }
+      this.lastStartGen = syncInfo.generation;
+    }
     // console.log('[WavPlayerGroup] Starting synchronized playback', syncInfo);
+    try {
+      console.log('[TEMPO][SYNC][WavPlayerGroup] startSynchronized', {
+        mode: syncInfo.mode || 'play',
+        anchor: syncInfo.audioContextTime,
+        masterTime: syncInfo.masterTime,
+      });
+    } catch {}
     
     // Setup audio players first
     try {
@@ -293,8 +309,8 @@ export class WavPlayerGroup implements PlayerGroup {
           entry.isStarted = false;
         }
         
-        // Calculate volume considering both global mute states and individual mute
-        const isMuted = item.isMuted || entry.muted;
+        // Calculate volume respecting per-entry mute only (UI is source of truth)
+        const isMuted = entry.muted;
         const finalVolume = this.masterVolume * this.mixGain * entry.volume * (isMuted ? 0 : 1);
         entry.gate.gain.value = finalVolume;
         
@@ -307,15 +323,28 @@ export class WavPlayerGroup implements PlayerGroup {
           offset = clamped;
         }
         
-        // Align with Transport and compensate for FX latency by leading offset
-        const fxLead = entry.effectLatencySec || 0;
-        if (syncInfo.mode === 'seek') {
-          entry.player.start(syncInfo.audioContextTime, Math.max(0, offset + fxLead));
-        } else {
-          entry.player.start(syncInfo.audioContextTime, Math.max(0, offset + fxLead));
-        }
+        // Align with Transport and compensate FX latency: subtract latency from offset
+        // so audio content aligns with masterTime. Clamp to [0, bufferDuration).
+        const fxLatency = 0; // remove FX latency subtraction to avoid constant negative offset vs MIDI
+        const adjustedOffset = Math.max(0, Math.min(
+          bufferDuration > 0 ? bufferDuration - 0.001 : Number.POSITIVE_INFINITY,
+          offset
+        ));
+        try {
+          console.log('[TEMPO][SYNC][WavPlayerGroup] Scheduling', {
+            id: item.id,
+            anchor: syncInfo.audioContextTime,
+            masterTime: syncInfo.masterTime,
+            rawOffset: offset,
+            fxLatency,
+            adjustedOffset,
+            bufferDuration,
+            playbackRate: entry.player.playbackRate,
+          });
+        } catch {}
+        entry.player.start(syncInfo.audioContextTime, adjustedOffset);
         const tr = Tone.getTransport();
-        console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', offset, 'transport.seconds(now)=', tr.seconds);
+        console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', adjustedOffset, 'transport.seconds(now)=', tr.seconds);
         entry.isStarted = true;
         startedCount++;
         
@@ -371,6 +400,16 @@ export class WavPlayerGroup implements PlayerGroup {
     const rate = bpm / base;
     const safeRate = Math.max(1e-6, rate);
     const semitones = 12 * Math.log2(safeRate);
+    try {
+      console.log('[TEMPO][WavPlayerGroup] Setting tempo', {
+        bpm,
+        base,
+        rate,
+        safeRate,
+        semitones: Number.isFinite(semitones) ? Number(semitones.toFixed(3)) : semitones,
+        players: this.audioPlayers.size,
+      });
+    } catch {}
     for (const [id, entry] of this.audioPlayers) {
       try {
         entry.player.playbackRate = safeRate;
@@ -382,6 +421,10 @@ export class WavPlayerGroup implements PlayerGroup {
         console.error('[WavPlayerGroup] Failed to set tempo for', id, ':', error);
       }
     }
+    try {
+      const tr = Tone.getTransport();
+      console.log('[TEMPO][WavPlayerGroup] Transport BPM now', tr.bpm.value);
+    } catch {}
   }
 
   /** Set baseline tempo used to compute playbackRate. */
@@ -513,7 +556,7 @@ export class WavPlayerGroup implements PlayerGroup {
       const item = api?.getFiles?.()?.find((f) => f.id === playerId);
       if (!item) return;
 
-      const shouldPlay = !!item.isVisible && !(item.isMuted || entry.muted);
+      const shouldPlay = !!item.isVisible && !entry.muted;
       if (!shouldPlay) return;
       if (!entry.player.buffer?.loaded) return;
 
@@ -541,7 +584,7 @@ export class WavPlayerGroup implements PlayerGroup {
       for (const [id, entry] of this.audioPlayers) {
         const item = items.find((f) => f.id === id);
         if (!item) continue;
-        const shouldPlay = !!item.isVisible && !(item.isMuted || entry.muted);
+      const shouldPlay = !!item.isVisible && !entry.muted;
         if (!shouldPlay) continue;
         if (entry.isStarted) continue;
         if (!entry.player.buffer?.loaded) continue;
