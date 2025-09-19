@@ -90,7 +90,7 @@ export class FileToggleManager {
    */
   private static createSettingsButton(dependencies: UIComponentDependencies): HTMLButtonElement {
     const btn = document.createElement("button");
-    btn.innerHTML = `${PLAYER_ICONS.file} <span>Settings</span>`;
+    btn.innerHTML = `${PLAYER_ICONS.file} <span>Tracks & Appearance</span>`;
     btn.style.cssText = `
       padding: 4px 8px;
       border: none;

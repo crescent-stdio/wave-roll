@@ -21,7 +21,7 @@ export function openSettingsModal(deps: UIComponentDependencies): void {
   }
 
   // ---- Build modal content ----
-  const header = createModalHeader("Files & Palette", () => overlay.remove());
+  const header = createModalHeader("Tracks & Appearance", () => overlay.remove());
 
   // Append sections
   const paletteSection = createPaletteSelectorSection(deps);

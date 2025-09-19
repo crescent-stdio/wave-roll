@@ -53,7 +53,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   header.style.cssText =
     "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h3");
-  title.textContent = "View / Grid Settings";
+  title.textContent = "View & Grid";
   title.style.cssText = "margin:0;font-size:16px;font-weight:700;color:var(--text-primary);";
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "✕";

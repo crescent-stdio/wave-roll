@@ -172,6 +172,49 @@ export class StateManager {
     return picked;
   }
 
+  /**
+   * Assign the next available unique onset marker to the file, even if it already has one.
+   * Cycles shapes (filled first, then outlined) and skips the current style when possible.
+   */
+  public assignNextUniqueOnsetMarker(fileId: string): OnsetMarkerStyle {
+    const current = this.state.visual.fileOnsetMarkers[fileId];
+    const used = new Set(
+      Object.entries(this.state.visual.fileOnsetMarkers)
+        .filter(([id]) => id !== fileId) // exclude self to allow moving forward
+        .map(([, s]) => `${s.shape}:${s.variant}`)
+    );
+
+    // Try to find the first available from shapes list, preferring filled then outlined
+    const tryPick = (skip?: OnsetMarkerStyle): OnsetMarkerStyle | null => {
+      for (const shape of ONSET_MARKER_SHAPES) {
+        const keyF = `${shape}:filled`;
+        if (!used.has(keyF) && !(skip && skip.shape === shape && skip.variant === 'filled')) {
+          return { shape: shape as OnsetMarkerStyle['shape'], variant: 'filled', size: 12, strokeWidth: 2 };
+        }
+      }
+      for (const shape of ONSET_MARKER_SHAPES) {
+        const keyO = `${shape}:outlined`;
+        if (!used.has(keyO) && !(skip && skip.shape === shape && skip.variant === 'outlined')) {
+          return { shape: shape as OnsetMarkerStyle['shape'], variant: 'outlined', size: 12, strokeWidth: 2 };
+        }
+      }
+      return null;
+    };
+
+    let picked = tryPick(current);
+    if (!picked) {
+      // All combinations are used; cycle to the next shape relative to current
+      const idx = Math.max(0, ONSET_MARKER_SHAPES.indexOf((current?.shape as any) || ONSET_MARKER_SHAPES[0]));
+      const nextShape = ONSET_MARKER_SHAPES[(idx + 1) % ONSET_MARKER_SHAPES.length];
+      const nextVariant: OnsetMarkerStyle['variant'] = current?.variant === 'filled' ? 'outlined' : 'filled';
+      picked = { shape: nextShape as OnsetMarkerStyle['shape'], variant: nextVariant, size: 12, strokeWidth: 2 };
+    }
+
+    this.state.visual.fileOnsetMarkers[fileId] = picked;
+    this.notify();
+    return picked;
+  }
+
   /* ====== state synchronization utilities  ====== */
 
   /**
