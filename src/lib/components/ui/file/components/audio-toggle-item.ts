@@ -44,7 +44,7 @@ export class AudioToggleItem {
     item.appendChild(this.createVisibilityButton(audio, dependencies, item));
     item.appendChild(this.createVolumeControl(audio, dependencies));
     
-    const { labelL, slider, labelR } = this.createPanControls(audio);
+    const { labelL, slider, labelR } = this.createPanControls(audio, dependencies);
     item.appendChild(labelL);
     item.appendChild(slider);
     item.appendChild(labelR);
@@ -178,7 +178,8 @@ export class AudioToggleItem {
   }
 
   private static createPanControls(
-    audio: AudioFileInfo
+    audio: AudioFileInfo,
+    dependencies: UIComponentDependencies
   ): { labelL: HTMLElement; slider: HTMLInputElement; labelR: HTMLElement } {
     // Left label
     const labelL = document.createElement("span");
@@ -211,14 +212,20 @@ export class AudioToggleItem {
 
     panSlider.addEventListener("input", () => {
       const pan = parseFloat(panSlider.value) / 100;
+      // Apply to v2 engine (per-file pan)
+      dependencies.audioPlayer?.setFilePan?.(audio.id, pan);
+      // Keep registry in sync for UI/state reflection
       const api = this.getAudioAPI();
       api?.setPan?.(audio.id, pan);
     });
 
     panSlider.addEventListener("dblclick", () => {
+      panSlider.value = "0";
+      // Reset via v2 engine
+      dependencies.audioPlayer?.setFilePan?.(audio.id, 0);
+      // Sync registry as well
       const api = this.getAudioAPI();
       api?.setPan?.(audio.id, 0);
-      panSlider.value = "0";
     });
 
     return { labelL, slider: panSlider, labelR };
