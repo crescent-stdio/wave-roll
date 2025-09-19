@@ -2,6 +2,7 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import type { PianoRollAugments } from "../types-internal";
 import { NoteData } from "@/lib/midi/types";
+import type { OnsetMarkerStyle, OnsetMarkerShape } from "@/types";
 import {
   COLOR_EVAL_HIGHLIGHT,
   COLOR_EVAL_EXCLUSIVE,
@@ -23,7 +24,7 @@ let WR_PATTERN_TEXTURE_CACHE: Partial<
   Record<"up" | "down" | "cross" | "dots", PIXI.Texture>
 > = {};
 
-// Onset shape textures (circle, triangle, diamond, square) cached per color
+// Onset shape textures cached by shape+variant+stroke+color to avoid recreating
 let WR_ONSET_TEXTURE_CACHE: Record<string, PIXI.Texture> = {};
 
 // Extend PIXI.Sprite to tag the originating note (for tooltips)
@@ -167,53 +168,178 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     return tex;
   }
 
-  function getOnsetTexture(
-    kind: "circle" | "triangle" | "diamond" | "square",
+  function getOnsetTextureByStyle(
+    style: OnsetMarkerStyle,
     colorHex: string
   ): PIXI.Texture {
-    // Cache by kind + stroke color so each file gets a distinct outline
-    const key = `${kind}-${colorHex}`;
+    const key = `${style.shape}-${style.variant}-${style.strokeWidth}-${colorHex}`;
     const cached = WR_ONSET_TEXTURE_CACHE[key];
     if (cached) return cached;
-    const size = 12;
+
+    const size = 16; // internal canvas size; sprite scaled per-row later
+    const s = size;
+    const cx = s / 2;
+    const cy = s / 2;
+    const r = s * 0.35;
     const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = s;
+    canvas.height = s;
     const ctx = canvas.getContext("2d")!;
-    ctx.clearRect(0, 0, size, size);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = colorHex; // outline in file color
-    ctx.fillStyle = "#ffffff"; // white fill for visibility
+    ctx.clearRect(0, 0, s, s);
+    ctx.lineWidth = Math.max(1, style.strokeWidth);
+    ctx.strokeStyle = colorHex;
+    ctx.fillStyle = style.variant === "filled" ? "#ffffff" : "transparent";
     ctx.lineJoin = "miter";
-    if (kind === "circle") {
+
+    const drawPolygon = (points: Array<[number, number]>) => {
       ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    } else if (kind === "triangle") {
-      ctx.beginPath();
-      ctx.moveTo(size / 2, size / 6);
-      ctx.lineTo((5 * size) / 6, (5 * size) / 6);
-      ctx.lineTo(size / 6, (5 * size) / 6);
+      ctx.moveTo(points[0][0], points[0][1]);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
       ctx.closePath();
-      ctx.fill();
+      if (style.variant === "filled") ctx.fill();
       ctx.stroke();
-    } else if (kind === "diamond") {
-      ctx.beginPath();
-      ctx.moveTo(size / 2, 2);
-      ctx.lineTo(size - 2, size / 2);
-      ctx.lineTo(size / 2, size - 2);
-      ctx.lineTo(2, size / 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      // square
-      ctx.beginPath();
-      ctx.rect(3, 3, size - 6, size - 6);
-      ctx.fill();
-      ctx.stroke();
-    }
+    };
+
+    const drawShape = (shape: OnsetMarkerShape) => {
+      switch (shape) {
+        case "circle": {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          if (style.variant === "filled") ctx.fill();
+          ctx.stroke();
+          return;
+        }
+        case "square": {
+          const d = r * Math.SQRT1_2;
+          drawPolygon([
+            [cx - d, cy - d],
+            [cx + d, cy - d],
+            [cx + d, cy + d],
+            [cx - d, cy + d],
+          ]);
+          return;
+        }
+        case "diamond": {
+          drawPolygon([
+            [cx, cy - r],
+            [cx + r, cy],
+            [cx, cy + r],
+            [cx - r, cy],
+          ]);
+          return;
+        }
+        case "triangle-up": {
+          drawPolygon([
+            [cx, cy - r],
+            [cx + r * 0.866, cy + r * 0.5],
+            [cx - r * 0.866, cy + r * 0.5],
+          ]);
+          return;
+        }
+        case "triangle-down": {
+          drawPolygon([
+            [cx - r * 0.866, cy - r * 0.5],
+            [cx + r * 0.866, cy - r * 0.5],
+            [cx, cy + r],
+          ]);
+          return;
+        }
+        case "triangle-left": {
+          drawPolygon([
+            [cx + r, cy - r * 0.866 * 0.5],
+            [cx + r, cy + r * 0.866 * 0.5],
+            [cx - r, cy],
+          ]);
+          return;
+        }
+        case "triangle-right": {
+          drawPolygon([
+            [cx - r, cy - r * 0.866 * 0.5],
+            [cx - r, cy + r * 0.866 * 0.5],
+            [cx + r, cy],
+          ]);
+          return;
+        }
+        case "star": {
+          const points: Array<[number, number]> = [];
+          const spikes = 5;
+          const outer = r;
+          const inner = r * 0.45;
+          for (let i = 0; i < spikes * 2; i++) {
+            const angle = (i * Math.PI) / spikes - Math.PI / 2;
+            const rad = i % 2 === 0 ? outer : inner;
+            points.push([cx + Math.cos(angle) * rad, cy + Math.sin(angle) * rad]);
+          }
+          drawPolygon(points);
+          return;
+        }
+        case "cross": {
+          // X-shape
+          ctx.beginPath();
+          ctx.moveTo(cx - r, cy - r);
+          ctx.lineTo(cx + r, cy + r);
+          ctx.moveTo(cx + r, cy - r);
+          ctx.lineTo(cx - r, cy + r);
+          ctx.stroke();
+          return;
+        }
+        case "plus": {
+          ctx.beginPath();
+          ctx.moveTo(cx - r, cy);
+          ctx.lineTo(cx + r, cy);
+          ctx.moveTo(cx, cy - r);
+          ctx.lineTo(cx, cy + r);
+          ctx.stroke();
+          return;
+        }
+        case "hexagon": {
+          const pts: Array<[number, number]> = [];
+          for (let i = 0; i < 6; i++) {
+            const a = (Math.PI / 3) * i + Math.PI / 6;
+            pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+          }
+          drawPolygon(pts);
+          return;
+        }
+        case "pentagon": {
+          const pts: Array<[number, number]> = [];
+          for (let i = 0; i < 5; i++) {
+            const a = (2 * Math.PI / 5) * i - Math.PI / 2;
+            pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+          }
+          drawPolygon(pts);
+          return;
+        }
+        case "chevron-up": {
+          drawPolygon([
+            [cx - r, cy + r * 0.4],
+            [cx, cy - r * 0.6],
+            [cx + r, cy + r * 0.4],
+          ]);
+          return;
+        }
+        case "chevron-down": {
+          drawPolygon([
+            [cx - r, cy - r * 0.4],
+            [cx, cy + r * 0.6],
+            [cx + r, cy - r * 0.4],
+          ]);
+          return;
+        }
+        default: {
+          // Fallback to square
+          const d = r * Math.SQRT1_2;
+          drawPolygon([
+            [cx - d, cy - d],
+            [cx + d, cy - d],
+            [cx + d, cy + d],
+            [cx - d, cy + d],
+          ]);
+        }
+      }
+    };
+
+    drawShape(style.shape);
     const tex = PIXI.Texture.from(canvas);
     WR_ONSET_TEXTURE_CACHE[key] = tex;
     return tex;
@@ -373,17 +499,33 @@ export function renderNotes(pianoRoll: PianoRoll): void {
 
       // Map fileId -> stable pattern kind
       const fid = note.fileId || "";
-      let hash = 0;
-      for (let i = 0; i < fid.length; i++)
-        hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
-      const kinds: Array<"up" | "down" | "cross" | "dots"> = [
-        "up",
-        "down",
-        "cross",
-        "dots",
-      ];
-      const kind = kinds[hash % kinds.length];
-      pOverlay.texture = getPatternTexture(kind);
+      // Keep existing deterministic pattern per file but prefer onset style cues when available
+      const onsetStyles = (pianoRoll as AugmentedPianoRoll).onsetStyles || {};
+      const style = onsetStyles[fid];
+      if (style) {
+        // Map a subset of onset shapes to texture kinds to increase distinction
+        const map: Record<string, "up" | "down" | "cross" | "dots"> = {
+          "triangle-up": "up",
+          "triangle-down": "down",
+          cross: "cross",
+          plus: "cross",
+        } as const;
+        const kind = map[style.shape] ?? "dots";
+        pOverlay.texture = getPatternTexture(kind);
+      } else {
+        // Fallback based on fileId hash for stability
+        let hash = 0;
+        for (let i = 0; i < fid.length; i++)
+          hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
+        const kinds: Array<"up" | "down" | "cross" | "dots"> = [
+          "up",
+          "down",
+          "cross",
+          "dots",
+        ];
+        const kind = kinds[hash % kinds.length];
+        pOverlay.texture = getPatternTexture(kind);
+      }
 
       // Keep pattern size visible on thin notes
       const target = 10;
@@ -483,20 +625,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
     if (m) {
       if (showOnsets) {
         const fid = note.fileId || "";
-        let hash = 0;
-        for (let i = 0; i < fid.length; i++)
-          hash = (hash * 31 + fid.charCodeAt(i)) >>> 0;
-        const kinds: Array<"circle" | "triangle" | "diamond" | "square"> = [
-          "circle",
-          "triangle",
-          "diamond",
-          "square",
-        ];
-        const kind = kinds[hash % kinds.length];
         // Outline color near file’s base color; fall back to current note color
         const fileColors = (pianoRoll as AugmentedPianoRoll).fileColors;
         const baseColorNum = fileColors?.[fid] ?? noteColor;
         const colorHex = "#" + baseColorNum.toString(16).padStart(6, "0");
+        const onsetStyles = (pianoRoll as AugmentedPianoRoll).onsetStyles || {};
+        const style = onsetStyles[fid] || { shape: "circle", variant: "filled", size: 12, strokeWidth: 2 };
         // Only show marker for the original MIDI onset (avoid per-fragment markers)
         if (onlyOriginal && originalOnsetMap) {
           const key = `${fid}#${note.sourceIndex ?? -1}`;
@@ -508,12 +642,14 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         }
 
         // Render as original shape marker with per-file stable kind
-        const tex = getOnsetTexture(kind, colorHex);
+        const tex = getOnsetTextureByStyle(style as OnsetMarkerStyle, colorHex);
         m.texture = tex;
         m.tint = 0xffffff; // no extra tint; texture carries stroke color
         m.blendMode = "normal";
         m.alpha = 0.95;
-        const sz = Math.min(12, Math.max(8, Math.floor(height)));
+        // Size adapts to row height, capped by preferred size
+        const desired = Math.max(8, Math.floor(height));
+        const sz = Math.min(style.size || 12, desired);
         m.width = sz;
         m.height = sz;
         m.x = sprite.x - sz / 2; // at note start

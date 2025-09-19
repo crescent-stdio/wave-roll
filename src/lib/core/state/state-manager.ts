@@ -1,4 +1,6 @@
 import { AppState, StateManagerConfig } from "./types";
+import type { OnsetMarkerStyle } from "@/types";
+import { ONSET_MARKER_SHAPES } from "@/core/constants";
 import { DEFAULT_STATE_CONFIG, DEFAULT_APP_STATE } from "./default";
 import {
   ListenerManager,
@@ -129,6 +131,45 @@ export class StateManager {
   public updateEvaluationState(updates: Partial<AppState["evaluation"]>): void {
     this.state.evaluation = shallowMerge(this.state.evaluation, updates);
     this.notify();
+  }
+
+  /* ====== Onset Marker Mapping ====== */
+  /** Assign or update the onset marker style for a file. */
+  public setOnsetMarkerForFile(fileId: string, style: OnsetMarkerStyle): void {
+    this.state.visual.fileOnsetMarkers[fileId] = style;
+    this.notify();
+  }
+
+  /** Get the onset marker style for a file, if any. */
+  public getOnsetMarkerForFile(fileId: string): OnsetMarkerStyle | undefined {
+    return this.state.visual.fileOnsetMarkers[fileId];
+  }
+
+  /** Ensure a unique onset marker is assigned to the file if missing. */
+  public ensureOnsetMarkerForFile(fileId: string): OnsetMarkerStyle {
+    const existing = this.state.visual.fileOnsetMarkers[fileId];
+    if (existing) return existing;
+    const used = new Set(
+      Object.values(this.state.visual.fileOnsetMarkers).map((s) => `${s.shape}:${s.variant}`)
+    );
+    let picked: OnsetMarkerStyle | null = null;
+    for (const shape of ONSET_MARKER_SHAPES) {
+      const key = `${shape}:filled`;
+      if (!used.has(key)) { picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "filled", size: 12, strokeWidth: 2 }; break; }
+    }
+    if (!picked) {
+      for (const shape of ONSET_MARKER_SHAPES) {
+        const key = `${shape}:outlined`;
+        if (!used.has(key)) { picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "outlined", size: 12, strokeWidth: 2 }; break; }
+      }
+    }
+    if (!picked) {
+      const shape = ONSET_MARKER_SHAPES[Object.keys(this.state.visual.fileOnsetMarkers).length % ONSET_MARKER_SHAPES.length];
+      picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "outlined", size: 12, strokeWidth: 2 };
+    }
+    this.state.visual.fileOnsetMarkers[fileId] = picked;
+    this.notify();
+    return picked;
   }
 
   /* ====== state synchronization utilities  ====== */

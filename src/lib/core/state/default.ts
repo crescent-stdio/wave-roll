@@ -5,6 +5,7 @@ import { FileVisibilityState } from "./types";
 import { LoopPointsState } from "./types";
 import { PanVolumeState } from "./types";
 import { VisualState } from "./types";
+import type { OnsetMarkerStyle } from "@/types";
 import { EvaluationState } from "./types";
 
 export const DEFAULT_STATE_CONFIG: StateManagerConfig = {
@@ -61,6 +62,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   pedalElongate: true,
   pedalThreshold: 64,
   showOnsetMarkers: true,
+  fileOnsetMarkers: {},
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {

@@ -1,6 +1,8 @@
 /**
  * UI state for player controls and interface elements
  */
+import type { OnsetMarkerStyle } from "@/types";
+
 export interface UIState {
   seeking: boolean;
   isBatchLoading: boolean;
@@ -94,6 +96,8 @@ export interface VisualState {
   pedalThreshold: number;
   /** Whether to show onset marker shapes over notes */
   showOnsetMarkers: boolean;
+  /** Per-file onset marker style mapping (fileId -> style) */
+  fileOnsetMarkers: Record<string, OnsetMarkerStyle>;
 }
 
 /**

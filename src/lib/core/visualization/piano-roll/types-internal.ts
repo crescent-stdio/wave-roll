@@ -22,6 +22,8 @@ export interface PianoRollAugments {
   fileColors?: Record<string, number>;
   highlightMode?: string;
   showOnsetMarkers?: boolean;
+  // Per-file onset marker styles
+  onsetStyles?: Record<string, import("@/types").OnsetMarkerStyle>;
 
   // Original (unsegmented) MIDI onset lookup to filter markers
   originalOnsetMap?: Record<string, number>;

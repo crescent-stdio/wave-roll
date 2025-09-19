@@ -38,3 +38,44 @@ export const COLOR_LOOP_LINE_B = "#e11d48"; // Rose-600: reserved for B-line (di
  * Default baseline tempo (BPM) used when MIDI does not provide an initial tempo.
  */
 export const DEFAULT_BASELINE_TEMPO = 120;
+
+// ---------------------------------------------------------------------------
+// Onset marker shapes and defaults
+// ---------------------------------------------------------------------------
+/**
+ * Ordered list of primary marker shapes for first-pass unique assignment.
+ */
+export const ONSET_MARKER_SHAPES: Array<
+  | "circle"
+  | "square"
+  | "diamond"
+  | "triangle-up"
+  | "triangle-down"
+  | "triangle-left"
+  | "triangle-right"
+  | "star"
+  | "cross"
+  | "plus"
+  | "hexagon"
+  | "pentagon"
+  | "chevron-up"
+  | "chevron-down"
+> = [
+  "circle",
+  "square",
+  "diamond",
+  "triangle-up",
+  "triangle-down",
+  "triangle-left",
+  "triangle-right",
+  "star",
+  "cross",
+  "plus",
+  "hexagon",
+  "pentagon",
+  "chevron-up",
+  "chevron-down",
+];
+
+/** Maximum number of unique visual combinations before reuse kicks in. */
+export const MAX_UNIQUE_MARKERS = ONSET_MARKER_SHAPES.length * 2; // filled + outlined

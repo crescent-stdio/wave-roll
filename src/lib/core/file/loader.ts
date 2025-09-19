@@ -28,12 +28,13 @@ export async function loadSampleFiles(
         applyPedalElongate: pedalElongate,
         pedalThreshold: pedalThreshold 
       });
-      fileManager.midiManager.addMidiFile(
+      const id = fileManager.midiManager.addMidiFile(
         file.path,
         parsedData,
         file.displayName,
         file.path
       );
+      try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(id); } catch {}
     } catch (error) {
       console.error(`Failed to load ${file.path}:`, error);
     }
@@ -71,6 +72,7 @@ export async function loadFile(
       displayName,
       input
     );
+    try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId); } catch {}
     return fileId;
   } catch (error) {
     console.error(`Failed to load file:`, error);
@@ -112,6 +114,7 @@ export async function loadMultipleFiles(
         file
       );
       loadedFileIds.push(fileId);
+      try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId); } catch {}
     } catch (error) {
       console.error(`Failed to load ${file.name}:`, error);
     }

@@ -312,10 +312,12 @@ export class WaveRollPlayer {
       this.updateFileToggleSection();
     });
 
-    // React to visual state changes such as highlight-mode updates
+    // React to state changes (visual/highlight, onset marker, etc.)
     this.stateManager.onStateChange(() => {
       if (this.stateManager.getUIState().isBatchLoading) return;
       this.updateVisualization();
+      this.updateSidebar();
+      this.updateFileToggleSection();
     });
   }
 

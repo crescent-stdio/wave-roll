@@ -164,6 +164,13 @@ export class VisualizationHandler {
         const visual = this.stateManager.getState().visual;
         (pianoInstance as AugPR).highlightMode = visual.highlightMode;
         (pianoInstance as AugPR).showOnsetMarkers = visual.showOnsetMarkers;
+        // Ensure each file has a unique onset marker style assigned and pass mapping
+        const onsetStyles: Record<string, import("@/types").OnsetMarkerStyle> = {};
+        state.files.forEach((f: MidiFileEntry) => {
+          const style = this.stateManager.ensureOnsetMarkerForFile(f.id);
+          onsetStyles[f.id] = style;
+        });
+        (pianoInstance as AugPR).onsetStyles = onsetStyles;
         // Provide a mapping of original MIDI onsets so the renderer can
         // suppress markers on segmented fragments in eval/highlight modes.
         const origOnsetMap: Record<string, number> = {};

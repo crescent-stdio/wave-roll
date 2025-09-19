@@ -31,7 +31,7 @@ export class FileToggleItem {
     `;
 
     // Add all components
-    item.appendChild(this.createColorIndicator(file));
+    item.appendChild(this.createColorIndicator(file, dependencies));
     item.appendChild(this.createFileName(file));
     item.appendChild(this.createReferenceButton(file, dependencies, item));
     item.appendChild(this.createEstimationButton(file, dependencies, item));
@@ -62,9 +62,9 @@ export class FileToggleItem {
     return item;
   }
 
-  private static createColorIndicator(file: MidiFileEntry): HTMLElement {
+  private static createColorIndicator(file: MidiFileEntry, dependencies: UIComponentDependencies): HTMLElement {
     const fileColor = `#${file.color.toString(16).padStart(6, "0")}`;
-    return ShapeRenderer.createColorIndicator(file.id, fileColor);
+    return ShapeRenderer.createColorIndicator(file.id, fileColor, dependencies.stateManager as any);
   }
 
   private static createFileName(file: MidiFileEntry): HTMLElement {
@@ -234,13 +234,8 @@ export class FileToggleItem {
         dependencies.filePanValues[file.id] = panValue;
       }
 
-      // Prefer per-file panning if supported
-      if (dependencies.audioPlayer?.setFilePan) {
-        dependencies.audioPlayer.setFilePan(file.id, panValue);
-      } else {
-        // Fallback to global pan (legacy single-file player)
-        dependencies.audioPlayer?.setPan(panValue);
-      }
+      // Per-file panning in v2
+      dependencies.audioPlayer?.setFilePan?.(file.id, panValue);
     });
 
     // Double-click -> reset to center (0)
@@ -250,11 +245,7 @@ export class FileToggleItem {
         dependencies.filePanValues[file.id] = 0;
       }
 
-      if (dependencies.audioPlayer?.setFilePan) {
-        dependencies.audioPlayer.setFilePan(file.id, 0);
-      } else {
-        dependencies.audioPlayer?.setPan(0);
-      }
+      dependencies.audioPlayer?.setFilePan?.(file.id, 0);
     });
 
     return { labelL, slider: panSlider, labelR };

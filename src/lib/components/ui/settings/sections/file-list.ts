@@ -1,4 +1,5 @@
 import { UIComponentDependencies } from "../../types";
+import { renderOnsetSVG } from "@/assets/onset-icons";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { toHexColor } from "@/lib/core/utils/color";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
@@ -106,23 +107,10 @@ export function createFileList(
       swatchBtn.style.cssText = `width:24px;height:24px;border-radius:4px;border:1px solid var(--ui-border);cursor:pointer;background:transparent;position:relative;padding:0;display:flex;align-items:center;justify-content:center;`;
       const shapeHost = document.createElement("div");
       shapeHost.style.cssText = `width:18px;height:18px;display:flex;align-items:center;justify-content:center;`;
-      const shapeKindForId = (id: string) => {
-        let h = 0;
-        for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-        const kinds = ["circle", "triangle", "diamond", "square"] as const;
-        return kinds[h % kinds.length];
-      };
-      const shapeSvg = (kind: string, color: string) => {
-        if (kind === "circle")
-          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"5\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
-        if (kind === "triangle")
-          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 3 L13 13 L3 13 Z\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
-        if (kind === "diamond")
-          return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><path d=\"M8 2 L14 8 L8 14 L2 8 Z\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
-        return `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"10\" height=\"10\" fill=\"${color}\" stroke=\"${color}\" stroke-width=\"2\"/></svg>`;
-      };
-      const currentShape = shapeKindForId(file.id);
-      shapeHost.innerHTML = shapeSvg(currentShape, initialHex);
+      // Unified onset marker SVG renderer for both swatch and marker picker
+      const renderOnsetSvg = (style: import("@/types").OnsetMarkerStyle, color: string) => renderOnsetSVG(style, color, 16);
+      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(file.id);
+      shapeHost.innerHTML = renderOnsetSvg(ensuredStyle, initialHex);
       swatchBtn.appendChild(shapeHost);
 
       // Hidden native color input (for OS picker)
@@ -164,7 +152,8 @@ export function createFileList(
 
         swatch.onclick = () => {
           dependencies.midiManager.updateColor(file.id, color);
-          shapeHost.innerHTML = shapeSvg(currentShape, toHexColor(color));
+          const styleNow = dependencies.stateManager.getOnsetMarkerForFile(file.id) || ensuredStyle;
+          shapeHost.innerHTML = renderOnsetSvg(styleNow, toHexColor(color));
           paletteDropdown.style.display = "none";
         };
 
@@ -197,7 +186,8 @@ export function createFileList(
         );
 
         // Update swatch shape color
-        shapeHost.innerHTML = shapeSvg(currentShape, hex);
+        const styleNow = dependencies.stateManager.getOnsetMarkerForFile(file.id) || ensuredStyle;
+        shapeHost.innerHTML = renderOnsetSvg(styleNow, hex);
       };
 
       // Mount color input inside button (keeps DOM grouped)
@@ -205,6 +195,63 @@ export function createFileList(
       colorPickerContainer.appendChild(swatchBtn);
       colorPickerContainer.appendChild(paletteBtn);
       colorPickerContainer.appendChild(paletteDropdown);
+
+      // ---- Onset marker selector ----
+      const markerContainer = document.createElement("div");
+      markerContainer.style.cssText = "position:relative;display:flex;align-items:center;";
+      const markerBtn = document.createElement("button");
+      markerBtn.type = "button";
+      markerBtn.title = "Choose onset marker";
+      markerBtn.style.cssText =
+        "width:24px;height:24px;border-radius:4px;border:1px solid var(--ui-border);cursor:pointer;background:transparent;position:relative;padding:0;display:flex;align-items:center;justify-content:center;margin-left:6px;";
+      const markerHost = document.createElement("div");
+      markerHost.style.cssText = "width:18px;height:18px;display:flex;align-items:center;justify-content:center;";
+
+
+      // Resolve current style (ensure one exists)
+      const ensured = dependencies.stateManager.ensureOnsetMarkerForFile(file.id);
+      markerHost.innerHTML = renderOnsetSvg(ensured, initialHex);
+      markerBtn.appendChild(markerHost);
+
+      const markerDropdown = document.createElement("div");
+      markerDropdown.style.cssText =
+        "position:absolute;top:100%;left:0;background:var(--surface);border:1px solid var(--ui-border);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1);z-index:1000;display:none;padding:8px;min-width:160px;";
+
+      // Build grid of shapes (filled + outlined)
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "display:grid;grid-template-columns:repeat(7,24px);gap:6px;";
+      const SHAPES: import("@/types").OnsetMarkerShape[] = [
+        "circle","square","diamond","triangle-up","triangle-down","triangle-left","triangle-right",
+        "star","cross","plus","hexagon","pentagon","chevron-up","chevron-down"
+      ];
+      const VARIANTS: Array<import("@/types").OnsetMarkerStyle["variant"]> = ["filled","outlined"];
+      VARIANTS.forEach((variant) => {
+        SHAPES.forEach((shape) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.style.cssText = "width:24px;height:24px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;";
+          const style: import("@/types").OnsetMarkerStyle = { shape, variant, size: 12, strokeWidth: 2 };
+          btn.innerHTML = renderOnsetSvg(style, initialHex);
+          btn.onclick = () => {
+            dependencies.stateManager.setOnsetMarkerForFile(file.id, style);
+            markerHost.innerHTML = renderOnsetSvg(style, initialHex);
+            // Keep color swatch shape in sync as well
+            shapeHost.innerHTML = renderOnsetSvg(style, toHexColor(file.color));
+            markerDropdown.style.display = "none";
+          };
+          wrapper.appendChild(btn);
+        });
+      });
+      markerDropdown.appendChild(wrapper);
+
+      markerBtn.onclick = (e) => {
+        e.stopPropagation();
+        markerDropdown.style.display = markerDropdown.style.display === "none" ? "block" : "none";
+      };
+      document.addEventListener("click", () => { markerDropdown.style.display = "none"; });
+
+      markerContainer.appendChild(markerBtn);
+      markerContainer.appendChild(markerDropdown);
 
       // Name editor
       const nameInput = document.createElement("input");
@@ -311,6 +358,7 @@ export function createFileList(
 
       row.appendChild(handle);
       row.appendChild(colorPickerContainer);
+      row.appendChild(markerContainer);
       row.appendChild(nameInput);
       row.appendChild(delBtn);
       fileList.appendChild(row);

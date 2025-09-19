@@ -3,13 +3,22 @@
  * Creates SVG shapes based on file ID hash
  */
 
-export type ShapeType = 'circle' | 'triangle' | 'diamond' | 'square';
+import type { OnsetMarkerShape, OnsetMarkerStyle } from "@/types";
+import { renderOnsetSVG } from "@/assets/onset-icons";
+import { StateManager } from "@/core/state";
+
+export type ShapeType = 'circle' | 'triangle' | 'diamond' | 'square' | OnsetMarkerShape;
 
 export class ShapeRenderer {
   /**
    * Get shape type based on file ID hash
    */
-  static getShapeType(fileId: string): ShapeType {
+  static getShapeType(fileId: string, stateManager?: StateManager): ShapeType {
+    try {
+      const style = stateManager?.getOnsetMarkerForFile?.(fileId) as OnsetMarkerStyle | undefined;
+      if (style?.shape) return style.shape;
+    } catch {}
+    // Fallback for when state is not available
     let hash = 0;
     for (let i = 0; i < fileId.length; i++) {
       hash = (hash * 31 + fileId.charCodeAt(i)) >>> 0;
@@ -24,7 +33,8 @@ export class ShapeRenderer {
   static createShapeSVG(
     shape: ShapeType,
     color: string,
-    size: number = 12
+    size: number = 12,
+    variant: OnsetMarkerStyle["variant"] = "filled"
   ): SVGElement {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
@@ -73,7 +83,7 @@ export class ShapeRenderer {
         break;
     }
 
-    shapeElement.setAttribute("fill", color);
+    shapeElement.setAttribute("fill", variant === 'filled' ? color : 'transparent');
     shapeElement.setAttribute("stroke", color);
     shapeElement.setAttribute("stroke-width", "2");
     svg.appendChild(shapeElement);
@@ -84,7 +94,7 @@ export class ShapeRenderer {
   /**
    * Create color indicator element with shape
    */
-  static createColorIndicator(fileId: string, colorHex: string): HTMLElement {
+  static createColorIndicator(fileId: string, colorHex: string, stateManager?: StateManager): HTMLElement {
     const container = document.createElement("div");
     container.style.cssText = `
       width: 12px;
@@ -94,9 +104,10 @@ export class ShapeRenderer {
       justify-content: center;
     `;
 
-    const shape = this.getShapeType(fileId);
-    const svg = this.createShapeSVG(shape, colorHex);
-    container.appendChild(svg);
+    const style = stateManager?.getOnsetMarkerForFile?.(fileId) as OnsetMarkerStyle | undefined;
+    const shape = style?.shape ?? this.getShapeType(fileId, stateManager);
+    const variant = style?.variant ?? 'filled';
+    container.innerHTML = renderOnsetSVG({ shape, variant, size: 12, strokeWidth: 2 } as OnsetMarkerStyle, colorHex, 12);
 
     return container;
   }
