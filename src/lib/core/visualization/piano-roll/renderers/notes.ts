@@ -647,9 +647,12 @@ export function renderNotes(pianoRoll: PianoRoll): void {
         m.tint = 0xffffff; // no extra tint; texture carries stroke color
         m.blendMode = "normal";
         m.alpha = 0.95;
-        // Size adapts to row height, capped by preferred size
-        const desired = Math.max(8, Math.floor(height));
-        const sz = Math.min(style.size || 12, desired);
+        // Size adapts to vertical zoom: scale preferred size by zoomY,
+        // but never exceed the current row height (leave small padding)
+        const preferred = Math.max(8, style.size || 12);
+        const maxByRow = Math.max(6, Math.floor(height * 0.9));
+        const target = preferred * zoomY;
+        const sz = Math.max(6, Math.min(maxByRow, Math.floor(target)));
         m.width = sz;
         m.height = sz;
         m.x = sprite.x - sz / 2; // at note start

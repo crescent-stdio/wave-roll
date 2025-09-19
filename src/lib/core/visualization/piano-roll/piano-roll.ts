@@ -22,6 +22,7 @@ import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
 import { NoteInterval } from "@/lib/core/controls/utils/overlap";
 import type { FileInfoMap } from "./types-internal";
+import { initializeContainers } from "@/lib/core/visualization/piano-roll/ui/containers";
 // (Note) Evaluation utilities removed - no longer required here
 
 export class PianoRoll {
@@ -222,82 +223,7 @@ export class PianoRoll {
    * Initialize container hierarchy for organized rendering
    */
   private initializeContainers(): void {
-    // Main container for all elements
-    this.container = new PIXI.Container();
-    this.container.sortableChildren = true; // Enable z-index sorting
-    this.app.stage.addChild(this.container);
-
-    // Background grid container
-    this.backgroundGrid = new PIXI.Graphics();
-    this.backgroundGrid.zIndex = 1;
-    this.container.addChild(this.backgroundGrid);
-
-    // Waveform layer (below grid)
-    this.waveformLayer = new PIXI.Graphics();
-    this.waveformLayer.zIndex = 0;
-    this.container.addChild(this.waveformLayer);
-
-    // Waveform layer shown above piano-keys fill so it is visible left of playhead
-    this.waveformKeysLayer = new PIXI.Graphics();
-    // Keep it below notes and loop overlays, but above background grid fill
-    // Use the same zIndex as labels but add before them so labels stay on top
-    this.waveformKeysLayer.zIndex = 2;
-    this.container.addChild(this.waveformKeysLayer);
-
-    // Container for time grid labels (kept separate to avoid addChild on Graphics)
-    this.backgroundLabelContainer = new PIXI.Container();
-    this.backgroundLabelContainer.zIndex = 2;
-    this.container.addChild(this.backgroundLabelContainer);
-
-    // Notes container for all note rectangles
-    this.notesContainer = new PIXI.Container();
-    this.notesContainer.zIndex = 10;
-    this.container.addChild(this.notesContainer);
-
-    // Mask that clips out the bottom waveform band area from the notes/sustains
-    this.notesMask = new PIXI.Graphics();
-    this.container.addChild(this.notesMask);
-    this.notesContainer.mask = this.notesMask;
-
-    this.sustainContainer = new PIXI.Container();
-    this.sustainContainer.zIndex = 5;
-    this.container.addChild(this.sustainContainer);
-    // Apply same mask so sustain overlays also avoid the waveform area
-    this.sustainContainer.mask = this.notesMask;
-
-    // Overlay for sustain pedal (below notes to avoid covering them)
-    this.sustainOverlay = new PIXI.Graphics();
-    this.sustainOverlay.zIndex = -10; // ensure below note sprites
-    this.sustainContainer.addChild(this.sustainOverlay);
-
-    // Playhead line (always on top)
-    this.playheadLine = new PIXI.Graphics();
-    this.playheadLine.zIndex = 1000;
-    this.container.addChild(this.playheadLine);
-
-    // Overlay for loop window
-    this.loopOverlay = new PIXI.Graphics();
-    this.loopOverlay.zIndex = 500; // below playhead but above notes
-    this.container.addChild(this.loopOverlay);
-
-    // Overlay for multi-track overlaps (semi-transparent red)
-    this.overlapOverlay = new PIXI.Graphics();
-    this.overlapOverlay.zIndex = 20; // above grid, below notes
-    this.container.addChild(this.overlapOverlay);
-
-    // Container for loop A/B labels
-    this.loopLabelContainer = new PIXI.Container();
-    this.loopLabelContainer.zIndex = 600; // alongside loop lines
-    this.container.addChild(this.loopLabelContainer);
-
-    // Vertical lines for A (start) and B (end)
-    const startLine = new PIXI.Graphics();
-    const endLine = new PIXI.Graphics();
-    startLine.zIndex = 600;
-    endLine.zIndex = 600;
-    this.container.addChild(startLine);
-    this.container.addChild(endLine);
-    this.loopLines = { start: startLine, end: endLine };
+    initializeContainers(this);
   }
 
   private initializeTooltip(canvas: HTMLCanvasElement): void {
