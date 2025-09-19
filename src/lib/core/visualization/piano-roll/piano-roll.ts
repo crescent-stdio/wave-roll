@@ -12,6 +12,7 @@ import { renderPlayhead } from "@/lib/core/visualization/piano-roll/renderers/pl
 import { renderGrid } from "@/lib/core/visualization/piano-roll/renderers/grid";
 import { renderNotes } from "@/lib/core/visualization/piano-roll/renderers/notes";
 import { renderSustains } from "@/lib/core/visualization/piano-roll/renderers/sustains";
+import { initializeTooltipOverlay, initializeHelpOverlay } from "@/lib/core/visualization/piano-roll/ui/overlays";
 import {
   clampPanX,
   clampPanY,
@@ -45,6 +46,9 @@ export class PianoRoll {
 
   // Tooltip element for note hover information
   private tooltipDiv: HTMLDivElement | null = null;
+  // Help button and panel (overlay UI for interaction hints)
+  private helpButtonEl: HTMLButtonElement | null = null;
+  private helpPanelEl: HTMLDivElement | null = null;
 
   public playheadX: number = 0;
   public notes: NoteData[] = [];
@@ -187,6 +191,7 @@ export class PianoRoll {
     instance.initializeScales();
     // Add tooltip overlay after containers are ready
     instance.initializeTooltip(canvas);
+    instance.initializeHelpButton(canvas);
     instance.setupInteraction();
     instance.render(); // Full render including playhead
     return instance;
@@ -296,32 +301,14 @@ export class PianoRoll {
   }
 
   private initializeTooltip(canvas: HTMLCanvasElement): void {
-    const parent = canvas.parentElement;
-    if (!parent) return;
+    this.tooltipDiv = initializeTooltipOverlay(canvas);
+  }
 
-    // Ensure parent has positioning context for absolute children
-    const computedStyle = window.getComputedStyle(parent);
-    if (computedStyle.position === "static") {
-      parent.style.position = "relative";
-    }
-
-    const div = document.createElement("div");
-    Object.assign(div.style, {
-      position: "absolute",
-      zIndex: "1000",
-      pointerEvents: "none",
-      background: "rgba(0, 0, 0, 0.8)",
-      color: "#ffffff",
-      padding: "4px 6px",
-      borderRadius: "4px",
-      fontSize: "12px",
-      lineHeight: "1.2",
-      whiteSpace: "nowrap",
-      display: "none",
-    });
-
-    parent.appendChild(div);
-    this.tooltipDiv = div;
+  /** Create a top-right help button with hover panel explaining interactions */
+  private initializeHelpButton(canvas: HTMLCanvasElement): void {
+    const { button, panel } = initializeHelpOverlay(canvas);
+    this.helpButtonEl = button;
+    this.helpPanelEl = panel;
   }
 
   /**
