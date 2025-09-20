@@ -202,7 +202,7 @@ export function createEvaluationSection(
 
   tolerancesGroup.append(
     createToleranceInput("Onset tol (s):", "onsetTolerance", "0.001"),
-    createToleranceInput("Pitch tol (MIDI):", "pitchTolerance", "0.1"),
+    createToleranceInput("Pitch tol (semitones):", "pitchTolerance", "0.1"),
     createToleranceInput("Offset ratio tol:", "offsetRatioTolerance", "0.01"),
     createToleranceInput("Offset min tol (s):", "offsetMinTolerance", "0.001")
   );

@@ -346,7 +346,7 @@ export class PianoRoll {
       } else if (evalKind === "exclusive") {
         evalLine = `Matched exclusive (${fileRole ?? "Track"} part)`;
       } else if (evalKind === "ambiguous") {
-        evalLine = `Ambiguous: same time & pitch without match`;
+        evalLine = `Ambiguous (same pitch, overlapped, not matched)<br/>Possible cause: near-onset but offset too different (length mismatch)`;
       }
     } else if (fileRole === "Reference" || fileRole === "Comparison") {
       // Prefer wording that indicates presence-only rather than a failure

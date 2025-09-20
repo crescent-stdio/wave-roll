@@ -377,7 +377,7 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       width: 1,
       height: 1,
     }) as PIXI.TilingSprite;
-    pattern.visible = true;
+    pattern.visible = false; // force hidden globally per user preference
     pattern.alpha = 0.18; // subtle
     pattern.tint = 0x000000; // neutral (black) pattern
     pattern.blendMode = "normal";
@@ -486,12 +486,8 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       []);
     const pOverlay = patternSprites[idx];
     if (pOverlay) {
-      // Suppress pattern overlay for clean fills when requested
-      if (note.noOverlay === true) {
-        pOverlay.visible = false;
-      } else {
-        pOverlay.visible = true;
-      }
+      // Always hide pattern overlay globally (no dots/cross/up/down)
+      pOverlay.visible = false;
       pOverlay.x = sprite.x;
       pOverlay.y = sprite.y;
       pOverlay.width = sprite.width;
@@ -533,11 +529,10 @@ export function renderNotes(pianoRoll: PianoRoll): void {
       pOverlay.tileScale.set(scale, scale);
       // Increase visibility in evaluation highlight modes but keep notes vivid
       const hlMode = (pianoRoll as AugmentedPianoRoll).highlightMode ?? "file";
-      if (note.noOverlay === true) {
-        pOverlay.alpha = 0;
-      } else {
-        pOverlay.alpha = hlMode.startsWith("eval-") ? 0.2 : 0.12;
-      }
+      // Force alpha to 0 to ensure hidden state is preserved
+      pOverlay.alpha = 0;
+      // Ensure it remains hidden even if other logic toggles visibility
+      pOverlay.visible = false;
     }
 
     // Hatch overlay driven by eval flags on note fragments (on top of patterns)

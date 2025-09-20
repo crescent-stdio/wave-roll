@@ -227,5 +227,11 @@ export class EvaluationControls {
       const filtered = sEval.estIds.filter((id) => id !== sEval.refId);
       dependencies.stateManager.updateEvaluationState({ estIds: filtered });
     }
+
+    // Enforce single estimated selection globally (keep only the first if multiple)
+    const sEval2 = dependencies.stateManager.getState().evaluation;
+    if (sEval2.estIds.length > 1) {
+      dependencies.stateManager.updateEvaluationState({ estIds: [sEval2.estIds[0]] });
+    }
   }
 }

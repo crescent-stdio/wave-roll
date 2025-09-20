@@ -115,6 +115,10 @@ export class MultiMidiManager {
       displayName,
       originalInput || fileName
     );
+    // Default visibility: only the first two files are visible on initial load
+    const shouldBeVisible = this.state.files.length < 2;
+    entry.isPianoRollVisible = shouldBeVisible;
+    entry.isVisible = shouldBeVisible;
     this.state.files.push(entry);
     try {
       // Set baseline/original tempo from MIDI header's first/initial tempo

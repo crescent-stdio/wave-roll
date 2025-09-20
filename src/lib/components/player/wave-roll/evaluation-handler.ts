@@ -146,7 +146,7 @@ export class EvaluationHandler {
     });
     const selectedEstCount = estFiles.length;
 
-    // 2.5) Build ambiguous overlaps (case 3): unmatched GT/EST with same pitch and time overlap
+    // 2.5) Build ambiguous overlaps (case 3): unmatched GT/EST with same pitch and near-match timing
     const matchedRef = new Set<number>([...byRef.keys()]);
     const ambiguousByRef = new Map<number, Array<{ start: number; end: number; estId: string; estIdx: number }>>();
     const ambiguousByEst = new Map<string, Map<number, Array<{ start: number; end: number; refIdx: number }>>>();
@@ -176,7 +176,23 @@ export class EvaluationHandler {
           const eOn = en.time; const eOff = en.time + en.duration;
           const s = Math.max(rOn, eOn);
           const e = Math.min(rOff, eOff);
-          if (e > s) {
+          if (e <= s) continue;
+          // Apply stricter ambiguity criteria to avoid over-reporting:
+          // - Require sufficient temporal overlap (IoU >= 0.25)
+          // - And near-miss on onset or offset within 1.25x tolerance
+          const inter = Math.max(0, Math.min(rOff, eOff) - Math.max(rOn, eOn));
+          const union = Math.max(rOff, eOff) - Math.min(rOn, eOn);
+          const iou = union > 0 ? inter / union : 0;
+          const onsetDiff = Math.abs(eOn - rOn);
+          const refDur = rOff - rOn;
+          const effOffsetTol = Math.max(
+            tolerances.offsetMinTolerance,
+            tolerances.offsetRatioTolerance * Math.max(0, refDur)
+          );
+          const offsetDiff = Math.abs(eOff - rOff);
+          const nearOnset = onsetDiff <= tolerances.onsetTolerance * 1.25;
+          const nearOffset = offsetDiff <= effOffsetTol * 1.25;
+          if (iou >= 0.25 && (nearOnset || nearOffset)) {
             // Record ambiguous ranges for both REF and EST
             const listR = ambiguousByRef.get(r) ?? [];
             listR.push({ start: s, end: e, estId, estIdx: eIdx });
