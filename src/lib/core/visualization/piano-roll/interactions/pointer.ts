@@ -65,12 +65,6 @@ export function onPointerUp(
 
   // Commit final time to external listener once, to avoid heavy seeks during drag
   const commitTime = pianoRoll.computeTimeAtPlayhead();
-  const prevTime = pianoRoll.state.currentTime || 0;
-  // Skip callback if time hasn't changed meaningfully
-  if (Math.abs(commitTime - prevTime) < 1e-3) {
-    return;
-  }
-
   pianoRoll.state.currentTime = commitTime;
   if (pianoRoll.onTimeChangeCallback) {
     pianoRoll.onTimeChangeCallback(commitTime);

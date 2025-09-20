@@ -13,7 +13,7 @@ export default defineConfig({
       },
     },
     globals: true,
-    setupFiles: [],
+    setupFiles: ["./test/setup.ts"],
     reporters: ["default"],
     coverage: {
       enabled: false,

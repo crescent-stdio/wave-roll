@@ -63,13 +63,14 @@ describe('piano-roll pointer up seek guard', () => {
   it('skips commit when time change is below epsilon', () => {
     const { pianoRoll, cb } = createStubPianoRoll(1.0);
     pianoRoll.state.isPanning = true;
-    // Delta < 1e-3 should be ignored
     pianoRoll.computeTimeAtPlayhead = vi.fn(() => 1.0000005);
 
     onPointerUp({} as any, pianoRoll);
 
-    expect(cb).not.toHaveBeenCalled();
-    expect(pianoRoll.state.currentTime).toBe(1.0);
+    // After reverting epsilon guard, commit should fire once
+    expect(cb).toHaveBeenCalledTimes(1);
+    expect(cb).toHaveBeenCalledWith(1.0000005);
+    expect(pianoRoll.state.currentTime).toBeCloseTo(1.0000005);
   });
 });
 
