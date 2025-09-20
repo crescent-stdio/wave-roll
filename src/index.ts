@@ -18,43 +18,4 @@ export {
 import "./web-component";
 export { WaveRollElement } from "./web-component";
 
-// ------------------------------------------------------------------
-// 3) Deprecated html-midi-player stubs
-// ------------------------------------------------------------------
-
-/**
- * Options accepted by the legacy <html-midi-player/> wrapper.
- * These are kept only so that older code can still compile.
- * They have no effect in the stub implementation below.
- */
-export interface MidiPlayerOptions {
-  showVisualizer?: boolean;
-  soundFont?: boolean | string;
-  className?: string;
-  width?: string;
-  height?: string;
-}
-
-/**
- * Stubbed loader for html-midi-player Web Components.
- */
-export async function loadPlayerComponents(): Promise<void> {
-  /* html-midi-player components were removed - nothing to load */
-  return;
-}
-
-/**
- * Legacy runtime check - always returns false because the old player was removed.
- */
-export function isPlayerAvailable(): boolean {
-  return false;
-}
-
-/**
- * Stub that used to return internal player state - now returns an empty object.
- */
-export function debugPlayerState(
-  _container?: HTMLElement
-): Record<string, never> {
-  return {} as const;
-}
+// (legacy html-midi-player stubs removed)

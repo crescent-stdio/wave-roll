@@ -15,10 +15,12 @@
       "@/assets/*": ["src/assets/*"],
       "@/types/*": ["src/lib/types/*"],
       "@/types": ["src/lib/types/index.ts"],
+      "@/web-component": ["src/web-component.ts"],
       "@/core/playback": ["test/types/stubs/core-playback.d.ts"],
       "@/core/audio": ["test/types/stubs/core-audio.d.ts"],
       "@/lib/core/audio/audio-player": ["test/types/stubs/audio-player.d.ts"],
       "pixi.js": ["test/types/stubs/pixi.d.ts"],
+      "@/lib/components/player/wave-roll/player": ["test/types/stubs/core-player-factory.d.ts"],
       "tone": ["test/types/stubs/tone.d.ts"],
       "d3-scale": ["test/types/stubs/d3-scale.d.ts"]
     }
@@ -28,7 +30,5 @@
     "**/*.tsx",
     "**/*.d.ts"
   ],
-  "exclude": [
-    "web-component.element.test.ts"
-  ]
+  "exclude": []
 }

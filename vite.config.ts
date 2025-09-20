@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import { resolve } from "path";
 
 export default defineConfig({
@@ -61,6 +61,7 @@ export default defineConfig({
       "@/lib": resolve(__dirname, "src/lib"),
       "@/assets": resolve(__dirname, "src/assets"),
       "@/types": resolve(__dirname, "src/lib/types/index.ts"),
+      "@/web-component": resolve(__dirname, "src/web-component.ts"),
     },
     conditions: ["module", "browser", "import", "default"],
   },

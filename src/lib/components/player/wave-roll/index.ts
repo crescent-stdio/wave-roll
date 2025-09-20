@@ -1,3 +1,3 @@
 export { WaveRollPlayer } from "./player";
-export { WaveRollElement } from "./element";
+export { WaveRollElement } from "@/web-component";
 export type { WaveRollPlayerOptions } from "./types";

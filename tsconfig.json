@@ -21,7 +21,8 @@
       "@/components/*": ["src/lib/components/*"],
       "@/assets/*": ["src/assets/*"],
       "@/types/*": ["src/lib/types/*"],
-      "@/types": ["src/lib/types/index.ts"]
+      "@/types": ["src/lib/types/index.ts"],
+      "@/web-component": ["src/web-component.ts"]
     }
   },
   "include": ["src/**/*"],
