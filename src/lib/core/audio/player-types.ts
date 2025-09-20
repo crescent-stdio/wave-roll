@@ -52,6 +52,8 @@ export interface AudioPlayerState {
   pan: number;
   /** Current playback rate as percentage (10-200, 100 = normal speed) */
   playbackRate?: number;
+  /** Generation token to prevent ghost audio - increments on play/seek/tempo changes */
+  playbackGeneration?: number;
   
   // New unified state management fields
   /** Master volume for all audio sources */

@@ -19,7 +19,11 @@ export interface WaveRollAudioAPI {
   getVisiblePeaks?: () => PeakDatum[];
   sampleAtTime?: (time: number) => Omit<PeakDatum, "time"> | null;
   toggleVisibility?: (id: string) => void;
+  /** Set visibility explicitly (added for compatibility) */
+  setVisibility?: (id: string, visible: boolean) => void;
   toggleMute?: (id: string) => void;
+  /** Set mute explicitly (added for compatibility) */
+  setMute?: (id: string, muted: boolean) => void;
   setPan?: (id: string, pan: number) => void;
   updateDisplayName?: (id: string, name: string) => void;
   updateColor?: (id: string, color: number) => void;

@@ -54,11 +54,26 @@ export function onPointerUp(
   event: MouseEvent | TouchEvent,
   pianoRoll: PianoRoll
 ): void {
+  // Only commit if we were actually panning (dragging). This prevents
+  // unintended seeks on mere hover + mouseleave without a drag.
+  const wasPanning = pianoRoll.state.isPanning === true;
   pianoRoll.state.isPanning = false;
+
+  if (!wasPanning) {
+    return;
+  }
+
   // Commit final time to external listener once, to avoid heavy seeks during drag
-  pianoRoll.state.currentTime = pianoRoll.computeTimeAtPlayhead();
+  const commitTime = pianoRoll.computeTimeAtPlayhead();
+  const prevTime = pianoRoll.state.currentTime || 0;
+  // Skip callback if time hasn't changed meaningfully
+  if (Math.abs(commitTime - prevTime) < 1e-3) {
+    return;
+  }
+
+  pianoRoll.state.currentTime = commitTime;
   if (pianoRoll.onTimeChangeCallback) {
-    pianoRoll.onTimeChangeCallback(pianoRoll.state.currentTime);
+    pianoRoll.onTimeChangeCallback(commitTime);
   }
 }
 

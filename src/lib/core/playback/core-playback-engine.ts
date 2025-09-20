@@ -371,6 +371,15 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   }
 
   /**
+   * Legacy compatibility: global pan setter (no-op in v2)
+   * Exposed to satisfy older call sites that expect setPan on the engine.
+   */
+  public setPan(_pan: number): void {
+    // Global pan removed; per-file pan should be used instead.
+    // Intentionally left as a no-op for backward compatibility.
+  }
+
+  /**
    * Set baseline/original tempo used as 100% reference for percent-based rate.
    */
   public setOriginalTempo(bpm: number): void {

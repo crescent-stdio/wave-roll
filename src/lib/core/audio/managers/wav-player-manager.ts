@@ -21,7 +21,7 @@ export interface AudioPlayerEntry {
   /** Token to invalidate stale async starts (e.g., overlapping loads) */
   startToken?: number;
   /** Pending timeout id for a scheduled start (if any) - legacy setTimeout scheduling */
-  scheduledTimer?: number | null;
+  scheduledTimer?: number | ReturnType<typeof setTimeout> | null;
   /** Tone.js Transport event ID for synchronized scheduling */
   transportEventId?: number | null;
 }
