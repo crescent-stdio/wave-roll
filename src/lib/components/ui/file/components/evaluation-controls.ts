@@ -2,7 +2,6 @@
  * Evaluation controls for reference and estimation file selection
  */
 
-import { PLAYER_ICONS } from "@/assets/player-icons";
 import { UIComponentDependencies } from "@/lib/components/ui";
 import { createIconButton } from "../../utils/icon-button";
 
@@ -19,22 +18,36 @@ export class EvaluationControls {
    * Create reference pin button
    */
   static createReferenceButton(config: EvaluationControlsConfig): HTMLButtonElement {
-    const { fileId, isReference, dependencies, container } = config;
+    const { fileId, isReference, isEstimated, dependencies, container } = config;
 
-    const pinBtn = createIconButton(
-      PLAYER_ICONS.pin,
-      () => this.handleReferenceToggle(fileId, dependencies, container),
-      isReference ? "Unset as reference" : "Set as reference",
-      { size: 24 }
-    );
+    // Replace icon button with a compact text button labeled [REF]
+    const refBtn = document.createElement("button");
+    refBtn.type = "button";
+    refBtn.textContent = "[REF]";
+    refBtn.title = isReference ? "Unset as reference" : "Set as reference";
+    refBtn.onclick = () => this.handleReferenceToggle(fileId, dependencies, container);
 
-    pinBtn.style.color = isReference ? "#0d6efd" : "#adb5bd";
-    pinBtn.style.border = "none";
-    pinBtn.style.boxShadow = "none";
-    pinBtn.setAttribute("data-role", "ref-pin");
-    pinBtn.setAttribute("data-file-id", fileId);
+    // Compact style to match other controls
+    refBtn.style.cssText = `
+      height: 24px;
+      padding: 0 8px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: ${isReference ? "#0d6efd" : "#adb5bd"};
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      line-height: 22px;
+    `;
+    refBtn.style.boxShadow = "none";
+    refBtn.setAttribute("data-role", "ref-pin");
+    refBtn.setAttribute("data-file-id", fileId);
 
-    return pinBtn;
+    // Allow clicking even if currently estimated; logic will swap roles.
+
+    return refBtn;
   }
 
   /**
@@ -43,24 +56,30 @@ export class EvaluationControls {
   static createEstimationButton(config: EvaluationControlsConfig): HTMLButtonElement {
     const { fileId, isReference, isEstimated, dependencies, container } = config;
 
-    const estBtn = createIconButton(
-      PLAYER_ICONS.est,
-      () => this.handleEstimationToggle(fileId, dependencies, container),
-      isEstimated ? "Unset as estimated" : "Set as estimated",
-      { size: 24 }
-    );
+    const estBtn = document.createElement("button");
+    estBtn.type = "button";
+    estBtn.textContent = "[EST]";
+    estBtn.title = isEstimated ? "Unset as estimated" : "Set as estimated";
+    estBtn.onclick = () => this.handleEstimationToggle(fileId, dependencies, container);
 
-    estBtn.style.color = isEstimated ? "#198754" : "#adb5bd";
-    estBtn.style.border = "none";
+    estBtn.style.cssText = `
+      height: 24px;
+      padding: 0 8px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: ${isEstimated ? "#198754" : "#adb5bd"};
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      line-height: 22px;
+    `;
     estBtn.style.boxShadow = "none";
     estBtn.setAttribute("data-role", "est-toggle");
     estBtn.setAttribute("data-file-id", fileId);
 
-    if (isReference) {
-      estBtn.style.opacity = "0.5";
-      estBtn.style.pointerEvents = "none";
-      estBtn.title = "Cannot set Reference as Estimated";
-    }
+    // Allow clicking even if currently reference; logic will swap roles.
 
     return estBtn;
   }
@@ -85,7 +104,7 @@ export class EvaluationControls {
     });
 
     // Optimistically update UI
-    this.updateReferenceButtons(container, nextRef);
+    this.updateReferenceButtons(container, nextRef, nextEstIds);
     this.updateEstimationButtons(container, nextRef, nextEstIds);
   }
 
@@ -99,22 +118,27 @@ export class EvaluationControls {
   ): void {
     const evalState = dependencies.stateManager.getState().evaluation;
     
+    // If this file is currently the reference, switch: unset ref and set as [EST]
     if (evalState.refId === fileId) {
-      return; // Do not allow marking ref as estimated
+      const newEstIds = [fileId];
+      dependencies.stateManager.updateEvaluationState({ refId: null, estIds: newEstIds });
+      this.updateEstimationButtons(container, null, newEstIds);
+      this.updateReferenceButtons(container, null, newEstIds);
+      return;
     }
 
+    // Enforce single selection: toggle to [fileId] or []
     const already = evalState.estIds.includes(fileId);
-    const next = already
-      ? evalState.estIds.filter((id) => id !== fileId)
-      : [...evalState.estIds, fileId];
+    const nextSingle = already ? [] : [fileId];
     const filtered = evalState.refId
-      ? next.filter((id) => id !== evalState.refId)
-      : next;
+      ? nextSingle.filter((id) => id !== evalState.refId)
+      : nextSingle;
 
     dependencies.stateManager.updateEvaluationState({ estIds: filtered });
 
     // Optimistically update UI
     this.updateEstimationButtons(container, evalState.refId, filtered);
+    this.updateReferenceButtons(container, evalState.refId, filtered);
   }
 
   /**
@@ -122,17 +146,21 @@ export class EvaluationControls {
    */
   private static updateReferenceButtons(
     container: HTMLElement,
-    nextRef: string | null
+    nextRef: string | null,
+    estIds: string[]
   ): void {
     const buttons = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button[data-role=ref-pin]")
     );
 
     buttons.forEach((btn) => {
-      const fid = btn.getAttribute("data-file-id");
+      const fid = btn.getAttribute("data-file-id") || "";
       const active = nextRef !== null && fid === nextRef;
       btn.style.color = active ? "#0d6efd" : "#adb5bd";
       btn.title = active ? "Unset as reference" : "Set as reference";
+      // Keep buttons interactive for swap behavior
+      btn.style.opacity = "1";
+      btn.style.pointerEvents = "auto";
     });
   }
 
@@ -151,19 +179,13 @@ export class EvaluationControls {
     buttons.forEach((btn) => {
       const fid = btn.getAttribute("data-file-id") || "";
       const active = estIds.includes(fid);
-      const isRefBtn = refId !== null && fid === refId;
       
       btn.style.color = active ? "#198754" : "#adb5bd";
       btn.title = active ? "Unset as estimated" : "Set as estimated";
       
-      if (isRefBtn) {
-        btn.style.opacity = "0.5";
-        btn.style.pointerEvents = "none";
-        btn.title = "Cannot set Reference as Estimated";
-      } else {
-        btn.style.opacity = "1";
-        btn.style.pointerEvents = "auto";
-      }
+      // Keep buttons interactive for swap behavior
+      btn.style.opacity = "1";
+      btn.style.pointerEvents = "auto";
     });
   }
 

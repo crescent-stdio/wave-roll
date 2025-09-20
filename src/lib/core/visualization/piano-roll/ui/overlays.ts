@@ -15,8 +15,11 @@ function ensurePositioned(parent: HTMLElement): void {
  * Create and attach the note tooltip overlay to the canvas parent.
  * Returns the created tooltip div.
  */
-export function initializeTooltipOverlay(canvas: HTMLCanvasElement): HTMLDivElement {
-  const parent = canvas.parentElement;
+export function initializeTooltipOverlay(
+  canvas: HTMLCanvasElement,
+  container?: HTMLElement
+): HTMLDivElement {
+  const parent = container || canvas.parentElement;
   if (!parent) {
     throw new Error("Tooltip parent element not found");
   }
@@ -47,8 +50,11 @@ export interface HelpOverlay {
 }
 
 /** Create and attach a top-right help button with hover panel. */
-export function initializeHelpOverlay(canvas: HTMLCanvasElement): HelpOverlay {
-  const parent = canvas.parentElement;
+export function initializeHelpOverlay(
+  canvas: HTMLCanvasElement,
+  container?: HTMLElement
+): HelpOverlay {
+  const parent = container || canvas.parentElement;
   if (!parent) {
     throw new Error("Help overlay parent element not found");
   }

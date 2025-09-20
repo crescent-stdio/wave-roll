@@ -33,8 +33,13 @@ export class FileToggleItem {
     // Add all components
     item.appendChild(this.createColorIndicator(file, dependencies));
     item.appendChild(this.createFileName(file));
-    item.appendChild(this.createReferenceButton(file, dependencies, item));
-    item.appendChild(this.createEstimationButton(file, dependencies, item));
+
+    // Group REF/EST buttons to reduce spacing specifically between them
+    const evalGroup = document.createElement("div");
+    evalGroup.style.cssText = `display:flex;align-items:center;gap:2px;`;
+    evalGroup.appendChild(this.createReferenceButton(file, dependencies, item));
+    evalGroup.appendChild(this.createEstimationButton(file, dependencies, item));
+    item.appendChild(evalGroup);
     item.appendChild(this.createVisibilityButton(file, dependencies));
     item.appendChild(this.createSustainButton(file, dependencies));
     item.appendChild(this.createVolumeControl(file, dependencies));

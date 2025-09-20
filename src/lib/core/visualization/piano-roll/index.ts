@@ -27,7 +27,7 @@ export async function createPianoRoll(
   container.appendChild(canvas);
 
   // Create piano roll instance
-  const pianoRoll = await PianoRoll.create(canvas, options);
+  const pianoRoll = await PianoRoll.create(canvas, container, options);
 
   /* -----------------------------------------------------------
    * Keep PixiJS renderer in sync with container size.

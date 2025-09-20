@@ -28,6 +28,7 @@ import { initializeContainers } from "@/lib/core/visualization/piano-roll/ui/con
 export class PianoRoll {
   public app: PIXI.Application;
   public container!: PIXI.Container;
+  public domContainer!: HTMLElement;
   public notesContainer!: PIXI.Container;
   public sustainContainer!: PIXI.Container;
   public playheadLine!: PIXI.Graphics;
@@ -118,8 +119,12 @@ export class PianoRoll {
 
   private constructor(
     canvas: HTMLCanvasElement,
+    domContainer: HTMLElement,
     options: PianoRollConfig = {}
   ) {
+    // Store DOM container reference
+    this.domContainer = domContainer;
+    
     // Set default options
     this.options = {
       width: 800,
@@ -184,9 +189,10 @@ export class PianoRoll {
    */
   public static async create(
     canvas: HTMLCanvasElement,
+    domContainer: HTMLElement,
     options: PianoRollConfig = {}
   ): Promise<PianoRoll> {
-    const instance = new PianoRoll(canvas, options);
+    const instance = new PianoRoll(canvas, domContainer, options);
     await instance.initializeApp(canvas);
     instance.initializeContainers();
     instance.initializeScales();
@@ -227,12 +233,12 @@ export class PianoRoll {
   }
 
   private initializeTooltip(canvas: HTMLCanvasElement): void {
-    this.tooltipDiv = initializeTooltipOverlay(canvas);
+    this.tooltipDiv = initializeTooltipOverlay(canvas, this.domContainer);
   }
 
   /** Create a top-right help button with hover panel explaining interactions */
   private initializeHelpButton(canvas: HTMLCanvasElement): void {
-    const { button, panel } = initializeHelpOverlay(canvas);
+    const { button, panel } = initializeHelpOverlay(canvas, this.domContainer);
     this.helpButtonEl = button;
     this.helpPanelEl = panel;
   }
