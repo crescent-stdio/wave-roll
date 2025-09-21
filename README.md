@@ -11,8 +11,8 @@
 
 ![Screenshot of WaveRoll](./wave-roll.png)
 
-- You can try the web demo at [crescent-stdio.github.io/wave-roll](https://crescent-stdio.github.io/wave-roll/).
-- NPM package: [npmjs.com/package/wave-roll](https://www.npmjs.com/package/wave-roll)
+- You can try the web demo at [https://crescent-stdio.github.io/wave-roll/](https://crescent-stdio.github.io/wave-roll/).
+- NPM package: [https://www.npmjs.com/package/wave-roll](https://www.npmjs.com/package/wave-roll)
 
 
 ## Installation

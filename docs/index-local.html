@@ -5,7 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WaveRoll Demo (Local Build)</title>
     <script type="module">
-      import "../dist/wave-roll.es.js";
+      async function loadWaveRoll() {
+        try {
+          await import('./dist/wave-roll.es.js');
+        } catch (err) {
+          console.warn('Local dist not found, falling back to CDN.', err);
+          await import('https://cdn.jsdelivr.net/npm/wave-roll@0.2.0/dist/wave-roll.es.js');
+        }
+      }
+      loadWaveRoll();
     </script>
     <style>
       html, body {
