@@ -40,6 +40,7 @@ export function createFileList(
     fileList.innerHTML = "";
 
     const currentFiles = dependencies.midiManager.getState().files;
+    const canRemove = dependencies.permissions?.canRemoveFiles !== false;
 
     // ---- Enable container-level dragover / drop so that
     //      users can drop _below_ the last item (e.g. when only 2 files)
@@ -168,12 +169,14 @@ export function createFileList(
       nameInput.style.cssText =
         "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
 
-      // Delete button
+      // Delete button (hidden in readonly / when canRemove is false)
       const delBtn = document.createElement("button");
+      delBtn.setAttribute("aria-label", "Delete MIDI file");
       delBtn.innerHTML = PLAYER_ICONS.trash;
       delBtn.style.cssText =
         "border:none;background:transparent;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);";
       delBtn.onclick = () => {
+        if (!canRemove) { return; }
         if (confirm(`Delete ${file.displayName}?`)) {
           dependencies.midiManager.removeMidiFile(file.id);
           refreshFileList();
@@ -261,11 +264,14 @@ export function createFileList(
       row.appendChild(handle);
       row.appendChild(colorPickerContainer);
       row.appendChild(nameInput);
-      row.appendChild(delBtn);
+      if (canRemove) {
+        row.appendChild(delBtn);
+      }
       fileList.appendChild(row);
     });
 
     /* ---------- Add MIDI button ---------- */
+    const canAdd = dependencies.permissions?.canAddFiles !== false;
     const addBtn = document.createElement("button");
     addBtn.type = "button";
     addBtn.textContent = "Add MIDI Files";
@@ -278,9 +284,10 @@ export function createFileList(
     hiddenInput.multiple = true;
     hiddenInput.style.display = "none";
 
-    addBtn.onclick = () => hiddenInput.click();
+    addBtn.onclick = () => { if (canAdd) hiddenInput.click(); };
 
     hiddenInput.onchange = async (e) => {
+      if (!canAdd) { return; }
       const files = Array.from((e.target as HTMLInputElement).files || []);
       if (files.length === 0) return;
 
@@ -301,8 +308,9 @@ export function createFileList(
       refreshFileList();
       hiddenInput.value = "";
     };
-
-    fileList.appendChild(addBtn);
+    if (canAdd) {
+      fileList.appendChild(addBtn);
+    }
   };
 
   // Initial render

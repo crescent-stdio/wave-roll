@@ -115,6 +115,12 @@ export class WaveRollPlayer {
   private lastHookedAudioPlayer: any = null;
   private audioVisualHooked: boolean = false;
 
+  // UI permissions (used to drive readonly behavior in UI components)
+  private permissions: { canAddFiles: boolean; canRemoveFiles: boolean } = {
+    canAddFiles: true,
+    canRemoveFiles: true,
+  };
+
   // Compute effective UI duration considering tempo and WAV length
   private getEffectiveDuration(): number {
     try {
@@ -363,6 +369,7 @@ export class WaveRollPlayer {
         openEvaluationResultsModal: () => this.openEvaluationResultsModal(),
         formatTime: (seconds: number) => formatTime(seconds),
         silenceDetector: this.silenceDetector,
+        permissions: { ...this.permissions },
       };
 
       // After creation, convert seconds -> % once we know (tempo/WAV-aware) duration.
@@ -394,6 +401,7 @@ export class WaveRollPlayer {
         };
       }
       this.uiDeps.seeking = uiState.seeking;
+      this.uiDeps.permissions = { ...this.permissions };
     }
 
     return this.uiDeps as UIComponentDependencies;
@@ -743,6 +751,22 @@ export class WaveRollPlayer {
    */
   public seek(time: number): void {
     this.visualizationEngine.seek(time, true);
+  }
+
+  /**
+   * Update UI permissions at runtime (e.g., readonly mode)
+   */
+  public setPermissions(permissions: Partial<{ canAddFiles: boolean; canRemoveFiles: boolean }>): void {
+    this.permissions = { ...this.permissions, ...permissions };
+    // Ensure UI deps reflect latest permissions
+    if (this.uiDeps) {
+      this.uiDeps.permissions = { ...this.permissions };
+    }
+    // Refresh UI surfaces that may depend on permissions
+    try {
+      this.updateSidebar();
+      this.updateFileToggleSection();
+    } catch {}
   }
 }
 

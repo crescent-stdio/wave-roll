@@ -34,12 +34,19 @@ class WaveRollElement extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['files'];
+    return ['files', 'readonly'];
   }
 
   attributeChangedCallback(name: string, oldValue: string, newValue: string) {
     if (name === 'files' && oldValue !== newValue) {
       this.initializePlayer();
+      return;
+    }
+    if (name === 'readonly' && this.player && oldValue !== newValue) {
+      const ro = this.hasAttribute('readonly');
+      try {
+        this.player.setPermissions?.({ canAddFiles: !ro, canRemoveFiles: !ro });
+      } catch {}
     }
   }
 
@@ -113,6 +120,10 @@ class WaveRollElement extends HTMLElement {
         return mapped;
       });
       this.player = await createWaveRollPlayer(this.container, normalized);
+      // Apply readonly after player creation if attribute present
+      if (this.hasAttribute('readonly')) {
+        this.player.setPermissions?.({ canAddFiles: false, canRemoveFiles: false });
+      }
       // Notify listeners the component has finished initialization
       this.dispatchEvent(new Event('load'));
     } catch (e) {

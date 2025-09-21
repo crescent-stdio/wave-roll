@@ -55,6 +55,14 @@ export interface UIComponentDependencies {
 
   /** Optional reference to zoom input for synchronized UI updates */
   zoomInput?: HTMLInputElement;
+
+  /** Optional permissions controlling UI capabilities (e.g., readonly mode) */
+  permissions?: {
+    /** When false, hide and disable UI paths that add files */
+    canAddFiles: boolean;
+    /** When false, hide and disable UI paths that remove files */
+    canRemoveFiles: boolean;
+  };
 }
 
 export interface UIElements {
