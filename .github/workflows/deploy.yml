@@ -44,6 +44,7 @@ jobs:
           cp -r dist deployment/
           mkdir -p deployment/sample_midi
           cp -r src/sample_midi/* deployment/sample_midi/
+          cp -r docs/examples deployment/examples
           # Copy test files
           cp test-esm-cdn.html deployment/ || true
           cp test-umd.html deployment/ || true

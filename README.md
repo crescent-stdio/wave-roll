@@ -47,7 +47,7 @@ npm install wave-roll
 ```
 
 ### Using CDN (ES Module)
-You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/test-esm-cdn.html) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/test-esm-cdn.html).
+You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/examples/es-module/) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/es-module/index.html).
 
 
 ```html
@@ -72,7 +72,7 @@ You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll
 ```
 
 ### Using UMD CDN (Traditional Script)
-You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-umd.html) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/test-umd.html).
+You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/examples/umd/) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/umd/index.html).
 
 ```html
 <!DOCTYPE html>

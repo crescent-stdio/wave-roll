@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WaveRoll ES Module Example (Same-Origin)</title>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #f5f5f7;
+        margin: 0;
+        padding: 20px;
+      }
+      h1 {
+        color: #1d1d1f;
+        margin-bottom: 20px;
+      }
+      .info {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+      }
+      .info code {
+        background: #f4f4f4;
+        padding: 2px 4px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1><a href="https://www.github.com/crescent-stdio/wave-roll" target="_blank" rel="noopener"></a>WaveRoll ES Module Example (Same-Origin)</a></h1>
+
+    <div class="info">
+      <p>
+        This example loads WaveRoll via ES module from npm CDN, while the sample
+        audio/MIDI files are served from the same origin (GitHub Pages) to avoid
+        CORS issues.
+      </p>
+      <p>Library (ESM) via CDN:</p>
+      <code>https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js</code>
+    </div>
+
+    <wave-roll
+      style="width: 100%"
+      files='[
+        {"path": "../assets/sample_midi/chopin_audio.mp3", "name": "Chopin Etude Op. 10 No. 12", "type": "audio"},
+        {"path": "../assets/sample_midi/chopin_ground_truth.midi", "name": "Ground Truth", "type": "midi"},
+        {"path": "../assets/sample_midi/chopin_model_y.midi", "name": "Model Y Output", "type": "midi"},
+        {"path": "../assets/sample_midi/chopin_model_b.midi", "name": "Model B Output", "type": "midi"}
+      ]'
+    ></wave-roll>
+
+    <script type="module">
+      import "https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js";
+      console.log("WaveRoll ES module loaded successfully");
+    </script>
+  </body>
+</html>

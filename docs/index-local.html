@@ -16,35 +16,56 @@
       loadWaveRoll();
     </script>
     <style>
-      html, body {
+      * {
         margin: 0;
         padding: 0;
-        height: 100%;
+        box-sizing: border-box;
       }
+
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           "Helvetica Neue", Arial, sans-serif;
         background: #ffffff;
         color: #1d1d1f;
-      }
-      wave-roll {
-        display: block;
-        width: 100%;
         height: 100vh;
+      }
+
+      #app {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: #ffffff;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 12px 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+
+      header h1 {
+        font-size: 20px;
+        font-weight: 600;
+        color: #1d1d1f;
       }
     </style>
   </head>
   <body>
-    <wave-roll
-      style="width: 100%; height: 100vh;"
-      files='[
-        {"path": "./sample_midi/chopin/chopin_audio.mp3", "name": "Chopin Etude Op. 10 No. 12", "type": "audio"},
-        {"path": "./sample_midi/chopin/chopin_ground_truth.midi", "name": "Ground Truth", "type": "midi"},
-        {"path": "./sample_midi/chopin/chopin_model_y.midi", "name": "Model Y Output", "type": "midi"},
-        {"path": "./sample_midi/chopin/chopin_model_b.midi", "name": "Model B Output", "type": "midi"}
-      ]'
-      readonly
-    ></wave-roll>
+    <div id="app">
+      <header>
+        <h1><a href="https://www.github.com/crescent-stdio/wave-roll" target="_blank" rel="noopener">WaveRoll - MIDI Visualizer</a></h1>
+      </header>
+      <wave-roll
+        style="width: 100%; height: 100vh;"
+        files='[
+          {"path": "./sample_midi/chopin/chopin_audio.mp3", "name": "Chopin Etude Op. 10 No. 12", "type": "audio"},
+          {"path": "./sample_midi/chopin/chopin_ground_truth.midi", "name": "Ground Truth", "type": "midi"},
+          {"path": "./sample_midi/chopin/chopin_model_y.midi", "name": "Model Y Output", "type": "midi"},
+          {"path": "./sample_midi/chopin/chopin_model_b.midi", "name": "Model B Output", "type": "midi"}
+        ]'
+      ></wave-roll>
+    </div>
   </body>
   </html>
 
