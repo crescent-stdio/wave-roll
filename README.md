@@ -39,7 +39,7 @@ npm install wave-roll
     files='[
       {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
+      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -47,7 +47,8 @@ npm install wave-roll
 ```
 
 ### Using CDN (ES Module)
-You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/test-esm-cdn.html).
+You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/test-esm-cdn.html) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/test-esm-cdn.html).
+
 
 ```html
 <!DOCTYPE html>
@@ -63,7 +64,7 @@ You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll
     files='[
       {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
+      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -71,7 +72,7 @@ You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll
 ```
 
 ### Using UMD CDN (Traditional Script)
-You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-umd.html).
+You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-umd.html) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/test-umd.html).
 
 ```html
 <!DOCTYPE html>
@@ -85,7 +86,7 @@ You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-
     files='[
       {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
+      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -109,11 +110,11 @@ For GitHub Pages deployment, you can use the CDN directly:
 </head>
 <body>
   <wave-roll
-    style="width: 100%; height: 600px;"
+    style="width: 100%"
     files='[
       {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
+      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -129,7 +130,7 @@ function MidiComparison() {
   const files = [
     { path: "/audio/track.wav", name: "Track Audio", type: "audio" },
     { path: "/midi/ground_truth.mid", name: "Ground Truth", type: "midi" },
-    { path: "/midi/model1.mid", name: "Model 1", type: "midi" }
+    { path: "/midi/modelA.mid", name: "Model A", type: "midi" }
   ];
 
   return (
@@ -149,6 +150,31 @@ function MidiComparison() {
 |-----------|------|-------------|
 | `files` | `string` | JSON string array of file objects with `path` and `name` properties |
 | `style` | `string` | CSS styles for the component container |
+| `readonly` | `boolean attribute` | When present, hides UI controls for adding/removing files (read‑only mode) |
+
+#### Read‑only Mode
+
+Add the `readonly` attribute to disable file addition and deletion in the Settings modal (the "Add MIDI Files" button and per‑file delete buttons are hidden):
+
+```html
+<wave-roll
+  style="width: 100%; height: 600px;"
+  files='[
+    {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
+    {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+    {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
+  ]'
+  readonly
+></wave-roll>
+```
+
+You can toggle this at runtime too:
+
+```js
+const el = document.querySelector('wave-roll');
+el.setAttribute('readonly', '');      // enable read-only
+el.removeAttribute('readonly');       // disable read-only
+```
 
 ### File Object Structure
 
@@ -197,9 +223,7 @@ npm test
 ```
 
 ## Acknowledgments
-
-This library includes functionality ported from:
-- [mir_eval](https://github.com/mir-evaluation/mir_eval) - Music Information Retrieval evaluation library
+This library includes functionality ported from [mir_eval](https://github.com/mir-evaluation/mir_eval), Music Information Retrieval evaluation library.
 
 ## License
 
