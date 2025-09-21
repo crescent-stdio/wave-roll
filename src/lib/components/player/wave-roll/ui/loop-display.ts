@@ -1,5 +1,3 @@
-// (No imports needed)
-
 /** Describe A-B loop window in percentage units (0-100). */
 export interface LoopPoints {
   /** Start marker (A) - percentage or null when not set. */

@@ -5,11 +5,20 @@
   "main": "dist/wave-roll.umd.js",
   "module": "dist/wave-roll.es.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/wave-roll.es.js",
+      "require": "./dist/wave-roll.umd.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && pnpm run build:types",
+    "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "dev": "vite",
     "preview": "vite preview",
     "watch": "vite build --watch",
@@ -30,6 +39,7 @@
   "author": "Hannah Park",
   "license": "MIT",
   "type": "module",
+  "sideEffects": false,
   "bugs": {
     "url": "https://github.com/crescent-stdio/wave-roll/issues"
   },
