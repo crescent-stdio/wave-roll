@@ -49,3 +49,6 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+
+# Sample MIDI files
+src/sample_midi/
