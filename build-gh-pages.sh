@@ -19,7 +19,7 @@ cp -r dist gh-pages/
 
 # Copy sample MIDI files
 mkdir -p gh-pages/sample_midi
-cp -r src/sample_midi/* gh-pages/sample_midi/
+cp -r docs/examples/assets/sample_midi/* gh-pages/sample_midi/
 
 echo "Build complete! Files are in gh-pages/"
 echo "To test locally, run: npx serve gh-pages"
