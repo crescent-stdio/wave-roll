@@ -14,9 +14,7 @@
     "preview": "vite preview",
     "watch": "vite build --watch",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -37,10 +35,8 @@
   },
   "homepage": "https://github.com/crescent-stdio/wave-roll#readme",
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.3",
     "jsdom": "^27.0.0",
-    "playwright": "^1.55.0",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
     "vitest": "^2.1.9"
