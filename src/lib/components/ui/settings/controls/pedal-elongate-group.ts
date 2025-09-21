@@ -97,9 +97,9 @@ export function createPedalElongateGroup(
         );
       }
 
-      console.log(
-        `Pedal elongate ${isChecked ? "enabled" : "disabled"} - files reprocessed`
-      );
+      // console.log(
+      //   `Pedal elongate ${isChecked ? "enabled" : "disabled"} - files reprocessed`
+      // );
     } catch (error) {
       console.error("Failed to reprocess files:", error);
       // Revert checkbox on error

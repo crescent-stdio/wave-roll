@@ -60,7 +60,7 @@ export class MidiPlayerGroup implements PlayerGroup {
   };
   
   constructor() {
-    console.log('[MidiPlayerGroup] Initialized');
+    // console.log('[MidiPlayerGroup] Initialized');
   }
   
   /**
@@ -130,7 +130,7 @@ export class MidiPlayerGroup implements PlayerGroup {
    */
   private async createSamplerForFile(fileId: string): Promise<void> {
     try {
-      console.log('[MidiPlayerGroup] Starting sampler creation for file:', fileId);
+      // console.log('[MidiPlayerGroup] Starting sampler creation for file:', fileId);
       
       // Create promise that resolves when sampler is loaded
       const samplerLoadPromise = new Promise<Tone.Sampler>((resolve, reject) => {
@@ -138,7 +138,7 @@ export class MidiPlayerGroup implements PlayerGroup {
           urls: DEFAULT_SAMPLE_MAP,
           baseUrl: "https://tonejs.github.io/audio/salamander/",
           onload: () => {
-            console.log('[MidiPlayerGroup] Sampler loaded for file:', fileId);
+            // console.log('[MidiPlayerGroup] Sampler loaded for file:', fileId);
             resolve(sampler);
           },
           onerror: (error: Error) => {
@@ -170,7 +170,7 @@ export class MidiPlayerGroup implements PlayerGroup {
       };
       
       this.players.set(fileId, playerInfo);
-      console.log('[MidiPlayerGroup] Successfully created and loaded sampler for file:', fileId);
+      // console.log('[MidiPlayerGroup] Successfully created and loaded sampler for file:', fileId);
       
     } catch (error) {
       console.error('[MidiPlayerGroup] Failed to create sampler for', fileId, ':', error);
@@ -305,7 +305,7 @@ export class MidiPlayerGroup implements PlayerGroup {
       synthErrors: 0,
       lastResetTime: Date.now()
     };
-    console.log('[MidiPlayerGroup] Error statistics reset');
+    // console.log('[MidiPlayerGroup] Error statistics reset');
   }
 
   /**
@@ -449,27 +449,27 @@ export class MidiPlayerGroup implements PlayerGroup {
     const report = this.getPerformanceReport();
     
     console.group('[MidiPlayerGroup] Health Status Report');
-    console.log('Performance:', {
-      successRate: report.playbackPerformance.successRate + '%',
-      healthStatus: report.playbackPerformance.healthStatus,
-      totalAttempts: report.playbackPerformance.totalNoteAttempts,
-      failures: report.playbackPerformance.failedNotes
-    });
-    
-    console.log('Data Quality:', {
-      totalNotes: report.dataQuality.totalNotes,
-      validNotes: report.dataQuality.dataQuality.validNotes,
-      qualityPercent: ((report.dataQuality.dataQuality.validNotes / report.dataQuality.totalNotes) * 100).toFixed(1) + '%'
-    });
-    
-    console.log('System Status:', report.systemStatus);
+    // console.log('Performance:', {
+    //   successRate: report.playbackPerformance.successRate + '%',
+    //   healthStatus: report.playbackPerformance.healthStatus,
+    //   totalAttempts: report.playbackPerformance.totalNoteAttempts,
+    //   failures: report.playbackPerformance.failedNotes
+    // });
+
+    // console.log('Data Quality:', {
+    //   totalNotes: report.dataQuality.totalNotes,
+    //   validNotes: report.dataQuality.dataQuality.validNotes,
+    //   qualityPercent: ((report.dataQuality.dataQuality.validNotes / report.dataQuality.totalNotes) * 100).toFixed(1) + '%'
+    // });
+
+    // console.log('System Status:', report.systemStatus);
     
     if (report.dataQuality.issues.length > 0) {
       console.warn('Issues:', report.dataQuality.issues);
     }
     
     if (report.recommendations.length > 0) {
-      console.info('Recommendations:', report.recommendations);
+      // console.info('Recommendations:', report.recommendations);
     }
     
     console.groupEnd();
@@ -509,9 +509,9 @@ export class MidiPlayerGroup implements PlayerGroup {
   }
 
   private createMidiPart(startTime: number = 0, endTime?: number): void {
-    console.log('[DEBUG][MidiPlayerGroup] createMidiPart called with startTime:', startTime, 'endTime:', endTime);
-    console.log('[DEBUG][MidiPlayerGroup] Available notes:', this.notes ? this.notes.length : 0);
-    console.log('[DEBUG][MidiPlayerGroup] Current tempoScale:', this.tempoScale);
+    // console.log('[DEBUG][MidiPlayerGroup] createMidiPart called with startTime:', startTime, 'endTime:', endTime);
+    // console.log('[DEBUG][MidiPlayerGroup] Available notes:', this.notes ? this.notes.length : 0);
+    // console.log('[DEBUG][MidiPlayerGroup] Current tempoScale:', this.tempoScale);
     
     if (this.part) {
       // console.log('[MidiPlayerGroup] Disposing existing Part');
@@ -547,7 +547,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     const baseBpm = this.originalTempoBase || 120;
     const timeScale = (baseBpm > 0 && currentBpm > 0) ? (baseBpm / currentBpm) : 1;
     try {
-      console.log('[TEMPO][MidiPlayerGroup] Time scaling for Part', { baseBpm, currentBpm, timeScale });
+      // console.log('[TEMPO][MidiPlayerGroup] Time scaling for Part', { baseBpm, currentBpm, timeScale });
     } catch {}
 
     // For seek/resume (no endTime specified): include sustaining notes that began before safeStart
@@ -620,7 +620,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     // console.log('[MidiPlayerGroup] Creating Part with', events.length, 'events');
     // console.log('[MidiPlayerGroup] Sample events:', events.slice(0, 5));
     if (stats.invalid > 0) {
-      console.log(`[MidiPlayerGroup] Data quality: ${stats.valid}/${stats.total} valid notes (${((stats.valid/stats.total)*100).toFixed(1)}%)`);
+      // console.log(`[MidiPlayerGroup] Data quality: ${stats.valid}/${stats.total} valid notes (${((stats.valid/stats.total)*100).toFixed(1)}%)`);
     }
     
     // Check player availability
@@ -686,7 +686,7 @@ export class MidiPlayerGroup implements PlayerGroup {
         
         // Try graceful recovery - attempt with fallback parameters
         try {
-          console.log('[MidiPlayerGroup] Attempting recovery with C4 fallback');
+          // console.log('[MidiPlayerGroup] Attempting recovery with C4 fallback');
           playerInfo.sampler.triggerAttackRelease(
             'C4',
             0.5,  // Fallback duration
@@ -700,7 +700,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     }, events);
 
     this.part.loop = false; // Loop is managed from above
-    console.log('[DEBUG][MidiPlayerGroup] Part created successfully with', events.length, 'events, tempoScale:', this.tempoScale);
+    // console.log('[DEBUG][MidiPlayerGroup] Part created successfully with', events.length, 'events, tempoScale:', this.tempoScale);
   }
   
   /**
@@ -730,11 +730,11 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
-    console.log('[TEMPO][MidiPlayerGroup] Starting sync playback:', syncInfo.mode, 'masterTime:', syncInfo.masterTime, 'tempoScale:', this.tempoScale);
+    // console.log('[TEMPO][MidiPlayerGroup] Starting sync playback:', syncInfo.mode, 'masterTime:', syncInfo.masterTime, 'tempoScale:', this.tempoScale);
     // Dedupe: ignore duplicate start requests for the same generation
     if (typeof syncInfo.generation === 'number') {
       if (this.lastStartGen === syncInfo.generation) {
-        try { console.log('[SYNC][MidiPlayerGroup] Duplicate start ignored for generation', syncInfo.generation); } catch {}
+        try { /* console.log('[SYNC][MidiPlayerGroup] Duplicate start ignored for generation', syncInfo.generation); */ } catch {}
         return;
       }
       this.lastStartGen = syncInfo.generation;
@@ -748,7 +748,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     }
     
     const transport = Tone.getTransport();
-    console.log('[TEMPO][MidiPlayerGroup] Transport before start - state:', transport.state, 'BPM:', transport.bpm.value, 'seconds:', transport.seconds);
+    // console.log('[TEMPO][MidiPlayerGroup] Transport before start - state:', transport.state, 'BPM:', transport.bpm.value, 'seconds:', transport.seconds);
     
     // Unmute all gates
     for (const playerInfo of this.players.values()) {
@@ -764,9 +764,9 @@ export class MidiPlayerGroup implements PlayerGroup {
 
     // Create MIDI Part without preroll to maintain exact timing
     const partStartTime = syncInfo.masterTime; // No preroll applied
-    console.log('[TEMPO][MidiPlayerGroup] Creating Part - startTime:', partStartTime, 'tempoScale:', this.tempoScale);
+    // console.log('[TEMPO][MidiPlayerGroup] Creating Part - startTime:', partStartTime, 'tempoScale:', this.tempoScale);
     this.createMidiPart(partStartTime);
-    console.log('[TEMPO][MidiPlayerGroup] Part created with', this.part ? 'success' : 'failure');
+    // console.log('[TEMPO][MidiPlayerGroup] Part created with', this.part ? 'success' : 'failure');
     
     if (this.part) {
       try {
@@ -784,20 +784,20 @@ export class MidiPlayerGroup implements PlayerGroup {
         // First play vs seek: Use best anchor per mode to avoid drift
         if (syncInfo.mode === 'seek') {
           const ts = transport.seconds;
-          console.log('[TEMPO][MidiPlayerGroup] Part.start(seek) - at transport.seconds:', ts.toFixed(3));
+          // console.log('[TEMPO][MidiPlayerGroup] Part.start(seek) - at transport.seconds:', ts.toFixed(3));
           this.part.start(ts, 0);
         } else {
           if (syncInfo.masterTime === 0) {
-            console.log('[TEMPO][MidiPlayerGroup] Part.start(play) - at transport 0');
+            // console.log('[TEMPO][MidiPlayerGroup] Part.start(play) - at transport 0');
             this.part.start(0);
           } else {
             const ts = transport.seconds;
-            console.log('[TEMPO][MidiPlayerGroup] Part.start(resume) - at transport.seconds:', ts.toFixed(3));
+            // console.log('[TEMPO][MidiPlayerGroup] Part.start(resume) - at transport.seconds:', ts.toFixed(3));
             this.part.start(ts, 0);
           }
         }
 
-        console.log('[TEMPO][MidiPlayerGroup] Part started - state:', this.part.state, 'Transport state:', transport.state);
+        // console.log('[TEMPO][MidiPlayerGroup] Part started - state:', this.part.state, 'Transport state:', transport.state);
 
       } catch (error) {
         console.error('[MidiPlayerGroup] ERROR in Part start process:', error instanceof Error ? error.message : String(error));
@@ -809,7 +809,7 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized stop
    */
   stopSynchronized(): void {
-    console.log('[DEBUG][MidiPlayerGroup] Stopping synchronized playback - Part exists:', !!this.part);
+    // console.log('[DEBUG][MidiPlayerGroup] Stopping synchronized playback - Part exists:', !!this.part);
     
     // Stop Part
     if (this.part) {
@@ -870,16 +870,16 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Set tempo
    */
   setTempo(bpm: number): void {
-    console.log('[TEMPO][MidiPlayerGroup] Setting tempo:', bpm);
+    // console.log('[TEMPO][MidiPlayerGroup] Setting tempo:', bpm);
     // Compute tempoScale relative to original baseline; used for logging and potential future policies
     const base = this.originalTempoBase || 120;
     const newScale = (base > 0) ? (bpm / base) : 1;
     const oldTempoScale = this.tempoScale;
     this.tempoScale = newScale;
-    console.log('[TEMPO][MidiPlayerGroup] tempoScale updated:', oldTempoScale, '->', this.tempoScale, '(= bpm/base). Event times are scaled in Part creation.');
-    console.log('[TEMPO][MidiPlayerGroup] Current Part exists:', !!this.part);
+    // console.log('[TEMPO][MidiPlayerGroup] tempoScale updated:', oldTempoScale, '->', this.tempoScale, '(= bpm/base). Event times are scaled in Part creation.');
+    // console.log('[TEMPO][MidiPlayerGroup] Current Part exists:', !!this.part);
     if (this.part) {
-      console.log('[TEMPO][MidiPlayerGroup] Part state:', this.part.state);
+      // console.log('[TEMPO][MidiPlayerGroup] Part state:', this.part.state);
     }
     // Part will be recreated on next seek/restart initiated by master clock
   }
@@ -909,7 +909,7 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Set loop
    */
   setLoop(mode: 'off' | 'repeat' | 'ab', markerA: number | null, markerB: number | null): void {
-    console.log('[MidiPlayerGroup] Setting loop mode:', { mode, markerA, markerB });
+    // console.log('[MidiPlayerGroup] Setting loop mode:', { mode, markerA, markerB });
     
     if (mode === 'ab' && markerA !== null && markerB !== null) {
       // For A-B loop, recreate Part with only that section
@@ -951,7 +951,7 @@ export class MidiPlayerGroup implements PlayerGroup {
       playerInfo.gate.gain.value = this.masterVolume * playerInfo.volume;
     }
     
-    console.log('[MidiPlayerGroup] Set volume for', fileId, ':', playerInfo.volume);
+    // console.log('[MidiPlayerGroup] Set volume for', fileId, ':', playerInfo.volume);
   }
   
   /**
@@ -967,7 +967,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     playerInfo.pan = Math.max(-1, Math.min(1, pan));
     playerInfo.panner.pan.value = playerInfo.pan;
     
-    console.log('[MidiPlayerGroup] Set pan for', fileId, ':', playerInfo.pan);
+    // console.log('[MidiPlayerGroup] Set pan for', fileId, ':', playerInfo.pan);
   }
   
   /**
@@ -990,7 +990,7 @@ export class MidiPlayerGroup implements PlayerGroup {
       playerInfo.gate.gain.value = this.masterVolume * playerInfo.volume;
     }
     
-    console.log('[MidiPlayerGroup] Set mute for', fileId, ':', playerInfo.muted);
+    // console.log('[MidiPlayerGroup] Set mute for', fileId, ':', playerInfo.muted);
   }
   
   /**
@@ -1014,7 +1014,7 @@ export class MidiPlayerGroup implements PlayerGroup {
    * Resource cleanup
    */
   destroy(): void {
-    console.log('[MidiPlayerGroup] Destroying');
+    // console.log('[MidiPlayerGroup] Destroying');
     
     // Clean up Part
     if (this.part) {

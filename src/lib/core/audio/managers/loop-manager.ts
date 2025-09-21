@@ -186,12 +186,12 @@ export class LoopManager {
 
     // Print one-time debug info on the first repetition
     if (this._loopCounter === 1) {
-      console.log("[Transport.loop] A-B loop started", {
-        loopStart: loopStart.toFixed(3),
-        loopEnd: loopEnd.toFixed(3),
-        visualStart: this._loopStartVisual,
-        visualEnd: this._loopEndVisual,
-      });
+      // console.log("[Transport.loop] A-B loop started", {
+      //   loopStart: loopStart.toFixed(3),
+      //   loopEnd: loopEnd.toFixed(3),
+      //   visualStart: this._loopStartVisual,
+      //   visualEnd: this._loopEndVisual,
+      // });
     }
 
     // Return visual start position for the loop

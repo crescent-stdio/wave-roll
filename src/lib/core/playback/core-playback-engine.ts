@@ -133,7 +133,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    * Update audio with new notes
    */
   public async updateAudio(notes: NoteData[]): Promise<void> {
-    console.log('[CorePlaybackEngine] updateAudio called with', notes.length, 'notes');
+    // console.log('[CorePlaybackEngine] updateAudio called with', notes.length, 'notes');
     
     // Calculate signature based on file IDs present in notes, not the actual notes
     // This prevents recreation when only mute states change
@@ -148,7 +148,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     const signature = Array.from(fileIds).sort().join(",");
     
     // console.log('[CorePlaybackEngine] File IDs found:', Array.from(fileIds));
-    console.log('[CorePlaybackEngine] Current signature:', signature, 'Last signature:', this.lastAudioSignature);
+    // console.log('[CorePlaybackEngine] Current signature:', signature, 'Last signature:', this.lastAudioSignature);
 
     // Skip if file structure hasn't changed
     if (signature === this.lastAudioSignature && this.audioPlayer) {

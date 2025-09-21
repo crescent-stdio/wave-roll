@@ -112,13 +112,13 @@ export class UnifiedAudioController {
   
   private async performInitialization(): Promise<void> {
     try {
-      console.log('[UnifiedAudioController] Starting initialization');
+      // console.log('[UnifiedAudioController] Starting initialization');
       
       // Ensure Tone.js context is running
       if ((Tone as any).context && (Tone as any).context.state !== 'running') {
-        console.log('[UnifiedAudioController] AudioContext state:', Tone.context.state);
+        // console.log('[UnifiedAudioController] AudioContext state:', Tone.context.state);
         await Tone.start();
-        console.log('[UnifiedAudioController] Tone.js context started, new state:', Tone.context.state);
+        // console.log('[UnifiedAudioController] Tone.js context started, new state:', Tone.context.state);
         
         // Additional verification that context is truly running
         if (Tone.context.state !== 'running') {
@@ -126,7 +126,7 @@ export class UnifiedAudioController {
           // Try direct resume as fallback
           if ((Tone.context as any).resume) {
             await Tone.context.resume();
-            console.log('[UnifiedAudioController] Direct context.resume() called, state:', Tone.context.state);
+            // console.log('[UnifiedAudioController] Direct context.resume() called, state:', Tone.context.state);
           }
         }
       }
@@ -135,9 +135,9 @@ export class UnifiedAudioController {
       const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => any[] } })._waveRollAudio;
       if (api?.getFiles) {
         const files = api.getFiles();
-        console.log('[UnifiedAudioController] WAV registry found:', files.length, 'files:', files.map(f => f.displayName || f.id));
+        // console.log('[UnifiedAudioController] WAV registry found:', files.length, 'files:', files.map(f => f.displayName || f.id));
       } else {
-        console.log('[UnifiedAudioController] WAV registry not available');
+        // console.log('[UnifiedAudioController] WAV registry not available');
       }
       
       // Initialize both player groups
@@ -145,7 +145,7 @@ export class UnifiedAudioController {
       await this.wavPlayerGroup.setupAudioPlayersFromRegistry();
       
       this.isInitialized = true;
-      console.log('[UnifiedAudioController] Initialization completed, AudioContext state:', Tone.context.state);
+      // console.log('[UnifiedAudioController] Initialization completed, AudioContext state:', Tone.context.state);
       
     } catch (error) {
       console.error('[UnifiedAudioController] Initialization failed:', error);
@@ -215,12 +215,12 @@ export class UnifiedAudioController {
     this.masterClock.seekTo(time);
     try {
       const tr = Tone.getTransport();
-      console.info('[SeekTrace][UAC] post-seek summary', {
-        requested: time,
-        transportSeconds: tr.seconds,
-        transportState: tr.state,
-        masterNow: this.masterClock.getCurrentTime(),
-      });
+      // console.info('[SeekTrace][UAC] post-seek summary', {
+      //   requested: time,
+      //   transportSeconds: tr.seconds,
+      //   transportState: tr.state,
+      //   masterNow: this.masterClock.getCurrentTime(),
+      // });
     } catch {}
   }
   
@@ -270,25 +270,25 @@ export class UnifiedAudioController {
   set tempo(bpm: number) {
     const wasPlaying = this.masterClock.state.isPlaying;
     const current = this.masterClock.getCurrentTime();
-    console.log('[DEBUG][UnifiedAudioController] Setting tempo:', bpm, 'wasPlaying:', wasPlaying, 'current:', current);
+    // console.log('[DEBUG][UnifiedAudioController] Setting tempo:', bpm, 'wasPlaying:', wasPlaying, 'current:', current);
 
     this.masterClock.setTempo(bpm);
     try {
-      console.log('[DEBUG][UnifiedAudioController] Calling wavPlayerGroup.setTempo');
+      // console.log('[DEBUG][UnifiedAudioController] Calling wavPlayerGroup.setTempo');
       this.wavPlayerGroup.setTempo(bpm);
     } catch {}
     try {
-      console.log('[DEBUG][UnifiedAudioController] Calling midiPlayerGroup.setTempo');
+      // console.log('[DEBUG][UnifiedAudioController] Calling midiPlayerGroup.setTempo');
       this.midiPlayerGroup.setTempo(bpm);
     } catch {}
 
     // If playing, re-align both groups at the same master time immediately to prevent drift.
     if (wasPlaying) {
-      console.log('[DEBUG][UnifiedAudioController] wasPlaying=true, seeking with lookahead 0.2s (letting masterClock handle all stopping)');
+      // console.log('[DEBUG][UnifiedAudioController] wasPlaying=true, seeking with lookahead 0.2s (letting masterClock handle all stopping)');
       // Let masterClock.seekToWithLookahead handle stopping all groups to avoid duplicate calls
       this.masterClock.seekToWithLookahead(current, 0.2);
     } else {
-      console.log('[DEBUG][UnifiedAudioController] wasPlaying=false, no seek required');
+      // console.log('[DEBUG][UnifiedAudioController] wasPlaying=false, no seek required');
     }
   }
 

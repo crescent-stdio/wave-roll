@@ -441,7 +441,7 @@ export class SamplerManager {
     
     try {
       (this.part as Tone.Part).start(time, off);
-      console.log("[SamplerManager] Part started", { time, offset: off });
+      // console.log("[SamplerManager] Part started", { time, offset: off });
     } catch (e) {
       console.error("[SamplerManager] Failed to start Part:", e);
     }
@@ -637,7 +637,7 @@ export class SamplerManager {
       }
     });
     
-    console.log("[SamplerManager] Retriggered held notes for all unmuted tracks at", currentTime);
+    // console.log("[SamplerManager] Retriggered held notes for all unmuted tracks at", currentTime);
   }
 
   /**

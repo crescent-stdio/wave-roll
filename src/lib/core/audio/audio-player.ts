@@ -47,8 +47,8 @@ export class AudioPlayer {
   public isHandlingLoop: boolean = false;
   
   constructor(notes: any[], options: any, pianoRoll: any) {
-    console.log('[AudioPlayer] Initializing V2 with unified controller');
-    console.log('[AudioPlayer] Constructor received notes:', notes ? notes.length : 0, 'notes');
+    // console.log('[AudioPlayer] Initializing V2 with unified controller');
+    // console.log('[AudioPlayer] Constructor received notes:', notes ? notes.length : 0, 'notes');
     
     this.notes = notes;
     this.options = options;
@@ -59,11 +59,11 @@ export class AudioPlayer {
     
     // Set up MIDI data
     if (this.notes && this.notes.length > 0) {
-      console.log('[AudioPlayer] Setting MIDI manager with', this.notes.length, 'notes');
+      // console.log('[AudioPlayer] Setting MIDI manager with', this.notes.length, 'notes');
       this.unifiedController.setMidiManager({ notes: this.notes });
-      console.log('[AudioPlayer] MIDI manager set successfully');
+      // console.log('[AudioPlayer] MIDI manager set successfully');
     } else {
-      console.log('[AudioPlayer] No notes provided - MIDI manager not initialized');
+      // console.log('[AudioPlayer] No notes provided - MIDI manager not initialized');
     }
     
     // Create compatibility state proxy
@@ -72,7 +72,7 @@ export class AudioPlayer {
     // Initialize legacy managers as proxies (for compatibility)
     this.createLegacyManagers();
     
-    console.log('[AudioPlayer] V2 initialized with unified controller');
+    // console.log('[AudioPlayer] V2 initialized with unified controller');
   }
   
   /**
@@ -200,12 +200,12 @@ export class AudioPlayer {
   
   private async performInitialization(): Promise<void> {
     try {
-      console.log('[AudioPlayer] V2 initializing unified controller');
+      // console.log('[AudioPlayer] V2 initializing unified controller');
       
       await this.unifiedController.initialize();
       
       this.isInitialized = true;
-      console.log('[AudioPlayer] V2 initialization completed');
+      // console.log('[AudioPlayer] V2 initialization completed');
       
     } catch (error) {
       console.error('[AudioPlayer] V2 initialization failed:', error);
@@ -246,7 +246,7 @@ export class AudioPlayer {
    * Pause playback
    */
   public pause(): void {
-    console.log('[AudioPlayer] V2 pausing playback');
+    // console.log('[AudioPlayer] V2 pausing playback');
     this.unifiedController.pause();
   }
   
@@ -254,7 +254,7 @@ export class AudioPlayer {
    * Restart playback
    */
   public restart(): void {
-    console.log('[AudioPlayer] V2 restarting playback');
+    // console.log('[AudioPlayer] V2 restarting playback');
     this.unifiedController.stop();
   }
   
@@ -262,7 +262,7 @@ export class AudioPlayer {
    * Seek to specific time
    */
   public seek(time: number): void {
-    console.log('[AudioPlayer] V2 seeking to:', time);
+    // console.log('[AudioPlayer] V2 seeking to:', time);
     this.unifiedController.seek(time);
   }
   
@@ -270,7 +270,7 @@ export class AudioPlayer {
    * Set tempo
    */
   public setTempo(bpm: number): void {
-    console.log('[AudioPlayer] V2 setting tempo:', bpm);
+    // console.log('[AudioPlayer] V2 setting tempo:', bpm);
     this.unifiedController.tempo = bpm;
   }
   
@@ -278,7 +278,7 @@ export class AudioPlayer {
    * Set master volume
    */
   public setVolume(volume: number): void {
-    console.log('[AudioPlayer] V2 setting volume:', volume);
+    // console.log('[AudioPlayer] V2 setting volume:', volume);
     this.unifiedController.masterVolume = volume;
   }
   
@@ -414,7 +414,7 @@ export class AudioPlayer {
    * Set file mute
    */
   public setFileMute(fileId: string, muted: boolean): void {
-    console.log('[AudioPlayer] V2 setting file mute:', { fileId, muted });
+    // console.log('[AudioPlayer] V2 setting file mute:', { fileId, muted });
 
     if (this.isWavFileId(fileId)) {
       this.unifiedController.setWavPlayerMute(fileId, muted);
@@ -427,7 +427,7 @@ export class AudioPlayer {
    * Set file pan
    */
   public setFilePan(fileId: string, pan: number): void {
-    console.log('[AudioPlayer] V2 setting file pan:', { fileId, pan });
+    // console.log('[AudioPlayer] V2 setting file pan:', { fileId, pan });
 
     if (this.isWavFileId(fileId)) {
       this.unifiedController.setWavPlayerPan(fileId, pan);
@@ -440,7 +440,7 @@ export class AudioPlayer {
    * Set file volume
    */
   public setFileVolume(fileId: string, volume: number): void {
-    console.log('[AudioPlayer] V2 setting file volume:', { fileId, volume });
+    // console.log('[AudioPlayer] V2 setting file volume:', { fileId, volume });
 
     if (this.isWavFileId(fileId)) {
       this.unifiedController.setWavPlayerVolume(fileId, volume);
@@ -453,7 +453,7 @@ export class AudioPlayer {
    * Set WAV volume
    */
   public setWavVolume(playerId: string, volume: number): void {
-    console.log('[AudioPlayer] V2 setting WAV volume:', { playerId, volume });
+    // console.log('[AudioPlayer] V2 setting WAV volume:', { playerId, volume });
     this.unifiedController.setWavPlayerVolume(playerId, volume);
   }
 
@@ -494,8 +494,8 @@ export class AudioPlayer {
    * Set visual update callback
    */
   public setOnVisualUpdate(callback: (update: any) => void): void {
-    console.log('[AudioPlayer] V2 current time:', this.unifiedController.getCurrentTime());
-    console.log('[AudioPlayer] V2 setting visual update callback');
+    // console.log('[AudioPlayer] V2 current time:', this.unifiedController.getCurrentTime());
+    // console.log('[AudioPlayer] V2 setting visual update callback');
     this.visualUpdateCallback = callback;
     
     // Set the callback on UnifiedAudioController
@@ -523,58 +523,58 @@ export class AudioPlayer {
    * Refresh audio players (compatibility)
    */
   public refreshAudioPlayers(): void {
-    console.log('[AudioPlayer] V2 refreshing audio players (compatibility)');
+    // console.log('[AudioPlayer] V2 refreshing audio players (compatibility)');
     // The unified controller handles this automatically
   }
   
   // === Legacy compatibility methods ===
   
   public cleanup(): void {
-    console.log('[AudioPlayer] V2 cleanup (compatibility)');
+    // console.log('[AudioPlayer] V2 cleanup (compatibility)');
   }
   
   public setupTransportCallbacks(): void {
-    console.log('[AudioPlayer] V2 setup transport callbacks (compatibility)');
+    // console.log('[AudioPlayer] V2 setup transport callbacks (compatibility)');
   }
   
   public removeTransportCallbacks(): void {
-    console.log('[AudioPlayer] V2 remove transport callbacks (compatibility)');
+    // console.log('[AudioPlayer] V2 remove transport callbacks (compatibility)');
   }
   
   public updateAllUI(): void {
-    console.log('[AudioPlayer] V2 update all UI (compatibility)');
+    // console.log('[AudioPlayer] V2 update all UI (compatibility)');
   }
   
   public handleFileSettingsChange(): void {
-    console.log('[AudioPlayer] V2 handle file settings change (compatibility)');
+    // console.log('[AudioPlayer] V2 handle file settings change (compatibility)');
   }
   
   public handlePlaybackEnd(): void {
-    console.log('[AudioPlayer] V2 handle playback end (compatibility)');
+    // console.log('[AudioPlayer] V2 handle playback end (compatibility)');
   }
   
   public maybeAutoPauseIfSilent(): void {
-    console.log('[AudioPlayer] V2 maybe auto pause if silent (compatibility)');
+    // console.log('[AudioPlayer] V2 maybe auto pause if silent (compatibility)');
   }
   
   // Transport event handlers (compatibility)
   public handleTransportStop = () => {
-    console.log('[AudioPlayer] V2 transport stop');
+    // console.log('[AudioPlayer] V2 transport stop');
   };
   
   public handleTransportPause = () => {
-    console.log('[AudioPlayer] V2 transport pause');
+    // console.log('[AudioPlayer] V2 transport pause');
   };
   
   public handleTransportLoop = () => {
-    console.log('[AudioPlayer] V2 transport loop');
+    // console.log('[AudioPlayer] V2 transport loop');
   };
   
   /**
    * Destroy and cleanup
    */
   public destroy(): void {
-    console.log('[AudioPlayer] V2 destroying');
+    // console.log('[AudioPlayer] V2 destroying');
     
     this.unifiedController.destroy();
     
@@ -582,7 +582,7 @@ export class AudioPlayer {
     this.initPromise = null;
     this.visualUpdateCallback = null;
     
-    console.log('[AudioPlayer] V2 destroyed');
+    // console.log('[AudioPlayer] V2 destroyed');
   }
 }
 

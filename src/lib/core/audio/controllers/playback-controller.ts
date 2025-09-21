@@ -39,7 +39,7 @@ export class PlaybackController {
    */
   async play(): Promise<void> {
     if (this._playLock) {
-      console.log("[PlaybackController.play] Already in play(), ignoring");
+      // console.log("[PlaybackController.play] Already in play(), ignoring");
       return;
     }
     this._playLock = true;
@@ -52,20 +52,20 @@ export class PlaybackController {
       state.playbackGeneration = (state.playbackGeneration || 0) + 1;
       const currentGeneration = state.playbackGeneration;
       
-      console.log("[PlaybackController.play] Starting playback with generation", currentGeneration);
+      // console.log("[PlaybackController.play] Starting playback with generation", currentGeneration);
 
       // Ensure WavPlayerManager has reference to TransportSyncManager
       wavPlayerManager.setTransportSyncManager(transportSyncManager);
 
       if (state.isPlaying) {
-        console.log("[PlaybackController.play] Already playing");
+        // console.log("[PlaybackController.play] Already playing");
         return;
       }
 
       // Ensure Tone.js context is started
       if (Tone.context.state === "suspended") {
         await Tone.start();
-        console.log("[PlaybackController] Audio context started");
+        // console.log("[PlaybackController] Audio context started");
       }
 
       // Handle play-after-end: rewind to start (0) and start playback
@@ -102,22 +102,22 @@ export class PlaybackController {
       const relativeVisualOffset = loopManager.getPartOffset(visualAtStart, this.pausedTime);
       const relativeTransportOffset = transportSyncManager.visualToTransportTime(relativeVisualOffset);
 
-      console.log("[PlaybackController] Calculated offsets:", {
-        pausedTime: this.pausedTime,
-        visualAtStart,
-        relativeVisualOffset,
-        relativeTransportOffset,
-        generation: currentGeneration
-      });
+      // console.log("[PlaybackController] Calculated offsets:", {
+      //   pausedTime: this.pausedTime,
+      //   visualAtStart,
+      //   relativeVisualOffset,
+      //   relativeTransportOffset,
+      //   generation: currentGeneration
+      // });
 
       // Use a single unified start time for perfect synchronization
       const startAt = Tone.now() + AUDIO_CONSTANTS.LOOKAHEAD_TIME;
       
-      console.log("[PlaybackController] Starting synchronized playback at", startAt, "generation", currentGeneration);
+      // console.log("[PlaybackController] Starting synchronized playback at", startAt, "generation", currentGeneration);
       
       // Check generation before each critical operation
       if (state.playbackGeneration !== currentGeneration) {
-        console.log("[PlaybackController.play] Generation changed during setup, aborting");
+        // console.log("[PlaybackController.play] Generation changed during setup, aborting");
         return;
       }
       
@@ -129,7 +129,7 @@ export class PlaybackController {
       
       // Start MIDI part with computed offset
       if (state.playbackGeneration !== currentGeneration) {
-        console.log("[PlaybackController.play] Generation changed before MIDI start, aborting");
+        // console.log("[PlaybackController.play] Generation changed before MIDI start, aborting");
         return;
       }
       
@@ -139,24 +139,24 @@ export class PlaybackController {
       // Use Tone.js Transport scheduling for perfect sync
       if (wavPlayerManager.isAudioActive()) {
         if (state.playbackGeneration !== currentGeneration) {
-          console.log("[PlaybackController.play] Generation changed before WAV start, aborting");
+          // console.log("[PlaybackController.play] Generation changed before WAV start, aborting");
           return;
         }
         
-        console.log("[PlaybackController] Starting WAV immediately with unified offset");
+        // console.log("[PlaybackController] Starting WAV immediately with unified offset");
         wavPlayerManager.startActiveAudioAtSync(relativeVisualOffset, startAt);
       }
 
       // Final generation check before updating state
       if (state.playbackGeneration !== currentGeneration) {
-        console.log("[PlaybackController.play] Generation changed before state update, aborting");
+        // console.log("[PlaybackController.play] Generation changed before state update, aborting");
         return;
       }
 
       state.isPlaying = true;
       transportSyncManager.startSyncScheduler();
       
-      console.log("[PlaybackController.play] Successfully started generation", currentGeneration);
+      // console.log("[PlaybackController.play] Successfully started generation", currentGeneration);
     } finally {
       this._playLock = false;
     }
@@ -169,7 +169,7 @@ export class PlaybackController {
     const { state, samplerManager, wavPlayerManager, transportSyncManager } = this.deps;
 
     if (!state.isPlaying) {
-      console.log("[PlaybackController.pause] Not playing");
+      // console.log("[PlaybackController.pause] Not playing");
       return;
     }
 
@@ -265,7 +265,7 @@ export class PlaybackController {
     state.playbackGeneration = (state.playbackGeneration || 0) + 1;
     const currentGeneration = state.playbackGeneration;
     
-    console.log("[PlaybackController.seek] Starting with generation", currentGeneration);
+    // console.log("[PlaybackController.seek] Starting with generation", currentGeneration);
 
     // Update timestamp for guard
     transportSyncManager.updateSeekTimestamp();
@@ -280,12 +280,12 @@ export class PlaybackController {
     // treat the player as paused and skip the restart. The engine-level
     // state.isPlaying faithfully represents the intended mode.
     const wasPlaying = state.isPlaying;
-    console.log("[PlaybackController.seek] request", {
-      seconds,
-      wasPlaying,
-      midiDuration: state.duration,
-      generation: currentGeneration,
-    });
+    // console.log("[PlaybackController.seek] request", {
+    //   seconds,
+    //   wasPlaying,
+    //   midiDuration: state.duration,
+    //   generation: currentGeneration,
+    // });
 
     // Clamp and convert time against max(MIDI, WAV) so WAV tails are seekable
     let maxWav = 0;
@@ -298,13 +298,13 @@ export class PlaybackController {
     const maxVisual = Math.max(state.duration, maxWav);
     const requestedVisual = clamp(seconds, 0, maxVisual);
     const transportSeconds = transportSyncManager.visualToTransportTime(requestedVisual);
-    console.log("[PlaybackController.seek] computed", {
-      maxWav,
-      maxVisual,
-      requestedVisual,
-      transportSeconds,
-      generation: currentGeneration,
-    });
+    // console.log("[PlaybackController.seek] computed", {
+    //   maxWav,
+    //   maxVisual,
+    //   requestedVisual,
+    //   transportSeconds,
+    //   generation: currentGeneration,
+    // });
 
     // Update state immediately for responsiveness
     state.currentTime = requestedVisual; // keep UI aligned with requested time
@@ -315,12 +315,12 @@ export class PlaybackController {
     if (updateVisual) {
       if (this.deps.uiSync) this.deps.uiSync(requestedVisual, true);
       else pianoRoll.setTime(requestedVisual);
-      console.log("[PlaybackController.seek] UI sync", { requestedVisual, generation: currentGeneration });
+      // console.log("[PlaybackController.seek] UI sync", { requestedVisual, generation: currentGeneration });
     }
 
     if (wasPlaying) {
       // === ATOMIC STOP PHASE ===
-      console.log("[PlaybackController.seek] Stopping all audio atomically for generation", currentGeneration);
+      // console.log("[PlaybackController.seek] Stopping all audio atomically for generation", currentGeneration);
       
       // Stop sync first but don't wait
       transportSyncManager.stopSyncScheduler();
@@ -340,7 +340,7 @@ export class PlaybackController {
       transport.stop();
       transport.cancel();
       transport.seconds = transportSeconds;
-      console.log("[PlaybackController.seek] transport positioned", { transportSeconds, generation: currentGeneration });
+      // console.log("[PlaybackController.seek] transport positioned", { transportSeconds, generation: currentGeneration });
 
       // === ATOMIC UPDATE PHASE ===
       // Re-setup Part
@@ -354,11 +354,11 @@ export class PlaybackController {
           originalTempo: this.deps.originalTempo,
         }
       );
-      console.log("[PlaybackController.seek] part setup", {
-        loopStartVisual: loopManager.loopStartVisual,
-        loopEndVisual: loopManager.loopEndVisual,
-        generation: currentGeneration,
-      });
+      // console.log("[PlaybackController.seek] part setup", {
+      //   loopStartVisual: loopManager.loopStartVisual,
+      //   loopEndVisual: loopManager.loopEndVisual,
+      //   generation: currentGeneration,
+      // });
 
       // === GENERATION-AWARE START PHASE ===
       // Start transport and part (use loop-relative offset for Part)
@@ -368,10 +368,10 @@ export class PlaybackController {
       
       // Check generation before each start operation
       if (state.playbackGeneration !== currentGeneration) {
-        console.log("[PlaybackController.seek] Generation changed during seek, aborting", {
-          expected: currentGeneration,
-          actual: state.playbackGeneration
-        });
+        // console.log("[PlaybackController.seek] Generation changed during seek, aborting", {
+        //   expected: currentGeneration,
+        //   actual: state.playbackGeneration
+        // });
         operationState.isSeeking = false;
         return;
       }
@@ -390,19 +390,19 @@ export class PlaybackController {
       
       // Final generation check before starting MIDI
       if (state.playbackGeneration !== currentGeneration) {
-        console.log("[PlaybackController.seek] Generation changed before MIDI start, aborting");
+        // console.log("[PlaybackController.seek] Generation changed before MIDI start, aborting");
         operationState.isSeeking = false;
         return;
       }
       
       samplerManager.startPart(startAt2, relTransport);
-      console.log("[PlaybackController.seek] start", {
-        startAt: startAt2,
-        safeVisualForPart,
-        relVisual,
-        relTransport,
-        generation: currentGeneration,
-      });
+      // console.log("[PlaybackController.seek] start", {
+      //   startAt: startAt2,
+      //   safeVisualForPart,
+      //   relVisual,
+      //   relTransport,
+      //   generation: currentGeneration,
+      // });
 
       // Restart Sync
       state.isPlaying = true;
@@ -412,30 +412,30 @@ export class PlaybackController {
       if (wavPlayerManager.isAudioActive()) {
         // Final generation check before starting WAV
         if (state.playbackGeneration !== currentGeneration) {
-          console.log("[PlaybackController.seek] Generation changed before WAV start, aborting");
+          // console.log("[PlaybackController.seek] Generation changed before WAV start, aborting");
           operationState.isSeeking = false;
           return;
         }
         
         wavPlayerManager.stopAllAudioPlayers();
         wavPlayerManager.startActiveAudioAtSync(requestedVisual, startAt2);
-        console.log("[PlaybackController.seek] wav restart", { requestedVisual, startAt: startAt2, generation: currentGeneration });
+        // console.log("[PlaybackController.seek] wav restart", { requestedVisual, startAt: startAt2, generation: currentGeneration });
       }
 
       // Retrigger held notes for all unmuted tracks at the seek position
       // This ensures long-duration notes that started before the seek position are audible
       samplerManager.retriggerAllUnmutedHeldNotes(requestedVisual);
-      console.log("[PlaybackController.seek] retriggered held notes", { requestedVisual, generation: currentGeneration });
+      // console.log("[PlaybackController.seek] retriggered held notes", { requestedVisual, generation: currentGeneration });
       
     } else {
       Tone.getTransport().seconds = transportSeconds;
-      console.log("[PlaybackController.seek] paused seek", { transportSeconds, generation: currentGeneration });
+      // console.log("[PlaybackController.seek] paused seek", { transportSeconds, generation: currentGeneration });
     }
 
     // Clear seeking flag
     setTimeout(() => {
       operationState.isSeeking = false;
-      console.log("[PlaybackController.seek] Completed generation", currentGeneration);
+      // console.log("[PlaybackController.seek] Completed generation", currentGeneration);
     }, 50);
   }
 

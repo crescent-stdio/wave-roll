@@ -102,7 +102,7 @@ export function setupPlayButton(opts: SetupPlayButtonOptions): () => void {
         };
       } else {
         playBtn.onclick = () => {
-          console.log("[setupPlayButton] Audio buffers are not ready yet. Please wait...");
+          // console.log("[setupPlayButton] Audio buffers are not ready yet. Please wait...");
           // Optional: Show a toast or notification to user
         };
       }

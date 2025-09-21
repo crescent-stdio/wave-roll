@@ -295,7 +295,7 @@ export class WavPlayerManager {
       entry.isStarted = false;
     });
     
-    console.log("[WavPlayerManager] All audio players stopped (Transport events cleared, timers canceled, gates muted)");
+    // console.log("[WavPlayerManager] All audio players stopped (Transport events cleared, timers canceled, gates muted)");
   }
 
   /**
@@ -430,15 +430,15 @@ export class WavPlayerManager {
     const db = toDb(mixLinear(masterVolume, clampedVolume));
     const wasDb = entry.player.volume.value;
     entry.player.volume.value = db;
-    console.log("[WM.setWavVolume]", {
-      fileId,
-      volume,
-      masterVolume,
-      wasDb,
-      db,
-      isPlaying: opts?.isPlaying,
-      currentTime: opts?.currentTime,
-    });
+    // console.log("[WM.setWavVolume]", {
+    //   fileId,
+    //   volume,
+    //   masterVolume,
+    //   wasDb,
+    //   db,
+    //   isPlaying: opts?.isPlaying,
+    //   currentTime: opts?.currentTime,
+    // });
 
     // If unmuting this WAV while transport is playing, ensure it starts with unified absolute scheduling
     const wasEffectivelyMuted = isSilentDb(wasDb); // ~silent threshold in dB
@@ -454,15 +454,15 @@ export class WavPlayerManager {
           const transportAtStart = transport.seconds + (startAtAbs - now);
           const visualAtStart = this.transportSyncManager.transportToVisualTime(transportAtStart);
           offsetSeconds = Math.max(0, visualAtStart);
-          console.log("[WM.setWavVolume] Unified offset via TransportSyncManager", {
-            startAtAbs,
-            transportAtStart,
-            visualAtStart,
-            offsetSeconds,
-          });
+          // console.log("[WM.setWavVolume] Unified offset via TransportSyncManager", {
+          //   startAtAbs,
+          //   transportAtStart,
+          //   visualAtStart,
+          //   offsetSeconds,
+          // });
         } else {
           offsetSeconds = Math.max(0, opts?.currentTime ?? 0);
-          console.log("[WM.setWavVolume] Fallback offset via currentTime", { startAtAbs, offsetSeconds });
+          // console.log("[WM.setWavVolume] Fallback offset via currentTime", { startAtAbs, offsetSeconds });
         }
 
         type PlayerWithBuffer2 = Tone.Player & { buffer?: { loaded?: boolean } };
@@ -494,7 +494,7 @@ export class WavPlayerManager {
           try { entry.player.stop(); } catch {}
           const safeStart = Math.max(startAtAbs, Tone.now() + 0.001);
           try { entry.player.start(safeStart, offsetSeconds); } catch {}
-          console.log("[WM.unmute-started-unified]", { fileId, startAtAbs: safeStart, offsetSeconds });
+          // console.log("[WM.unmute-started-unified]", { fileId, startAtAbs: safeStart, offsetSeconds });
         }
       } catch {
         // Best-effort; ignore errors to keep UI responsive
@@ -548,7 +548,7 @@ export class WavPlayerManager {
     const entry = this.audioPlayers.get(fileId);
     if (!entry) return false;
     
-    console.log("[WavPlayerManager] setFileMute", { fileId, mute });
+    // console.log("[WavPlayerManager] setFileMute", { fileId, mute });
     
     // Store mute state in entry
     entry.muted = mute;
@@ -560,7 +560,7 @@ export class WavPlayerManager {
       // Player continues running but is silent
       try { 
         gate.gain.value = 0; 
-        console.log("[WavPlayerManager] Muted WAV", fileId, "via gain control (maintaining sync)");
+        // console.log("[WavPlayerManager] Muted WAV", fileId, "via gain control (maintaining sync)");
       } catch (e) {
         console.warn("[WavPlayerManager] Failed to mute gate for", fileId, ":", e);
       }
@@ -570,7 +570,7 @@ export class WavPlayerManager {
       try {
         gate.gain.value = 1;
         player.volume.value = toDb(0.7); // Restore original volume
-        console.log("[WavPlayerManager] Unmuted WAV", fileId, "via gain control (no restart needed)");
+        // console.log("[WavPlayerManager] Unmuted WAV", fileId, "via gain control (no restart needed)");
       } catch (e) {
         console.warn("[WavPlayerManager] Failed to unmute gate for", fileId, ":", e);
       }
@@ -617,13 +617,13 @@ export class WavPlayerManager {
       const isPlaying = transport.state === "started";
       
       if (isPlaying) {
-        console.log("[WavPlayerManager] Skipping refresh during playback to maintain sync");
+        // console.log("[WavPlayerManager] Skipping refresh during playback to maintain sync");
         // During playback, avoid full refresh to maintain synchronization
         // Only update metadata without recreating players
         return true;
       }
       
-      console.log("[WavPlayerManager] Refreshing audio players (not playing)");
+      // console.log("[WavPlayerManager] Refreshing audio players (not playing)");
       // Re-setup audio players from registry only when not playing
       this.setupAudioPlayersFromRegistry({});
       return true;
@@ -683,10 +683,10 @@ export class WavPlayerManager {
         } catch {}
       });
 
-      console.log("[WM.unmuteAndStartVisibleIfAllMuted]", {
-        offsetSeconds,
-        masterVolume,
-      });
+      // console.log("[WM.unmuteAndStartVisibleIfAllMuted]", {
+      //   offsetSeconds,
+      //   masterVolume,
+      // });
       this.startActiveAudioAt(offsetSeconds);
     } catch {
       // ignore
@@ -846,7 +846,7 @@ export class WavPlayerManager {
     const items = api.getFiles() as AudioFileInfo[];
     const targetStart = this.resolveStartAt(startAt);
 
-    console.log("[WavPlayerManager] Scheduling synchronized audio DIRECTLY at", targetStart, "offset", offsetSeconds);
+    // console.log("[WavPlayerManager] Scheduling synchronized audio DIRECTLY at", targetStart, "offset", offsetSeconds);
 
     items.forEach((item) => {
       const localEntry = this.audioPlayers.get(item.id);
@@ -878,18 +878,18 @@ export class WavPlayerManager {
       const currentTime = Tone.now();
       const delayMs = Math.max(0, (targetStart - currentTime) * 1000);
       
-      console.log("[WavPlayerManager] Direct scheduling:", {
-        currentTime,
-        targetStart, 
-        delayMs,
-        item: item.id
-      });
+      // console.log("[WavPlayerManager] Direct scheduling:", {
+      //   currentTime,
+      //   targetStart, 
+      //   delayMs,
+      //   item: item.id
+      // });
       
       // Use setTimeout for precise timing instead of Transport.scheduleOnce
       const timerId = setTimeout(() => {
         // Verify token is still valid (prevents ghost audio)
         if (token !== entry.startToken) {
-          console.log("[WavPlayerManager] Ignoring stale schedule for", item.id);
+          // console.log("[WavPlayerManager] Ignoring stale schedule for", item.id);
           return;
         }
         
@@ -910,7 +910,7 @@ export class WavPlayerManager {
           // Start with accurate audio context time
           entry.player.start(audioContextTime, offsetComp); 
           entry.isStarted = true;
-          console.log("[WavPlayerManager] Started WAV", item.id, "at audio time", audioContextTime, "with offset", offsetComp);
+          // console.log("[WavPlayerManager] Started WAV", item.id, "at audio time", audioContextTime, "with offset", offsetComp);
         } catch (e) {
           console.warn("[WavPlayerManager] Failed to start WAV", item.id, ":", e);
         }

@@ -156,7 +156,7 @@ export function createTimeDisplayUI(
     const duration = Math.max(lastEffectiveDuration || 0, 0);
     const sec = duration > 0 ? (pct / 100) * duration : 0;
     // eslint-disable-next-line no-console
-    console.log(`[Loop Marker] ${label} clicked`, { percent: pct, timeSec: sec.toFixed(3) });
+    // console.log(`[Loop Marker] ${label} clicked`, { percent: pct, timeSec: sec.toFixed(3) });
   };
 
   markerA.addEventListener("click", logMarkerClick("A", markerA));

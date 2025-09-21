@@ -51,11 +51,11 @@ export class AutoPauseController {
     const shouldAutoPause = globalVolumeZero || allFilesMuted || allFilesZeroVolume;
 
     if (shouldAutoPause && !this._autoPausedBySilence) {
-      console.log("[AutoPauseController] Auto-pausing due to silence", {
-        globalVolumeZero,
-        allFilesMuted,
-        allFilesZeroVolume,
-      });
+      // console.log("[AutoPauseController] Auto-pausing due to silence", {
+      //   globalVolumeZero,
+      //   allFilesMuted,
+      //   allFilesZeroVolume,
+      // });
       
       this._autoPausedBySilence = true;
       
@@ -89,11 +89,11 @@ export class AutoPauseController {
     const shouldAutoResume = globalVolumeAudible && (someFilesUnmuted || someFilesAudible);
 
     if (shouldAutoResume) {
-      console.log("[AutoPauseController] Auto-resuming from silence", {
-        globalVolumeAudible,
-        someFilesUnmuted,
-        someFilesAudible,
-      });
+      // console.log("[AutoPauseController] Auto-resuming from silence", {
+      //   globalVolumeAudible,
+      //   someFilesUnmuted,
+      //   someFilesAudible,
+      // });
       
       this._autoPausedBySilence = false;
       

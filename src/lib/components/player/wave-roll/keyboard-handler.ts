@@ -85,7 +85,7 @@ export class KeyboardHandler {
       if (wavPlayerManager && typeof wavPlayerManager.areAllBuffersReady === 'function') {
         const buffersReady = wavPlayerManager.areAllBuffersReady();
         if (!buffersReady) {
-          console.log("[KeyboardHandler] Audio buffers are not ready yet. Please wait...");
+          // console.log("[KeyboardHandler] Audio buffers are not ready yet. Please wait...");
           // Optional: Show a toast or notification to user
           this.isTogglingPlayback = false;
           return;

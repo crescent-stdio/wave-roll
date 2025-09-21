@@ -151,7 +151,7 @@ export class TransportSyncManager {
     if (Math.abs(driftMs) <= DRIFT_THRESHOLD_MS) return;
     
     if (TransportSyncManager.DEBUG) {
-      console.log(`[TransportSync] Applying drift correction: ${driftMs.toFixed(2)}ms`);
+      // console.log(`[TransportSync] Applying drift correction: ${driftMs.toFixed(2)}ms`);
     }
     
     const transport = Tone.getTransport();
@@ -170,7 +170,7 @@ export class TransportSyncManager {
         transport.seconds = Math.max(0, correctedSeconds);
         
         if (TransportSyncManager.DEBUG) {
-          console.log(`[TransportSync] Applied drift correction: ${correctionSeconds.toFixed(4)}s`);
+          // console.log(`[TransportSync] Applied drift correction: ${correctionSeconds.toFixed(4)}s`);
         }
       }
     } catch (e) {
@@ -248,11 +248,11 @@ export class TransportSyncManager {
         getDriftStats: () => this.getDriftStats(),
         enableDebug: () => {
           (TransportSyncManager as any).DEBUG = true;
-          console.log("[SyncInspector] Debug logging enabled");
+          // console.log("[SyncInspector] Debug logging enabled");
         },
         disableDebug: () => {
           (TransportSyncManager as any).DEBUG = false;
-          console.log("[SyncInspector] Debug logging disabled");
+          // console.log("[SyncInspector] Debug logging disabled");
         },
         logCurrentState: () => {
           const data = this.getInspectorData();
@@ -274,30 +274,30 @@ export class TransportSyncManager {
           }
           (window as any)._debugSyncInterval = setInterval(() => {
             const data = this.getInspectorData();
-            console.log(`[SyncMonitor] Gen:${data.generation} | Transport:${data.transport.seconds.toFixed(2)}s | Visual:${data.state.currentTime.toFixed(2)}s | Drift:${data.drift.currentDriftMs.toFixed(1)}ms`);
+            // console.log(`[SyncMonitor] Gen:${data.generation} | Transport:${data.transport.seconds.toFixed(2)}s | Visual:${data.state.currentTime.toFixed(2)}s | Drift:${data.drift.currentDriftMs.toFixed(1)}ms`);
           }, intervalMs);
-          console.log("[SyncInspector] Monitoring started");
+          // console.log("[SyncInspector] Monitoring started");
         },
         stopMonitoring: () => {
           if ((window as any)._debugSyncInterval) {
             clearInterval((window as any)._debugSyncInterval);
             (window as any)._debugSyncInterval = null;
-            console.log("[SyncInspector] Monitoring stopped");
+            // console.log("[SyncInspector] Monitoring stopped");
           }
         }
       };
       
-      console.log(`
-[SyncInspector] Debug tools enabled! Use these commands:
-
-window._debugSync.logCurrentState()     - Log current sync state
-window._debugSync.startMonitoring()     - Start live monitoring  
-window._debugSync.stopMonitoring()      - Stop live monitoring
-window._debugSync.enableDebug()         - Enable debug logging
-window._debugSync.disableDebug()        - Disable debug logging
-window._debugSync.getInspectorData()    - Get full state object
-window._debugSync.getDriftStats()       - Get drift statistics
-      `);
+      // console.log(`
+// [SyncInspector] Debug tools enabled! Use these commands:
+//
+// window._debugSync.logCurrentState()     - Log current sync state
+// window._debugSync.startMonitoring()     - Start live monitoring  
+// window._debugSync.stopMonitoring()      - Stop live monitoring
+// window._debugSync.enableDebug()         - Enable debug logging
+// window._debugSync.disableDebug()        - Disable debug logging
+// window._debugSync.getInspectorData()    - Get full state object
+// window._debugSync.getDriftStats()       - Get drift statistics
+//       `);
     }
   }
 
@@ -311,7 +311,7 @@ window._debugSync.getDriftStats()       - Get drift statistics
       }
       delete (window as any)._debugSync;
       delete (window as any)._debugSyncInterval;
-      console.log("[SyncInspector] Debug tools removed");
+      // console.log("[SyncInspector] Debug tools removed");
     }
   }
 
@@ -517,10 +517,10 @@ window._debugSync.getDriftStats()       - Get drift statistics
         
         // Stop at the end instead of continuing beyond duration
         if (TransportSyncManager.DEBUG) {
-          console.log("[TransportSync] End reached", {
-            visualTime: visualTime.toFixed(3),
-            duration: effectiveDuration.toFixed(3),
-          });
+          // console.log("[TransportSync] End reached", {
+          //   visualTime: visualTime.toFixed(3),
+          //   duration: effectiveDuration.toFixed(3),
+          // });
         }
         
         // Call the end callback to handle pause
@@ -546,12 +546,12 @@ window._debugSync.getDriftStats()       - Get drift statistics
         // Log drift statistics periodically
         if (TransportSyncManager.DEBUG && this.performanceMetrics.updateCount % 100 === 0) {
           const stats = this.getDriftStats();
-          console.log("[TransportSync] Drift Stats:", {
-            current: `${stats.currentDriftMs.toFixed(2)}ms`,
-            avg: `${stats.avgDriftMs.toFixed(2)}ms`,
-            max: `${stats.maxDriftMs.toFixed(2)}ms`,
-            violations: stats.violations
-          });
+          // console.log("[TransportSync] Drift Stats:", {
+          //   current: `${stats.currentDriftMs.toFixed(2)}ms`,
+          //   avg: `${stats.avgDriftMs.toFixed(2)}ms`,
+          //   max: `${stats.maxDriftMs.toFixed(2)}ms`,
+          //   violations: stats.violations
+          // });
         }
       }
       
@@ -577,7 +577,7 @@ window._debugSync.getDriftStats()       - Get drift statistics
       // Log every 100 updates (disabled by default)
       if (TransportSyncManager.DEBUG && this.performanceMetrics.updateCount % 100 === 0) {
         const avgTime = this.performanceMetrics.totalUpdateTime / this.performanceMetrics.updateCount;
-        console.log(`[TransportSync] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowUpdates}/${this.performanceMetrics.updateCount}`);
+        // console.log(`[TransportSync] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowUpdates}/${this.performanceMetrics.updateCount}`);
       }
     };
 
@@ -652,14 +652,14 @@ window._debugSync.getDriftStats()       - Get drift statistics
     }
 
     if (TransportSyncManager.DEBUG) {
-      console.log("[Transport.stop] fired", {
-        transportState: Tone.getTransport().state,
-        transportSec: transportSec.toFixed(3),
-        visualSec: visualSec.toFixed(3),
-        currentTime: this.state.currentTime.toFixed(3),
-        isSeeking: this.operationState.isSeeking,
-        isRestarting: this.operationState.isRestarting,
-      });
+      // console.log("[Transport.stop] fired", {
+      //   transportState: Tone.getTransport().state,
+      //   transportSec: transportSec.toFixed(3),
+      //   visualSec: visualSec.toFixed(3),
+      //   currentTime: this.state.currentTime.toFixed(3),
+      //   isSeeking: this.operationState.isSeeking,
+      //   isRestarting: this.operationState.isRestarting,
+      // });
     }
 
     this.state.isPlaying = false;

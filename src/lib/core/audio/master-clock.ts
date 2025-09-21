@@ -41,7 +41,7 @@ export class AudioMasterClock {
   private playerGroups: PlayerGroup[] = [];
   
   constructor() {
-    console.log('[AudioMasterClock] Initialized');
+    // console.log('[AudioMasterClock] Initialized');
   }
   
   /**
@@ -98,7 +98,7 @@ export class AudioMasterClock {
    */
   registerPlayerGroup(group: PlayerGroup): void {
     this.playerGroups.push(group);
-    console.log('[AudioMasterClock] Registered player group:', group.constructor.name);
+    // console.log('[AudioMasterClock] Registered player group:', group.constructor.name);
   }
   
   /**
@@ -115,14 +115,14 @@ export class AudioMasterClock {
     const isResume = fromTime === 0 && this.masterTime > 0;
     const startPosition = isResume ? this.masterTime : fromTime;
     
-    console.log('[AudioMasterClock] Starting synchronized playback', {
-      fromTime,
-      startPosition,
-      isResume,
-      savedMasterTime: this.masterTime,
-      lookahead,
-      generation: currentGeneration
-    });
+    // console.log('[AudioMasterClock] Starting synchronized playback', {
+    //   fromTime,
+    //   startPosition,
+    //   isResume,
+    //   savedMasterTime: this.masterTime,
+    //   lookahead,
+    //   generation: currentGeneration
+    // });
     
     // Set master time
     this.masterTime = startPosition;
@@ -143,17 +143,17 @@ export class AudioMasterClock {
     const audioStartTime = this.toAudioContextTime(startPosition, safeLookahead);
     const toneStartTime = 0; // Transport will be set to startPosition
     
-    console.log('[AudioMasterClock] Calculated sync times:', {
-      audioStartTime,
-      toneStartTime,
-      startPosition,
-      generation: currentGeneration
-    });
+    // console.log('[AudioMasterClock] Calculated sync times:', {
+    //   audioStartTime,
+    //   toneStartTime,
+    //   startPosition,
+    //   generation: currentGeneration
+    // });
     
     // Start all player groups with identical times
     const startPromises = this.playerGroups.map(async (group) => {
       if (this.state.generation !== currentGeneration) {
-        console.log('[AudioMasterClock] Generation changed, aborting group start');
+        // console.log('[AudioMasterClock] Generation changed, aborting group start');
         return;
       }
       
@@ -178,9 +178,9 @@ export class AudioMasterClock {
     // Final state check
     if (this.state.generation === currentGeneration) {
       this.isRunning = true;
-      console.log('[AudioMasterClock] Successfully started all groups, generation:', currentGeneration);
+      // console.log('[AudioMasterClock] Successfully started all groups, generation:', currentGeneration);
     } else {
-      console.log('[AudioMasterClock] Playback aborted due to generation change');
+      // console.log('[AudioMasterClock] Playback aborted due to generation change');
     }
   }
   
@@ -188,7 +188,7 @@ export class AudioMasterClock {
    * Stop playback
    */
   stopPlayback(): void {
-    console.log('[AudioMasterClock] Stopping playback');
+    // console.log('[AudioMasterClock] Stopping playback');
     
     this.isRunning = false;
     this.state.isPlaying = false;
@@ -209,14 +209,14 @@ export class AudioMasterClock {
   }
 
   pausePlayback(): void {
-    console.log('[AudioMasterClock] Pausing playback');
+    // console.log('[AudioMasterClock] Pausing playback');
     
     // Save current time before pausing for proper seekbar positioning
     if (this.isRunning) {
       const currentTime = this.getCurrentTime();
       this.masterTime = currentTime;
       this.state.nowTime = currentTime;
-      console.log('[AudioMasterClock] Saved playback position:', currentTime);
+      // console.log('[AudioMasterClock] Saved playback position:', currentTime);
     }
     
     this.isRunning = false;
@@ -254,7 +254,7 @@ export class AudioMasterClock {
       // Paused: just reposition transport and notify groups
       transport.seconds = time;
       // console.log('[AudioMasterClock.seek] Paused mode: transport.seconds =', transport.seconds);
-      console.info('[SeekTrace][MasterClock] groups.seekTo dispatch', { time, groups: this.playerGroups.length });
+      // console.info('[SeekTrace][MasterClock] groups.seekTo dispatch', { time, groups: this.playerGroups.length });
       this.playerGroups.forEach(group => {
         try {
           group.seekTo(time);
@@ -288,11 +288,11 @@ export class AudioMasterClock {
     transport.stop();
     transport.seconds = time;
     // console.log('[AudioMasterClock.seek] Transport positioned to', time, 'anchor', this.audioContextStartTime, 'now', Tone.context.currentTime);
-    console.info('[SeekTrace][MasterClock] restart scheduling', {
-      requested: time,
-      audioAnchor: this.audioContextStartTime,
-      transportSeconds: transport.seconds,
-    });
+    // console.info('[SeekTrace][MasterClock] restart scheduling', {
+    //   requested: time,
+    //   audioAnchor: this.audioContextStartTime,
+    //   transportSeconds: transport.seconds,
+    // });
     
     // Schedule re-start for all groups with identical anchor and masterTime
     const startPromises = this.playerGroups.map(async (group) => {
@@ -314,10 +314,10 @@ export class AudioMasterClock {
     this.isRunning = true;
     Promise.allSettled(startPromises).catch(() => {});
     // console.log('[AudioMasterClock] Seek restart committed at', this.audioContextStartTime, 'masterTime', time);
-    console.info('[SeekTrace][MasterClock] transport.start', {
-      startAt: this.audioContextStartTime,
-      now: Tone.context.currentTime,
-    });
+    // console.info('[SeekTrace][MasterClock] transport.start', {
+    //   startAt: this.audioContextStartTime,
+    //   now: Tone.context.currentTime,
+    // });
   }
 
   /**
@@ -340,13 +340,13 @@ export class AudioMasterClock {
       const base = this.state.originalTempo > 0 ? this.state.originalTempo : 120;
       const prevFactor = prev / base;
       const nextFactor = bpm / base;
-      console.log('[TEMPO][AudioMasterClock] setTempo', {
-        prevBpm: prev,
-        nextBpm: bpm,
-        base,
-        prevSpeedFactor: Number(prevFactor.toFixed?.(6) ?? prevFactor),
-        nextSpeedFactor: Number(nextFactor.toFixed?.(6) ?? nextFactor),
-      });
+      // console.log('[TEMPO][AudioMasterClock] setTempo', {
+      //   prevBpm: prev,
+      //   nextBpm: bpm,
+      //   base,
+      //   prevSpeedFactor: Number(prevFactor.toFixed?.(6) ?? prevFactor),
+      //   nextSpeedFactor: Number(nextFactor.toFixed?.(6) ?? nextFactor),
+      // });
     } catch {}
     
     this.state.tempo = bpm;

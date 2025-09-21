@@ -26,7 +26,7 @@ export class FileAudioController {
    */
   setFilePan(fileId: string, pan: number): void {
     const clamped = clamp(pan, -1, 1);
-    console.log("[FileAudioController.setFilePan]", { fileId, pan: clamped });
+    // console.log("[FileAudioController.setFilePan]", { fileId, pan: clamped });
     
     this.deps.samplerManager.setFilePan(fileId, clamped);
   }
@@ -37,7 +37,7 @@ export class FileAudioController {
   setFileMute(fileId: string, mute: boolean): void {
     const { samplerManager, wavPlayerManager, midiManager, onFileSettingsChange } = this.deps;
     
-    console.log("[FileAudioController.setFileMute]", { fileId, mute });
+    // console.log("[FileAudioController.setFileMute]", { fileId, mute });
 
     // Try sampler first
     samplerManager.setFileMute(fileId, mute);
@@ -65,7 +65,7 @@ export class FileAudioController {
    */
   setFileVolume(fileId: string, volume: number): void {
     const clamped = clamp(volume, 0, 1);
-    console.log("[FileAudioController.setFileVolume]", { fileId, volume: clamped });
+    // console.log("[FileAudioController.setFileVolume]", { fileId, volume: clamped });
     
     // setFileVolume requires masterVolume parameter
     const masterVolume = 0.7; // Default master volume
@@ -79,7 +79,7 @@ export class FileAudioController {
     const { wavPlayerManager, midiManager } = this.deps;
     
     const clamped = clamp(volume, 0, 1);
-    console.log("[FileAudioController.setWavVolume]", { fileId, volume: clamped });
+    // console.log("[FileAudioController.setWavVolume]", { fileId, volume: clamped });
     
     // Use the wav-specific method
     wavPlayerManager.setWavVolume(fileId, clamped, masterVolume, state);
@@ -158,12 +158,12 @@ export class FileAudioController {
   refreshAudioPlayers(): void {
     const { wavPlayerManager, midiManager } = this.deps;
     
-    console.log("[FileAudioController.refreshAudioPlayers] Refreshing external audio players");
+    // console.log("[FileAudioController.refreshAudioPlayers] Refreshing external audio players");
     
     const refreshed = wavPlayerManager.refreshFromMidiManager(midiManager);
     
     if (refreshed) {
-      console.log("[FileAudioController.refreshAudioPlayers] Audio players refreshed");
+      // console.log("[FileAudioController.refreshAudioPlayers] Audio players refreshed");
     }
   }
 }

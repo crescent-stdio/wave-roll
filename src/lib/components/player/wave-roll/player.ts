@@ -242,7 +242,7 @@ export class WaveRollPlayer {
       onSilenceDetected: () => {
         // Auto-pause when all sources are silent
         if (this.visualizationEngine.getState().isPlaying) {
-          console.log("Auto-pausing: all sources are silent");
+          // console.log("Auto-pausing: all sources are silent");
           this.pausedBySilence = true;
           this.visualizationEngine.pause();
           // Update play button UI to reflect paused state
@@ -252,7 +252,7 @@ export class WaveRollPlayer {
       onSoundDetected: () => {
         // Requirement: user must press the play button to resume (no auto-resume)
         this.pausedBySilence = false;
-        console.log("Sound detected");
+        // console.log("Sound detected");
       }
     });
 
@@ -489,7 +489,7 @@ export class WaveRollPlayer {
             const aSec = lp.a !== null && effDur > 0 ? (lp.a / 100) * effDur : null;
             const bSec = lp.b !== null && effDur > 0 ? (lp.b / 100) * effDur : null;
             this.stateManager.setLoopPoints(aSec, bSec);
-            console.log("setLoopPoints", aSec, bSec);
+            // console.log("setLoopPoints", aSec, bSec);
           }
         } catch {}
 
@@ -719,13 +719,13 @@ export class WaveRollPlayer {
 
   // --- Public control API (used by Web Component/tests) ---
   public async play(): Promise<void> {
-    console.log('[WaveRollPlayer] play() called, using visualizationEngine');
+    // console.log('[WaveRollPlayer] play() called, using visualizationEngine');
     await this.visualizationEngine.play();
     this.updatePlayButton();
   }
 
   public pause(): void {
-    console.log('[WaveRollPlayer] pause() called, using visualizationEngine');
+    // console.log('[WaveRollPlayer] pause() called, using visualizationEngine');
     this.visualizationEngine.pause();
     this.updatePlayButton();
   }

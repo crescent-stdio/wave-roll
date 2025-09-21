@@ -144,7 +144,7 @@ export function createPedalThresholdGroup(
           // Visualization will refresh via midiManager state change listener
         }
         
-        console.log(`Pedal threshold set to ${value}`);
+        // console.log(`Pedal threshold set to ${value}`);
       } catch (error) {
         console.error("Failed to reprocess files:", error);
       } finally {
