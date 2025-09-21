@@ -95,4 +95,20 @@ describe('<wave-roll> element', () => {
     await Promise.resolve();
     expect((playerMod as any).createWaveRollPlayer).toHaveBeenCalled();
   });
+
+  it('maps name -> displayName for backward compatibility', async () => {
+    const playerMod = await import('@/lib/components/player/wave-roll/player');
+    const { WaveRollElement } = await import('@/web-component');
+    const el: any = new (WaveRollElement as any)();
+    const files = [ { path: 'b.mid', name: 'LabelB', type: 'midi' } ];
+    el.setAttribute('files', JSON.stringify(files));
+    el.connectedCallback?.();
+    await Promise.resolve();
+    // Inspect the call arguments to ensure mapping occurred
+    const calls = (playerMod as any).createWaveRollPlayer.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const args = calls[calls.length - 1];
+    const normalized = args[1];
+    expect(normalized[0].displayName).toBe('LabelB');
+  });
 });

@@ -46,8 +46,16 @@
       >
     </div>
 
-    <wave-roll style="width: 100%" />
-
+    <wave-roll
+    style="width: 100%"
+    files='[
+      {"path": "https://github.com/crescent-stdio/wave-roll/blob/main/src/sample_midi/chopin/chopin_audio.mp3", "name": "Chopin Etude Op. 10 No. 12", "type": "audio"},
+      {"path": "https://github.com/crescent-stdio/wave-roll/blob/main/src/sample_midi/chopin/chopin_groud_truth.midi", "name": "Ground Truth", "type": "midi"},
+      {"path": "https://github.com/crescent-stdio/wave-roll/blob/main/src/sample_midi/chopin/chopin_yourmt3plus.midi", "name": "Model Y Output", "type": "midi"},
+      {"path": "https://github.com/crescent-stdio/wave-roll/blob/main/src/sample_midi/chopin/chopin_bytedance.mid", "name": "Model B Output", "type": "midi"}
+    ]'
+  ></wave-roll>
+  
     <script>
       // Test that WaveRoll is available globally in UMD build
       window.addEventListener("DOMContentLoaded", () => {

@@ -23,7 +23,7 @@
 npm install wave-roll
 ```
 
-### Usage
+### Usage (NPM)
 
 ```html
 <!DOCTYPE html>
@@ -35,11 +35,11 @@ npm install wave-roll
 </head>
 <body>
   <wave-roll
-    style="width: 100%; height: 600px;"
+    style="width: 100%;"
     files='[
-      {"path": "path/to/baseline.mid", "name": "Baseline"},
-      {"path": "path/to/model1.mid", "name": "Model 1"},
-      {"path": "path/to/model2.mid", "name": "Model 2"}
+      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -59,11 +59,11 @@ You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll
 </head>
 <body>
   <wave-roll
-    style="width: 100%; height: 600px;"
+    style="width: 100%;"
     files='[
-      {"path": "https://example.com/baseline.mid", "name": "Baseline"},
-      {"path": "https://example.com/model1.mid", "name": "Model 1"},
-      {"path": "https://example.com/model2.mid", "name": "Model 2"}
+      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -81,11 +81,11 @@ You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/test-
 </head>
 <body>
   <wave-roll
-    style="width: 100%; height: 600px;"
+    style="width: 100%;"
     files='[
-      {"path": "https://example.com/baseline.mid", "name": "Baseline"},
-      {"path": "https://example.com/model1.mid", "name": "Model 1"},
-      {"path": "https://example.com/model2.mid", "name": "Model 2"}
+      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -111,8 +111,9 @@ For GitHub Pages deployment, you can use the CDN directly:
   <wave-roll
     style="width: 100%; height: 600px;"
     files='[
-      {"path": "./midi/example1.mid", "name": "Example 1"},
-      {"path": "./midi/example2.mid", "name": "Example 2"}
+      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "/midi/model1.mid", "name": "Model 1", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -126,14 +127,14 @@ import 'wave-roll';
 
 function MidiComparison() {
   const files = [
-    { path: "/midi/baseline.mid", name: "Baseline" },
-    { path: "/midi/model1.mid", name: "Model 1" },
-    { path: "/midi/model2.mid", name: "Model 2" }
+    { path: "/audio/track.wav", name: "Track Audio", type: "audio" },
+    { path: "/midi/ground_truth.mid", name: "Ground Truth", type: "midi" },
+    { path: "/midi/model1.mid", name: "Model 1", type: "midi" }
   ];
 
   return (
     <wave-roll 
-      style={{ width: '100%', height: '600px' }}
+      style={{ width: '100%' }}
       files={JSON.stringify(files)}
     />
   );
@@ -152,9 +153,10 @@ function MidiComparison() {
 ### File Object Structure
 
 ```typescript
-interface MidiFile {
-  path: string;  // URL or path to the MIDI file
-  name: string;  // Display name for the file
+interface FileItem {
+  path: string;   // URL or relative path to the file
+  name: string;   // Display name shown in UI
+  type?: "midi" | "audio"; // Defaults to "midi" when omitted
 }
 ```
 

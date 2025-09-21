@@ -2,12 +2,16 @@ import { createWaveRollPlayer } from "./lib/components/player/wave-roll/player";
 
 /**
  * WaveRoll Web Component
- * 
+ *
  * Usage:
- * <wave-roll 
+ * <wave-roll
  *   files='[{"path": "file.mid", "name": "File Name", "type": "midi"}]'
  *   style="width: 100%; height: 600px;"
  * ></wave-roll>
+ *
+ * Note:
+ * - The component accepts `name` for user-facing labels. It will be mapped to
+ *   the internal `displayName` field for backward compatibility.
  */
 class WaveRollElement extends HTMLElement {
   private player: any = null;
@@ -81,7 +85,7 @@ class WaveRollElement extends HTMLElement {
     // Parse files attribute
     const filesAttr = this.getAttribute('files');
     
-    let files = [];
+    let files = [] as any[];
     if (filesAttr) {
       try {
         files = JSON.parse(filesAttr);
@@ -93,7 +97,22 @@ class WaveRollElement extends HTMLElement {
 
     // Always create the player, even with no files (shows empty state)
     try {
-      this.player = await createWaveRollPlayer(this.container, files);
+      // Normalize incoming items: accept `name` and map to `displayName`.
+      const normalized = (Array.isArray(files) ? files : []).map((f: any) => {
+        const mapped: any = { path: f.path };
+        const label = f?.displayName ?? f?.name;
+        if (typeof label === 'string') {
+          mapped.displayName = label;
+        }
+        if (f && typeof f.type === 'string') {
+          mapped.type = f.type;
+        }
+        if (f && typeof f.color !== 'undefined') {
+          mapped.color = f.color;
+        }
+        return mapped;
+      });
+      this.player = await createWaveRollPlayer(this.container, normalized);
       // Notify listeners the component has finished initialization
       this.dispatchEvent(new Event('load'));
     } catch (e) {
