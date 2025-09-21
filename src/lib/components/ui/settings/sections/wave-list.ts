@@ -15,9 +15,9 @@ export function createWaveListSection(
 
   // Minimal typed accessor for the global audio API
   type WaveRollAudioAPI = {
-    getFiles?: () => Array<{ id: string; color: number; displayName: string }>;
+    getFiles?: () => Array<{ id: string; color: number; name: string }>;
     updateColor?: (id: string, color: number) => void;
-    updateDisplayName?: (id: string, name: string) => void;
+    updateName?: (id: string, name: string) => void;
   };
   const getWaveRollAudio = (): WaveRollAudioAPI | undefined => {
     const w = globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI };
@@ -30,7 +30,7 @@ export function createWaveListSection(
     const files = (api?.getFiles?.() ?? []) as Array<{
       id: string;
       color: number;
-      displayName: string;
+      name: string;
     }>;
     files.forEach((a) => {
       const row = document.createElement("div");
@@ -57,10 +57,10 @@ export function createWaveListSection(
       // name input
       const name = document.createElement("input");
       name.type = "text";
-      name.value = a.displayName;
+      name.value = a.name;
       name.style.cssText = "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
       name.addEventListener("change", () => {
-        api?.updateDisplayName?.(a.id, name.value.trim());
+        api?.updateName?.(a.id, name.value.trim());
       });
 
       row.appendChild(colorBtn);

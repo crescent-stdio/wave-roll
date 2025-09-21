@@ -98,7 +98,7 @@ export class WaveRollPlayer {
   // Store initial files for initialization
   private initialFileItemList: Array<{
     path: string;
-    displayName?: string;
+    name?: string;
     type?: "midi" | "audio";
   }> = [];
 
@@ -581,7 +581,7 @@ export class WaveRollPlayer {
   private async loadSampleFiles(
     files: Array<{
       path: string;
-      displayName?: string;
+      name?: string;
       type?: "midi" | "audio";
     }> = []
   ): Promise<void> {
@@ -775,7 +775,7 @@ export class WaveRollPlayer {
  */
 export async function createWaveRollPlayer(
   container: HTMLElement,
-  files: Array<{ path: string; displayName?: string }> = []
+  files: Array<{ path: string; name?: string }> = []
 ): Promise<WaveRollPlayer> {
   const demo = new WaveRollPlayer(container, files);
   await demo.initialize();

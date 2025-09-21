@@ -4,7 +4,7 @@
 import type * as PIXI from "pixi.js";
 
 export interface FileInfo {
-  displayName: string;
+  name: string;
   fileName: string;
   kind: string; // e.g., "Reference" | "Comparison" | "MIDI"
   color: number; // hex number compatible with PixiJS tint

@@ -179,12 +179,12 @@ export class MultiMidiManager {
   }
 
   /**
-   * Update display name
+   * Update name
    */
-  public updateDisplayName(id: string, displayName: string): void {
+  public updateName(id: string, name: string): void {
     const file = this.state.files.find((f) => f.id === id);
     if (file) {
-      file.displayName = displayName;
+      file.name = name;
       this.notifyStateChange();
     }
   }

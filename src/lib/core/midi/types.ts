@@ -14,7 +14,7 @@ export interface ColorPalette {
  */
 export interface MidiFileEntry {
   id: string;
-  displayName: string;
+  name: string;
   fileName: string;
   parsedData: ParsedMidi | null;
   isVisible: boolean;

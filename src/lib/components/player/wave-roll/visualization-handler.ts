@@ -132,10 +132,10 @@ export class VisualizationHandler {
       const evalState = this.stateManager.getState().evaluation;
       const fileInfoMap: Record<
         string,
-        { displayName: string; fileName: string; kind: string; color: number }
+        { name: string; fileName: string; kind: string; color: number }
       > = {};
       state.files.forEach((f: MidiFileEntry) => {
-        const displayName = f.displayName || f.fileName || f.id;
+        const name = f.name || f.fileName || f.id;
         const isRef = evalState?.refId === f.id;
         const isEst = Array.isArray(evalState?.estIds)
           ? evalState.estIds.includes(f.id)
@@ -147,7 +147,7 @@ export class VisualizationHandler {
             ? f.color
             : parseInt(String(f.color ?? 0).replace("#", ""), 16));
         fileInfoMap[f.id] = {
-          displayName,
+          name,
           fileName: f.fileName ?? "",
           kind,
           color,

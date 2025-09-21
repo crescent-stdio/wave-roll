@@ -37,9 +37,9 @@ npm install wave-roll
   <wave-roll
     style="width: 100%;"
     files='[
-      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
-      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
+      {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -62,9 +62,9 @@ You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll
   <wave-roll
     style="width: 100%;"
     files='[
-      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
-      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
+      {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -84,9 +84,9 @@ You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/examp
   <wave-roll
     style="width: 100%;"
     files='[
-      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
-      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
+      {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -112,9 +112,9 @@ For GitHub Pages deployment, you can use the CDN directly:
   <wave-roll
     style="width: 100%"
     files='[
-      {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
-      {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-      {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
+      {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
+      {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+      {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
     ]'>
   </wave-roll>
 </body>
@@ -128,9 +128,9 @@ import 'wave-roll';
 
 function MidiComparison() {
   const files = [
-    { path: "/audio/track.wav", name: "Track Audio", type: "audio" },
-    { path: "/midi/ground_truth.mid", name: "Ground Truth", type: "midi" },
-    { path: "/midi/modelA.mid", name: "Model A", type: "midi" }
+    { path: "./audio/track.wav", name: "Track Audio", type: "audio" },
+    { path: "./midi/ground_truth.mid", name: "Ground Truth", type: "midi" },
+    { path: "./midi/modelA.mid", name: "Model A", type: "midi" }
   ];
 
   return (
@@ -160,9 +160,9 @@ Add the `readonly` attribute to disable file addition and deletion in the Settin
 <wave-roll
   style="width: 100%; height: 600px;"
   files='[
-    {"path": "/audio/track.wav", "name": "Track Audio", "type": "audio"},
-    {"path": "/midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
-    {"path": "/midi/modelA.mid", "name": "Model A", "type": "midi"}
+    {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
+    {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
+    {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
   ]'
   readonly
 ></wave-roll>

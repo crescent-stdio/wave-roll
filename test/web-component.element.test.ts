@@ -96,7 +96,7 @@ describe('<wave-roll> element', () => {
     expect((playerMod as any).createWaveRollPlayer).toHaveBeenCalled();
   });
 
-  it('maps name -> displayName for backward compatibility', async () => {
+  it('maps name to internal structure', async () => {
     const playerMod = await import('@/lib/components/player/wave-roll/player');
     const { WaveRollElement } = await import('@/web-component');
     const el: any = new (WaveRollElement as any)();
@@ -109,6 +109,58 @@ describe('<wave-roll> element', () => {
     expect(calls.length).toBeGreaterThan(0);
     const args = calls[calls.length - 1];
     const normalized = args[1];
-    expect(normalized[0].displayName).toBe('LabelB');
+    expect(normalized[0].name).toBe('LabelB');
+  });
+
+  it('handles file with name property correctly', async () => {
+    const playerMod = await import('@/lib/components/player/wave-roll/player');
+    const { WaveRollElement } = await import('@/web-component');
+    const el: any = new (WaveRollElement as any)();
+    // Test file with name
+    const files = [ { path: 'c.mid', name: 'FileName', type: 'midi' } ];
+    el.setAttribute('files', JSON.stringify(files));
+    el.connectedCallback?.();
+    await Promise.resolve();
+    // Inspect the call arguments to ensure name is handled correctly
+    const calls = (playerMod as any).createWaveRollPlayer.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const args = calls[calls.length - 1];
+    const normalized = args[1];
+    expect(normalized[0].name).toBe('FileName');
+  });
+
+  it('uses provided name when available', async () => {
+    const playerMod = await import('@/lib/components/player/wave-roll/player');
+    const { WaveRollElement } = await import('@/web-component');
+    const el: any = new (WaveRollElement as any)();
+    // Test file with name
+    const files = [ { path: 'd.mid', name: 'ProvidedName', type: 'midi' } ];
+    el.setAttribute('files', JSON.stringify(files));
+    el.connectedCallback?.();
+    await Promise.resolve();
+    // Inspect the call arguments to ensure name is passed through
+    const calls = (playerMod as any).createWaveRollPlayer.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const args = calls[calls.length - 1];
+    const normalized = args[1];
+    expect(normalized[0].name).toBe('ProvidedName');
+  });
+
+  it('handles file without name property', async () => {
+    const playerMod = await import('@/lib/components/player/wave-roll/player');
+    const { WaveRollElement } = await import('@/web-component');
+    const el: any = new (WaveRollElement as any)();
+    // Test file with only path
+    const files = [ { path: 'test-file.mid', type: 'midi' } ];
+    el.setAttribute('files', JSON.stringify(files));
+    el.connectedCallback?.();
+    await Promise.resolve();
+    // Inspect the call arguments to ensure filename is used as final fallback
+    const calls = (playerMod as any).createWaveRollPlayer.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const args = calls[calls.length - 1];
+    const normalized = args[1];
+    // Should be undefined since no name was provided
+    expect(normalized[0].name).toBeUndefined();
   });
 });

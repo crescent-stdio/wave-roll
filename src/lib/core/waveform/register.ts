@@ -63,9 +63,9 @@ function ensureAPI(): WaveRollAudioAPI {
         const a = store.items.find((x) => x.id === id);
         if (a) a.pan = Math.max(-1, Math.min(1, pan));
       },
-      updateDisplayName(id: string, name: string): void {
+      updateName(id: string, name: string): void {
         const a = store.items.find((x) => x.id === id);
-        if (a) a.displayName = name;
+        if (a) a.name = name;
       },
       updateColor(id: string, color: number): void {
         const a = store.items.find((x) => x.id === id);
@@ -89,7 +89,7 @@ export async function addAudioFileFromUrl(
   const id = generateAudioFileId();
   const entry: RegisteredAudio = {
     id,
-    displayName: displayName || url.split("/").pop() || "Audio",
+    name: displayName || url.split("/").pop() || "Audio",
     url,
     // Default neutral, high-contrast waveform stroke
     color: color ?? parseInt(COLOR_WAVEFORM.replace("#", ""), 16),

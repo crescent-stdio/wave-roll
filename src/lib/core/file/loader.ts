@@ -31,7 +31,7 @@ export async function loadSampleFiles(
       const id = fileManager.midiManager.addMidiFile(
         file.path,
         parsedData,
-        file.displayName,
+        file.name,
         file.path
       );
       try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(id); } catch {}
@@ -64,12 +64,12 @@ export async function loadFile(
       pedalThreshold: pedalThreshold 
     });
     const fileName = typeof input === "string" ? input : input.name;
-    const displayName = options.displayName || fileName;
+    const name = options.name ?? fileName;
 
     const fileId = fileManager.midiManager.addMidiFile(
       fileName,
       parsedData,
-      displayName,
+      name,
       input
     );
     try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId); } catch {}
@@ -106,11 +106,11 @@ export async function loadMultipleFiles(
         applyPedalElongate: pedalElongate,
         pedalThreshold: pedalThreshold 
       });
-      const displayName = options.displayName || file.name;
+      const name = options.name ?? file.name;
       const fileId = fileManager.midiManager.addMidiFile(
         file.name,
         parsedData,
-        displayName,
+        name,
         file
       );
       loadedFileIds.push(fileId);
@@ -137,10 +137,10 @@ export async function loadAudioFile(
 ): Promise<string | null> {
   try {
     const url = typeof input === "string" ? input : URL.createObjectURL(input);
-    const displayName = options.displayName || (typeof input === "string" ? input : input.name);
+    const name = options.name ?? (typeof input === "string" ? input : input.name);
 
     // Register in AudioFiles store and kick off waveform decoding lazily
-    const id = await addAudioFileFromUrl(fileManager, url, displayName, options.color);
+    const id = await addAudioFileFromUrl(fileManager, url, name, options.color);
     return id;
   } catch (error) {
     console.error(`Failed to load audio file:`, error);
@@ -158,7 +158,7 @@ export async function loadSampleAudioFiles(
   fileManager.isBatchLoading = true;
   const list = files.length > 0 ? files : [];
   for (const f of list) {
-    await loadAudioFile(fileManager, f.path, { displayName: f.displayName, color: f.color });
+    await loadAudioFile(fileManager, f.path, { name: f.name, color: f.color });
   }
   fileManager.isBatchLoading = false;
 }

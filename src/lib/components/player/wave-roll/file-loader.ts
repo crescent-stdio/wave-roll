@@ -14,7 +14,7 @@ export class FileLoader {
   async loadSampleFiles(
     files: Array<{
       path: string;
-      displayName?: string;
+      name?: string;
       type?: "midi" | "audio";
     }> = [],
     callbacks?: {

@@ -4,8 +4,8 @@ import { ParsedMidi } from "@/lib/midi/types";
  * Interface for file loading options
  */
 export interface FileLoadOptions {
-  /** Optional display name for the file */
-  displayName?: string;
+  /** Optional name for the file */
+  name?: string;
   /** Whether to suppress batch loading optimizations */
   suppressBatchLoading?: boolean;
 }
@@ -16,8 +16,8 @@ export interface FileLoadOptions {
 export interface SampleFileConfig {
   /** Path to the MIDI file */
   path: string;
-  /** Optional display name for the file */
-  displayName?: string;
+  /** Optional name for the file */
+  name?: string;
   /** Optional file type (defaults to "midi") */
   type?: "midi" | "audio";
 }
@@ -28,8 +28,8 @@ export interface SampleFileConfig {
 export interface SampleAudioFileConfig {
   /** Path to the audio file */
   path: string;
-  /** Optional display name for the file */
-  displayName?: string;
+  /** Optional name for the file */
+  name?: string;
   /** Optional waveform color */
   color?: number;
   /** Optional file type (defaults to "audio") */
@@ -55,7 +55,8 @@ export interface FileInputOptions {
 
 export interface MidiFileItem {
   path: string;
-  displayName?: string;
+  /** Optional name for the file */
+  name?: string;
   type?: "midi" | "audio";
 }
 

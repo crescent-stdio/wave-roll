@@ -128,12 +128,12 @@ export class FileManager {
   }
 
   /**
-   * Update file display name
+   * Update file name
    * @param fileId - ID of the file
-   * @param displayName - New display name
+   * @param name - New name
    */
-  updateFileDisplayName(fileId: string, displayName: string): void {
-    this.midiManager.updateDisplayName(fileId, displayName);
+  updateFileName(fileId: string, name: string): void {
+    this.midiManager.updateName(fileId, name);
   }
 
   /**

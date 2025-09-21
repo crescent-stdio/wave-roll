@@ -3,7 +3,7 @@
 
 export interface RegisteredAudio {
   id: string;
-  displayName: string;
+  name: string;
   url: string;
   color: number;
   isVisible: boolean;
@@ -25,7 +25,7 @@ export interface WaveRollAudioAPI {
   /** Set mute explicitly (added for compatibility) */
   setMute?: (id: string, muted: boolean) => void;
   setPan?: (id: string, pan: number) => void;
-  updateDisplayName?: (id: string, name: string) => void;
+  updateName?: (id: string, name: string) => void;
   updateColor?: (id: string, color: number) => void;
   _store?: { items: RegisteredAudio[] };
 }

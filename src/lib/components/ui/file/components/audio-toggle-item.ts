@@ -10,7 +10,7 @@ import { ShapeRenderer } from "../utils/shape-renderer";
 
 export interface AudioFileInfo {
   id: string;
-  displayName: string;
+  name: string;
   color: number;
   isVisible: boolean;
   isMuted: boolean;
@@ -74,7 +74,7 @@ export class AudioToggleItem {
 
   private static createFileName(audio: AudioFileInfo): HTMLElement {
     const name = document.createElement("span");
-    name.textContent = audio.displayName;
+    name.textContent = audio.name;
     name.style.cssText = `
       flex: 1;
       font-size: 14px;

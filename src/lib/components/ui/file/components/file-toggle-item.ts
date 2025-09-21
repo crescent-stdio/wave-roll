@@ -74,7 +74,7 @@ export class FileToggleItem {
 
   private static createFileName(file: MidiFileEntry): HTMLElement {
     const fileName = document.createElement("span");
-    fileName.textContent = file.displayName;
+    fileName.textContent = file.name;
     fileName.style.cssText = `
       flex: 1;
       font-size: 14px;

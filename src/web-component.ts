@@ -10,8 +10,7 @@ import { createWaveRollPlayer } from "@/lib/components/player/wave-roll/player";
  * ></wave-roll>
  *
  * Note:
- * - The component accepts `name` for user-facing labels. It will be mapped to
- *   the internal `displayName` field for backward compatibility.
+ * - The component accepts `name` for user-facing labels.
  */
 class WaveRollElement extends HTMLElement {
   private player: any = null;
@@ -104,12 +103,11 @@ class WaveRollElement extends HTMLElement {
 
     // Always create the player, even with no files (shows empty state)
     try {
-      // Normalize incoming items: accept `name` and map to `displayName`.
+      // Normalize incoming items: use `name` as the primary property
       const normalized = (Array.isArray(files) ? files : []).map((f: any) => {
         const mapped: any = { path: f.path };
-        const label = f?.displayName ?? f?.name;
-        if (typeof label === 'string') {
-          mapped.displayName = label;
+        if (typeof f?.name === 'string') {
+          mapped.name = f.name;
         }
         if (f && typeof f.type === 'string') {
           mapped.type = f.type;

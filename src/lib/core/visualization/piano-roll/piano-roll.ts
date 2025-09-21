@@ -281,11 +281,11 @@ export class PianoRoll {
     const notesAtPosition = this.findNotesAtPosition(time, note.midi);
 
     const fileInfoMap = this.fileInfoMap as
-      | Record<string, { displayName: string; fileName: string; kind: string; color: number }>
+      | Record<string, { name: string; fileName: string; kind: string; color: number }>
       | undefined;
 
     // Group notes by unique file IDs
-    const fileInfos: Map<string, { info: { displayName: string; fileName: string; kind: string; color: number }; notes: NoteData[] }> = new Map();
+    const fileInfos: Map<string, { info: { name: string; fileName: string; kind: string; color: number }; notes: NoteData[] }> = new Map();
 
     for (const n of notesAtPosition) {
       if (n.fileId && fileInfoMap) {
@@ -324,7 +324,7 @@ export class PianoRoll {
               6,
               "0"
             )};border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(255,255,255,0.3);"></span>`;
-          return `<div style="margin-top:4px;display:flex;align-items:center;">${swatch}<span style="font-weight:500;">${info.kind}: ${info.displayName}</span></div>`;
+          return `<div style="margin-top:4px;display:flex;align-items:center;">${swatch}<span style="font-weight:500;">${info.kind}: ${info.name}</span></div>`;
         })
         .join("");
     }

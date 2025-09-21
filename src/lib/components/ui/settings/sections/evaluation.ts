@@ -314,7 +314,7 @@ export function createEvaluationSection(
 
     // Display metrics
     const lines = [
-      `File: ${estFile.displayName}`,
+      `File: ${estFile.name}`,
       `Precision: ${metrics.precision.toFixed(3)}`,
       `Recall: ${metrics.recall.toFixed(3)}`,
       `F1: ${metrics.f1.toFixed(3)}`,
@@ -343,15 +343,15 @@ export function createEvaluationSection(
       // Add to reference select
       const refOpt = document.createElement("option");
       refOpt.value = file.id;
-      refOpt.textContent = file.displayName;
-      refOpt.title = `Reference candidate: ${file.displayName}`;
+      refOpt.textContent = file.name;
+      refOpt.title = `Reference candidate: ${file.name}`;
       refSelect.appendChild(refOpt);
 
       // Add to estimated select
       const estOpt = document.createElement("option");
       estOpt.value = file.id;
-      estOpt.textContent = file.displayName;
-      estOpt.title = `Estimated candidate: ${file.displayName}`;
+      estOpt.textContent = file.name;
+      estOpt.title = `Estimated candidate: ${file.name}`;
       estSelect.appendChild(estOpt);
     });
 

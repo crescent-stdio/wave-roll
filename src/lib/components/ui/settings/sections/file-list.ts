@@ -159,9 +159,9 @@ export function createFileList(
       // Name editor
       const nameInput = document.createElement("input");
       nameInput.type = "text";
-      nameInput.value = file.displayName;
+      nameInput.value = file.name;
       nameInput.onchange = (e) => {
-        dependencies.midiManager.updateDisplayName(
+        dependencies.midiManager.updateName(
           file.id,
           (e.target as HTMLInputElement).value
         );
@@ -177,7 +177,7 @@ export function createFileList(
         "border:none;background:transparent;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);";
       delBtn.onclick = () => {
         if (!canRemove) { return; }
-        if (confirm(`Delete ${file.displayName}?`)) {
+        if (confirm(`Delete ${file.name}?`)) {
           dependencies.midiManager.removeMidiFile(file.id);
           refreshFileList();
         }

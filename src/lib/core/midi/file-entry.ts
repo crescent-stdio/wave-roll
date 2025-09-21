@@ -8,19 +8,19 @@ import { generateMidiFileId } from "@/lib/core/utils/id";
  * @param fileName     Original filename on disk.
  * @param parsedData   Parsed result from @tonejs/midi (or equivalent).
  * @param color        Display color (integer RGB).
- * @param displayName  Optional user‑friendly name shown in UI.
+ * @param name         Optional name for the file.
  * @param originalInput Original file input for re-parsing.
  */
 export function createMidiFileEntry(
   fileName: string,
   parsedData: ParsedMidi,
   color: number,
-  displayName?: string,
+  name?: string,
   originalInput?: File | string
 ): MidiFileEntry {
   return {
     id: generateMidiFileId(),
-    displayName: displayName ?? fileName.replace(/\.mid$/i, ""),
+    name: name ?? fileName.replace(/\.mid$/i, ""),
     fileName,
     parsedData,
     isVisible: true,
