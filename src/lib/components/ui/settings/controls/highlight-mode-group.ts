@@ -46,6 +46,13 @@ export function createHighlightModeGroup(
 
   const descriptions: Record<HighlightMode, string> = {
     file: "Show each file in its own color (no evaluation highlight).",
+    // Legacy non-evaluation highlight modes (hidden in UI)
+    "highlight-simple":
+      "Basic overlap highlight: overlapping segments are slightly brightened.",
+    "highlight-blend":
+      "Additive blend: overlapping segments keep file colors and use additive blending.",
+    "highlight-exclusive":
+      "Exclusive emphasis: non-overlapping segments are emphasized; overlaps are muted/neutral.",
     // Evaluation presets (detailed tooltips)
     "eval-match-intersection-gray":
       "Matched overlap is emphasized. Overlapping segments are shown in neutral gray.",
@@ -71,6 +78,10 @@ export function createHighlightModeGroup(
   // Short labels for compact select text; hover/tap shows detailed descriptions above
   const labels: Record<HighlightMode, string> = {
     file: "File colors",
+    // Legacy non-evaluation modes (hidden)
+    "highlight-simple": "Overlap highlight (simple)",
+    "highlight-blend": "Overlap blend (additive)",
+    "highlight-exclusive": "Exclusive highlight",
     "eval-match-intersection-gray": "Match (overlap gray)",
     "eval-match-intersection-own": "Match (overlap own)",
     "eval-exclusive-intersection-gray": "Exclusive (overlap gray)",

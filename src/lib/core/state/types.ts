@@ -74,6 +74,10 @@ export interface PanVolumeState {
  */
 export type HighlightMode =
   | "file"
+  // Legacy non-evaluation highlight modes (kept for backward-compatibility)
+  | "highlight-simple"
+  | "highlight-blend"
+  | "highlight-exclusive"
   | "eval-match-intersection-gray"
   | "eval-match-intersection-own"
   | "eval-exclusive-intersection-gray"
