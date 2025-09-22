@@ -24,6 +24,12 @@ export interface OnlyModesParams {
 }
 
 export function handleOnlyModes(params: OnlyModesParams): boolean {
+  const EPS = 1e-9;
+  const clampEdge = (x: number, a: number, b: number): number => {
+    if (Math.abs(x - a) <= EPS) return a;
+    if (Math.abs(x - b) <= EPS) return b;
+    return x;
+  };
   const {
     isOnlyMode,
     isTpOnly,
@@ -83,6 +89,7 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
 
     if (isTpOnly) {
       if (unionRanges.length === 0) {
+        // No TP: show as Not-TP using mapping
         result.push({
           note: { ...note, isEvalHighlightSegment: false },
           color: getNonSelectedColor(true),
@@ -101,9 +108,10 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
       unionRanges.sort((a, b) => a.start - b.start);
       let cursor = noteStart;
       for (const r of unionRanges) {
-        const s = Math.max(noteStart, r.start);
-        const e = Math.min(noteEnd, r.end);
-        if (cursor < s) {
+        const s = clampEdge(Math.max(noteStart, r.start), noteStart, noteEnd);
+        const e = clampEdge(Math.min(noteEnd, r.end), noteStart, noteEnd);
+        if (cursor + EPS < s) {
+          // Non-TP segment according to mode mapping
           result.push({
             note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: false },
             color: getNonSelectedColor(true),
@@ -111,7 +119,7 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
             isMuted: coloredNote.isMuted,
           });
         }
-        if (s < e) {
+        if (s + EPS < e) {
           result.push({
             note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
             color: pairColor,
@@ -120,8 +128,12 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
           });
         }
         cursor = Math.max(cursor, e);
+        // Snap cursor to edges to avoid residuals
+        if (Math.abs(cursor - noteEnd) <= EPS) cursor = noteEnd;
+        if (Math.abs(cursor - noteStart) <= EPS) cursor = noteStart;
       }
-      if (cursor < noteEnd) {
+      if (cursor + EPS < noteEnd) {
+        // Trailing non-TP
         result.push({
           note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
           color: getNonSelectedColor(true),
@@ -178,12 +190,7 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFpOnly) {
-      result.push({
-        note: { ...note, isEvalHighlightSegment: false },
-        color: getNonSelectedColor(true),
-        fileId: coloredNote.fileId,
-        isMuted: coloredNote.isMuted,
-      });
+      // In FP-only mode, suppress REF notes entirely
       return true;
     }
   }
@@ -194,22 +201,71 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
 
     if (isTpOnly) {
       if (refIdx === undefined) {
-        result.push({
-          note: { ...note, isEvalHighlightSegment: false },
-          color: getNonSelectedColor(false),
-          fileId: coloredNote.fileId,
-          isMuted: coloredNote.isMuted,
-        });
+        // Geometry fallback: if there is an overlap with any REF note of same pitch,
+        // split into (non-TP -> Not-TP color) + (overlap -> TP intersection color)
+        const refFile = state.files.find((f: any) => f.id === evalState.refId);
+        const refNotes = refFile?.parsedData?.notes || [];
+        const noteStart = note.time;
+        const noteEnd = note.time + note.duration;
+        const overlaps: Array<{ start: number; end: number }> = [];
+        for (const rn of refNotes) {
+          if (rn?.midi !== note.midi) continue;
+          const s = clampEdge(Math.max(rn.time, noteStart), noteStart, noteEnd);
+          const e = clampEdge(Math.min(rn.time + rn.duration, noteEnd), noteStart, noteEnd);
+          if (s + EPS < e) overlaps.push({ start: s, end: e });
+        }
+        overlaps.sort((a, b) => a.start - b.start);
+        if (overlaps.length === 0) {
+          // No geometric overlap: Not-TP
+          result.push({
+            note: { ...note, isEvalHighlightSegment: false },
+            color: getNonSelectedColor(false),
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+          return true;
+        }
+        // Merge simple overlaps (assume already sorted, minimal overlap)
+        let cursor = noteStart;
+        const refBase = toNumberColor(refFile?.color ?? COLOR_PRIMARY);
+        const pairColor = computePairIntersectColor(refBase, estBase);
+        for (const r of overlaps) {
+          const s = r.start;
+          const e = r.end;
+          if (cursor + EPS < s) {
+            result.push({
+              note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: false },
+              color: getNonSelectedColor(false),
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+          }
+          result.push({
+            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            color: pairColor,
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+          cursor = Math.max(cursor, e);
+        }
+        if (cursor + EPS < noteEnd) {
+          result.push({
+            note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+            color: getNonSelectedColor(false),
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+        }
         return true;
       }
       const refNote = state.files.find((f: any) => f.id === evalState.refId) ?
         state.files.find((f: any) => f.id === evalState.refId).parsedData.notes[refIdx] : null;
       const noteStart = note.time;
       const noteEnd = note.time + note.duration;
-      const s = Math.max(refNote.time, noteStart);
-      const e = Math.min(refNote.time + refNote.duration, noteEnd);
+      const s = clampEdge(Math.max(refNote.time, noteStart), noteStart, noteEnd);
+      const e = clampEdge(Math.min(refNote.time + refNote.duration, noteEnd), noteStart, noteEnd);
 
-      if (noteStart < s) {
+      if (noteStart + EPS < s) {
         result.push({
           note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: false },
           color: getNonSelectedColor(false),
@@ -217,7 +273,7 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
           isMuted: coloredNote.isMuted,
         });
       }
-      if (s < e) {
+      if (s + EPS < e) {
         const refBase = toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
         const pairColor = computePairIntersectColor(refBase, estBase);
         result.push({
@@ -227,7 +283,7 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
           isMuted: coloredNote.isMuted,
         });
       }
-      if (e < noteEnd) {
+      if (e + EPS < noteEnd) {
         result.push({
           note: { ...note, time: e, duration: noteEnd - e, isEvalHighlightSegment: false },
           color: getNonSelectedColor(false),
@@ -283,12 +339,7 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFnOnly) {
-      result.push({
-        note: { ...note, isEvalHighlightSegment: false },
-        color: getNonSelectedColor(false),
-        fileId: coloredNote.fileId,
-        isMuted: coloredNote.isMuted,
-      });
+      // In FN-only mode, suppress EST notes entirely
       return true;
     }
   }

@@ -95,7 +95,7 @@ export function handleRegular(params: RegularParams): boolean {
             cursor,
             s,
             isExclusive ? ownHighlightColor : nonIntersectColor,
-            isExclusive ? { isEval: true, kind: "exclusive" } : undefined
+            isExclusive ? { isEval: true, kind: "exclusive" } : { kind: "exclusive" }
           );
         }
         pushSegment(
@@ -112,7 +112,7 @@ export function handleRegular(params: RegularParams): boolean {
         cursor,
         noteEnd,
         isExclusive ? ownHighlightColor : nonIntersectColor,
-        isExclusive ? { isEval: true, kind: "exclusive" } : undefined
+        isExclusive ? { isEval: true, kind: "exclusive" } : { kind: "exclusive" }
       );
     }
     return true;
@@ -159,7 +159,7 @@ export function handleRegular(params: RegularParams): boolean {
           noteStart,
           intersectStart,
           isExclusive ? ownHighlightColor : nonIntersectColor,
-          isExclusive ? { isEval: true, kind: "exclusive" } : undefined
+          isExclusive ? { isEval: true, kind: "exclusive" } : { kind: "exclusive" }
         );
       }
       pushSegment(
@@ -173,7 +173,7 @@ export function handleRegular(params: RegularParams): boolean {
           intersectEnd,
           noteEnd,
           isExclusive ? ownHighlightColor : nonIntersectColor,
-          isExclusive ? { isEval: true, kind: "exclusive" } : undefined
+          isExclusive ? { isEval: true, kind: "exclusive" } : { kind: "exclusive" }
         );
       }
     } else {

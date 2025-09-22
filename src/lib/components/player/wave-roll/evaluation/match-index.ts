@@ -35,25 +35,49 @@ export function buildUnionRangesByRef(
   estFiles: any[]
 ): Map<number, Range[]> {
   const unionRangesByRef = new Map<number, Range[]>();
-  byRef.forEach((arr, refIdx) => {
-    const refNote = refFile.parsedData.notes[refIdx];
+  const refNotes = refFile?.parsedData?.notes || [];
+  for (let refIdx = 0; refIdx < refNotes.length; refIdx++) {
+    const refNote = refNotes[refIdx];
     const refOn = refNote.time;
     const refOff = refNote.time + refNote.duration;
     const ranges: Range[] = [];
-    for (const { estId, estIdx } of arr) {
-      const estFile = estFiles.find((f: any) => f.id === estId);
-      if (!estFile) continue;
-      const estNote = estFile.parsedData.notes[estIdx];
-      const estOn = estNote.time;
-      const estOff = estNote.time + estNote.duration;
-      const s = Math.max(refOn, estOn);
-      const e = Math.min(refOff, estOff);
-      if (e > s) {
-        ranges.push({ start: s, end: e });
+
+    // If there are matched pairs, use them; otherwise fall back to geometry.
+    const arr = byRef.get(refIdx) || [];
+    if (arr.length > 0) {
+      for (const { estId, estIdx } of arr) {
+        const estFile = estFiles.find((f: any) => f.id === estId);
+        if (!estFile) continue;
+        const estNote = estFile.parsedData.notes[estIdx];
+        const estOn = estNote.time;
+        const estOff = estNote.time + estNote.duration;
+        const s = Math.max(refOn, estOn);
+        const e = Math.min(refOff, estOff);
+        if (e > s) {
+          ranges.push({ start: s, end: e });
+        }
       }
     }
+
+    if (ranges.length === 0) {
+      for (const estFile of estFiles) {
+        const notes = estFile.parsedData.notes;
+        for (let j = 0; j < notes.length; j++) {
+          const estNote = notes[j];
+          if (typeof estNote?.midi === "number" && estNote.midi !== refNote.midi) continue;
+          const estOn = estNote.time;
+          const estOff = estNote.time + estNote.duration;
+          const s = Math.max(refOn, estOn);
+          const e = Math.min(refOff, estOff);
+          if (e > s) {
+            ranges.push({ start: s, end: e });
+          }
+        }
+      }
+    }
+
     unionRangesByRef.set(refIdx, mergeRanges(ranges));
-  });
+  }
   return unionRangesByRef;
 }
 

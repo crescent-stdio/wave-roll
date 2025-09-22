@@ -46,6 +46,12 @@ export function createHighlightModeGroup(
 
   const descriptions: Record<HighlightMode, string> = {
     file: "Show each file in its own color (no evaluation highlight).",
+    "highlight-simple":
+      "Treat overlapping segments with a brighter blend while keeping exclusives muted.",
+    "highlight-blend":
+      "Emphasize overlaps by preserving each file color and relying on additive blending.",
+    "highlight-exclusive":
+      "Focus on exclusive segments using neutral tones for overlaps.",
     // Evaluation presets (detailed tooltips)
     "eval-match-intersection-gray":
       "Matched overlap is emphasized. Overlapping segments are shown in neutral gray.",
@@ -71,6 +77,9 @@ export function createHighlightModeGroup(
   // Short labels for compact select text; hover/tap shows detailed descriptions above
   const labels: Record<HighlightMode, string> = {
     file: "File colors",
+    "highlight-simple": "Overlap brighten",
+    "highlight-blend": "Overlap blend",
+    "highlight-exclusive": "Exclusive focus",
     "eval-match-intersection-gray": "Match (overlap gray)",
     "eval-match-intersection-own": "Match (overlap own)",
     "eval-exclusive-intersection-gray": "Exclusive (overlap gray)",
@@ -85,18 +94,43 @@ export function createHighlightModeGroup(
     "eval-fn-only-gray": "Mute False Negative (FN)",
   };;;
 
-  // Build grouped options with visual separators via <optgroup>
+  // Hidden modes (kept for backward-compat in state, but not shown in UI)
+  const hiddenModes: Set<HighlightMode> = new Set([
+    "eval-match-intersection-own",
+    "eval-match-intersection-gray",
+    "eval-exclusive-intersection-own",
+    "eval-exclusive-intersection-gray",
+    "highlight-simple",
+    "highlight-blend",
+    "highlight-exclusive",
+  ]);
+
+  function mapHiddenModeToFallback(mode: HighlightMode): HighlightMode {
+    switch (mode) {
+      case "highlight-simple":
+      case "highlight-blend":
+      case "highlight-exclusive":
+        return "file";
+      case "eval-match-intersection-own":
+        return "eval-tp-only-own";
+      case "eval-match-intersection-gray":
+        return "eval-tp-only-gray";
+      case "eval-exclusive-intersection-own":
+        return "eval-fn-only-own";
+      case "eval-exclusive-intersection-gray":
+        return "eval-fn-only-gray";
+      default:
+        return mode;
+    }
+  }
+
+  function visibleModeOf(mode: HighlightMode): HighlightMode {
+    return hiddenModes.has(mode) ? mapHiddenModeToFallback(mode) : mode;
+  }
+
+  // Build grouped options (Match/Exclusive are intentionally hidden)
   const grouped: Array<{ label: string; items: HighlightMode[] }> = [
     { label: "Basic", items: ["file"] },
-    {
-      label: "Evaluation presets",
-      items: [
-        "eval-match-intersection-own",
-        "eval-match-intersection-gray",
-        "eval-exclusive-intersection-own",
-        "eval-exclusive-intersection-gray",
-      ],
-    },
     {
       label: "Reference missed only",
       items: ["eval-gt-missed-only-own", "eval-gt-missed-only-gray"],
@@ -127,8 +161,10 @@ export function createHighlightModeGroup(
     select.appendChild(og);
   });
 
-  // Set initial value
-  select.value = deps.stateManager.getState().visual.highlightMode;
+  // Set initial value (fallback to visible mode if current is hidden)
+  select.value = visibleModeOf(
+    deps.stateManager.getState().visual.highlightMode
+  );
   // Also expose description on hover over the select itself
   select.title = descriptions[select.value as HighlightMode] ?? "";
 
@@ -171,7 +207,7 @@ export function createHighlightModeGroup(
 
   // Helper: apply a mode to state/UI
   function applyMode(mode: HighlightMode): void {
-    // Auto-populate REF/EST if needed for eval modes
+    // Auto-populate REF/COMP if needed for eval modes
     if (mode.startsWith("eval-")) {
       const evalState = deps.stateManager.getState().evaluation;
       const files = deps.midiManager.getState().files;

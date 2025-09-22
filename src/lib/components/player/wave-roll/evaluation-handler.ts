@@ -111,8 +111,8 @@ export class EvaluationHandler {
         unionRangesByRef,
         result,
       })) {
-        return;
-      }
+            return;
+          }
 
       if (handleOnlyModes({
         isOnlyMode,
@@ -180,7 +180,7 @@ export class EvaluationHandler {
         coloredNote,
         note,
         sourceIdx,
-        fileColor,
+            fileColor,
         nonIntersectColor,
         ownHighlightColor,
         useGrayGlobal,

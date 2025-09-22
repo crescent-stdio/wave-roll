@@ -58,8 +58,8 @@ export class EvaluationControls {
 
     const estBtn = document.createElement("button");
     estBtn.type = "button";
-    estBtn.textContent = "[EST]";
-    estBtn.title = isEstimated ? "Unset as estimated" : "Set as estimated";
+    estBtn.textContent = "[COMP]";
+    estBtn.title = isEstimated ? "Unset as comparison" : "Set as comparison";
     estBtn.onclick = () => this.handleEstimationToggle(fileId, dependencies, container);
 
     estBtn.style.cssText = `
@@ -181,7 +181,7 @@ export class EvaluationControls {
       const active = estIds.includes(fid);
       
       btn.style.color = active ? "#198754" : "#adb5bd";
-      btn.title = active ? "Unset as estimated" : "Set as estimated";
+      btn.title = active ? "Unset as comparison" : "Set as comparison";
       
       // Keep buttons interactive for swap behavior
       btn.style.opacity = "1";

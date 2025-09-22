@@ -121,11 +121,11 @@ export function createEvaluationSection(
     "display:flex;align-items:start;gap:6px;font-size:12px;";
   attachTip(
     estGroup,
-    "Select a single estimated transcription file to evaluate against the reference (1:1)."
+    "Select a single comparison transcription file to evaluate against the reference (1:1)."
   );
 
   const estLabel = document.createElement("span");
-  estLabel.textContent = "Estimated:";
+  estLabel.textContent = "Comparison:";
   estLabel.style.cssText = "min-width:80px;font-weight:600;padding-top:4px;";
 
   const estSelect = document.createElement("select");
@@ -134,7 +134,7 @@ export function createEvaluationSection(
     "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
   attachTip(
     estSelect,
-    "Pick one estimated MIDI file (single) produced by a transcription system."
+    "Pick one comparison MIDI file (single) produced by a transcription system."
   );
 
   // Tolerances inputs
@@ -142,7 +142,7 @@ export function createEvaluationSection(
   tolerancesGroup.style.cssText = "display:flex;flex-direction:column;gap:6px;";
   attachTip(
     tolerancesGroup,
-    "Matching tolerances used to pair reference and estimated notes for metric computation."
+    "Matching tolerances used to pair reference and comparison notes for metric computation."
   );
 
   const toleranceDescriptions: Record<
@@ -230,7 +230,7 @@ export function createEvaluationSection(
   const anchorDescriptions: Record<"intersection" | "ref" | "est", string> = {
     intersection: "Use the overlapped region as the anchor for visualization.",
     ref: "Use the reference note span as the anchor.",
-    est: "Use the estimated note span as the anchor.",
+    est: "Use the comparison note span as the anchor.",
   };
 
   ["intersection", "ref", "est"].forEach((anchor) => {
@@ -275,7 +275,7 @@ export function createEvaluationSection(
 
     if (!state.refId || state.estIds.length === 0) {
       metricsBox.textContent =
-        "Select reference and estimated files to see metrics";
+        "Select reference and comparison files to see metrics";
       return;
     }
 
@@ -290,7 +290,7 @@ export function createEvaluationSection(
     const estFile = files.find((f) => f.id === estId);
 
     if (!estFile) {
-      metricsBox.textContent = "Estimated file not found";
+      metricsBox.textContent = "Comparison file not found";
       return;
     }
 
@@ -351,7 +351,7 @@ export function createEvaluationSection(
       const estOpt = document.createElement("option");
       estOpt.value = file.id;
       estOpt.textContent = file.name;
-      estOpt.title = `Estimated candidate: ${file.name}`;
+      estOpt.title = `Comparison candidate: ${file.name}`;
       estSelect.appendChild(estOpt);
     });
 
@@ -394,9 +394,9 @@ export function createEvaluationSection(
 
     const selectedOpt = estSelect.selectedOptions[0];
     if (selectedOpt) {
-      attachTip(estSelect, `Estimated: ${selectedOpt.textContent ?? ""}`);
+      attachTip(estSelect, `Comparison: ${selectedOpt.textContent ?? ""}`);
     } else {
-      attachTip(estSelect, "Pick one estimated MIDI file.");
+      attachTip(estSelect, "Pick one comparison MIDI file.");
     }
 
     updateMetrics();
@@ -427,9 +427,9 @@ export function createEvaluationSection(
     deps.stateManager.updateEvaluationState({ estIds: value ? [value] : [] });
     const selectedOpt = estSelect.selectedOptions[0];
     if (selectedOpt) {
-      attachTip(estSelect, `Estimated: ${selectedOpt.textContent ?? ""}`);
+      attachTip(estSelect, `Comparison: ${selectedOpt.textContent ?? ""}`);
     } else {
-      attachTip(estSelect, "Pick one estimated MIDI file.");
+      attachTip(estSelect, "Pick one comparison MIDI file.");
     }
     updateMetrics();
   });
