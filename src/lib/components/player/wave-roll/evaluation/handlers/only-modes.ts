@@ -190,7 +190,53 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFpOnly) {
-      // In FP-only mode, suppress REF notes entirely
+      const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice().sort((a, b) => a.start - b.start);
+      const noteStart = note.time;
+      const noteEnd = note.time + note.duration;
+      if (unionRanges.length === 0) {
+        // Entire REF note is non-FP
+        result.push({
+          note: { ...note, isEvalHighlightSegment: false },
+          color: getNonSelectedColor(true),
+          fileId: coloredNote.fileId,
+          isMuted: coloredNote.isMuted,
+        });
+        return true;
+      }
+      let cursor = noteStart;
+      for (const r of unionRanges) {
+        const s = clampEdge(Math.max(noteStart, r.start), noteStart, noteEnd);
+        const e = clampEdge(Math.min(noteEnd, r.end), noteStart, noteEnd);
+        if (cursor + EPS < s) {
+          // REF-only portion (non-FP)
+          result.push({
+            note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: false },
+            color: getNonSelectedColor(true),
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+        }
+        if (s + EPS < e) {
+          // Matched overlap shown according to mapping
+          result.push({
+            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: false },
+            color: getNonSelectedColor(true, true),
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+        }
+        cursor = Math.max(cursor, e);
+        if (Math.abs(cursor - noteEnd) <= EPS) cursor = noteEnd;
+        if (Math.abs(cursor - noteStart) <= EPS) cursor = noteStart;
+      }
+      if (cursor + EPS < noteEnd) {
+        result.push({
+          note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+          color: getNonSelectedColor(true),
+          fileId: coloredNote.fileId,
+          isMuted: coloredNote.isMuted,
+        });
+      }
       return true;
     }
   }
@@ -295,42 +341,90 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFpOnly) {
-      const exclusiveColor = useGrayGlobal ? selectedGrayColor : estBase;
+      const exclusiveColor = useGrayGlobal ? selectedGrayColor : estBase; // for unmatched FP
       if (refIdx === undefined) {
-        result.push({
-          note: { ...note, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
-          color: exclusiveColor,
-          fileId: coloredNote.fileId,
-          isMuted: coloredNote.isMuted,
-        });
+        // Geometry fallback against REF to split overlaps as non-FP intersections
+        const refFile = state.files.find((f: any) => f.id === evalState.refId);
+        const refNotes = refFile?.parsedData?.notes || [];
+        const noteStart = note.time;
+        const noteEnd = note.time + note.duration;
+        const overlaps: Array<{ start: number; end: number }> = [];
+        for (const rn of refNotes) {
+          if (rn?.midi !== note.midi) continue;
+          const s = clampEdge(Math.max(rn.time, noteStart), noteStart, noteEnd);
+          const e = clampEdge(Math.min(rn.time + rn.duration, noteEnd), noteStart, noteEnd);
+          if (s + EPS < e) overlaps.push({ start: s, end: e });
+        }
+        overlaps.sort((a, b) => a.start - b.start);
+        if (overlaps.length === 0) {
+          // Pure FP: whole note highlighted as FP exclusive
+          result.push({
+            note: { ...note, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+            color: exclusiveColor,
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+          return true;
+        }
+        // Split: FP exclusive outside, intersection as non-FP (with intersection highlight color mapping)
+        let cursor = noteStart;
+        for (const r of overlaps) {
+          const s = r.start;
+          const e = r.end;
+          if (cursor + EPS < s) {
+            result.push({
+              note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+              color: exclusiveColor,
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+          }
+          // Intersection segment
+          result.push({
+            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            color: getNonSelectedColor(false, true),
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+          cursor = Math.max(cursor, e);
+        }
+        if (cursor + EPS < noteEnd) {
+          result.push({
+            note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+            color: exclusiveColor,
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+        }
         return true;
       }
+      // Matched EST note is non-FP: color by mapping with intersection highlight
       const refNote = state.files.find((f: any) => f.id === evalState.refId).parsedData.notes[refIdx];
       const noteStart = note.time;
       const noteEnd = note.time + note.duration;
-      const s = Math.max(refNote.time, noteStart);
-      const e = Math.min(refNote.time + refNote.duration, noteEnd);
+      const s = clampEdge(Math.max(refNote.time, noteStart), noteStart, noteEnd);
+      const e = clampEdge(Math.min(refNote.time + refNote.duration, noteEnd), noteStart, noteEnd);
 
-      if (noteStart < s) {
+      if (noteStart + EPS < s) {
         result.push({
-          note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
-          color: exclusiveColor,
+          note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: false },
+          color: getNonSelectedColor(false),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
         });
       }
-      if (s < e) {
+      if (s + EPS < e) {
         result.push({
-          note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: false },
+          note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
           color: getNonSelectedColor(false, true),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
         });
       }
-      if (e < noteEnd) {
+      if (e + EPS < noteEnd) {
         result.push({
-          note: { ...note, time: e, duration: noteEnd - e, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
-          color: exclusiveColor,
+          note: { ...note, time: e, duration: noteEnd - e, isEvalHighlightSegment: false },
+          color: getNonSelectedColor(false),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
         });

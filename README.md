@@ -1,7 +1,7 @@
 # WaveRoll
 
 <div style="text-align: center;">
-  <img src="./wave-roll-logo.png" alt="WaveRoll" width="50%"/>
+  <img src="./wave-roll-logo.png" alt="WaveRoll" width="40%"/>
 </div>
 
 > **WaveRoll** is an interactive [JavaScript library](https://www.npmjs.com/package/wave-roll) that enables comparative visualization and synchronized playback of multiple MIDI piano rolls on a browser. 
@@ -185,26 +185,6 @@ interface FileItem {
   type?: "midi" | "audio"; // Defaults to "midi" when omitted
 }
 ```
-
-## Advanced Features
-
-### A-B Loop Playback
-Click the A button to set the start point and B button to set the end point. The selected region will loop continuously during playback.
-
-### Per-File Controls
-- **Visible**: Show/hide individual MIDI files
-- **Sustain**: Play only the selected file
-- **Mute/Unmute**: Silence individual MIDI files while keeping them visible
-- **Pan**: Adjust stereo positioning (-100 to +100)
-
-### Tempo Control
-Adjust playback speed from 50% to 200% without affecting pitch.
-
-### Visual Settings
-- **Note Height**: Adjust the height of notes in the piano roll
-- **Highlight Mode**: Various options for emphasizing specific files
-- **Sustain Pedal**: Show/hide sustain pedal (CC64) visualization
-
 
 ## Development
 

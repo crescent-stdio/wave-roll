@@ -46,12 +46,6 @@ export function createHighlightModeGroup(
 
   const descriptions: Record<HighlightMode, string> = {
     file: "Show each file in its own color (no evaluation highlight).",
-    "highlight-simple":
-      "Treat overlapping segments with a brighter blend while keeping exclusives muted.",
-    "highlight-blend":
-      "Emphasize overlaps by preserving each file color and relying on additive blending.",
-    "highlight-exclusive":
-      "Focus on exclusive segments using neutral tones for overlaps.",
     // Evaluation presets (detailed tooltips)
     "eval-match-intersection-gray":
       "Matched overlap is emphasized. Overlapping segments are shown in neutral gray.",
@@ -77,9 +71,6 @@ export function createHighlightModeGroup(
   // Short labels for compact select text; hover/tap shows detailed descriptions above
   const labels: Record<HighlightMode, string> = {
     file: "File colors",
-    "highlight-simple": "Overlap brighten",
-    "highlight-blend": "Overlap blend",
-    "highlight-exclusive": "Exclusive focus",
     "eval-match-intersection-gray": "Match (overlap gray)",
     "eval-match-intersection-own": "Match (overlap own)",
     "eval-exclusive-intersection-gray": "Exclusive (overlap gray)",
@@ -107,9 +98,7 @@ export function createHighlightModeGroup(
 
   function mapHiddenModeToFallback(mode: HighlightMode): HighlightMode {
     switch (mode) {
-      case "highlight-simple":
-      case "highlight-blend":
-      case "highlight-exclusive":
+      case "file":
         return "file";
       case "eval-match-intersection-own":
         return "eval-tp-only-own";
@@ -132,10 +121,6 @@ export function createHighlightModeGroup(
   const grouped: Array<{ label: string; items: HighlightMode[] }> = [
     { label: "Basic", items: ["file"] },
     {
-      label: "Reference missed only",
-      items: ["eval-gt-missed-only-own", "eval-gt-missed-only-gray"],
-    },
-    {
       label: "Performance analysis",
       items: [
         "eval-tp-only-own",
@@ -145,6 +130,10 @@ export function createHighlightModeGroup(
         "eval-fn-only-own",
         "eval-fn-only-gray",
       ],
+    },
+    {
+      label: "Reference missed only",
+      items: ["eval-gt-missed-only-own", "eval-gt-missed-only-gray"],
     },
   ];;
 
