@@ -57,7 +57,7 @@ export const DEFAULT_PAN_VOLUME_STATE: PanVolumeState = {
 export const DEFAULT_VISUAL_STATE: VisualState = {
   currentNoteColors: [],
   zoomLevel: DEFAULT_STATE_CONFIG.defaultZoomLevel,
-  highlightMode: "file",
+  highlightMode: "eval-match-intersection-gray",
   minOffsetTolerance: 0.05,
   pedalElongate: true,
   pedalThreshold: 64,

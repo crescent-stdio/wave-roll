@@ -635,14 +635,10 @@ export class PianoRoll {
     this.state.panX =
       anchorPx - pianoKeysOffset - this.timeScale(timeAtAnchor) * newZoom;
 
-    // // console.log("[zoomX]", {
-    //   anchorPx,
-    //   timeAtAnchor,
-    //   newZoom,
-    //   panX: this.state.panX,
-    // });
-    // Clamp pan within valid bounds
-    clampPanX(this.timeScale, this.state);
+    // Only clamp pan when not using cursor anchor (preserve cursor position)
+    if (anchorX === undefined) {
+      clampPanX(this.timeScale, this.state);
+    }
 
     // Changing zoom affects note width -> full redraw required
     this.needsNotesRedraw = true;

@@ -28,39 +28,103 @@ export function createHighlightModeGroup(
   select.style.cssText = `flex:1;min-width:0;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);`;
 
   const modes: HighlightMode[] = [
-    "file",
-    // "highlight-simple",
-    // "highlight-blend",
-    // "highlight-exclusive",
+    "file", // file colors (no highlight)
     "eval-match-intersection-own",
     "eval-match-intersection-gray",
     "eval-exclusive-intersection-own",
     "eval-exclusive-intersection-gray",
-    "eval-gt-missed-only",
+    "eval-gt-missed-only-own",
+    "eval-gt-missed-only-gray",
+    // Custom-only target modes (TP/FP/FN)
+    "eval-tp-only-own",
+    "eval-tp-only-gray",
+    "eval-fp-only-own",
+    "eval-fp-only-gray",
+    "eval-fn-only-own",
+    "eval-fn-only-gray",
   ];
 
   const descriptions: Record<HighlightMode, string> = {
-    file: "file colors (no highlight)",
-    "highlight-simple": "overlap brighter (experimental)",
-    "highlight-blend": "overlap: additive sum (better visibility)",
-    "highlight-exclusive": "non-overlap only (experimental)",
-    // Evaluation modes (friendly labels)
-    "eval-match-intersection-gray": "match: highlight / intersection: gray",
-    "eval-match-intersection-own": "match: highlight / intersection: own",
+    file: "Show each file in its own color (no evaluation highlight).",
+    // Evaluation presets (detailed tooltips)
+    "eval-match-intersection-gray":
+      "Matched overlap is emphasized. Overlapping segments are shown in neutral gray.",
+    "eval-match-intersection-own":
+      "Matched overlap is emphasized. Overlapping segments keep their file colors.",
     "eval-exclusive-intersection-gray":
-      "exclusive: highlight / intersection: gray",
+      "Exclusive (non-overlapping) parts are emphasized. Overlaps are shown in neutral gray.",
     "eval-exclusive-intersection-own":
-      "exclusive: highlight / intersection: own",
-    "eval-gt-missed-only": "reference missed only",
-  };
+      "Exclusive (non-overlapping) parts are emphasized. Overlaps keep their file colors.",
+    "eval-gt-missed-only-own":
+      "Reference missed only: matched overlap is highlighted; missed (REF-only) segments are shown in gray.",
+    "eval-gt-missed-only-gray":
+      "Reference missed only: matched overlap is shown in gray; missed (REF-only) segments keep the reference color.",
+    // Performance analysis modes
+    "eval-tp-only-own": "Highlight True Positive (TP) segments, mute others",
+    "eval-tp-only-gray": "Mute True Positive (TP) segments, keep others normal",
+    "eval-fp-only-own": "Highlight False Positive (FP) segments, mute others",
+    "eval-fp-only-gray": "Mute False Positive (FP) segments, keep others normal",
+    "eval-fn-only-own": "Highlight False Negative (FN) segments, mute others",
+    "eval-fn-only-gray": "Mute False Negative (FN) segments, mute others",
+  };;;
 
-  modes.forEach((m) => {
-    const opt = document.createElement("option");
-    opt.value = m;
-    // Display intuitive labels for evaluation modes
-    opt.textContent = descriptions[m] ?? m;
-    opt.title = descriptions[m] ?? "";
-    select.appendChild(opt);
+  // Short labels for compact select text; hover/tap shows detailed descriptions above
+  const labels: Record<HighlightMode, string> = {
+    file: "File colors",
+    "eval-match-intersection-gray": "Match (overlap gray)",
+    "eval-match-intersection-own": "Match (overlap own)",
+    "eval-exclusive-intersection-gray": "Exclusive (overlap gray)",
+    "eval-exclusive-intersection-own": "Exclusive (overlap own)",
+    "eval-gt-missed-only-own": "Ref missed only (match highlight)",
+    "eval-gt-missed-only-gray": "Ref missed only (match gray)",
+    "eval-tp-only-own": "Highlight True Positive (TP)",
+    "eval-tp-only-gray": "Mute True Positive (TP)",
+    "eval-fp-only-own": "Highlight False Positive (FP)",
+    "eval-fp-only-gray": "Mute False Positive (FP)",
+    "eval-fn-only-own": "Highlight False Negative (FN)",
+    "eval-fn-only-gray": "Mute False Negative (FN)",
+  };;;
+
+  // Build grouped options with visual separators via <optgroup>
+  const grouped: Array<{ label: string; items: HighlightMode[] }> = [
+    { label: "Basic", items: ["file"] },
+    {
+      label: "Evaluation presets",
+      items: [
+        "eval-match-intersection-own",
+        "eval-match-intersection-gray",
+        "eval-exclusive-intersection-own",
+        "eval-exclusive-intersection-gray",
+      ],
+    },
+    {
+      label: "Reference missed only",
+      items: ["eval-gt-missed-only-own", "eval-gt-missed-only-gray"],
+    },
+    {
+      label: "Performance analysis",
+      items: [
+        "eval-tp-only-own",
+        "eval-tp-only-gray",
+        "eval-fp-only-own",
+        "eval-fp-only-gray",
+        "eval-fn-only-own",
+        "eval-fn-only-gray",
+      ],
+    },
+  ];;
+
+  grouped.forEach((g) => {
+    const og = document.createElement("optgroup");
+    og.label = g.label;
+    g.items.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = labels[m] ?? m;
+      opt.title = descriptions[m] ?? "";
+      og.appendChild(opt);
+    });
+    select.appendChild(og);
   });
 
   // Set initial value
@@ -68,11 +132,46 @@ export function createHighlightModeGroup(
   // Also expose description on hover over the select itself
   select.title = descriptions[select.value as HighlightMode] ?? "";
 
-  select.addEventListener("change", () => {
-    const mode = select.value as HighlightMode;
+  // Helper: inline mobile-friendly tooltip (toast-style)
+  group.style.position = group.style.position || "relative";
+  const tip = document.createElement("div");
+  // Default toast style; can be overridden by deps.uiOptions?.highlightToast?.style
+  tip.style.cssText = `position:absolute;left:12px;right:12px;bottom:52px;z-index:50;padding:8px 10px;border:1px solid var(--ui-border);border-radius:8px;background:var(--surface);color:var(--text-primary);font-size:12px;box-shadow:var(--shadow-sm);display:none;`;
+  group.appendChild(tip);
+  let tipTimer: number | null = null;
+  function showMobileTip(text: string): void {
+    tip.textContent = text;
+    tip.style.display = "block";
+    if (tipTimer) {
+      clearTimeout(tipTimer as any);
+      tipTimer = null;
+    }
+    const opts = deps.uiOptions?.highlightToast;
+    // Position
+    const pos = opts?.position ?? 'bottom';
+    if (pos === 'top') {
+      tip.style.bottom = "";
+      tip.style.top = "52px";
+    } else {
+      tip.style.top = "";
+      tip.style.bottom = "52px";
+    }
+    // Inline style overrides
+    const style = opts?.style;
+    if (style) {
+      Object.assign(tip.style, style);
+    }
+    // Duration
+    const duration = Math.max(800, Math.min(8000, opts?.durationMs ?? 2600));
+    tipTimer = setTimeout(() => {
+      tip.style.display = "none";
+      tipTimer = null;
+    }, duration) as unknown as number;
+  }
 
-    // If an evaluation-based highlight mode is selected but no ref/est are set,
-    // auto-populate them with the first two loaded files for immediate feedback.
+  // Helper: apply a mode to state/UI
+  function applyMode(mode: HighlightMode): void {
+    // Auto-populate REF/EST if needed for eval modes
     if (mode.startsWith("eval-")) {
       const evalState = deps.stateManager.getState().evaluation;
       const files = deps.midiManager.getState().files;
@@ -88,11 +187,25 @@ export function createHighlightModeGroup(
       }
     }
 
-    deps.stateManager.updateVisualState({
-      highlightMode: mode,
-    });
-    // Keep tooltip in sync with selected mode
+    deps.stateManager.updateVisualState({ highlightMode: mode });
+    select.value = mode;
     select.title = descriptions[mode] ?? "";
+    // Show mobile-friendly tooltip on change
+    showMobileTip(descriptions[mode] ?? "");
+  }
+
+  select.addEventListener("change", () => {
+    const mode = select.value as HighlightMode;
+    applyMode(mode);
+  });
+  // Also surface description on touchstart/focus for mobile users
+  select.addEventListener("touchstart", () => {
+    const mode = select.value as HighlightMode;
+    showMobileTip(descriptions[mode] ?? "");
+  });
+  select.addEventListener("focus", () => {
+    const mode = select.value as HighlightMode;
+    showMobileTip(descriptions[mode] ?? "");
   });
 
   group.append(label, select);

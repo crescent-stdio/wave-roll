@@ -63,6 +63,19 @@ export interface UIComponentDependencies {
     /** When false, hide and disable UI paths that remove files */
     canRemoveFiles: boolean;
   };
+
+  /** Optional UI options */
+  uiOptions?: {
+    /** Toast tooltip options for highlight mode */
+    highlightToast?: {
+      /** Position: e.g., 'bottom', 'top' */
+      position?: 'bottom' | 'top';
+      /** Milliseconds to keep the toast visible */
+      durationMs?: number;
+      /** Inline CSS to override the toast container style */
+      style?: Partial<CSSStyleDeclaration>;
+    };
+  };
 }
 
 export interface UIElements {

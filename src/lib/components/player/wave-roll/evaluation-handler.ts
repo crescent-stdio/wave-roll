@@ -211,6 +211,10 @@ export class EvaluationHandler {
     const useGrayGlobal = highlightMode.includes("-gray");
     const isExclusiveGlobal = highlightMode.includes("exclusive");
     const isIntersectionOwn = highlightMode.includes("-own");
+    const isTpOnly = highlightMode.startsWith("eval-tp-only-");
+    const isFpOnly = highlightMode.startsWith("eval-fp-only-");
+    const isFnOnly = highlightMode.startsWith("eval-fn-only-");
+    const isOnlyMode = isTpOnly || isFpOnly || isFnOnly;
 
     // Derive simple aggregation mode: pair for single estimate, otherwise OR.
     const estCount = estFiles.length;
@@ -222,9 +226,11 @@ export class EvaluationHandler {
       const isRef = fileId === evalState.refId;
       const isEst = evalState.estIds.includes(fileId);
 
-      // Non-evaluation files pass through
+      // Non-evaluation files: in ONLY modes, hide; otherwise pass-through
       if (!isRef && !isEst) {
-        result.push(coloredNote);
+        if (!isOnlyMode) {
+          result.push(coloredNote);
+        }
         return;
       }
 
@@ -238,11 +244,18 @@ export class EvaluationHandler {
         ? mixColorsOklch(fileColor, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO)
         : fileColor;
 
-      // eval-gt-missed-only: show Reference-only portions in REF color, everything else in a gray
-      if (highlightMode === "eval-gt-missed-only") {
+      // eval-gt-missed-only(-own|-gray): show Reference-only portions; intersection styled per variant
+      if (
+        highlightMode === "eval-gt-missed-only-own" ||
+        highlightMode === "eval-gt-missed-only-gray"
+      ) {
         const refEntry = state.files.find((f: any) => f.id === evalState.refId);
         const refBaseColor = toNumberColor(refEntry?.color ?? COLOR_PRIMARY);
         const grayRef = aaGrayFor(refBaseColor);
+
+        // Determine intersection color policy
+        const useGrayForIntersection =
+          highlightMode === "eval-gt-missed-only-gray";
 
         if (isRef) {
           const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice().sort((a,b)=>a.start-b.start);
@@ -260,7 +273,7 @@ export class EvaluationHandler {
             return;
           }
 
-          // Split: intersection -> grayRef, exclusive -> REF color
+          // Split REF note: intersection -> (gray or blended), exclusive -> REF color
           let cursor = noteStart;
           for (const r of unionRanges) {
             const s = Math.max(noteStart, r.start);
@@ -275,10 +288,25 @@ export class EvaluationHandler {
                   isMuted: coloredNote.isMuted,
                 });
               }
-              // Intersection segment (dimmed gray vs REF color), no overlay
+              // Intersection segment color
+              let interColor = grayRef;
+              if (!useGrayForIntersection) {
+                // Blend REF/first EST own highlights for a subtle highlight
+                const pairs = byRef.get(sourceIdx);
+                if (pairs && pairs.length > 0) {
+                  const estFile = estFiles.find((f: any) => f.id === pairs[0].estId);
+                  const estBase = estFile ? toNumberColor(estFile.color ?? COLOR_PRIMARY) : refBaseColor;
+                  const refOwn = mixColorsOklch(refBaseColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+                  const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+                  const blended = blendColorsAverage([refOwn, estOwn]);
+                  interColor = mixColorsOklch(blended, 0xffffff, 0.20);
+                } else {
+                  interColor = mixColorsOklch(refBaseColor, 0xffffff, 0.15);
+                }
+              }
               result.push({
-                note: { ...note, time: Math.max(s, noteStart), duration: Math.min(e, noteEnd) - Math.max(s, noteStart), isEvalHighlightSegment: false, noOverlay: true },
-                color: grayRef,
+                note: { ...note, time: Math.max(s, noteStart), duration: Math.min(e, noteEnd) - Math.max(s, noteStart), isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+                color: interColor,
                 fileId: coloredNote.fileId,
                 isMuted: coloredNote.isMuted,
               });
@@ -302,6 +330,286 @@ export class EvaluationHandler {
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
           });
+        }
+        return;
+      }
+
+      // --- TP/FP/FN ONLY MODES -----------------------------------------
+      if (isOnlyMode) {
+        // Colors for different segments in only modes
+        const dimGrayColor = 0x888888; // Light gray for non-selected segments in own mode
+        const selectedGrayColor = 0x555555; // Darker gray for selected segments in gray mode
+
+        // Helper to compute intersection color per pair (own vs gray)
+        const computePairIntersectColor = (refBase: number, estBase: number): number => {
+          if (useGrayGlobal) {
+            return selectedGrayColor;
+          }
+          const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+          const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+          const blended = blendColorsAverage([refOwn, estOwn]);
+          return mixColorsOklch(blended, 0xffffff, 0.20);
+        };
+
+        // Helper to get non-selected color (for gray mode: original colors, for own mode: dim gray)
+        const getNonSelectedColor = (forRef: boolean, forIntersection: boolean = false): number => {
+          if (useGrayGlobal) {
+            // Gray mode: keep original colors for non-selected
+            if (forIntersection) {
+              // For intersection segments, use blended color
+              const refBase = toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
+              const estBase = forRef ? fileColor : toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
+              const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+              const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
+              const blended = blendColorsAverage([refOwn, estOwn]);
+              return mixColorsOklch(blended, 0xffffff, 0.20);
+            }
+            return fileColor;
+          } else {
+            // Own mode: dim non-selected
+            return dimGrayColor;
+          }
+        };
+
+        if (isRef) {
+          const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice();
+          const noteStart = note.time;
+          const noteEnd = note.time + note.duration;
+          const refBase = fileColor;
+
+          if (isTpOnly) {
+            // TP-only: highlight TP segments, handle others based on mode
+            if (unionRanges.length === 0) {
+              // No TP - show entire note as FN with appropriate color
+              result.push({
+                note: { ...note, isEvalHighlightSegment: false },
+                color: getNonSelectedColor(true),
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+              return;
+            }
+            // Show TP segments highlighted, non-TP segments with appropriate color
+            let estBaseForBlend = refBase;
+            const pairs = byRef.get(sourceIdx);
+            if (pairs && pairs.length > 0) {
+              const estFile = estFiles.find((f: any) => f.id === pairs[0].estId);
+              if (estFile) estBaseForBlend = toNumberColor(estFile.color ?? COLOR_PRIMARY);
+            }
+            const pairColor = computePairIntersectColor(refBase, estBaseForBlend);
+            unionRanges.sort((a, b) => a.start - b.start);
+            let cursor = noteStart;
+            for (const r of unionRanges) {
+              const s = Math.max(noteStart, r.start);
+              const e = Math.min(noteEnd, r.end);
+              // FN segment before TP
+              if (cursor < s) {
+                result.push({
+                  note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: false },
+                  color: getNonSelectedColor(true),
+                  fileId: coloredNote.fileId,
+                  isMuted: coloredNote.isMuted,
+                });
+              }
+              // Highlighted TP segment
+              if (s < e) {
+                result.push({
+                  note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+                  color: pairColor,
+                  fileId: coloredNote.fileId,
+                  isMuted: coloredNote.isMuted,
+                });
+              }
+              cursor = Math.max(cursor, e);
+            }
+            // FN segment after last TP
+            if (cursor < noteEnd) {
+              result.push({
+                note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+                color: getNonSelectedColor(true),
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            return;
+          }
+
+          if (isFnOnly) {
+            // FN-only: highlight FN segments, handle TP segments based on mode
+            const exclusiveColor = useGrayGlobal ? selectedGrayColor : refBase;
+            if (unionRanges.length === 0) {
+              // Entire note is FN - highlight it
+              result.push({
+                note: { ...note, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                color: exclusiveColor,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+              return;
+            }
+            // Show FN segments highlighted, TP segments with appropriate color
+            let cursor = noteStart;
+            unionRanges.sort((a, b) => a.start - b.start);
+            for (const r of unionRanges) {
+              const s = Math.max(noteStart, r.start);
+              const e = Math.min(noteEnd, r.end);
+              // Highlighted FN segment before TP
+              if (cursor < s) {
+                result.push({
+                  note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                  color: exclusiveColor,
+                  fileId: coloredNote.fileId,
+                  isMuted: coloredNote.isMuted,
+                });
+              }
+              // TP segment with appropriate color
+              if (s < e) {
+                result.push({
+                  note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: false },
+                  color: getNonSelectedColor(true, true),
+                  fileId: coloredNote.fileId,
+                  isMuted: coloredNote.isMuted,
+                });
+              }
+              cursor = Math.max(cursor, e);
+            }
+            // Highlighted FN segment after last TP
+            if (cursor < noteEnd) {
+              result.push({
+                note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                color: exclusiveColor,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            return;
+          }
+
+          if (isFpOnly) {
+            // FP-only: REF notes with appropriate color (since they're not FP)
+            result.push({
+              note: { ...note, isEvalHighlightSegment: false },
+              color: getNonSelectedColor(true),
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+            return;
+          }
+        }
+
+        if (isEst) {
+          const refIdx = byEst.get(fileId)?.get(sourceIdx);
+          const estBase = fileColor;
+
+          if (isTpOnly) {
+            // TP-only: highlight TP segments, handle FP segments based on mode
+            if (refIdx === undefined) {
+              // Unmatched EST - show as FP with appropriate color
+              result.push({
+                note: { ...note, isEvalHighlightSegment: false },
+                color: getNonSelectedColor(false),
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+              return;
+            }
+            const refNote = refFile.parsedData.notes[refIdx];
+            const noteStart = note.time;
+            const noteEnd = note.time + note.duration;
+            const s = Math.max(refNote.time, noteStart);
+            const e = Math.min(refNote.time + refNote.duration, noteEnd);
+
+            // FP segment before TP with appropriate color
+            if (noteStart < s) {
+              result.push({
+                note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: false },
+                color: getNonSelectedColor(false),
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            // Highlighted TP segment
+            if (s < e) {
+              const refBase = toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
+              const pairColor = computePairIntersectColor(refBase, estBase);
+              result.push({
+                note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+                color: pairColor,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            // FP segment after TP with appropriate color
+            if (e < noteEnd) {
+              result.push({
+                note: { ...note, time: e, duration: noteEnd - e, isEvalHighlightSegment: false },
+                color: getNonSelectedColor(false),
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            return;
+          }
+
+          if (isFpOnly) {
+            // FP-only: highlight FP segments, dim TP segments
+            const exclusiveColor = useGrayGlobal ? selectedGrayColor : estBase;
+            if (refIdx === undefined) {
+              // Entire note is FP - highlight it
+              result.push({
+                note: { ...note, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                color: exclusiveColor,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+              return;
+            }
+            const refNote = refFile.parsedData.notes[refIdx];
+            const noteStart = note.time;
+            const noteEnd = note.time + note.duration;
+            const s = Math.max(refNote.time, noteStart);
+            const e = Math.min(refNote.time + refNote.duration, noteEnd);
+
+            // Highlighted FP segment before TP
+            if (noteStart < s) {
+              result.push({
+                note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                color: exclusiveColor,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            // TP segment with appropriate color
+            if (s < e) {
+              result.push({
+                note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: false },
+                color: getNonSelectedColor(false, true),
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            // Highlighted FP segment after TP
+            if (e < noteEnd) {
+              result.push({
+                note: { ...note, time: e, duration: noteEnd - e, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+                color: exclusiveColor,
+                fileId: coloredNote.fileId,
+                isMuted: coloredNote.isMuted,
+              });
+            }
+            return;
+          }
+
+          if (isFnOnly) {
+            // FN-only: EST notes with appropriate color (since they're not FN)
+            result.push({
+              note: { ...note, isEvalHighlightSegment: false },
+              color: getNonSelectedColor(false),
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+            return;
+          }
         }
         return;
       }

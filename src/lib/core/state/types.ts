@@ -74,14 +74,19 @@ export interface PanVolumeState {
  */
 export type HighlightMode =
   | "file"
-  | "highlight-simple"
-  | "highlight-blend"
-  | "highlight-exclusive"
   | "eval-match-intersection-gray"
   | "eval-match-intersection-own"
   | "eval-exclusive-intersection-gray"
   | "eval-exclusive-intersection-own"
-  | "eval-gt-missed-only";
+  | "eval-gt-missed-only-own"
+  | "eval-gt-missed-only-gray"
+  // Custom-only target modes (TP/FP/FN) with style variants
+  | "eval-tp-only-own"
+  | "eval-tp-only-gray"
+  | "eval-fp-only-own"
+  | "eval-fp-only-gray"
+  | "eval-fn-only-own"
+  | "eval-fn-only-gray";
 
 export interface VisualState {
   currentNoteColors: number[];

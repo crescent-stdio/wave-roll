@@ -6,7 +6,7 @@ import { EvaluationHandler } from '@/lib/components/player/wave-roll/evaluation-
 import { StateManager } from '@/lib/core/state';
 import type { ColoredNote } from '@/lib/core/visualization/visualization-engine';
 
-describe('EvaluationHandler eval-gt-missed-only', () => {
+describe('EvaluationHandler eval-gt-missed-only-gray', () => {
   it('splits reference note into exclusive and intersection segments with expected colors', () => {
     const sm = new StateManager();
     const eh = new EvaluationHandler(sm as any);
@@ -48,7 +48,7 @@ describe('EvaluationHandler eval-gt-missed-only', () => {
       { note: { midi: 60, time: 0.5, duration: 0.5, velocity: 0.7, fileId: estId } as any, color: estColor, fileId: estId, isMuted: false },
     ];
 
-    const out = eh.getEvaluationColoredNotes(state, baseNotes, 'eval-gt-missed-only');
+    const out = eh.getEvaluationColoredNotes(state, baseNotes, 'eval-gt-missed-only-gray');
 
     // There should be: REF-only [0.0..0.5], intersection [0.5..1.0], and EST note unaffected
     const refSegments = out.filter(n => n.fileId === refId);
