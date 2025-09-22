@@ -8,6 +8,7 @@ import {
   onPointerUp,
 } from "@/lib/core/visualization/piano-roll/interactions/pointer";
 import { onWheel } from "@/lib/core/visualization/piano-roll/interactions/wheel";
+import { pinchStart, pinchMove, pinchEnd } from "@/lib/core/visualization/piano-roll/interactions/pinch";
 import { renderPlayhead } from "@/lib/core/visualization/piano-roll/renderers/playhead";
 import { renderGrid } from "@/lib/core/visualization/piano-roll/renderers/grid";
 import { renderNotes } from "@/lib/core/visualization/piano-roll/renderers/notes";
@@ -409,6 +410,11 @@ export class PianoRoll {
 
     // Reusable options objects
     const nonPassive: AddEventListenerOptions = { passive: false };
+    const pinchState = { isPinching: false, lastDistance: 0, anchorX: 0 } as const as {
+      isPinching: boolean;
+      lastDistance: number;
+      anchorX: number;
+    };
 
     // Mouse events for panning
     canvas.addEventListener(
@@ -428,15 +434,36 @@ export class PianoRoll {
     // Touch events - explicit non-passive options because we call preventDefault() in the handlers.
     canvas.addEventListener(
       "touchstart",
-      (event) => onPointerDown(event, this),
+      (event) => {
+        if ((event.touches?.length ?? 0) >= 2) {
+          pinchStart(event, this, pinchState);
+        } else {
+          onPointerDown(event, this);
+        }
+      },
       nonPassive
     );
     canvas.addEventListener(
       "touchmove",
-      (event) => onPointerMove(event, this),
+      (event) => {
+        if (pinchState.isPinching && (event.touches?.length ?? 0) >= 2) {
+          pinchMove(event, this, pinchState);
+        } else {
+          onPointerMove(event, this);
+        }
+      },
       nonPassive
     );
-    canvas.addEventListener("touchend", (event) => onPointerUp(event, this));
+    canvas.addEventListener(
+      "touchend",
+      (event) => {
+        if (pinchState.isPinching) {
+          pinchEnd(event, this, pinchState);
+        } else {
+          onPointerUp(event, this);
+        }
+      }
+    );
 
     // Wheel event for zooming - preventDefault() is used, so keep it non-passive.
     canvas.addEventListener(
