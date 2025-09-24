@@ -145,7 +145,11 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFnOnly) {
+      // Align with description for -gray: Mute FN, keep others normal
+      // - In -gray (useGrayGlobal=true): exclusive (FN) uses gray, intersections use normal ref color
+      // - In -own (useGrayGlobal=false): keep previous behavior (exclusive highlighted by ref color, intersections dimmed)
       const exclusiveColor = useGrayGlobal ? selectedGrayColor : refBase;
+      const interNonSelectedColor = useGrayGlobal ? refBase : dimGrayColor;
       if (unionRanges.length === 0) {
         result.push({
           note: { ...note, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
@@ -158,9 +162,9 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
       let cursor = noteStart;
       unionRanges.sort((a, b) => a.start - b.start);
       for (const r of unionRanges) {
-        const s = Math.max(noteStart, r.start);
-        const e = Math.min(noteEnd, r.end);
-        if (cursor < s) {
+        const s = clampEdge(Math.max(noteStart, r.start), noteStart, noteEnd);
+        const e = clampEdge(Math.min(noteEnd, r.end), noteStart, noteEnd);
+        if (cursor + EPS < s) {
           result.push({
             note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
             color: exclusiveColor,
@@ -168,17 +172,19 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
             isMuted: coloredNote.isMuted,
           });
         }
-        if (s < e) {
+        if (s + EPS < e) {
           result.push({
-            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: false },
-            color: getNonSelectedColor(true, true),
+            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            color: useGrayGlobal ? getNonSelectedColor(true, true) : interNonSelectedColor,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
           });
         }
         cursor = Math.max(cursor, e);
+        if (Math.abs(cursor - noteEnd) <= EPS) cursor = noteEnd;
+        if (Math.abs(cursor - noteStart) <= EPS) cursor = noteStart;
       }
-      if (cursor < noteEnd) {
+      if (cursor + EPS < noteEnd) {
         result.push({
           note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
           color: exclusiveColor,
@@ -433,7 +439,61 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFnOnly) {
-      // In FN-only mode, suppress EST notes entirely
+      // For eval-fn-only-gray: highlight intersections, keep non-overlap normal
+      if (useGrayGlobal) {
+        const refFile = state.files.find((f: any) => f.id === evalState.refId);
+        const refNotes = refFile?.parsedData?.notes || [];
+        const noteStart = note.time;
+        const noteEnd = note.time + note.duration;
+        const overlaps: Array<{ start: number; end: number }> = [];
+        for (const rn of refNotes) {
+          if (rn?.midi !== note.midi) continue;
+          const s = clampEdge(Math.max(rn.time, noteStart), noteStart, noteEnd);
+          const e = clampEdge(Math.min(rn.time + rn.duration, noteEnd), noteStart, noteEnd);
+          if (s + EPS < e) overlaps.push({ start: s, end: e });
+        }
+        overlaps.sort((a, b) => a.start - b.start);
+        if (overlaps.length === 0) {
+          // No intersection with REF: keep entire EST note normal
+          result.push({
+            note: { ...note, isEvalHighlightSegment: false },
+            color: estBase,
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+          return true;
+        }
+        let cursor = noteStart;
+        for (const r of overlaps) {
+          const s = r.start;
+          const e = r.end;
+          if (cursor + EPS < s) {
+            result.push({
+              note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: false },
+              color: estBase,
+              fileId: coloredNote.fileId,
+              isMuted: coloredNote.isMuted,
+            });
+          }
+          result.push({
+            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            color: getNonSelectedColor(false, true),
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+          cursor = Math.max(cursor, e);
+        }
+        if (cursor + EPS < noteEnd) {
+          result.push({
+            note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+            color: estBase,
+            fileId: coloredNote.fileId,
+            isMuted: coloredNote.isMuted,
+          });
+        }
+        return true;
+      }
+      // For -own: suppress EST notes (FN-only means REF focus)
       return true;
     }
   }
