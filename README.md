@@ -142,6 +142,29 @@ function MidiComparison() {
 }
 ```
 
+### Standalone Demo
+
+Try the standalone version with drag-and-drop file upload interface:
+
+- **Live Demo**: [https://crescent-stdio.github.io/wave-roll/standalone.html](https://crescent-stdio.github.io/wave-roll/standalone.html)
+- **Source Code**: [docs/examples/standalone.html](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/standalone.html)
+
+The standalone demo is a minimal, ready-to-use interface where users can directly upload and compare MIDI/audio files without any additional setup.
+
+### Using in Jupyter Notebook
+
+You can embed WaveRoll in Jupyter notebooks using `IFrame`:
+
+```python
+from IPython.display import IFrame
+IFrame(src='https://crescent-stdio.github.io/wave-roll/standalone.html', width='100%', height='800px')
+```
+
+- **Example Notebook**: [docs/examples/jupyter-notebook/demo.ipynb](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/jupyter-notebook/demo.ipynb)
+- **Open in Google Colab**: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/crescent-stdio/wave-roll/blob/main/docs/examples/jupyter-notebook/demo.ipynb)
+
+This is particularly useful for music information retrieval (MIR) research, allowing you to visualize and compare transcription results directly in your analysis notebooks.
+
 ## API
 
 ### Attributes
