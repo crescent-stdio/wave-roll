@@ -529,6 +529,9 @@ export class WaveRollPlayer {
     // Load initial files if provided
     if (this.initialFileItemList.length > 0) {
       await this.loadSampleFiles(this.initialFileItemList);
+      // Update UI after loading files (WAV files will auto-update via event listener)
+      this.updateSidebar();
+      this.updateFileToggleSection();
     } else {
       // Don't load default files - just update UI to show empty state
       this.updateSidebar();

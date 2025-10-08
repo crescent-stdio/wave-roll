@@ -43,6 +43,12 @@ export class FileToggleManager {
     // Make manager globally available for AudioToggleItem
     (window as any).FileToggleManager = FileToggleManager;
     
+    // Listen for WAV file changes (like MIDI subscribe)
+    const handleAudioChange = () => {
+      this.updateFileToggleSection(fileToggleContainer, dependencies);
+    };
+    window.addEventListener('wr-audio-files-changed', handleAudioChange);
+    
     return fileToggleContainer;
   }
 

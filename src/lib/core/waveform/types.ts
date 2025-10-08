@@ -27,6 +27,8 @@ export interface WaveRollAudioAPI {
   setPan?: (id: string, pan: number) => void;
   updateName?: (id: string, name: string) => void;
   updateColor?: (id: string, color: number) => void;
+  /** Remove audio file by id */
+  remove?: (id: string) => void;
   _store?: { items: RegisteredAudio[] };
 }
 

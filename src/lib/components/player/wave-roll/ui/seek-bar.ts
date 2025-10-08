@@ -296,11 +296,11 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     const midiDuration = st?.duration || 0;
     const targetSec = pct01 * midiDuration;
     
-    console.info("[UI-seek] requested", {
-      targetSec, // MIDI content-time seconds
-      pct,
-      midiDuration
-    });
+    // console.info("[UI-seek] requested", {
+    //   targetSec, // MIDI content-time seconds
+    //   pct,
+    //   midiDuration
+    // });
     audioPlayer.seek(targetSec);
   };
 
