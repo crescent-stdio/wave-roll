@@ -7,7 +7,7 @@ export function createWaveListSection(
 ): HTMLElement {
   const section = document.createElement("div");
   const header = document.createElement("h3");
-  header.textContent = "Wave Files";
+  header.textContent = "WAV File";
   header.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
   section.appendChild(header);
 
@@ -129,11 +129,11 @@ export function createWaveListSection(
 
     hiddenInput.onchange = async (e) => {
       if (!canAdd) { return; }
-      const files = Array.from((e.target as HTMLInputElement).files || []);
-      if (files.length === 0) return;
+      const fileList = (e.target as HTMLInputElement).files;
+      if (!fileList || fileList.length === 0) return;
 
-      // Only take first file (single WAV limit enforced in addAudioFileFromUrl)
-      const file = files[0];
+      // Single file only (no 'multiple' attribute on input)
+      const file = fileList[0];
       try {
         const url = URL.createObjectURL(file);
         await addAudioFileFromUrl(null, url, file.name);

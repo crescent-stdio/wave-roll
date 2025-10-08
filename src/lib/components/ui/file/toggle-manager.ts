@@ -167,7 +167,7 @@ export class FileToggleManager {
 
     // Header
     const header = document.createElement("h4");
-    header.textContent = "WAV Files";
+    header.textContent = "WAV File";
     header.style.cssText = `
       margin: 12px 0 8px 0;
       font-size: 14px;
