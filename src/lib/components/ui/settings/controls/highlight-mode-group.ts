@@ -72,8 +72,8 @@ export function createHighlightModeGroup(
     "eval-fp-only-own": "Highlight False Positive (FP) segments, mute others",
     "eval-fp-only-gray": "Mute False Positive (FP) segments, keep others normal",
     "eval-fn-only-own": "Highlight False Negative (FN) segments, mute others",
-    "eval-fn-only-gray": "Mute False Negative (FN) segments, keep others gray",
-  };;;
+    "eval-fn-only-gray": "Mute False Negative (FN) segments, keep others normal",
+  }
 
   // Short labels for compact select text; hover/tap shows detailed descriptions above
   const labels: Record<HighlightMode, string> = {

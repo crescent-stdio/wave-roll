@@ -71,6 +71,16 @@ function ensureAPI(): WaveRollAudioAPI {
         const a = store.items.find((x) => x.id === id);
         if (a) a.color = color >>> 0;
       },
+      remove(id: string): void {
+        const idx = store.items.findIndex((x) => x.id === id);
+        if (idx !== -1) {
+          store.items.splice(idx, 1);
+          // Notify UI components of change
+          try {
+            window.dispatchEvent(new CustomEvent('wr-audio-files-changed'));
+          } catch {}
+        }
+      },
       _store: store,
     };
 
@@ -86,6 +96,13 @@ export async function addAudioFileFromUrl(
   color?: number
 ): Promise<string> {
   const api = ensureAPI();
+  
+  // Limit to single audio file - remove existing files
+  const existingFiles = api.getFiles();
+  for (const file of existingFiles) {
+    api.remove?.(file.id);
+  }
+  
   const id = generateAudioFileId();
   const entry: RegisteredAudio = {
     id,
@@ -98,6 +115,11 @@ export async function addAudioFileFromUrl(
     pan: 0,
   };
   api._store!.items.push(entry);
+
+  // Notify UI components of change
+  try {
+    window.dispatchEvent(new CustomEvent('wr-audio-files-changed'));
+  } catch {}
 
   // Decode audio and compute peaks lazily
   try {
