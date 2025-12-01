@@ -1,242 +1,265 @@
 /**
- * Reproduction Tests for Reported Loop Issues
+ * Tests for A-B Loop functionality using LoopManager
  * 
- * Tests specifically targeting the reported bugs:
- * - A button not updating UI during playback
- * - Loop enable jumping to wrong position
- * - Clear button not updating UI
- * - Tempo changes not updating UI immediately
- * - Seek bar click accuracy issues
+ * These tests validate the core loop logic:
+ * - A-B loop point setting
+ * - B-only loop behavior
+ * - Loop clearing
+ * - Position preservation
+ * - Tempo scaling
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-describe("Section A - A-B Loop Issues", () => {
-  describe("A button click during playback", () => {
-    it("should update piano roll/seekbar/time display when A is clicked during playback", () => {
-      // Issue: While playing, pressing A produced sound only; piano roll/seekbar/time display did not update
-      // Expected: UI should update immediately to show A position
-      
-      const mockAudioPlayer = {
-        getState: vi.fn(() => ({
-          isPlaying: true,
-          currentTime: 5,
-          duration: 10,
-          playbackRate: 100
-        })),
-        seek: vi.fn(),
-        setLoopPoints: vi.fn()
-      };
-      
-      const mockPianoRoll = {
-        setTime: vi.fn(),
-        setLoopWindow: vi.fn()
-      };
-      
-      // Simulate A button click during playback
-      const currentTime = mockAudioPlayer.getState().currentTime;
-      
-      // Fix needed: When playing, A button should call seek() to update position
-      mockAudioPlayer.seek(currentTime, true); // updateVisual = true
-      mockPianoRoll.setTime(currentTime);
-      
-      expect(mockAudioPlayer.seek).toHaveBeenCalledWith(5, true);
-      expect(mockPianoRoll.setTime).toHaveBeenCalledWith(5);
+// Mock Tone.js to avoid audio context issues in tests
+vi.mock("tone", () => ({
+  getTransport: () => ({
+    state: "stopped",
+    seconds: 0,
+    bpm: { value: 120 },
+    loop: false,
+    loopStart: 0,
+    loopEnd: 10,
+    start: vi.fn(),
+    stop: vi.fn(),
+    pause: vi.fn(),
+    cancel: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
+  }),
+  context: { state: "running" },
+  getContext: () => ({
+    state: "running",
+    resume: vi.fn(),
+    lookAhead: 0.1,
+    updateInterval: 0.02,
+    rawContext: { sampleRate: 44100, baseLatency: 0 },
+  }),
+  start: vi.fn(async () => {}),
+  now: () => 0,
+}));
+
+import { LoopManager } from "@/lib/core/audio/managers/loop-manager";
+
+describe("LoopManager A-B Loop", () => {
+  let loopManager: LoopManager;
+  const defaultState = {
+    isPlaying: false,
+    currentTime: 0,
+    duration: 10,
+    tempo: 120,
+    originalTempo: 120,
+    volume: 0.7,
+    pan: 0,
+    isRepeating: false,
+  };
+
+  beforeEach(() => {
+    loopManager = new LoopManager(120);
+  });
+
+  describe("Setting A-B loop points", () => {
+    it("should set valid A-B loop points", () => {
+      const result = loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+
+      expect(result.changed).toBe(true);
+      expect(loopManager.loopStartVisual).toBe(2);
+      expect(loopManager.loopEndVisual).toBe(8);
+      expect(loopManager.hasCustomLoop()).toBe(true);
     });
-    
-    it("should preserve position when A is clicked while not playing", () => {
-      // Issue: When not playing, pressing A keeps the current position (intended)
-      // This is the expected behavior - just verify it works
-      
-      const mockAudioPlayer = {
-        getState: vi.fn(() => ({
-          isPlaying: false,
-          currentTime: 3,
-          duration: 10,
-          playbackRate: 100
-        }))
-      };
-      
-      const mockPianoRoll = {
-        setTime: vi.fn()
-      };
-      
-      // When not playing, only visual update
-      const currentTime = mockAudioPlayer.getState().currentTime;
-      mockPianoRoll.setTime(currentTime);
-      
-      expect(mockPianoRoll.setTime).toHaveBeenCalledWith(3);
+
+    it("should preserve position when current time is within loop bounds", () => {
+      const stateWithinLoop = { ...defaultState, currentTime: 5 };
+      const result = loopManager.setLoopPoints(2, 8, 10, stateWithinLoop as any);
+
+      expect(result.shouldPreservePosition).toBe(true);
+    });
+
+    it("should not preserve position when current time is outside loop bounds", () => {
+      const stateOutsideLoop = { ...defaultState, currentTime: 9 };
+      const result = loopManager.setLoopPoints(2, 8, 10, stateOutsideLoop as any);
+
+      expect(result.shouldPreservePosition).toBe(false);
+    });
+
+    it("should clamp end to duration when end exceeds duration", () => {
+      const result = loopManager.setLoopPoints(2, 15, 10, defaultState as any);
+
+      expect(loopManager.loopEndVisual).toBe(10);
+    });
+
+    it("should set end to duration when end <= start", () => {
+      const result = loopManager.setLoopPoints(5, 3, 10, defaultState as any);
+
+      expect(loopManager.loopStartVisual).toBe(5);
+      expect(loopManager.loopEndVisual).toBe(10);
     });
   });
 
-  describe("AB Loop enable behavior", () => {
-    it("should jump to A when enabling loop during playback", () => {
-      // Issue: During playback, "Click A → Click B → Click AB loop play" jumps to 0 s
-      // Expected: Should jump to A position, not 0
-      
-      const mockAudioPlayer = {
-        getState: vi.fn(() => ({
-          isPlaying: true,
-          currentTime: 5,
-          duration: 10
-        })),
-        setLoopPoints: vi.fn(),
-        seek: vi.fn(),
-        play: vi.fn()
-      };
-      
-      const pointA = 2;
-      const pointB = 8;
-      
-      // Enable loop mode
-      // Fix: Use preservePosition=false to jump to start, and seek to pointA not 0
-      mockAudioPlayer.setLoopPoints(pointA, pointB, false);
-      mockAudioPlayer.seek(pointA); // Should seek to A, not 0
-      
-      expect(mockAudioPlayer.setLoopPoints).toHaveBeenCalledWith(2, 8, false);
-      expect(mockAudioPlayer.seek).toHaveBeenCalledWith(2);
+  describe("B-only loop (A=null, B=value)", () => {
+    it("should create loop from 0 to B when only B is provided", () => {
+      const result = loopManager.setLoopPoints(null, 5, 10, defaultState as any);
+
+      expect(result.changed).toBe(true);
+      expect(loopManager.loopStartVisual).toBe(0);
+      expect(loopManager.loopEndVisual).toBe(5);
     });
-    
-    it("should jump to A when enabling loop while not playing", () => {
-      // Issue: When not playing, "Click A → Click B → Click AB loop play" jumps to A (correct)
-      // This is correct behavior - verify it works
-      
-      const mockAudioPlayer = {
-        getState: vi.fn(() => ({
-          isPlaying: false,
-          currentTime: 0,
-          duration: 10
-        })),
-        setLoopPoints: vi.fn(),
-        seek: vi.fn(),
-        play: vi.fn()
-      };
-      
-      const pointA = 3;
-      const pointB = 7;
-      
-      mockAudioPlayer.setLoopPoints(pointA, pointB, false);
-      mockAudioPlayer.seek(pointA);
-      mockAudioPlayer.play();
-      
-      expect(mockAudioPlayer.seek).toHaveBeenCalledWith(3);
-      expect(mockAudioPlayer.play).toHaveBeenCalled();
+
+    it("should clamp B to duration", () => {
+      const result = loopManager.setLoopPoints(null, 15, 10, defaultState as any);
+
+      expect(loopManager.loopEndVisual).toBe(10);
+    });
+
+    it("should preserve position when within [0, B)", () => {
+      const stateWithin = { ...defaultState, currentTime: 3 };
+      const result = loopManager.setLoopPoints(null, 5, 10, stateWithin as any);
+
+      expect(result.shouldPreservePosition).toBe(true);
+    });
+
+    it("should not preserve position when outside [0, B)", () => {
+      const stateOutside = { ...defaultState, currentTime: 7 };
+      const result = loopManager.setLoopPoints(null, 5, 10, stateOutside as any);
+
+      expect(result.shouldPreservePosition).toBe(false);
     });
   });
 
-  describe("Clear button behavior", () => {
-    it("should update UI when clearing during playback", () => {
-      // Issue: During looped playback, pressing X (clear) produces sound only; piano roll/seekbar/time display does not update
-      // Expected: UI should update while preserving position
-      
-      const mockAudioPlayer = {
-        getState: vi.fn(() => ({
-          isPlaying: true,
-          currentTime: 5,
-          duration: 10
-        })),
-        setLoopPoints: vi.fn(),
-        seek: vi.fn()
-      };
-      
-      const mockPianoRoll = {
-        setTime: vi.fn(),
-        setLoopWindow: vi.fn()
-      };
-      
-      // Clear loop points
-      mockAudioPlayer.setLoopPoints(null, null, true); // preservePosition = true
-      
-      // Fix: Need to trigger UI update even when preserving position
-      const currentTime = mockAudioPlayer.getState().currentTime;
-      mockAudioPlayer.seek(currentTime, true); // Force UI update
-      mockPianoRoll.setTime(currentTime);
-      mockPianoRoll.setLoopWindow(null, null);
-      
-      expect(mockAudioPlayer.setLoopPoints).toHaveBeenCalledWith(null, null, true);
-      expect(mockAudioPlayer.seek).toHaveBeenCalledWith(5, true);
-      expect(mockPianoRoll.setLoopWindow).toHaveBeenCalledWith(null, null);
-    });
-  });
-});
+  describe("A-only loop (A=value, B=null)", () => {
+    it("should NOT activate loop when only A is provided (UX policy)", () => {
+      const result = loopManager.setLoopPoints(3, null, 10, defaultState as any);
 
-describe("Section B - Tempo/Playback Rate Issues", () => {
-  describe("Tempo change UI updates", () => {
-    it("should update UI immediately when tempo changes to 200%", () => {
-      // Issue: Entering 200% in the tempo control does not update the UI immediately; must press spacebar to play
-      // Expected: UI should update immediately without needing to play
-      
-      const mockAudioPlayer = {
-        getState: vi.fn(() => ({
-          isPlaying: false,
-          currentTime: 5,
-          duration: 10,
-          playbackRate: 100,
-          tempo: 120
-        })),
-        setPlaybackRate: vi.fn(),
-        setOnVisualUpdate: vi.fn()
-      };
-      
-      // Mock the visual update callback
-      const visualUpdateCallback = vi.fn();
-      mockAudioPlayer.setOnVisualUpdate(visualUpdateCallback);
-      
-      // Set playback rate to 200%
-      mockAudioPlayer.setPlaybackRate(200);
-      
-      // Fix: The implementation should trigger visual update even when not playing
-      // This is what needs to be fixed in the actual code
-      // For now, we'll test that the methods are called correctly
-      
-      expect(mockAudioPlayer.setPlaybackRate).toHaveBeenCalledWith(200);
-      expect(mockAudioPlayer.setOnVisualUpdate).toHaveBeenCalledWith(visualUpdateCallback);
-      
-      // The fix would involve calling the callback immediately after setPlaybackRate
-      // when not playing, which is currently not happening
+      expect(result.changed).toBe(true);
+      expect(loopManager.loopStartVisual).toBeNull();
+      expect(loopManager.loopEndVisual).toBeNull();
+      expect(loopManager.hasCustomLoop()).toBe(false);
+      expect(result.shouldPreservePosition).toBe(true);
     });
   });
 
-  describe("Seek bar click accuracy", () => {
-    it("should calculate correct position with playback rate", () => {
-      // Issue: Click seeking is inaccurate (clicked position and seeked position differ)
-      // Root cause: Effective duration calculation with playback rate
-      
-      const duration = 10;
-      const playbackRate = 200; // 200% speed
-      const speed = playbackRate / 100; // 2
-      const effectiveDuration = duration / speed; // 5 seconds
-      
-      // Click at 50% position
-      const clickPercent = 50;
-      const expectedPosition = (clickPercent / 100) * effectiveDuration;
-      
-      expect(expectedPosition).toBe(2.5); // 50% of 5s = 2.5s
-      
-      // Click at 80% position
-      const clickPercent2 = 80;
-      const expectedPosition2 = (clickPercent2 / 100) * effectiveDuration;
-      
-      expect(expectedPosition2).toBe(4); // 80% of 5s = 4s
+  describe("Clearing loop", () => {
+    it("should clear loop when both A and B are null", () => {
+      // First set a loop
+      loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+      expect(loopManager.hasCustomLoop()).toBe(true);
+
+      // Then clear it
+      const result = loopManager.setLoopPoints(null, null, 10, defaultState as any);
+
+      expect(result.changed).toBe(true);
+      expect(loopManager.loopStartVisual).toBeNull();
+      expect(loopManager.loopEndVisual).toBeNull();
+      expect(loopManager.hasCustomLoop()).toBe(false);
     });
-    
-    it("should handle different playback rates correctly", () => {
-      const duration = 12;
-      
-      // At 100% speed
-      let playbackRate = 100;
-      let effectiveDuration = duration / (playbackRate / 100);
-      expect(effectiveDuration).toBe(12);
-      
-      // At 150% speed
-      playbackRate = 150;
-      effectiveDuration = duration / (playbackRate / 100);
-      expect(effectiveDuration).toBe(8);
-      
-      // At 50% speed
-      playbackRate = 50;
-      effectiveDuration = duration / (playbackRate / 100);
-      expect(effectiveDuration).toBe(24);
+  });
+
+  describe("No-change detection", () => {
+    it("should return changed=false when setting same loop points", () => {
+      loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+      const result = loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+
+      expect(result.changed).toBe(false);
+    });
+  });
+
+  describe("Tempo scaling", () => {
+    it("should calculate transport times based on tempo ratio", () => {
+      const stateWithDifferentTempo = { ...defaultState, tempo: 240 }; // 2x speed
+      const result = loopManager.setLoopPoints(2, 8, 10, stateWithDifferentTempo as any);
+
+      // At 2x tempo, transport times should be halved
+      expect(result.transportStart).toBe(1); // 2 * 120 / 240 = 1
+      expect(result.transportEnd).toBe(4);   // 8 * 120 / 240 = 4
+    });
+
+    it("should rescale loop points when tempo changes", () => {
+      loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+
+      // Tempo doubles: visual positions should scale
+      loopManager.rescaleLoopForTempoChange(120, 240, 20);
+
+      expect(loopManager.loopStartVisual).toBe(4);  // 2 * 2 = 4
+      expect(loopManager.loopEndVisual).toBe(16);   // 8 * 2 = 16
+    });
+
+    it("should clamp rescaled loop points to duration", () => {
+      loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+
+      // Tempo doubles but duration is limited
+      loopManager.rescaleLoopForTempoChange(120, 240, 10);
+
+      expect(loopManager.loopStartVisual).toBe(4);
+      expect(loopManager.loopEndVisual).toBe(10); // Clamped to duration
+    });
+  });
+
+  describe("Note filtering for loop", () => {
+    it("should filter notes that intersect with loop window", () => {
+      loopManager.setLoopPoints(2, 6, 10, defaultState as any);
+
+      const notes = [
+        { time: 0, duration: 1 },   // Ends at 1, before loop
+        { time: 1, duration: 2 },   // Ends at 3, intersects loop
+        { time: 3, duration: 2 },   // Fully within loop
+        { time: 5, duration: 2 },   // Starts within, ends after
+        { time: 7, duration: 1 },   // After loop
+      ];
+
+      const filtered = loopManager.filterNotesForLoop(notes);
+
+      expect(filtered).toHaveLength(3);
+      expect(filtered[0].time).toBe(1); // Intersects
+      expect(filtered[1].time).toBe(3); // Within
+      expect(filtered[2].time).toBe(5); // Starts within
+    });
+
+    it("should return all notes when no loop is active", () => {
+      const notes = [
+        { time: 0, duration: 1 },
+        { time: 5, duration: 1 },
+        { time: 9, duration: 1 },
+      ];
+
+      const filtered = loopManager.filterNotesForLoop(notes);
+
+      expect(filtered).toHaveLength(3);
+    });
+  });
+
+  describe("Note time adjustment for loop", () => {
+    it("should adjust note time relative to loop start", () => {
+      loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+
+      expect(loopManager.adjustNoteTimeForLoop(5)).toBe(3); // 5 - 2 = 3
+      expect(loopManager.adjustNoteTimeForLoop(2)).toBe(0); // 2 - 2 = 0
+    });
+
+    it("should return original time when no loop is active", () => {
+      expect(loopManager.adjustNoteTimeForLoop(5)).toBe(5);
+    });
+  });
+
+  describe("Loop counter", () => {
+    it("should increment counter on loop event", () => {
+      loopManager.setLoopPoints(2, 8, 10, defaultState as any);
+
+      const position1 = loopManager.handleLoopEvent();
+      const position2 = loopManager.handleLoopEvent();
+
+      expect(position1).toBe(2);
+      expect(position2).toBe(2);
+    });
+
+    it("should reset counter", () => {
+      loopManager.handleLoopEvent();
+      loopManager.handleLoopEvent();
+      loopManager.resetCounter();
+
+      // Counter should be reset (internal state)
+      // We can verify by checking that next handleLoopEvent works correctly
+      const position = loopManager.handleLoopEvent();
+      expect(position).toBe(0); // No loop set, returns 0
     });
   });
 });

@@ -223,19 +223,11 @@ export class WavPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
-    console.log('[WavPlayerGroup] startSynchronized:', {
-      mode: syncInfo.mode,
-      generation: syncInfo.generation,
-      masterTime: syncInfo.masterTime,
-      audioContextTime: syncInfo.audioContextTime,
-      playbackRate: this.originalTempoBase ? (Tone.getTransport().bpm.value / this.originalTempoBase) : 1,
-    });
     
     // Dedupe: ignore duplicate start requests for the same generation
     const currentGen = syncInfo.generation;
     if (typeof currentGen === 'number') {
       if (this.lastStartGen === currentGen) {
-        console.log('[WavPlayerGroup] Duplicate start ignored for generation', currentGen);
         return;
       }
       this.lastStartGen = currentGen;
@@ -251,7 +243,6 @@ export class WavPlayerGroup implements PlayerGroup {
     
     // Re-check generation after await to prevent race condition
     if (typeof currentGen === 'number' && this.lastStartGen !== currentGen) {
-      console.log('[WavPlayerGroup] Generation changed during setup, aborting. Expected:', currentGen, 'Current:', this.lastStartGen);
       return;
     }
     
@@ -266,7 +257,6 @@ export class WavPlayerGroup implements PlayerGroup {
     
     // Re-check generation after buffer await
     if (typeof currentGen === 'number' && this.lastStartGen !== currentGen) {
-      console.log('[WavPlayerGroup] Generation changed during buffer load, aborting. Expected:', currentGen, 'Current:', this.lastStartGen);
       return;
     }
     
@@ -338,14 +328,6 @@ export class WavPlayerGroup implements PlayerGroup {
           bufferDuration > 0 ? bufferDuration - 0.001 : Number.POSITIVE_INFINITY,
           offset
         ));
-        
-        console.log('[WavPlayerGroup] Starting player:', {
-          id: item.id,
-          anchor: syncInfo.audioContextTime,
-          offset: adjustedOffset,
-          playbackRate: entry.player.playbackRate,
-          bufferDuration,
-        });
         
         entry.player.start(syncInfo.audioContextTime, adjustedOffset);
         entry.isStarted = true;

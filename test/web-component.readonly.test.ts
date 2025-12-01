@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock createWaveRollPlayer at the top level (hoisted by vitest)
+const mockSetPermissions = vi.fn();
+vi.mock('@/lib/components/player/wave-roll/player', () => {
+  return {
+    createWaveRollPlayer: vi.fn(async (_container: any, _files: any) => ({
+      destroy: vi.fn(),
+      play: vi.fn(),
+      pause: vi.fn(),
+      seek: vi.fn(),
+      getState: vi.fn(() => ({})),
+      setPermissions: mockSetPermissions,
+    })),
+  };
+});
+
 // Minimal HTMLElement stub compatible with src/web-component.ts
 class FakeHTMLElement {
   public style: Record<string, any> = {};
@@ -59,33 +74,21 @@ describe('<wave-roll readonly> behavior', () => {
   beforeEach(() => {
     registry = installCustomElementsStub();
     installDomStubs();
+    mockSetPermissions.mockClear();
     vi.resetModules();
   });
 
   it('applies readonly by calling player.setPermissions(false, false)', async () => {
-    const setPermissions = vi.fn();
-    vi.mock('@/lib/components/player/wave-roll/player', () => {
-      return {
-        createWaveRollPlayer: vi.fn(async (_container: any, _files: any) => ({
-          destroy: vi.fn(),
-          play: vi.fn(),
-          pause: vi.fn(),
-          seek: vi.fn(),
-          getState: vi.fn(() => ({})),
-          setPermissions,
-        })),
-      };
-    });
-
     const { WaveRollElement } = await import('@/web-component');
     const el: any = new (WaveRollElement as any)();
     // Set readonly before connecting so initializePlayer applies it after creation
     el.setAttribute('readonly', '');
     el.connectedCallback?.();
-    await Promise.resolve();
+    // Wait for async initializePlayer to complete
+    await new Promise(resolve => setTimeout(resolve, 10));
 
-    expect(setPermissions).toHaveBeenCalled();
-    const last = setPermissions.mock.calls[setPermissions.mock.calls.length - 1]?.[0];
+    expect(mockSetPermissions).toHaveBeenCalled();
+    const last = mockSetPermissions.mock.calls[mockSetPermissions.mock.calls.length - 1]?.[0];
     expect(last).toEqual({ canAddFiles: false, canRemoveFiles: false });
   });
 });

@@ -248,8 +248,6 @@ export class AudioMasterClock {
     const transport = Tone.getTransport();
     const wasRunning = this.isRunning;
     
-    console.log('[AudioMasterClock] seekTo:', { time, generation: currentGeneration, wasRunning, transportBpm: transport.bpm.value });
-    
     if (!wasRunning) {
       // Paused: just reposition transport and notify groups
       transport.seconds = time;
@@ -328,8 +326,6 @@ export class AudioMasterClock {
     // Set Transport BPM
     const transport = Tone.getTransport();
     transport.bpm.value = bpm;
-    
-    console.log('[AudioMasterClock] setTempo:', { prevBpm, newBpm: bpm, generation: this.state.generation });
     
     // Notify all player groups of tempo change
     this.playerGroups.forEach(group => {
