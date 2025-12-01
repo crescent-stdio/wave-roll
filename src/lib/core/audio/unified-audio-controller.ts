@@ -268,27 +268,25 @@ export class UnifiedAudioController {
   }
   
   set tempo(bpm: number) {
+    const prevBpm = this.masterClock.state.tempo;
+    
+    // Skip if same value to prevent duplicate calls
+    if (bpm === prevBpm) return;
+    
     const wasPlaying = this.masterClock.state.isPlaying;
     const current = this.masterClock.getCurrentTime();
-    // console.log('[DEBUG][UnifiedAudioController] Setting tempo:', bpm, 'wasPlaying:', wasPlaying, 'current:', current);
 
+    console.log('[UnifiedAudioController] tempo changed:', { prevBpm, newBpm: bpm, wasPlaying, currentTime: current });
+
+    // masterClock.setTempo() internally propagates to all registered playerGroups
+    // (WavPlayerGroup, MidiPlayerGroup), so we do NOT call setTempo on them directly here.
     this.masterClock.setTempo(bpm);
-    try {
-      // console.log('[DEBUG][UnifiedAudioController] Calling wavPlayerGroup.setTempo');
-      this.wavPlayerGroup.setTempo(bpm);
-    } catch {}
-    try {
-      // console.log('[DEBUG][UnifiedAudioController] Calling midiPlayerGroup.setTempo');
-      this.midiPlayerGroup.setTempo(bpm);
-    } catch {}
 
     // If playing, re-align both groups at the same master time immediately to prevent drift.
     if (wasPlaying) {
-      // console.log('[DEBUG][UnifiedAudioController] wasPlaying=true, seeking with lookahead 0.2s (letting masterClock handle all stopping)');
+      console.log('[UnifiedAudioController] Re-aligning at time:', current);
       // Let masterClock.seekToWithLookahead handle stopping all groups to avoid duplicate calls
       this.masterClock.seekToWithLookahead(current, 0.2);
-    } else {
-      // console.log('[DEBUG][UnifiedAudioController] wasPlaying=false, no seek required');
     }
   }
 

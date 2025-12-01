@@ -240,8 +240,6 @@ export class AudioMasterClock {
    * Seek to specific time
    */
   seekTo(time: number): void {
-    // console.log('[AudioMasterClock] Seeking to:', time);
-    
     this.masterTime = time;
     this.state.nowTime = time;
     this.state.generation += 1; // Prevent ghost audio
@@ -250,11 +248,11 @@ export class AudioMasterClock {
     const transport = Tone.getTransport();
     const wasRunning = this.isRunning;
     
+    console.log('[AudioMasterClock] seekTo:', { time, generation: currentGeneration, wasRunning, transportBpm: transport.bpm.value });
+    
     if (!wasRunning) {
       // Paused: just reposition transport and notify groups
       transport.seconds = time;
-      // console.log('[AudioMasterClock.seek] Paused mode: transport.seconds =', transport.seconds);
-      // console.info('[SeekTrace][MasterClock] groups.seekTo dispatch', { time, groups: this.playerGroups.length });
       this.playerGroups.forEach(group => {
         try {
           group.seekTo(time);
@@ -276,7 +274,6 @@ export class AudioMasterClock {
     
     // Stop groups to clear any scheduled events
     this.playerGroups.forEach(group => {
-      // console.log('[AudioMasterClock.seek] Stopping group before restart:', group.constructor.name);
       try {
         group.stopSynchronized();
       } catch (error) {
@@ -287,12 +284,6 @@ export class AudioMasterClock {
     // Reposition transport to target time and restart at the absolute anchor
     transport.stop();
     transport.seconds = time;
-    // console.log('[AudioMasterClock.seek] Transport positioned to', time, 'anchor', this.audioContextStartTime, 'now', Tone.context.currentTime);
-    // console.info('[SeekTrace][MasterClock] restart scheduling', {
-    //   requested: time,
-    //   audioAnchor: this.audioContextStartTime,
-    //   transportSeconds: transport.seconds,
-    // });
     
     // Schedule re-start for all groups with identical anchor and masterTime
     const startPromises = this.playerGroups.map(async (group) => {
@@ -313,11 +304,6 @@ export class AudioMasterClock {
     transport.start(this.audioContextStartTime);
     this.isRunning = true;
     Promise.allSettled(startPromises).catch(() => {});
-    // console.log('[AudioMasterClock] Seek restart committed at', this.audioContextStartTime, 'masterTime', time);
-    // console.info('[SeekTrace][MasterClock] transport.start', {
-    //   startAt: this.audioContextStartTime,
-    //   now: Tone.context.currentTime,
-    // });
   }
 
   /**
@@ -335,26 +321,15 @@ export class AudioMasterClock {
    * Set tempo
    */
   setTempo(bpm: number): void {
-    try {
-      const prev = this.state.tempo;
-      const base = this.state.originalTempo > 0 ? this.state.originalTempo : 120;
-      const prevFactor = prev / base;
-      const nextFactor = bpm / base;
-      // console.log('[TEMPO][AudioMasterClock] setTempo', {
-      //   prevBpm: prev,
-      //   nextBpm: bpm,
-      //   base,
-      //   prevSpeedFactor: Number(prevFactor.toFixed?.(6) ?? prevFactor),
-      //   nextSpeedFactor: Number(nextFactor.toFixed?.(6) ?? nextFactor),
-      // });
-    } catch {}
-    
+    const prevBpm = this.state.tempo;
     this.state.tempo = bpm;
     this.state.generation += 1; // Prevent ghost audio
     
     // Set Transport BPM
     const transport = Tone.getTransport();
     transport.bpm.value = bpm;
+    
+    console.log('[AudioMasterClock] setTempo:', { prevBpm, newBpm: bpm, generation: this.state.generation });
     
     // Notify all player groups of tempo change
     this.playerGroups.forEach(group => {
