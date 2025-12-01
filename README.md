@@ -237,5 +237,10 @@ MIT License - see [LICENSE](LICENSE) file for details
 If you use WaveRoll in your research, please cite:
 
 ```bibtex
-
+@inproceedings{waveroll2025,
+  title={WaveRoll: JavaScript Library for Comparative MIDI Piano-Roll Visualization},
+  author={Park, Hannah and Jeong, Dasaem},
+  booktitle={Proceedings of 26th International Society for Music Information Retrieval Conference (ISMIR)},
+  year={2025}
+}
 ```

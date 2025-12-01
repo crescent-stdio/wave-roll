@@ -37,15 +37,14 @@ export function createSoloAppearanceSection(
   title.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
   wrapper.appendChild(title);
 
-  // Get current palette colors
-  const { activePaletteId, customPalettes } = deps.midiManager.getState();
-  const allPalettes = [...DEFAULT_PALETTES, ...customPalettes];
-  const palette = allPalettes.find((p) => p.id === activePaletteId) || DEFAULT_PALETTES[0];
-
-  // Current color and style
+  // Current color and style (mutable)
   let currentColorHex = toHexColor(file.color);
   let currentStyle = deps.stateManager.getOnsetMarkerForFile(fileId) 
     || deps.stateManager.ensureOnsetMarkerForFile(fileId);
+
+  // Forward declarations for functions used in rebuildColorButtons
+  let updateMarkerPreviews: () => void = () => {};
+  let dispatchSettingsChange: () => void = () => {};
 
   // ---- Color Selection ----
   const colorSection = document.createElement("div");
@@ -69,31 +68,54 @@ export function createSoloAppearanceSection(
     });
   };
 
-  palette.colors.forEach((color) => {
-    const hex = toHexColor(color);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.dataset.hex = hex;
-    btn.setAttribute("aria-label", `Select color ${hex}`);
-    btn.style.cssText = `
-      width:28px;height:28px;border-radius:6px;
-      border:1px solid var(--ui-border);background:${hex};
-      cursor:pointer;transition:transform 0.1s;
-    `;
-    btn.onmouseenter = () => { btn.style.transform = "scale(1.1)"; };
-    btn.onmouseleave = () => { btn.style.transform = "scale(1)"; };
-    btn.onclick = () => {
-      deps.midiManager.updateColor(fileId, color);
-      currentColorHex = hex;
-      updateColorSelection();
-      updateMarkerPreviews();
-      dispatchSettingsChange();
-    };
-    colorButtons.push(btn);
-    colorsRow.appendChild(btn);
-  });
+  /**
+   * Rebuild color buttons based on the current active palette.
+   * Called initially and when palette changes.
+   */
+  const rebuildColorButtons = () => {
+    const state = deps.midiManager.getState();
+    const allPalettes = [...DEFAULT_PALETTES, ...state.customPalettes];
+    const palette = allPalettes.find((p) => p.id === state.activePaletteId) || DEFAULT_PALETTES[0];
 
-  updateColorSelection();
+    // Sync current color from file state (palette switch may have changed it)
+    const currentFile = state.files.find((f) => f.id === fileId);
+    if (currentFile) {
+      currentColorHex = toHexColor(currentFile.color);
+    }
+
+    // Clear existing buttons
+    colorsRow.innerHTML = "";
+    colorButtons.length = 0;
+
+    // Create buttons for the new palette colors
+    palette.colors.forEach((color) => {
+      const hex = toHexColor(color);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.hex = hex;
+      btn.setAttribute("aria-label", `Select color ${hex}`);
+      btn.style.cssText = `
+        width:28px;height:28px;border-radius:6px;
+        border:1px solid var(--ui-border);background:${hex};
+        cursor:pointer;transition:transform 0.1s;
+      `;
+      btn.onmouseenter = () => { btn.style.transform = "scale(1.1)"; };
+      btn.onmouseleave = () => { btn.style.transform = "scale(1)"; };
+      btn.onclick = () => {
+        deps.midiManager.updateColor(fileId, color);
+        currentColorHex = hex;
+        updateColorSelection();
+        updateMarkerPreviews();
+        dispatchSettingsChange();
+      };
+      colorButtons.push(btn);
+      colorsRow.appendChild(btn);
+    });
+
+    updateColorSelection();
+    updateMarkerPreviews();
+  };
+
   colorSection.appendChild(colorsRow);
   wrapper.appendChild(colorSection);
 
@@ -161,7 +183,8 @@ export function createSoloAppearanceSection(
     });
   };
 
-  const updateMarkerPreviews = () => {
+  // Assign the actual implementation
+  updateMarkerPreviews = () => {
     markerButtons.forEach((btn) => {
       const shape = btn.dataset.shape as OnsetMarkerShape;
       const variant = btn.dataset.variant as OnsetMarkerStyle["variant"];
@@ -209,20 +232,13 @@ export function createSoloAppearanceSection(
     updateMarkerSelection();
   };
 
-  // Initialize
-  updateToggleStyles();
-  updateMarkerGrid();
-
-  markerWrapper.appendChild(grid);
-  markerSection.appendChild(markerWrapper);
-  wrapper.appendChild(markerSection);
-
   // Dispatch custom event when settings change (for wave-roll-solo integration)
-  const dispatchSettingsChange = () => {
+  dispatchSettingsChange = () => {
+    const state = deps.midiManager.getState();
     const event = new CustomEvent("wr-appearance-change", {
       bubbles: true,
       detail: {
-        paletteId: activePaletteId,
+        paletteId: state.activePaletteId,
         noteColor: parseInt(currentColorHex.replace("#", ""), 16),
         onsetMarker: {
           shape: currentStyle.shape,
@@ -233,6 +249,37 @@ export function createSoloAppearanceSection(
     wrapper.dispatchEvent(event);
   };
 
+  // Initialize UI
+  rebuildColorButtons();
+  updateToggleStyles();
+  updateMarkerGrid();
+
+  markerWrapper.appendChild(grid);
+  markerSection.appendChild(markerWrapper);
+  wrapper.appendChild(markerSection);
+
+  // Subscribe to midiManager state changes to detect palette changes
+  let lastPaletteId = deps.midiManager.getState().activePaletteId;
+  const unsubscribe = deps.midiManager.subscribe((state) => {
+    if (state.activePaletteId !== lastPaletteId) {
+      lastPaletteId = state.activePaletteId;
+      rebuildColorButtons();
+    }
+  });
+
+  // Cleanup subscription when wrapper is removed from DOM
+  const observer = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.removedNodes) {
+        if (node === wrapper || (node instanceof Element && node.contains(wrapper))) {
+          unsubscribe();
+          observer.disconnect();
+          return;
+        }
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
   return wrapper;
 }
-

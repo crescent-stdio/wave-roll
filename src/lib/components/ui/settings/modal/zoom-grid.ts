@@ -5,9 +5,10 @@ import { createHighlightModeGroup } from "../controls/highlight-mode-group";
 import { createOffsetMinToleranceGroup } from "../controls/offset-min-tolerance-group";
 import { createPedalElongateGroup } from "../controls/pedal-elongate-group";
 import { createPedalThresholdGroup } from "../controls/pedal-threshold-group";
+import { createMidiExportGroup } from "../controls/midi-export-group";
 
 /**
- * Open the Zoom / Grid Settings modal (time step & minor step).
+ * Open the Settings modal (time step, minor step, and MIDI export).
  * Prevents duplicates by checking the overlay id.
  */
 export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
@@ -34,7 +35,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   // --- Modal panel ---
   const modal = document.createElement("div");
   modal.style.cssText = `
-    width: 320px;
+    width: 400px;
     max-width: 90%;
     background: var(--panel-bg);
     border-radius: 10px;
@@ -53,7 +54,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   header.style.cssText =
     "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h3");
-  title.textContent = "View & Grid";
+  title.textContent = "Settings";
   title.style.cssText = "margin:0;font-size:16px;font-weight:700;color:var(--text-primary);";
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "✕";
@@ -120,6 +121,11 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   modal.appendChild(pedalGroup);
   modal.appendChild(sustainVisRow);
   modal.appendChild(pedalThresholdGroup);
+
+  // MIDI Export section
+  const midiExportGroup = createMidiExportGroup(deps);
+  modal.appendChild(midiExportGroup);
+
   overlay.appendChild(modal);
 
   // Close when clicking outside panel

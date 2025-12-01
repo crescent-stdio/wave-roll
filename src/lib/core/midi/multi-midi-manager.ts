@@ -3,6 +3,7 @@ import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
+import { tempoEventBus } from "./tempo-event-bus";
 
 const PALETTE_STORAGE_KEY = "waveRoll.paletteState";
 
@@ -85,9 +86,7 @@ export class MultiMidiManager {
     const palette = this.getActivePalette();
     const colors = palette.colors;
     const color =
-      colors.length > 0
-        ? colors[this.colorIndex % colors.length]
-        : 0x666666;
+      colors.length > 0 ? colors[this.colorIndex % colors.length] : 0x666666;
     this.colorIndex++;
     return color;
   }
@@ -125,10 +124,24 @@ export class MultiMidiManager {
       const tempos = parsedData.header?.tempos || [];
       const EPS = 1e-3;
       const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
-      const first = (atZero.length > 0 ? atZero : tempos).sort((a, b) => (a.time || 0) - (b.time || 0))[0];
+      const first = (atZero.length > 0 ? atZero : tempos).sort(
+        (a, b) => (a.time || 0) - (b.time || 0)
+      )[0];
       const bpm0 = Math.max(20, Math.min(300, first?.bpm || 120));
-      // Push into visualization engine (core playback engine)
-      const viz = (window as unknown as { _waveRollViz?: { setTempo?: (n: number) => void; setOriginalTempo?: (n: number) => void } })._waveRollViz;
+
+      // Emit tempo event via event bus (primary mechanism)
+      // This supports late subscribers and solves initialization order issues
+      tempoEventBus.emit(bpm0, entry.id);
+
+      // Fallback: Push into visualization engine via global hook (deprecated)
+      const viz = (
+        window as unknown as {
+          _waveRollViz?: {
+            setTempo?: (n: number) => void;
+            setOriginalTempo?: (n: number) => void;
+          };
+        }
+      )._waveRollViz;
       if (viz?.setOriginalTempo && viz?.setTempo) {
         viz.setOriginalTempo(bpm0);
         viz.setTempo(bpm0);
@@ -409,7 +422,7 @@ export class MultiMidiManager {
           // Reparse the MIDI file with new options
           const reparsedData = await parseMidi(file.originalInput, options);
           file.parsedData = reparsedData;
-          
+
           current++;
           if (onProgress) {
             onProgress(current, total);

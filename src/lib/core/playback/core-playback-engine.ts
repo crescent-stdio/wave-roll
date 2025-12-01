@@ -92,6 +92,9 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   // Cache last known state to prevent flickering during recreation
   private lastKnownState: AudioPlayerState | null = null;
 
+  // Store originalTempo to persist across audioPlayer recreation
+  private pendingOriginalTempo: number | null = null;
+
   constructor(
     stateManager?: StateManager,
     config: CorePlaybackEngineConfig = {}
@@ -201,6 +204,20 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       },
       pianoRollInstance
     );
+
+    // Restore originalTempo from pendingOriginalTempo or prevState
+    const originalTempoToRestore = this.pendingOriginalTempo ?? prevState?.originalTempo;
+    if (originalTempoToRestore && Number.isFinite(originalTempoToRestore) && originalTempoToRestore > 0) {
+      (this.audioPlayer as any)?.setOriginalTempo?.(originalTempoToRestore);
+      // Also set current tempo to match originalTempo if not explicitly different
+      if (!prevState || prevState.tempo === prevState.originalTempo) {
+        this.audioPlayer.setTempo(originalTempoToRestore);
+      }
+      // Force UI refresh so tempo display updates
+      try {
+        document.dispatchEvent(new CustomEvent("wr-force-ui-refresh"));
+      } catch {}
+    }
 
     // Restore state
     if (prevState) {
@@ -388,6 +405,8 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    */
   public setOriginalTempo(bpm: number): void {
     if (!Number.isFinite(bpm) || bpm <= 0) return;
+    // Always store for persistence across audioPlayer recreation
+    this.pendingOriginalTempo = bpm;
     (this.audioPlayer as any)?.setOriginalTempo?.(bpm);
   }
 

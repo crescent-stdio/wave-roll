@@ -19,11 +19,11 @@ export function createSettingsControlUI(
     box-shadow: var(--shadow-sm);
   `;
 
-  // Settings button (View & Grid)
+  // Settings button
   const settingsBtn = createIconButton(PLAYER_ICONS.settings, () => {
     openZoomGridSettingsModal(dependencies);
   });
-  settingsBtn.title = "View & Grid";
+  settingsBtn.title = "Settings";
   container.appendChild(settingsBtn);
 
   // Appearance button (Palette, Color, Onset Marker) - only in solo mode

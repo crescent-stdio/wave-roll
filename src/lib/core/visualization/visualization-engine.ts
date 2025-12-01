@@ -19,6 +19,7 @@ import {
 import type { PianoRollInstance as VizPianoRollInstance } from "./piano-roll";
 import { overlapping } from "@/core/controls/utils/overlap";
 import { COLOR_OVERLAP } from "@/lib/core/constants";
+import { tempoEventBus } from "@/core/midi/tempo-event-bus";
 
 export type ColoredNote = CoreColoredNote;
 
@@ -65,6 +66,10 @@ export class VisualizationEngine {
   private pianoRollManager: PianoRollManager;
   private config: VisualizationEngineConfig;
   private visualUpdateCallbacks: ((params: VisualUpdateParams) => void)[] = [];
+  /** Unsubscribe function for tempo event bus */
+  private unsubscribeTempoEvent: (() => void) | null = null;
+  /** Track if original tempo has been set to implement first-file policy */
+  private isOriginalTempoSet: boolean = false;
 
   constructor(config: Partial<VisualizationEngineConfig> = {}) {
     this.config = { ...DEFAULT_VISUALIZATION_CONFIG, ...config };
@@ -95,6 +100,20 @@ export class VisualizationEngine {
       };
       this.notifyVisualUpdateCallbacks(extendedParams);
     });
+
+    // Subscribe to tempo events from MIDI file loading
+    // This solves the race condition where MIDI files may load before visualization is ready
+    this.unsubscribeTempoEvent = tempoEventBus.subscribe((tempo, _fileId) => {
+      // First file policy: only set originalTempo once
+      if (!this.isOriginalTempoSet) {
+        try {
+          (this.coreEngine as any).setOriginalTempo?.(tempo);
+        } catch {}
+        this.isOriginalTempoSet = true;
+      }
+      // Always update current tempo to match the loaded file
+      this.setTempo(tempo);
+    });
   }
 
   /**
@@ -123,7 +142,9 @@ export class VisualizationEngine {
     try {
       (window as any)._waveRollViz = {
         setOriginalTempo: (bpm: number) => {
-          try { (this.coreEngine as any).setOriginalTempo?.(bpm); } catch {}
+          try {
+            (this.coreEngine as any).setOriginalTempo?.(bpm);
+          } catch {}
         },
         setTempo: (bpm: number) => this.setTempo(bpm),
         getState: () => this.getState(),
@@ -164,7 +185,7 @@ export class VisualizationEngine {
         }))
       );
 
-      recolored = visibleNotes.map((cn) => {  
+      recolored = visibleNotes.map((cn) => {
         const noteStart = cn.note.time;
         const noteEnd = noteStart + cn.note.duration;
         const intersects = overlaps.some(
@@ -266,14 +287,14 @@ export class VisualizationEngine {
   public setFilePan(fileId: string, pan: number): void {
     this.coreEngine.setFilePan(fileId, pan);
   }
-  
+
   /**
    * Set mute state for a specific MIDI file track.
    */
   public setFileMute(fileId: string, mute: boolean): void {
     this.coreEngine.setFileMute(fileId, mute);
   }
-  
+
   /**
    * Refresh WAV/audio players from registry (for mute state updates)
    */
@@ -312,7 +333,7 @@ export class VisualizationEngine {
    */
   public setPlaybackRate(rate: number): void {
     this.coreEngine.setPlaybackRate(rate);
-    
+
     // Immediately notify visual update callbacks
     // This ensures UI reflects the rate change even when paused
     const state = this.coreEngine.getState();
@@ -353,6 +374,12 @@ export class VisualizationEngine {
    * Clean up resources
    */
   public destroy(): void {
+    // Unsubscribe from tempo event bus to prevent memory leaks
+    if (this.unsubscribeTempoEvent) {
+      this.unsubscribeTempoEvent();
+      this.unsubscribeTempoEvent = null;
+    }
+
     this.coreEngine.destroy();
     this.pianoRollManager.destroy();
     this.visualUpdateCallbacks = [];
@@ -393,7 +420,11 @@ export class VisualizationEngine {
   /**
    * Proxy custom loop points (A-B) to underlying audio player
    */
-  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
+  public setLoopPoints(
+    start: number | null,
+    end: number | null,
+    preservePosition: boolean = false
+  ): void {
     this.coreEngine.setLoopPoints(start, end, preservePosition);
   }
 
