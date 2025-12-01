@@ -8,6 +8,7 @@ import {
   DrawingPrimitives,
   ColorCalculator
 } from "../utils";
+import { midiToNoteName } from "@/lib/core/utils/midi/pitch";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
 export function renderGrid(pianoRoll: PianoRoll): void {
@@ -66,7 +67,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     );
     pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.6 });
 
-    // Draw piano key lines
+    // Draw piano key lines and octave labels (C notes)
     for (
       let midi = pianoRoll.options.noteRange.min;
       midi <= pianoRoll.options.noteRange.max;
@@ -85,6 +86,30 @@ export function renderGrid(pianoRoll: PianoRoll): void {
         // color: isBlackKey ? 0x000000 : 0xcccccc,
         alpha: 0.3,
       });
+
+      // Add octave reference labels for C notes (C0, C1, C2, ... C8)
+      if (midi % 12 === 0) {
+        // Calculate next note's Y position to get row height
+        const yNextBase = pianoRoll.pitchScale(midi + 1);
+        const yNext = (yNextBase - canvasMid) * pianoRoll.state.zoomY + canvasMid;
+        const rowHeight = Math.abs(y - yNext);
+
+        // Only show label if row height is sufficient for readability
+        if (rowHeight >= 8) {
+          const label = new PIXI.Text({
+            text: midiToNoteName(midi),
+            style: {
+              fontSize: Math.min(9, Math.max(7, rowHeight * 0.7)),
+              fill: 0x666666,
+              fontWeight: "500",
+            },
+          });
+          label.x = 4;
+          // Center vertically within the row (y is the bottom edge of the row)
+          label.y = y - rowHeight / 2 - label.height / 2;
+          pianoRoll.backgroundLabelContainer.addChild(label);
+        }
+      }
     }
   }
 
