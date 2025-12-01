@@ -35,6 +35,10 @@ export class PianoRoll {
   public sustainContainer!: PIXI.Container;
   public playheadLine!: PIXI.Graphics;
   public backgroundGrid!: PIXI.Graphics;
+  /** Piano key horizontal lines (panY applied via container) */
+  public pianoKeyLines!: PIXI.Graphics;
+  /** Container for octave labels on piano keys (panY applied via container) */
+  public pianoKeyLabelContainer!: PIXI.Container;
   /** Waveform overlay layer (rendered below the grid) */
   public waveformLayer!: PIXI.Graphics;
   /** Waveform overlay drawn above the piano-keys area so it shows left of playhead */
@@ -264,6 +268,7 @@ export class PianoRoll {
     this.pitchHoverDiv.style.cssText = `
       position: absolute;
       left: 0;
+      width: 60px;
       padding: 2px 6px;
       background: rgba(30, 64, 175, 0.9);
       color: white;
@@ -274,7 +279,7 @@ export class PianoRoll {
       z-index: 100;
       display: none;
       white-space: nowrap;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      box-sizing: border-box;
     `;
     this.domContainer.appendChild(this.pitchHoverDiv);
 
@@ -473,9 +478,11 @@ export class PianoRoll {
 
     // Convert Y position to pitch using pitchScale
     const canvasMid = this.options.height / 2;
+    // Subtract panY to align with the note container's vertical offset
+    const adjustedY = localY - this.state.panY;
     // Reverse the zoom transformation: y = (yBase - canvasMid) * zoomY + canvasMid
     // So: yBase = (y - canvasMid) / zoomY + canvasMid
-    const yBase = (localY - canvasMid) / this.state.zoomY + canvasMid;
+    const yBase = (adjustedY - canvasMid) / this.state.zoomY + canvasMid;
     const pitch = Math.round(this.pitchScale.invert(yBase));
 
     // Clamp pitch to valid MIDI range
@@ -494,26 +501,35 @@ export class PianoRoll {
     }
 
     // Calculate row Y position and height for highlight
+    // NOTE: panY is NOT applied here - it will be applied via container.y in render()
+    // Use pitchScale(clampedPitch) as CENTER (same as notes), not edge
     const yPitchBase = this.pitchScale(clampedPitch);
-    const yPitch = (yPitchBase - canvasMid) * this.state.zoomY + canvasMid;
     const yNextBase = this.pitchScale(clampedPitch + 1);
-    const yNext = (yNextBase - canvasMid) * this.state.zoomY + canvasMid;
-    const rowHeight = Math.abs(yPitch - yNext);
-    const rowTop = Math.min(yPitch, yNext);
+    const rowHeight = Math.abs(
+      (yPitchBase - canvasMid) * this.state.zoomY - 
+      (yNextBase - canvasMid) * this.state.zoomY
+    );
+    // centerY is where the note is centered (pitchScale returns center, not edge)
+    const centerY = (yPitchBase - canvasMid) * this.state.zoomY + canvasMid;
+    const rowTop = centerY - rowHeight / 2;
 
-    // Update pitch hover label
+    // Update pitch hover label (DOM element - add panY to CSS top)
     this.pitchHoverDiv.textContent = `${pitchName} (${clampedPitch})`;
     this.pitchHoverDiv.style.display = "block";
-    this.pitchHoverDiv.style.top = `${rowTop + rowHeight / 2 - 10}px`;
+    // Add panY for DOM element since it doesn't get container transform
+    this.pitchHoverDiv.style.top = `${centerY - 10 + this.state.panY}px`;
 
-    // Update PIXI highlight
+    // Update PIXI highlight (panY applied via container.y)
     const pianoKeysWidth = this.playheadX;
     this.pitchHoverHighlight.clear();
     this.pitchHoverHighlight.rect(0, rowTop, pianoKeysWidth, rowHeight);
     this.pitchHoverHighlight.fill({ color: 0x1e40af, alpha: 0.15 });
 
     // Draw dashed horizontal line across the entire timeline
-    const rowMidY = rowTop + rowHeight / 2;
+    // NOTE: panY is NOT applied here - it will be applied via container.y in render()
+    const pitchCenterBase = this.pitchScale(clampedPitch);
+    const rowMidY = (pitchCenterBase - canvasMid) * this.state.zoomY + canvasMid;
+    
     const dashLength = 4;
     const gapLength = 4;
     const lineColor = 0x1e40af;
@@ -565,10 +581,8 @@ export class PianoRoll {
       "mousemove",
       (event) => {
         onPointerMove(event, this);
-        // Update pitch hover indicator when not panning
-        if (!this.state.isPanning) {
-          this.updatePitchHover(event.clientY);
-        }
+        // Update pitch hover indicator (also during panning for real-time feedback)
+        this.updatePitchHover(event.clientY);
       },
       nonPassive
     );
@@ -615,7 +629,11 @@ export class PianoRoll {
     // Wheel event for zooming - preventDefault() is used, so keep it non-passive.
     canvas.addEventListener(
       "wheel",
-      (event) => onWheel(event, this),
+      (event) => {
+        onWheel(event, this);
+        // Update pitch hover indicator after zoom changes
+        this.updatePitchHover(event.clientY);
+      },
       nonPassive
     );
 
@@ -705,6 +723,17 @@ export class PianoRoll {
 
     this.overlapOverlay.x = this.state.panX;
     this.overlapOverlay.y = this.state.panY;
+
+    // Apply panY to piano key lines/labels and hover highlight
+    // (These elements should move vertically with notes)
+    this.pianoKeyLines.y = this.state.panY;
+    this.pianoKeyLabelContainer.y = this.state.panY;
+    this.pitchHoverHighlight.y = this.state.panY;
+
+    // Fixed elements (no panY applied)
+    // this.backgroundGrid.y = 0;  // already 0 by default
+    // this.waveformLayer.y = 0;   // already 0 by default
+    // this.loopOverlay.y = 0;     // already 0 by default
 
     // Ensure proper rendering order
     this.container.sortChildren();
