@@ -17,7 +17,7 @@ export function createTempoControlUI(
       gap: 8px;
       height: 48px;
       background: var(--panel-bg);
-      padding: 4px 12px;
+      padding: 4px 8px;
       border-radius: 8px;
       box-shadow: var(--shadow-sm);
     `;

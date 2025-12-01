@@ -134,7 +134,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    */
   public async updateAudio(notes: NoteData[]): Promise<void> {
     // console.log('[CorePlaybackEngine] updateAudio called with', notes.length, 'notes');
-    
+
     // Calculate signature based on file IDs present in notes, not the actual notes
     // This prevents recreation when only mute states change
     const fileIds = new Set<string>();
@@ -146,7 +146,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     // Signature based only on file IDs to avoid unnecessary audio player
     // recreation when note lists change due to UI transforms (tempo/loop/seek).
     const signature = Array.from(fileIds).sort().join(",");
-    
+
     // console.log('[CorePlaybackEngine] File IDs found:', Array.from(fileIds));
     // console.log('[CorePlaybackEngine] Current signature:', signature, 'Last signature:', this.lastAudioSignature);
 
@@ -192,11 +192,15 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     }
 
     // Create new player with preserved settings
-    this.audioPlayer = await createAudioPlayer(notes, {
-      tempo: prevState?.tempo || this.config.defaultTempo,
-      volume: prevState?.volume || this.config.defaultVolume,
-      repeat: prevState?.isRepeating || false,
-    }, pianoRollInstance);
+    this.audioPlayer = await createAudioPlayer(
+      notes,
+      {
+        tempo: prevState?.tempo || this.config.defaultTempo,
+        volume: prevState?.volume || this.config.defaultVolume,
+        repeat: prevState?.isRepeating || false,
+      },
+      pianoRollInstance
+    );
 
     // Restore state
     if (prevState) {
@@ -274,12 +278,12 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    */
   public async play(): Promise<void> {
     // console.log('[CorePlaybackEngine] Play called, audioPlayer exists:', !!this.audioPlayer);
-    
+
     if (!this.audioPlayer) {
-      console.error('[CorePlaybackEngine] audioPlayer is null, cannot play');
+      console.error("[CorePlaybackEngine] audioPlayer is null, cannot play");
       return;
     }
-    
+
     // Get state before playing to check if we're starting from the beginning
     const stateBefore = this.audioPlayer!.getState();
     // Do not auto-rewind here; preserve last bookmark position exactly
@@ -387,7 +391,11 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     (this.audioPlayer as any)?.setOriginalTempo?.(bpm);
   }
 
-  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
+  public setLoopPoints(
+    start: number | null,
+    end: number | null,
+    preservePosition: boolean = false
+  ): void {
     this.loopPoints = { a: start, b: end };
     this.audioPlayer?.setLoopPoints(start, end, preservePosition);
 
@@ -478,7 +486,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         isRepeating: false,
         // New unified state management fields
         masterVolume: this.config.defaultVolume,
-        loopMode: 'off' as const,
+        loopMode: "off" as const,
         markerA: null,
         markerB: null,
         nowTime: 0,

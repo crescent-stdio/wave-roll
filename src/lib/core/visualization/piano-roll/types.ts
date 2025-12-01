@@ -31,6 +31,8 @@ export interface PianoRollConfig {
   noteRenderer?: (note: NoteData, index: number) => number;
   /** Whether to show waveform band at the bottom (default: true) */
   showWaveformBand?: boolean;
+  /** Preferred renderer type for PixiJS (default: auto-select) */
+  rendererPreference?: 'webgl' | 'webgpu';
 }
 
 /**

@@ -228,7 +228,8 @@ export class PianoRoll {
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
-      preference: 'webgl', // Prefer WebGL over WebGPU for better compatibility
+      // Only set preference if explicitly configured; otherwise let PixiJS auto-select
+      ...(this.options.rendererPreference && { preference: this.options.rendererPreference }),
     });
   }
 

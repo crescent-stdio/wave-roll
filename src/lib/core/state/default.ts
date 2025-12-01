@@ -33,10 +33,10 @@ export const DEFAULT_PLAYBACK_STATE: PlaybackState = {
   nowTime: 0,
   masterVolume: DEFAULT_STATE_CONFIG.defaultVolume,
   tempo: 120,
-  loopMode: 'off',
+  loopMode: "off",
   markerA: null,
   markerB: null,
-};;
+};
 
 export const DEFAULT_FILE_VISIBILITY_STATE: FileVisibilityState = {
   visibleFileIds: new Set(),

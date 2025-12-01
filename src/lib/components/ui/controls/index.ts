@@ -56,7 +56,7 @@ export function setupUI(
   row.appendChild(createZoomControlsUI(deps));
   // Hide highlight mode (Show notes) dropdown in solo mode
   if (!deps.soloMode) {
-    row.appendChild(createHighlightModeGroup(deps));
+    row.appendChild(createHighlightModeGroup(deps, { withWrapper: true }));
   }
   row.appendChild(createSettingsControlUI(deps));
 

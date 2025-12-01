@@ -16,6 +16,11 @@ export function createVolumeControlUI(
     position: relative;
     display: inline-flex;
     align-items: center;
+    height: 48px;
+    background: var(--panel-bg);
+    padding: 4px 8px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
   `;
 
   // Volume icon button
