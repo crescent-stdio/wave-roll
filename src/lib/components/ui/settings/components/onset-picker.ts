@@ -112,14 +112,53 @@ export function openOnsetPicker(
   const hr = document.createElement("div");
   hr.style.cssText = "height:1px;background:var(--ui-border);margin:2px 0;";
 
-  // Marker grid
+  // Marker grid with Filled/Outlined toggle
   const gridWrapper = document.createElement("div");
   gridWrapper.style.cssText = "display:flex;flex-direction:column;gap:6px;";
 
   const variants: Array<OnsetMarkerStyle["variant"]> = ["filled", "outlined"];
   const shapeButtons: HTMLButtonElement[] = [];
   let selectedStyle: OnsetMarkerStyle = { ...currentStyle };
+  let activeVariant: OnsetMarkerStyle["variant"] = currentStyle.variant;
   const COLUMNS = 7;
+
+  // Toggle button container
+  const toggleContainer = document.createElement("div");
+  toggleContainer.style.cssText = "display:flex;gap:2px;margin-bottom:6px;background:var(--ui-border);border-radius:6px;padding:2px;";
+
+  const toggleButtons: HTMLButtonElement[] = [];
+  const updateToggleStyles = () => {
+    toggleButtons.forEach((btn) => {
+      const isActive = btn.dataset.variant === activeVariant;
+      btn.style.background = isActive ? "var(--surface)" : "transparent";
+      btn.style.color = isActive ? "var(--text-primary)" : "var(--text-muted)";
+      btn.style.fontWeight = isActive ? "600" : "400";
+      btn.style.boxShadow = isActive ? "0 1px 2px rgba(0,0,0,0.1)" : "none";
+    });
+  };
+
+  variants.forEach((variant) => {
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.textContent = variant === "filled" ? "Filled" : "Outlined";
+    toggleBtn.dataset.variant = variant;
+    toggleBtn.style.cssText = `
+      flex:1;padding:4px 8px;border:none;border-radius:4px;
+      font-size:11px;cursor:pointer;transition:all 0.15s ease;
+    `;
+    toggleBtn.onclick = () => {
+      activeVariant = variant;
+      updateToggleStyles();
+      updateGrid();
+    };
+    toggleButtons.push(toggleBtn);
+    toggleContainer.appendChild(toggleBtn);
+  });
+
+  // Single grid for active variant
+  const grid = document.createElement("div");
+  grid.style.cssText = "display:grid;grid-template-columns:repeat(7,28px);gap:6px;";
+
   const highlightSelectedStyle = () => {
     shapeButtons.forEach((b) => {
       const isSel = b.dataset.shape === selectedStyle.shape && b.dataset.variant === selectedStyle.variant;
@@ -128,27 +167,23 @@ export function openOnsetPicker(
       if (isSel) b.tabIndex = 0;
     });
   };
-  variants.forEach((variant) => {
-    const rowLabel = document.createElement("div");
-    rowLabel.textContent = variant === "filled" ? "Filled" : "Outlined";
-    rowLabel.style.cssText = "font-size:11px;color:var(--text-muted);";
 
-    const grid = document.createElement("div");
-    grid.style.cssText = "display:grid;grid-template-columns:repeat(7,28px);gap:6px;";
+  const updateGrid = () => {
+    grid.innerHTML = "";
+    shapeButtons.length = 0;
 
     ONSET_MARKER_SHAPES.forEach((shape) => {
-      const style: OnsetMarkerStyle = { shape: shape as OnsetMarkerShape, variant, size: 12, strokeWidth: 2 };
+      const style: OnsetMarkerStyle = { shape: shape as OnsetMarkerShape, variant: activeVariant, size: 12, strokeWidth: 2 };
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.setAttribute("aria-label", `${shape} ${variant}`);
+      btn.setAttribute("aria-label", `${shape} ${activeVariant}`);
       btn.dataset.shape = String(shape);
-      btn.dataset.variant = String(variant);
+      btn.dataset.variant = String(activeVariant);
       btn.dataset.index = String(shapeButtons.length);
       btn.style.cssText = "width:28px;height:28px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;";
       btn.innerHTML = renderOnsetSVG(style, currentColorHex, 16);
       btn.onclick = () => {
         deps.stateManager.setOnsetMarkerForFile(fileId, style);
-        // Keep picker open; let caller update preview
         const f = deps.midiManager.getState().files.find((x) => x.id === fileId);
         const hex = toHexColor(f?.color ?? 0x000000);
         selectedStyle = style;
@@ -159,10 +194,15 @@ export function openOnsetPicker(
       shapeButtons.push(btn);
     });
 
-    gridWrapper.appendChild(rowLabel);
-    gridWrapper.appendChild(grid);
-  });
-  highlightSelectedStyle();
+    highlightSelectedStyle();
+  };
+
+  // Initialize
+  updateToggleStyles();
+  updateGrid();
+
+  gridWrapper.appendChild(toggleContainer);
+  gridWrapper.appendChild(grid);
 
   // Footer actions
   const footer = document.createElement("div");

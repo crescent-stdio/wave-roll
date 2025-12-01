@@ -68,7 +68,7 @@ export class FileAudioController {
     // console.log("[FileAudioController.setFileVolume]", { fileId, volume: clamped });
     
     // setFileVolume requires masterVolume parameter
-    const masterVolume = 0.7; // Default master volume
+    const masterVolume = 1.0; // Default master volume
     this.deps.samplerManager.setFileVolume(fileId, clamped, masterVolume);
   }
 

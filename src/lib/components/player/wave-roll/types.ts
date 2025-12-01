@@ -12,3 +12,11 @@ export interface WaveRollPlayerOptions {
     updateInterval: number;
   };
 }
+
+/** Options for createWaveRollPlayer factory function */
+export interface CreateWaveRollPlayerOptions {
+  /** Solo mode: hides evaluation UI, file sections, and waveform band */
+  soloMode?: boolean;
+  /** Override piano roll config */
+  pianoRoll?: Partial<PianoRollConfig>;
+}

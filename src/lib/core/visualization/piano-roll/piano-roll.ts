@@ -138,6 +138,7 @@ export class PianoRoll {
       timeStep: 1,
       minorTimeStep: 0.1,
       noteRenderer: undefined,
+      showWaveformBand: true,
       ...options,
     } as Required<PianoRollConfig>;
 
@@ -160,12 +161,16 @@ export class PianoRoll {
 
   private initializeScales(): void {
     // Reserve bottom pixels for waveform band so pitch scale never maps into it
-    const bandPadding = 6;
-    const bandHeight = Math.max(
-      24,
-      Math.min(96, Math.floor(this.options.height * 0.22))
-    );
-    const reservedBottomPx = bandPadding + bandHeight;
+    // Skip reservation if waveform band is disabled
+    let reservedBottomPx = 0;
+    if (this.options.showWaveformBand !== false) {
+      const bandPadding = 6;
+      const bandHeight = Math.max(
+        24,
+        Math.min(96, Math.floor(this.options.height * 0.22))
+      );
+      reservedBottomPx = bandPadding + bandHeight;
+    }
 
     const { timeScale, pitchScale, pxPerSecond } = createScales(
       this.notes,
@@ -196,12 +201,18 @@ export class PianoRoll {
     const instance = new PianoRoll(canvas, domContainer, options);
     await instance.initializeApp(canvas);
     instance.initializeContainers();
+    
     instance.initializeScales();
     // Add tooltip overlay after containers are ready
     instance.initializeTooltip(canvas);
     instance.initializeHelpButton(canvas);
     instance.setupInteraction();
+    
     instance.render(); // Full render including playhead
+    
+    // Force a manual render to ensure content is displayed
+    instance.app.renderer.render(instance.app.stage);
+    
     return instance;
   }
 
@@ -217,13 +228,8 @@ export class PianoRoll {
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
+      preference: 'webgl', // Prefer WebGL over WebGPU for better compatibility
     });
-    // console.log(
-    //   "[initializeApp] renderer",
-    //   this.app.renderer.resolution,
-    //   this.app.renderer.width,
-    //   this.app.renderer.height
-    // );
   }
 
   /**
@@ -516,13 +522,17 @@ export class PianoRoll {
     // to background and note layers (e.g., pianoKeys shading uses playheadX).
 
     // Update mask for notes/sustains prior to drawing
+    // Skip waveform band reservation if showWaveformBand is disabled
     {
-      const bandPadding = 6;
-      const bandHeight = Math.max(
-        24,
-        Math.min(96, Math.floor(this.options.height * 0.22))
-      );
-      const reservedBottomPx = bandPadding + bandHeight;
+      let reservedBottomPx = 0;
+      if (this.options.showWaveformBand !== false) {
+        const bandPadding = 6;
+        const bandHeight = Math.max(
+          24,
+          Math.min(96, Math.floor(this.options.height * 0.22))
+        );
+        reservedBottomPx = bandPadding + bandHeight;
+      }
       const usableHeight = Math.max(0, this.options.height - reservedBottomPx);
       this.notesMask.clear();
       this.notesMask.rect(0, 0, this.options.width, usableHeight);
@@ -581,11 +591,13 @@ export class PianoRoll {
    * Set note data and trigger re-render
    */
   public setNotes(notes: NoteData[]): void {
-    // console.log("[setNotes] incoming notes", notes.length);
     this.notes = notes;
     this.initializeScales(); // Recalculate scales based on new data
     this.needsNotesRedraw = true; // geometry must be rebuilt
     this.render();
+    
+    // Force manual render
+    this.app.renderer.render(this.app.stage);
   }
 
   /**

@@ -27,11 +27,15 @@ export function setupUI(
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
     background: var(--surface-alt);
     color: var(--text-primary);
     padding: 12px;
     border-radius: 8px;
     box-shadow: var(--shadow-sm);
+    position: relative;
+    z-index: 10;
   `;
 
   // First row: playback / loop / misc controls
@@ -42,15 +46,18 @@ export function setupUI(
     gap: 12px;
     justify-content: flex-start;
     flex-wrap: wrap;
-    overflow-x: auto;
+    overflow: visible;
   `;
 
   row.appendChild(createPlaybackControlsUI(deps));
-  row.appendChild(createLoopControlsUI(deps));
   row.appendChild(createVolumeControlUI(deps));
+  row.appendChild(createLoopControlsUI(deps));
   row.appendChild(createTempoControlUI(deps));
   row.appendChild(createZoomControlsUI(deps));
-  row.appendChild(createHighlightModeGroup(deps));
+  // Hide highlight mode (Show notes) dropdown in solo mode
+  if (!deps.soloMode) {
+    row.appendChild(createHighlightModeGroup(deps));
+  }
   row.appendChild(createSettingsControlUI(deps));
 
   controlsContainer.appendChild(row);

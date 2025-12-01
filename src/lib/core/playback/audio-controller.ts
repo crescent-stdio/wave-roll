@@ -66,7 +66,7 @@ export class AudioController {
   ) {
     this.stateManager = stateManager;
     this.config = {
-      defaultVolume: 0.7,
+      defaultVolume: 1.0,
       defaultTempo: 120,
       minTempo: 30,
       maxTempo: 300,

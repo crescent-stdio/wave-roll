@@ -50,7 +50,7 @@ export interface VisualUpdateParams {
  * Default configuration values
  */
 const DEFAULT_CONFIG: Required<CorePlaybackEngineConfig> = {
-  defaultVolume: 0.7,
+  defaultVolume: 1.0,
   defaultTempo: 120,
   minTempo: 30,
   maxTempo: 300,

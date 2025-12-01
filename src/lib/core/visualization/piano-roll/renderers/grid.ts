@@ -264,7 +264,12 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   // A lightweight visualization: vertical min/max bars per peak column mapped to time.
   // Render as a bottom band so it appears "below" the piano-roll grid content while
   // remaining synchronized with pan/zoom.
-  try {
+  // Skip waveform rendering if showWaveformBand is disabled
+  if (pianoRoll.options.showWaveformBand === false) {
+    // Clear any existing waveform graphics
+    pianoRoll.waveformLayer?.clear();
+    pr.waveformKeysLayer?.clear();
+  } else try {
     const api = (globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI })._waveRollAudio;
     if (api?.getVisiblePeaks) {
       const peaksPayload = api.getVisiblePeaks();

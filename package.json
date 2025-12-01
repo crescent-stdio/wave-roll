@@ -39,7 +39,7 @@
   "author": "Hannah Park",
   "license": "MIT",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": true,
   "bugs": {
     "url": "https://github.com/crescent-stdio/wave-roll/issues"
   },
@@ -48,7 +48,7 @@
     "@types/node": "^24.0.3",
     "jsdom": "^27.0.0",
     "typescript": "^5.8.3",
-    "vite": "^7.0.0",
+    "vite": "^7.2.6",
     "vitest": "^2.1.9"
   },
   "dependencies": {

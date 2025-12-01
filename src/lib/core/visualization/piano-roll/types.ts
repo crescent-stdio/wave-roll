@@ -29,6 +29,8 @@ export interface PianoRollConfig {
   minorTimeStep?: number;
   /** Custom note renderer function to determine color per note */
   noteRenderer?: (note: NoteData, index: number) => number;
+  /** Whether to show waveform band at the bottom (default: true) */
+  showWaveformBand?: boolean;
 }
 
 /**

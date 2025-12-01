@@ -61,6 +61,15 @@ export class AudioPlayer {
     if (this.notes && this.notes.length > 0) {
       // console.log('[AudioPlayer] Setting MIDI manager with', this.notes.length, 'notes');
       this.unifiedController.setMidiManager({ notes: this.notes });
+      
+      // Calculate and set duration from notes
+      const duration = this.notes.reduce((max: number, note: any) => {
+        const endTime = (note.time || 0) + (note.duration || 0);
+        return Math.max(max, endTime);
+      }, 0);
+      if (duration > 0) {
+        this.unifiedController.totalTime = duration;
+      }
       // console.log('[AudioPlayer] MIDI manager set successfully');
     } else {
       // console.log('[AudioPlayer] No notes provided - MIDI manager not initialized');

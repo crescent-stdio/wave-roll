@@ -76,6 +76,9 @@ export interface UIComponentDependencies {
       style?: Partial<CSSStyleDeclaration>;
     };
   };
+
+  /** Solo mode: hides evaluation UI, file sections, and waveform band */
+  soloMode?: boolean;
 }
 
 export interface UIElements {

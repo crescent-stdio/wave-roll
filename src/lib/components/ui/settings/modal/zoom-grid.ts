@@ -66,12 +66,30 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   // Controls
   const tsGroup = createTimeStepGroup(deps);
   const mnGroup = createMinorStepGroup(deps);
-  const offsetTolGroup = createOffsetMinToleranceGroup(deps);
-  const hlGroup = createHighlightModeGroup(deps);
   const pedalGroup = createPedalElongateGroup(deps);
   const pedalThresholdGroup = createPedalThresholdGroup(deps);
 
-  // Onset markers toggle (default false)
+  // Sustain visibility toggle
+  const sustainVisRow = document.createElement("div");
+  sustainVisRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+  const sustainVisLabel = document.createElement("label");
+  sustainVisLabel.textContent = "Show Sustain Pedal Regions";
+  sustainVisLabel.style.cssText = "font-size:12px;font-weight:600;color:var(--text-primary);";
+  const sustainVisCheckbox = document.createElement("input");
+  sustainVisCheckbox.type = "checkbox";
+  // Get initial sustain visibility state from first file or default to true
+  const files = deps.midiManager.getState().files;
+  const initialSustainVisible = files.length > 0 ? (files[0].isSustainVisible ?? true) : true;
+  sustainVisCheckbox.checked = initialSustainVisible;
+  sustainVisCheckbox.addEventListener("change", () => {
+    // Toggle sustain visibility for all files
+    files.forEach((file: { id: string }) => {
+      deps.midiManager.toggleSustainVisibility(file.id);
+    });
+  });
+  sustainVisRow.append(sustainVisCheckbox, sustainVisLabel);
+
+  // Onset markers toggle
   const onsetRow = document.createElement("div");
   onsetRow.style.cssText = "display:flex;align-items:center;gap:8px;";
   const onsetLabel = document.createElement("label");
@@ -90,9 +108,17 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   modal.appendChild(onsetRow);
   modal.appendChild(tsGroup);
   modal.appendChild(mnGroup);
-  modal.appendChild(offsetTolGroup);
-  modal.appendChild(hlGroup);
+  
+  // Only show evaluation-related controls in non-solo mode
+  if (!deps.soloMode) {
+    const offsetTolGroup = createOffsetMinToleranceGroup(deps);
+    const hlGroup = createHighlightModeGroup(deps);
+    modal.appendChild(offsetTolGroup);
+    modal.appendChild(hlGroup);
+  }
+  
   modal.appendChild(pedalGroup);
+  modal.appendChild(sustainVisRow);
   modal.appendChild(pedalThresholdGroup);
   overlay.appendChild(modal);
 

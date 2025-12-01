@@ -9,7 +9,7 @@ import type { OnsetMarkerStyle } from "@/types";
 import { EvaluationState } from "./types";
 
 export const DEFAULT_STATE_CONFIG: StateManagerConfig = {
-  defaultVolume: 0.7,
+  defaultVolume: 1.0,
   defaultMinorTimeStep: 0.1,
   defaultZoomLevel: 1.0,
   updateInterval: 50, // 50ms update interval
