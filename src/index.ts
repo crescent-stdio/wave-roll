@@ -9,6 +9,7 @@ export { createWaveRollPlayer } from "./lib/components/player/wave-roll/player";
 // 3) Appearance settings types (for solo mode integration)
 export type { AppearanceSettings } from "./lib/components/player/wave-roll/player";
 export type { ColorPalette } from "./lib/core/midi/types";
+export type { MidiExportOptions } from "./lib/components/player/wave-roll/types";
 export type { OnsetMarkerStyle, OnsetMarkerShape } from "./lib/types";
 export { DEFAULT_PALETTES } from "./lib/core/midi/palette";
 export { ONSET_MARKER_SHAPES } from "./lib/core/constants";

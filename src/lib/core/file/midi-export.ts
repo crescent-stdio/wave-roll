@@ -1,5 +1,6 @@
 import { Midi } from "@tonejs/midi";
 import { MidiInput } from "@/lib/midi/types";
+import { MidiExportOptions } from "@/lib/components/player/wave-roll/types";
 
 /**
  * Load MIDI data from a File or URL and return as ArrayBuffer.
@@ -36,17 +37,79 @@ function triggerDownload(blob: Blob, filename: string): void {
 }
 
 /**
+ * Check if File System Access API is supported in the current browser.
+ */
+function isFileSystemAccessSupported(): boolean {
+  return "showSaveFilePicker" in window;
+}
+
+/**
+ * Save a Blob using the File System Access API (showSaveFilePicker).
+ * Allows user to choose save location and filename.
+ * Falls back to regular download if not supported or user cancels.
+ *
+ * @param blob - The Blob to save
+ * @param suggestedName - Suggested filename for the save dialog
+ * @returns Promise that resolves when save is complete, or rejects on error
+ * @throws Error if save fails (but not if user cancels)
+ */
+async function saveWithFilePicker(blob: Blob, suggestedName: string): Promise<void> {
+  if (!isFileSystemAccessSupported()) {
+    // Fallback to regular download
+    triggerDownload(blob, suggestedName);
+    return;
+  }
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName,
+      types: [
+        {
+          description: "MIDI Files",
+          accept: {
+            "audio/midi": [".mid", ".midi"],
+          },
+        },
+      ],
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  } catch (err) {
+    // User cancelled the dialog - this is not an error
+    if (err instanceof Error && err.name === "AbortError") {
+      return;
+    }
+    throw err;
+  }
+}
+
+/**
  * Generate a filename for the exported MIDI file.
  *
  * @param originalName - Original filename (optional)
  * @param newTempo - The new tempo in BPM
  * @returns Generated filename
  */
-function generateExportFilename(originalName: string | undefined, newTempo: number): string {
+export function generateExportFilename(originalName: string | undefined, newTempo: number): string {
   const baseName = originalName
     ? originalName.replace(/\.midi?$/i, "")
     : "exported";
   return `${baseName}_${Math.round(newTempo)}bpm.mid`;
+}
+
+/**
+ * Get the original filename from a MidiInput.
+ *
+ * @param input - MidiInput (File or URL string)
+ * @returns Original filename or undefined
+ */
+export function getOriginalFilename(input: MidiInput): string | undefined {
+  if (typeof input === "string") {
+    return input.split("/").pop();
+  }
+  return input.name;
 }
 
 /**
@@ -78,39 +141,67 @@ export async function exportMidiWithTempo(
   newTempo: number,
   filename?: string
 ): Promise<void> {
-  // Validate tempo
-  if (!Number.isFinite(newTempo) || newTempo <= 0) {
-    throw new Error(`Invalid tempo: ${newTempo}. Tempo must be a positive number.`);
-  }
+  const blob = await exportMidiWithTempoAsBlob(originalInput, newTempo);
+  const originalName = getOriginalFilename(originalInput);
+  const exportFilename = filename ?? generateExportFilename(originalName, newTempo);
+  triggerDownload(blob, exportFilename);
+}
 
-  // Load original MIDI data
-  const arrayBuffer = await getMidiArrayBuffer(originalInput);
-  const midi = new Midi(arrayBuffer);
+/**
+ * Export a MIDI file with options for different export modes.
+ *
+ * @param originalInput - The original MIDI file (File object or URL string)
+ * @param newTempo - The new tempo in BPM to set
+ * @param options - Export options (mode and custom handler)
+ * @param filename - Optional custom filename override
+ * @throws Error if the MIDI file cannot be loaded or processed
+ *
+ * @example
+ * ```typescript
+ * // Default download mode
+ * await performMidiExport(midiFile, 144, { mode: 'download' });
+ *
+ * // Let user choose save location
+ * await performMidiExport(midiFile, 144, { mode: 'saveAs' });
+ *
+ * // Custom handler (e.g., for VS Code extension)
+ * await performMidiExport(midiFile, 144, {
+ *   mode: 'custom',
+ *   onExport: async (blob, filename) => {
+ *     // Handle the blob as needed
+ *   }
+ * });
+ * ```
+ */
+export async function performMidiExport(
+  originalInput: MidiInput,
+  newTempo: number,
+  options: MidiExportOptions = {},
+  filename?: string
+): Promise<void> {
+  const { mode = "download", onExport } = options;
 
-  // Update tempo metadata only (preserve note ticks)
-  // Clear existing tempo events and set a single tempo at the beginning
-  // This approach follows the recommendation to avoid double-scaling issues
-  // See: https://github.com/Tonejs/Midi/issues/81
-  midi.header.tempos = [
-    {
-      bpm: newTempo,
-      ticks: 0,
-      time: 0,
-    },
-  ];
-
-  // Convert back to ArrayBuffer
-  const outputArray = midi.toArray();
-  const blob = new Blob([new Uint8Array(outputArray)], { type: "audio/midi" });
-
-  // Determine filename
-  const originalName = typeof originalInput === "string"
-    ? originalInput.split("/").pop()
-    : originalInput.name;
+  const blob = await exportMidiWithTempoAsBlob(originalInput, newTempo);
+  const originalName = getOriginalFilename(originalInput);
   const exportFilename = filename ?? generateExportFilename(originalName, newTempo);
 
-  // Trigger download
-  triggerDownload(blob, exportFilename);
+  switch (mode) {
+    case "saveAs":
+      await saveWithFilePicker(blob, exportFilename);
+      break;
+
+    case "custom":
+      if (!onExport) {
+        throw new Error("Custom export mode requires onExport handler");
+      }
+      await onExport(blob, exportFilename);
+      break;
+
+    case "download":
+    default:
+      triggerDownload(blob, exportFilename);
+      break;
+  }
 }
 
 /**

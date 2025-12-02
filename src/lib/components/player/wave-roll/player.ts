@@ -13,7 +13,7 @@
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 import { MidiFileItemList } from "@/lib/core/file/types";
-import { WaveRollPlayerOptions, CreateWaveRollPlayerOptions } from "./types";
+import { WaveRollPlayerOptions, CreateWaveRollPlayerOptions, MidiExportOptions } from "./types";
 import {
   createDefaultConfig,
   setupLayout,
@@ -141,6 +141,9 @@ export class WaveRollPlayer {
 
   // Solo mode: hides evaluation UI, file sections, and waveform band
   private soloMode: boolean = false;
+
+  // MIDI export options
+  private midiExportOptions: MidiExportOptions | undefined;
   
   // Piano roll config overrides from options
   private pianoRollConfigOverrides: Partial<PianoRollConfig> = {};
@@ -186,6 +189,9 @@ export class WaveRollPlayer {
       this.pianoRollConfigOverrides.showWaveformBand = false;
       // Force light background color for solo mode
       this.pianoRollConfigOverrides.backgroundColor = 0xffffff;
+    }
+    if (options?.midiExport) {
+      this.midiExportOptions = options.midiExport;
     }
     if (options?.pianoRoll) {
       this.pianoRollConfigOverrides = {
@@ -412,6 +418,7 @@ export class WaveRollPlayer {
         silenceDetector: this.silenceDetector,
         permissions: { ...this.permissions },
         soloMode: this.soloMode,
+        midiExport: this.midiExportOptions,
       };
 
       // After creation, convert seconds -> % once we know (tempo/WAV-aware) duration.

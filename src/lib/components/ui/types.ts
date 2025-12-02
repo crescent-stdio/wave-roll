@@ -3,6 +3,7 @@ import { VisualizationEngine } from "@/core/visualization";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 import { StateManager } from "@/core/state";
 import { SilenceDetector } from "@/core/playback/silence-detector";
+import { MidiExportOptions } from "@/lib/components/player/wave-roll/types";
 
 export interface UIComponentDependencies {
   midiManager: MultiMidiManager;
@@ -79,6 +80,9 @@ export interface UIComponentDependencies {
 
   /** Solo mode: hides evaluation UI, file sections, and waveform band */
   soloMode?: boolean;
+
+  /** MIDI export options (mode and custom handler) */
+  midiExport?: MidiExportOptions;
 }
 
 export interface UIElements {

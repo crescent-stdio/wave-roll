@@ -1,5 +1,5 @@
 import { UIComponentDependencies } from "../../types";
-import { exportMidiWithTempo } from "@/lib/core/file/midi-export";
+import { performMidiExport, generateExportFilename } from "@/lib/core/file/midi-export";
 
 /** Default tempo when no audio player state is available */
 const DEFAULT_TEMPO = 120;
@@ -236,7 +236,11 @@ export function createMidiExportGroup(
     statusMsg.style.color = "var(--text-muted)";
 
     try {
-      await exportMidiWithTempo(originalInput, exportTempo);
+      // Use midiExport options if provided, otherwise use saveAs mode (File System Access API)
+      // Generate filename from actual file name (not Blob URL which gives UUID)
+      const exportFilename = generateExportFilename(targetFile.name, exportTempo);
+      const exportOptions = deps.midiExport ?? { mode: "saveAs" as const };
+      await performMidiExport(originalInput, exportTempo, exportOptions, exportFilename);
       statusMsg.textContent = "Export complete!";
       statusMsg.style.color = "var(--success, #22c55e)";
 
