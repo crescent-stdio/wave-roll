@@ -276,15 +276,12 @@ export class UnifiedAudioController {
     const wasPlaying = this.masterClock.state.isPlaying;
     const current = this.masterClock.getCurrentTime();
 
-    console.log('[UnifiedAudioController] tempo changed:', { prevBpm, newBpm: bpm, wasPlaying, currentTime: current });
-
     // masterClock.setTempo() internally propagates to all registered playerGroups
     // (WavPlayerGroup, MidiPlayerGroup), so we do NOT call setTempo on them directly here.
     this.masterClock.setTempo(bpm);
 
     // If playing, re-align both groups at the same master time immediately to prevent drift.
     if (wasPlaying) {
-      console.log('[UnifiedAudioController] Re-aligning at time:', current);
       // Let masterClock.seekToWithLookahead handle stopping all groups to avoid duplicate calls
       this.masterClock.seekToWithLookahead(current, 0.2);
     }

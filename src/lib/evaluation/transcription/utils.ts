@@ -1,4 +1,4 @@
-import { ParsedMidi, NoteData } from "@/lib/midi/types";
+import { ParsedMidi, NoteData, TempoEvent } from "@/lib/midi/types";
 
 /**
  * Convert a list of `NoteData` into parallel arrays of intervals and pitches.
@@ -99,4 +99,82 @@ export function intervalIoU(a: [number, number], b: [number, number]): number {
   const inter = Math.max(0, Math.min(a[1], b[1]) - Math.max(a[0], b[0]));
   const union = Math.max(a[1], b[1]) - Math.min(a[0], b[0]);
   return union > 0 ? inter / union : 0;
+}
+
+/**
+ * Default BPM used when no tempo information is available.
+ */
+const DEFAULT_BPM = 120;
+
+/**
+ * Extract the initial BPM from a MIDI file's tempo events.
+ * Uses the tempo event at or closest to time=0.
+ * Falls back to DEFAULT_BPM (120) if no tempo events are present.
+ *
+ * @param tempos - Array of tempo events from ParsedMidi.header.tempos
+ * @returns The initial BPM value (clamped between 20 and 300)
+ */
+export function getInitialBpm(tempos: TempoEvent[] | undefined): number {
+  if (!tempos || tempos.length === 0) {
+    return DEFAULT_BPM;
+  }
+
+  const EPS = 1e-3;
+  // Find tempo events at or very close to time=0
+  const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
+  // Use the earliest tempo event
+  const sorted = (atZero.length > 0 ? atZero : tempos).sort(
+    (a, b) => (a.time || 0) - (b.time || 0)
+  );
+  const first = sorted[0];
+
+  // Clamp BPM to reasonable range
+  return Math.max(20, Math.min(300, first?.bpm || DEFAULT_BPM));
+}
+
+/**
+ * Scale time intervals from one BPM to another.
+ * This is used to align estimated MIDI notes to the reference BPM
+ * when the two files have different tempos.
+ *
+ * Formula: scaledTime = originalTime * (targetBpm / sourceBpm)
+ *
+ * @param intervals - Array of [onset, offset] time intervals in seconds
+ * @param sourceBpm - The original BPM of the intervals
+ * @param targetBpm - The target BPM to scale to
+ * @returns Scaled intervals with times adjusted for the target BPM
+ */
+export function scaleIntervalsForBpm(
+  intervals: [number, number][],
+  sourceBpm: number,
+  targetBpm: number
+): [number, number][] {
+  // Avoid division by zero and skip if BPMs are effectively equal
+  if (sourceBpm <= 0 || targetBpm <= 0) {
+    return intervals;
+  }
+
+  const scale = targetBpm / sourceBpm;
+
+  // Skip scaling if scale is very close to 1
+  if (Math.abs(scale - 1) < 1e-6) {
+    return intervals;
+  }
+
+  return intervals.map(([onset, offset]) => [onset * scale, offset * scale]);
+}
+
+/**
+ * Extract intervals, pitches, and BPM from a ParsedMidi object.
+ * This is an extended version of parsedMidiToIntervalsAndPitches that
+ * also extracts BPM information for tempo-aware matching.
+ */
+export function parsedMidiToIntervalsAndPitchesWithBpm(parsed: ParsedMidi): {
+  intervals: [number, number][];
+  pitches: number[];
+  bpm: number;
+} {
+  const { intervals, pitches } = notesToIntervalsAndPitches(parsed.notes);
+  const bpm = getInitialBpm(parsed.header?.tempos);
+  return { intervals, pitches, bpm };
 }

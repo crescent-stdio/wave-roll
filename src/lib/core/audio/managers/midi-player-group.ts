@@ -721,20 +721,11 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
-    console.log('[MidiPlayerGroup] startSynchronized:', {
-      mode: syncInfo.mode,
-      generation: syncInfo.generation,
-      masterTime: syncInfo.masterTime,
-      audioContextTime: syncInfo.audioContextTime,
-      tempoScale: this.tempoScale,
-      transportBpm: Tone.getTransport().bpm.value,
-    });
     
     // Dedupe: ignore duplicate start requests for the same generation
     const currentGen = syncInfo.generation;
     if (typeof currentGen === 'number') {
       if (this.lastStartGen === currentGen) {
-        console.log('[MidiPlayerGroup] Duplicate start ignored for generation', currentGen);
         return;
       }
       this.lastStartGen = currentGen;
@@ -745,7 +736,6 @@ export class MidiPlayerGroup implements PlayerGroup {
     
     // Re-check generation after await to prevent race condition
     if (typeof currentGen === 'number' && this.lastStartGen !== currentGen) {
-      console.log('[MidiPlayerGroup] Generation changed during init, aborting. Expected:', currentGen, 'Current:', this.lastStartGen);
       return;
     }
     
@@ -787,11 +777,9 @@ export class MidiPlayerGroup implements PlayerGroup {
         // First play vs seek: Use best anchor per mode to avoid drift
         if (syncInfo.mode === 'seek') {
           // Use masterTime directly to avoid drift from already-started transport
-          console.log('[MidiPlayerGroup] Part.start(seek):', { masterTime: syncInfo.masterTime });
           this.part.start(syncInfo.masterTime, 0);
         } else {
           // Use masterTime directly to avoid drift from already-started transport
-          console.log('[MidiPlayerGroup] Part.start(play):', { masterTime: syncInfo.masterTime });
           this.part.start(syncInfo.masterTime, 0);
         }
 
