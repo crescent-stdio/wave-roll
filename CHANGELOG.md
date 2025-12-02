@@ -18,10 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MIDI export functionality
 - Pitch hover indicator to piano roll
 - VS Code extension support (`wave-roll-solo`) for viewing MIDI files directly in the editor
+- GitHub Actions workflow for automated release creation from tags
 
 ### Changed
 
 - Improved audio synchronization and tempo handling
+- Improved tempo handling for multi-MIDI playback
 - Enhanced piano roll pitch hover and piano key visuals
 - Improved UI controls and audio handling
 

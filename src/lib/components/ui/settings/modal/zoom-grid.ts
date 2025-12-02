@@ -35,7 +35,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   // --- Modal panel ---
   const modal = document.createElement("div");
   modal.style.cssText = `
-    width: 400px;
+    width: 600px;
     max-width: 90%;
     background: var(--panel-bg);
     border-radius: 10px;
@@ -55,7 +55,8 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
     "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h3");
   title.textContent = "Settings";
-  title.style.cssText = "margin:0;font-size:16px;font-weight:700;color:var(--text-primary);";
+  title.style.cssText =
+    "margin:0;font-size:16px;font-weight:700;color:var(--text-primary);";
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "✕";
   closeBtn.style.cssText =
@@ -75,12 +76,14 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   sustainVisRow.style.cssText = "display:flex;align-items:center;gap:8px;";
   const sustainVisLabel = document.createElement("label");
   sustainVisLabel.textContent = "Show Sustain Pedal Regions";
-  sustainVisLabel.style.cssText = "font-size:12px;font-weight:600;color:var(--text-primary);";
+  sustainVisLabel.style.cssText =
+    "font-size:12px;font-weight:600;color:var(--text-primary);";
   const sustainVisCheckbox = document.createElement("input");
   sustainVisCheckbox.type = "checkbox";
   // Get initial sustain visibility state from first file or default to true
   const files = deps.midiManager.getState().files;
-  const initialSustainVisible = files.length > 0 ? (files[0].isSustainVisible ?? true) : true;
+  const initialSustainVisible =
+    files.length > 0 ? (files[0].isSustainVisible ?? true) : true;
   sustainVisCheckbox.checked = initialSustainVisible;
   sustainVisCheckbox.addEventListener("change", () => {
     // Toggle sustain visibility for all files
@@ -95,12 +98,16 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   onsetRow.style.cssText = "display:flex;align-items:center;gap:8px;";
   const onsetLabel = document.createElement("label");
   onsetLabel.textContent = "Show onset markers";
-  onsetLabel.style.cssText = "font-size:12px;font-weight:600;color:var(--text-primary);";
+  onsetLabel.style.cssText =
+    "font-size:12px;font-weight:600;color:var(--text-primary);";
   const onsetCheckbox = document.createElement("input");
   onsetCheckbox.type = "checkbox";
-  onsetCheckbox.checked = deps.stateManager.getState().visual.showOnsetMarkers ?? true;
+  onsetCheckbox.checked =
+    deps.stateManager.getState().visual.showOnsetMarkers ?? true;
   onsetCheckbox.addEventListener("change", () => {
-    deps.stateManager.updateVisualState({ showOnsetMarkers: onsetCheckbox.checked });
+    deps.stateManager.updateVisualState({
+      showOnsetMarkers: onsetCheckbox.checked,
+    });
   });
   onsetRow.append(onsetCheckbox, onsetLabel);
 
@@ -109,7 +116,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   modal.appendChild(onsetRow);
   modal.appendChild(tsGroup);
   modal.appendChild(mnGroup);
-  
+
   // Only show evaluation-related controls in non-solo mode
   if (!deps.soloMode) {
     const offsetTolGroup = createOffsetMinToleranceGroup(deps);
@@ -117,7 +124,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
     modal.appendChild(offsetTolGroup);
     modal.appendChild(hlGroup);
   }
-  
+
   modal.appendChild(pedalGroup);
   modal.appendChild(sustainVisRow);
   modal.appendChild(pedalThresholdGroup);

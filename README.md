@@ -8,6 +8,7 @@
 
 ![NPM Version](https://img.shields.io/npm/v/wave-roll)
 ![NPM License](https://img.shields.io/npm/l/wave-roll)
+[![arXiv](https://img.shields.io/badge/arXiv-2511.09562-b31b1b.svg)](https://arxiv.org/abs/2511.09562)
 
 ![Screenshot of WaveRoll](./wave-roll.png)
 
@@ -274,16 +275,16 @@ const blob = await exportMidiWithTempoAsBlob(midiFile, 144);
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run development server
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ## Acknowledgments

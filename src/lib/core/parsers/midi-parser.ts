@@ -83,10 +83,12 @@ function extractMidiHeader(midi: any): MidiHeader {
   }
 
   // Extract tempo events
+  // Round BPM to integer to avoid floating-point precision issues
+  // (MIDI stores tempo as microseconds per beat, causing slight errors on conversion)
   const tempos: TempoEvent[] = midi.header.tempos.map((tempo: any) => ({
     time: tempo.time,
     ticks: tempo.ticks,
-    bpm: tempo.bpm,
+    bpm: Math.round(tempo.bpm),
   }));
 
   // Extract time signature events

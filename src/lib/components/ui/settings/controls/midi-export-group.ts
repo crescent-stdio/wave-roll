@@ -3,6 +3,8 @@ import { exportMidiWithTempo } from "@/lib/core/file/midi-export";
 
 /** Default tempo when no audio player state is available */
 const DEFAULT_TEMPO = 120;
+const MIN_TEMPO = 20;
+const MAX_TEMPO = 300;
 
 /**
  * Create a MIDI export control group.
@@ -32,15 +34,47 @@ export function createMidiExportGroup(
     margin-bottom: 12px;
   `;
 
-  // Tempo info display
-  const tempoInfo = document.createElement("div");
-  tempoInfo.style.cssText = `
+  // Tempo input row
+  const tempoInputRow = document.createElement("div");
+  tempoInputRow.style.cssText = `
     display: flex;
     align-items: center;
     gap: 8px;
     margin-bottom: 12px;
-    font-size: 13px;
-    color: var(--text-secondary);
+  `;
+
+  const tempoLabel = document.createElement("label");
+  tempoLabel.textContent = "Export tempo:";
+  tempoLabel.style.cssText = `
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  `;
+
+  const tempoInput = document.createElement("input");
+  tempoInput.type = "number";
+  tempoInput.min = String(MIN_TEMPO);
+  tempoInput.max = String(MAX_TEMPO);
+  tempoInput.step = "1";
+  tempoInput.style.cssText = `
+    width: 64px;
+    padding: 4px 6px;
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+  `;
+  tempoInput.classList.add("wr-focusable");
+
+  const bpmLabel = document.createElement("span");
+  bpmLabel.textContent = "BPM";
+  bpmLabel.style.cssText = `
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
   `;
 
   const getTempoState = () => {
@@ -50,22 +84,41 @@ export function createMidiExportGroup(
     return { originalTempo, currentTempo };
   };
 
-  const updateTempoInfo = () => {
-    const { originalTempo, currentTempo } = getTempoState();
-    const isSame = Math.abs(originalTempo - currentTempo) < 0.5;
+  // Export tempo state (independent from playback tempo)
+  let exportTempo = Math.round(getTempoState().currentTempo);
 
-    if (isSame) {
-      tempoInfo.innerHTML = `Current tempo: <strong style="color:var(--text-primary)">${Math.round(currentTempo)} BPM</strong>`;
-    } else {
-      tempoInfo.innerHTML = `Tempo: <strong style="color:var(--text-primary)">${Math.round(originalTempo)} → ${Math.round(currentTempo)} BPM</strong>`;
+  // Initialize input with current tempo
+  tempoInput.value = String(exportTempo);
+
+  // Confirm tempo on blur or Enter key
+  const confirmTempo = () => {
+    const inputValue = parseFloat(tempoInput.value);
+    if (isNaN(inputValue) || inputValue <= 0) {
+      tempoInput.value = String(exportTempo);
+      return;
     }
+    const clamped = Math.max(MIN_TEMPO, Math.min(MAX_TEMPO, Math.round(inputValue)));
+    exportTempo = clamped;
+    tempoInput.value = String(clamped);
   };
 
-  updateTempoInfo();
+  tempoInput.addEventListener("blur", confirmTempo);
+  tempoInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      confirmTempo();
+      tempoInput.blur();
+    }
+  });
 
-  // Listen for tempo changes
-  const handleRefresh = () => updateTempoInfo();
+  // No auto-refresh: export tempo is independent from playback tempo
+  const handleRefresh = () => {
+    // Intentionally empty - export tempo should not change with playback tempo
+  };
   document.addEventListener("wr-force-ui-refresh", handleRefresh);
+
+  tempoInputRow.appendChild(tempoLabel);
+  tempoInputRow.appendChild(tempoInput);
+  tempoInputRow.appendChild(bpmLabel);
 
   // File selector (only for multi-mode)
   let fileSelect: HTMLSelectElement | null = null;
@@ -109,11 +162,11 @@ export function createMidiExportGroup(
     selectRow.appendChild(selectLabel);
     selectRow.appendChild(fileSelect);
     container.appendChild(title);
-    container.appendChild(tempoInfo);
+    container.appendChild(tempoInputRow);
     container.appendChild(selectRow);
   } else {
     container.appendChild(title);
-    container.appendChild(tempoInfo);
+    container.appendChild(tempoInputRow);
   }
 
   // Export button row
@@ -125,7 +178,7 @@ export function createMidiExportGroup(
   `;
 
   const exportBtn = document.createElement("button");
-  exportBtn.textContent = "Export with Current Tempo";
+  exportBtn.textContent = "Export MIDI";
   exportBtn.style.cssText = `
     padding: 8px 16px;
     border: none;
@@ -155,7 +208,7 @@ export function createMidiExportGroup(
 
   // Export handler
   exportBtn.addEventListener("click", async () => {
-    const { currentTempo } = getTempoState();
+    // Use the confirmed export tempo
 
     // Determine which file to export
     let targetFile = files[0]; // Default to first file
@@ -183,7 +236,7 @@ export function createMidiExportGroup(
     statusMsg.style.color = "var(--text-muted)";
 
     try {
-      await exportMidiWithTempo(originalInput, currentTempo);
+      await exportMidiWithTempo(originalInput, exportTempo);
       statusMsg.textContent = "Export complete!";
       statusMsg.style.color = "var(--success, #22c55e)";
 
@@ -214,7 +267,7 @@ export function createMidiExportGroup(
     line-height: 1.4;
   `;
   description.textContent =
-    "Downloads the MIDI file with the current tempo applied. Note positions remain unchanged; only the tempo metadata is modified.";
+    "Downloads the MIDI file with the specified tempo applied. Note positions remain unchanged; only the tempo metadata is modified.";
   container.appendChild(description);
 
   // Cleanup observer when removed from DOM
