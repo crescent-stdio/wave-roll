@@ -45,17 +45,6 @@ function ensureGlobalMarkerCss(): void {
       width: auto;
       min-width: 16px;
     }
-
-    .wr-marker::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 2px;
-      height: var(--stem-height, 30px);
-      background: var(--stem-color);
-    }
   `;
   document.head.appendChild(style);
 }
@@ -100,8 +89,6 @@ export function createMarker(
 
   /* ----- Dynamic styling --------------------------------------------- */
   el.style.background = color; // Label background
-  el.style.setProperty("--stem-color", color); // Set stem color via CSS variable
-  el.style.setProperty("--stem-height", `${stemHeight}px`);
 
   // Choose text color based on background luminance for AA contrast
   const textColor = (() => {

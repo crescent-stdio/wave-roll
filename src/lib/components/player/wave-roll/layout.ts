@@ -29,6 +29,7 @@ export function setupLayout(
     background: var(--surface-alt);
     border-radius: 8px;
     position: relative;
+    z-index: 1;
   `;
   uiElements.playerContainer.appendChild(pianoRollContainer);
 
@@ -41,10 +42,10 @@ export function setupLayout(
 export function createDefaultConfig(): WaveRollPlayerOptions {
   return {
     audioController: {
-      defaultVolume: 0.7,
+      defaultVolume: 1.0,
       defaultTempo: 120,
-      minTempo: 50,
-      maxTempo: 200,
+      minTempo: 20,
+      maxTempo: 300,
       updateInterval: 50,
     },
     pianoRoll: {

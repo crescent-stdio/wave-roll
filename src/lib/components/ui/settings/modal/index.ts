@@ -3,6 +3,7 @@ import { createModalHeader } from "./header";
 import { createFileList } from "../sections/file-list";
 import { createPaletteSelectorSection } from "../sections/palette-selector";
 import { createWaveListSection } from "../sections/wave-list";
+import { createSoloAppearanceSection } from "../sections/solo-appearance";
 import { UIComponentDependencies } from "@/lib/components/ui";
 
 /**
@@ -21,16 +22,26 @@ export function openSettingsModal(deps: UIComponentDependencies): void {
   }
 
   // ---- Build modal content ----
-  const header = createModalHeader("Tracks & Appearance", () => overlay.remove());
-
-  // Append sections
-  const paletteSection = createPaletteSelectorSection(deps);
-  const waveListSection = createWaveListSection(deps);
-  const fileListSection = createFileList(deps);
+  const isSoloMode = deps.soloMode === true;
+  const headerTitle = isSoloMode ? "Appearance" : "Tracks & Appearance";
+  const header = createModalHeader(headerTitle, () => overlay.remove());
   modal.appendChild(header);
+
+  // Append sections based on mode
+  const paletteSection = createPaletteSelectorSection(deps);
   modal.appendChild(paletteSection);
-  modal.appendChild(waveListSection);
-  modal.appendChild(fileListSection);
+
+  if (isSoloMode) {
+    // Solo mode: show simplified single-file appearance section
+    const soloAppearanceSection = createSoloAppearanceSection(deps);
+    modal.appendChild(soloAppearanceSection);
+  } else {
+    // Normal mode: show wave list and file list
+    const waveListSection = createWaveListSection(deps);
+    const fileListSection = createFileList(deps);
+    modal.appendChild(waveListSection);
+    modal.appendChild(fileListSection);
+  }
 
   // Close when clicking outside the modal panel.
   overlay.addEventListener("click", (e) => {

@@ -715,14 +715,30 @@ export class TransportSyncManager {
    * Calculate visual time from transport time
    */
   transportToVisualTime(transportSeconds: number): number {
-    return (transportSeconds * this.state.tempo) / this.options.originalTempo;
+    const result = (transportSeconds * this.state.tempo) / this.options.originalTempo;
+    // Uncomment for detailed time conversion debugging:
+    // console.log('[SYNC-DEBUG][TransportSyncManager] transportToVisualTime:', {
+    //   transportSeconds,
+    //   tempo: this.state.tempo,
+    //   originalTempo: this.options.originalTempo,
+    //   result,
+    // });
+    return result;
   }
 
   /**
    * Calculate transport time from visual time
    */
   visualToTransportTime(visualSeconds: number): number {
-    return (visualSeconds * this.options.originalTempo) / this.state.tempo;
+    const result = (visualSeconds * this.options.originalTempo) / this.state.tempo;
+    // Uncomment for detailed time conversion debugging:
+    // console.log('[SYNC-DEBUG][TransportSyncManager] visualToTransportTime:', {
+    //   visualSeconds,
+    //   tempo: this.state.tempo,
+    //   originalTempo: this.options.originalTempo,
+    //   result,
+    // });
+    return result;
   }
 
   /**

@@ -54,12 +54,12 @@ export interface AudioPlayerState {
   playbackRate?: number;
   /** Generation token to prevent ghost audio - increments on play/seek/tempo changes */
   playbackGeneration?: number;
-  
+
   // New unified state management fields
   /** Master volume for all audio sources */
   masterVolume: number;
   /** Loop mode configuration */
-  loopMode: 'off' | 'all' | 'ab';
+  loopMode: "off" | "all" | "ab";
   /** AB loop start marker in seconds */
   markerA: number | null;
   /** AB loop end marker in seconds */
@@ -188,7 +188,7 @@ export const AUDIO_CONSTANTS = {
   /** Schedule ahead time for notes in seconds */
   SCHEDULE_AHEAD_TIME: 0.25,
   /** Default volume level */
-  DEFAULT_VOLUME: 0.7,
+  DEFAULT_VOLUME: 1.0,
   /** Default tempo in BPM */
   DEFAULT_TEMPO: 120,
   /** Default playback rate percentage */

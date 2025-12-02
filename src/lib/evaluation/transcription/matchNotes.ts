@@ -16,6 +16,8 @@ import {
 } from "./constants";
 import {
   parsedMidiToIntervalsAndPitches,
+  parsedMidiToIntervalsAndPitchesWithBpm,
+  scaleIntervalsForBpm,
   validateTranscriptionInputs,
 } from "./utils";
 import { ParsedMidi } from "@/lib/midi/types";
@@ -253,6 +255,22 @@ function hopcroftKarp(
 }
 
 /**
+ * Options for BPM-aware note matching.
+ */
+export interface BpmScalingOptions {
+  /**
+   * When true, scales the estimated MIDI's time intervals to match
+   * the reference MIDI's BPM. This is useful when comparing MIDI files
+   * with different tempos but the same musical content.
+   *
+   * Formula: scaledEstTime = estTime * (refBpm / estBpm)
+   *
+   * @default false
+   */
+  scaleBpmToReference?: boolean;
+}
+
+/**
  * Match notes between reference and estimated MIDI representations following
  * the criteria used by `mir_eval.transcription.match_notes`.
  *
@@ -265,11 +283,17 @@ function hopcroftKarp(
  * (reference) note. We compute the maximum bipartite matching subject to the
  * above constraints (Hopcroft-Karp), which mirrors the behavior of mir_eval's
  * unique assignment policy.
+ *
+ * @param reference - The reference (ground truth) MIDI data
+ * @param estimated - The estimated (model output) MIDI data
+ * @param options - Tolerance options for matching
+ * @param bpmOptions - BPM scaling options for tempo-aware matching
  */
 export function matchNotes(
   reference: ParsedMidi,
   estimated: ParsedMidi,
-  options: Partial<TranscriptionToleranceOptions> = {}
+  options: Partial<TranscriptionToleranceOptions> = {},
+  bpmOptions: BpmScalingOptions = {}
 ): NoteMatchResult {
   const {
     onsetTolerance,
@@ -281,13 +305,26 @@ export function matchNotes(
     ...options,
   };
 
-  const refData = parsedMidiToIntervalsAndPitches(reference);
-  const estData = parsedMidiToIntervalsAndPitches(estimated);
+  const { scaleBpmToReference = false } = bpmOptions;
+
+  // Extract intervals, pitches, and BPM from both MIDI files
+  const refData = parsedMidiToIntervalsAndPitchesWithBpm(reference);
+  const estData = parsedMidiToIntervalsAndPitchesWithBpm(estimated);
+
+  // Optionally scale estimated intervals to match reference BPM
+  let estIntervals = estData.intervals;
+  if (scaleBpmToReference && estData.bpm !== refData.bpm) {
+    estIntervals = scaleIntervalsForBpm(
+      estData.intervals,
+      estData.bpm,
+      refData.bpm
+    );
+  }
 
   const adj = buildAdjacency(
     refData.intervals,
     refData.pitches,
-    estData.intervals,
+    estIntervals,
     estData.pitches,
     onsetTolerance,
     pitchTolerance,
@@ -298,7 +335,7 @@ export function matchNotes(
   const { pairU, pairV } = hopcroftKarp(
     adj,
     refData.intervals.length,
-    estData.intervals.length
+    estIntervals.length
   );
 
   const matches: NoteMatchResult["matches"] = [];
@@ -306,26 +343,32 @@ export function matchNotes(
     const estIdx = pairU[refIdx];
     if (estIdx !== -1) {
       const [refOn, refOff] = refData.intervals[refIdx];
-      const [estOn, estOff] = estData.intervals[estIdx];
+      // Use scaled intervals for comparison, but report original estTime
+      const [scaledEstOn, scaledEstOff] = estIntervals[estIdx];
+      const [origEstOn] = estData.intervals[estIdx];
       const refVel = reference.notes[refIdx]?.velocity;
       const estVel = estimated.notes[estIdx]?.velocity;
-      const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
-      const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
+      const inter = Math.max(
+        0,
+        Math.min(refOff, scaledEstOff) - Math.max(refOn, scaledEstOn)
+      );
+      const union =
+        Math.max(refOff, scaledEstOff) - Math.min(refOn, scaledEstOn);
       matches.push({
         ref: refIdx,
         est: estIdx,
         refPitch: refData.pitches[refIdx],
         estPitch: estData.pitches[estIdx],
         refTime: refOn,
-        estTime: estOn,
-        onsetDiff: Math.abs(estOn - refOn),
-        offsetDiff: Math.abs(estOff - refOff),
+        estTime: origEstOn, // Report original (unscaled) estimated time
+        onsetDiff: Math.abs(scaledEstOn - refOn), // Diff using scaled time
+        offsetDiff: Math.abs(scaledEstOff - refOff), // Diff using scaled time
         pitchDiff: Math.abs(estData.pitches[estIdx] - refData.pitches[refIdx]),
         overlapRatio: union > 0 ? inter / union : 0,
-        refVelocity: typeof refVel === 'number' ? refVel : undefined,
-        estVelocity: typeof estVel === 'number' ? estVel : undefined,
+        refVelocity: typeof refVel === "number" ? refVel : undefined,
+        estVelocity: typeof estVel === "number" ? estVel : undefined,
         velocityDiff:
-          typeof refVel === 'number' && typeof estVel === 'number'
+          typeof refVel === "number" && typeof estVel === "number"
             ? Math.abs(estVel - refVel)
             : undefined,
       });
@@ -351,24 +394,43 @@ export function matchNotes(
  * adds a velocity gate to the adjacency when `velocity.includeInMatching` is true.
  * It preserves the same 1:1 matching policy via Hopcroft-Karp and enriches
  * matches with per-pair diagnostics (diffs, overlap, velocities).
+ *
+ * @param reference - The reference (ground truth) MIDI data
+ * @param estimated - The estimated (model output) MIDI data
+ * @param options - Tolerance options for matching
+ * @param velocity - Velocity tolerance options
+ * @param bpmOptions - BPM scaling options for tempo-aware matching
  */
 export function matchNotesWithVelocity(
   reference: ParsedMidi,
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {},
-  velocity: Partial<VelocityToleranceOptions> = {}
+  velocity: Partial<VelocityToleranceOptions> = {},
+  bpmOptions: BpmScalingOptions = {}
 ): NoteMatchResult {
   const toler = { ...DEFAULT_TOLERANCES, ...options };
   const vopts = { ...DEFAULT_VELOCITY_OPTIONS, ...velocity };
+  const { scaleBpmToReference = false } = bpmOptions;
 
-  const refData = parsedMidiToIntervalsAndPitches(reference);
-  const estData = parsedMidiToIntervalsAndPitches(estimated);
+  // Extract intervals, pitches, and BPM from both MIDI files
+  const refData = parsedMidiToIntervalsAndPitchesWithBpm(reference);
+  const estData = parsedMidiToIntervalsAndPitchesWithBpm(estimated);
+
+  // Optionally scale estimated intervals to match reference BPM
+  let estIntervals = estData.intervals;
+  if (scaleBpmToReference && estData.bpm !== refData.bpm) {
+    estIntervals = scaleIntervalsForBpm(
+      estData.intervals,
+      estData.bpm,
+      refData.bpm
+    );
+  }
 
   // Build base adjacency first (onset/pitch/offset)
   const baseAdj = buildAdjacency(
     refData.intervals,
     refData.pitches,
-    estData.intervals,
+    estIntervals,
     estData.pitches,
     toler.onsetTolerance,
     toler.pitchTolerance,
@@ -378,18 +440,19 @@ export function matchNotesWithVelocity(
 
   // Optionally filter edges by velocity tolerance
   const toNorm = (dv: number): number =>
-    vopts.unit === 'midi' ? dv / 127 : dv;
-  const tolNorm = vopts.unit === 'midi'
-    ? vopts.velocityTolerance / 127
-    : vopts.velocityTolerance;
+    vopts.unit === "midi" ? dv / 127 : dv;
+  const tolNorm =
+    vopts.unit === "midi"
+      ? vopts.velocityTolerance / 127
+      : vopts.velocityTolerance;
 
   const adj = vopts.includeInMatching
     ? baseAdj.map((neighbors, i) =>
         neighbors.filter((j) => {
           const rv = reference.notes[i]?.velocity;
           const ev = estimated.notes[j]?.velocity;
-          if (typeof rv !== 'number' || typeof ev !== 'number') {
-            return vopts.missingVelocity === 'ignore';
+          if (typeof rv !== "number" || typeof ev !== "number") {
+            return vopts.missingVelocity === "ignore";
           }
           const dv = Math.abs(ev - rv);
           return toNorm(dv) <= tolNorm;
@@ -400,7 +463,7 @@ export function matchNotesWithVelocity(
   const { pairU, pairV } = hopcroftKarp(
     adj,
     refData.intervals.length,
-    estData.intervals.length
+    estIntervals.length
   );
 
   const matches: NoteMatchResult["matches"] = [];
@@ -408,26 +471,32 @@ export function matchNotesWithVelocity(
     const estIdx = pairU[refIdx];
     if (estIdx !== -1) {
       const [refOn, refOff] = refData.intervals[refIdx];
-      const [estOn, estOff] = estData.intervals[estIdx];
+      // Use scaled intervals for comparison, but report original estTime
+      const [scaledEstOn, scaledEstOff] = estIntervals[estIdx];
+      const [origEstOn] = estData.intervals[estIdx];
       const rv = reference.notes[refIdx]?.velocity;
       const ev = estimated.notes[estIdx]?.velocity;
-      const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
-      const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
+      const inter = Math.max(
+        0,
+        Math.min(refOff, scaledEstOff) - Math.max(refOn, scaledEstOn)
+      );
+      const union =
+        Math.max(refOff, scaledEstOff) - Math.min(refOn, scaledEstOn);
       matches.push({
         ref: refIdx,
         est: estIdx,
         refPitch: refData.pitches[refIdx],
         estPitch: estData.pitches[estIdx],
         refTime: refOn,
-        estTime: estOn,
-        onsetDiff: Math.abs(estOn - refOn),
-        offsetDiff: Math.abs(estOff - refOff),
+        estTime: origEstOn, // Report original (unscaled) estimated time
+        onsetDiff: Math.abs(scaledEstOn - refOn), // Diff using scaled time
+        offsetDiff: Math.abs(scaledEstOff - refOff), // Diff using scaled time
         pitchDiff: Math.abs(estData.pitches[estIdx] - refData.pitches[refIdx]),
         overlapRatio: union > 0 ? inter / union : 0,
-        refVelocity: typeof rv === 'number' ? rv : undefined,
-        estVelocity: typeof ev === 'number' ? ev : undefined,
+        refVelocity: typeof rv === "number" ? rv : undefined,
+        estVelocity: typeof ev === "number" ? ev : undefined,
         velocityDiff:
-          typeof rv === 'number' && typeof ev === 'number'
+          typeof rv === "number" && typeof ev === "number"
             ? Math.abs(ev - rv)
             : undefined,
       });

@@ -100,16 +100,7 @@ export function createTimeDisplayUI(
         pointer-events: none;
         z-index: 3;
       }
-      .wr-marker::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 2px;
-        height: 14px;
-        background: currentColor;
-      }
+      /* stem is now created as a real DOM element (.wr-marker-stem) in marker.ts */
     `;
     document.head.appendChild(style);
   }
@@ -222,7 +213,7 @@ export function createTimeDisplayUI(
   // Cache for last known effective duration (tempo/WAV-aware)
   let lastEffectiveDuration = 0;
 
-  const updateSeekBar = (override?: {
+  const localUpdateSeekBar = (override?: {
     currentTime: number;
     duration: number;
   }): void => {
@@ -365,10 +356,10 @@ export function createTimeDisplayUI(
   };
 
   // Expose to external update loop
-  dependencies.updateSeekBar = updateSeekBar;
+  dependencies.updateSeekBar = localUpdateSeekBar;
 
   // Initial draw
-  updateSeekBar();
+  localUpdateSeekBar();
 
   /** Click / seek interaction */
   // Flag to distinguish a simple click from a drag (pointermove).
@@ -391,7 +382,7 @@ export function createTimeDisplayUI(
 
     const newTime = clamp(duration * percent, 0, duration);
     dependencies.audioPlayer?.seek(newTime, true);
-    updateSeekBar();
+    localUpdateSeekBar();
   };
 
   seekBarContainer.addEventListener("click", handleSeek);
@@ -422,7 +413,7 @@ export function createTimeDisplayUI(
     pendingSeekTime = newTime;
 
     // Immediate visual feedback while dragging - no engine seek yet.
-    updateSeekBar({ currentTime: newTime, duration });
+    localUpdateSeekBar({ currentTime: newTime, duration });
   };
 
   const endDrag = (): void => {

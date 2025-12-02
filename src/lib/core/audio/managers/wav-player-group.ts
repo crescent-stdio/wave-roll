@@ -223,29 +223,26 @@ export class WavPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
+    
     // Dedupe: ignore duplicate start requests for the same generation
-    if (typeof syncInfo.generation === 'number') {
-      if (this.lastStartGen === syncInfo.generation) {
-        try { /* console.log('[SYNC][WavPlayerGroup] Duplicate start ignored for generation', syncInfo.generation); */ } catch {}
+    const currentGen = syncInfo.generation;
+    if (typeof currentGen === 'number') {
+      if (this.lastStartGen === currentGen) {
         return;
       }
-      this.lastStartGen = syncInfo.generation;
+      this.lastStartGen = currentGen;
     }
-    // console.log('[WavPlayerGroup] Starting synchronized playback', syncInfo);
-    try {
-      // console.log('[TEMPO][SYNC][WavPlayerGroup] startSynchronized', {
-      //   mode: syncInfo.mode || 'play',
-      //   anchor: syncInfo.audioContextTime,
-      //   masterTime: syncInfo.masterTime,
-      // });
-    } catch {}
     
     // Setup audio players first
     try {
       await this.setupAudioPlayersFromRegistry({});
-      // console.log('[WavPlayerGroup] Audio players setup completed, players count:', this.audioPlayers.size);
     } catch (error) {
       console.error('[WavPlayerGroup] Setup failed:', error);
+      return;
+    }
+    
+    // Re-check generation after await to prevent race condition
+    if (typeof currentGen === 'number' && this.lastStartGen !== currentGen) {
       return;
     }
     
@@ -253,10 +250,14 @@ export class WavPlayerGroup implements PlayerGroup {
     if (this.bufferLoadPromise) {
       try {
         await this.bufferLoadPromise;
-        // console.log('[WavPlayerGroup] Buffer loading completed');
       } catch (error) {
         console.error('[WavPlayerGroup] Buffer loading failed:', error);
       }
+    }
+    
+    // Re-check generation after buffer await
+    if (typeof currentGen === 'number' && this.lastStartGen !== currentGen) {
+      return;
     }
     
     // Check if audio API is available
@@ -318,37 +319,19 @@ export class WavPlayerGroup implements PlayerGroup {
         const bufferDuration = (entry.player.buffer as any)?.duration ?? item.audioBuffer?.duration ?? 0;
         let offset = syncInfo.masterTime;
         if (bufferDuration && (offset < 0 || offset > bufferDuration - 0.001)) {
-          const clamped = Math.max(0, Math.min(bufferDuration - 0.001, offset));
-          // console.log('[WavPlayerGroup] Clamping offset from', offset, 'to', clamped, '(bufferDuration=', bufferDuration, ')');
-          offset = clamped;
+          offset = Math.max(0, Math.min(bufferDuration - 0.001, offset));
         }
         
         // Align with Transport and compensate FX latency: subtract latency from offset
         // so audio content aligns with masterTime. Clamp to [0, bufferDuration).
-        const fxLatency = 0; // remove FX latency subtraction to avoid constant negative offset vs MIDI
         const adjustedOffset = Math.max(0, Math.min(
           bufferDuration > 0 ? bufferDuration - 0.001 : Number.POSITIVE_INFINITY,
           offset
         ));
-        try {
-          // console.log('[TEMPO][SYNC][WavPlayerGroup] Scheduling', {
-          //   id: item.id,
-          //   anchor: syncInfo.audioContextTime,
-          //   masterTime: syncInfo.masterTime,
-          //   rawOffset: offset,
-          //   fxLatency,
-          //   adjustedOffset,
-          //   bufferDuration,
-          //   playbackRate: entry.player.playbackRate,
-          // });
-        } catch {}
+        
         entry.player.start(syncInfo.audioContextTime, adjustedOffset);
-        const tr = Tone.getTransport();
-        // console.log('[WavPlayerGroup] Started', item.id, 'at anchor', syncInfo.audioContextTime, 'offset', adjustedOffset, 'transport.seconds(now)=', tr.seconds);
         entry.isStarted = true;
         startedCount++;
-        
-        // console.log('[WavPlayerGroup] Started WAV', (item as any).displayName || item.id, 'at audio time', syncInfo.audioContextTime, 'offset', offset, 'volume', finalVolume, 'muted:', isMuted);
         
       } catch (error) {
         console.error('[WavPlayerGroup] Failed to start', item.id, ':', error);
@@ -400,16 +383,7 @@ export class WavPlayerGroup implements PlayerGroup {
     const rate = bpm / base;
     const safeRate = Math.max(1e-6, rate);
     const semitones = 12 * Math.log2(safeRate);
-    try {
-      // console.log('[TEMPO][WavPlayerGroup] Setting tempo', {
-      //   bpm,
-      //   base,
-      //   rate,
-      //   safeRate,
-      //   semitones: Number.isFinite(semitones) ? Number(semitones.toFixed(3)) : semitones,
-      //   players: this.audioPlayers.size,
-      // });
-    } catch {}
+    
     for (const [id, entry] of this.audioPlayers) {
       try {
         entry.player.playbackRate = safeRate;
@@ -421,10 +395,6 @@ export class WavPlayerGroup implements PlayerGroup {
         console.error('[WavPlayerGroup] Failed to set tempo for', id, ':', error);
       }
     }
-    try {
-      const tr = Tone.getTransport();
-      // console.log('[TEMPO][WavPlayerGroup] Transport BPM now', tr.bpm.value);
-    } catch {}
   }
 
   /** Set baseline tempo used to compute playbackRate. */

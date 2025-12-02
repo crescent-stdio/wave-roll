@@ -11,10 +11,20 @@ export function initializeContainers(pr: PianoRoll): void {
   pr.container.sortableChildren = true; // Enable z-index sorting
   pr.app.stage.addChild(pr.container);
 
-  // Background grid container
+  // Background grid container (fixed: piano key background, vertical grid lines, waveform)
   pr.backgroundGrid = new PIXI.Graphics();
   pr.backgroundGrid.zIndex = 1;
   pr.container.addChild(pr.backgroundGrid);
+
+  // Piano key horizontal lines (panY applied - moves with notes)
+  pr.pianoKeyLines = new PIXI.Graphics();
+  pr.pianoKeyLines.zIndex = 2; // above background, below notes
+  pr.container.addChild(pr.pianoKeyLines);
+
+  // Container for octave labels on piano keys (panY applied - moves with notes)
+  pr.pianoKeyLabelContainer = new PIXI.Container();
+  pr.pianoKeyLabelContainer.zIndex = 3; // above lines
+  pr.container.addChild(pr.pianoKeyLabelContainer);
 
   // Waveform layer (below grid)
   pr.waveformLayer = new PIXI.Graphics();

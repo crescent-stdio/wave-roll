@@ -8,6 +8,7 @@ import {
   DrawingPrimitives,
   ColorCalculator
 } from "../utils";
+import { midiToNoteName } from "@/lib/core/utils/midi/pitch";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
 export function renderGrid(pianoRoll: PianoRoll): void {
@@ -18,10 +19,18 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   if (pianoRoll.loopLabelContainer) {
     pianoRoll.loopLabelContainer.removeChildren();
   }
+  // Clear piano key labels (panY applied via container)
+  if (pianoRoll.pianoKeyLabelContainer) {
+    pianoRoll.pianoKeyLabelContainer.removeChildren();
+  }
 
   // Remove any previously added children (e.g., text labels) and clear drawings
   pianoRoll.backgroundGrid.removeChildren();
   pianoRoll.backgroundGrid.clear();
+  // Clear piano key lines (panY applied via container)
+  if (pianoRoll.pianoKeyLines) {
+    pianoRoll.pianoKeyLines.clear();
+  }
   // Also clear waveform layer so it re-renders cleanly each frame
   if (pianoRoll.waveformLayer) {
     pianoRoll.waveformLayer.clear();
@@ -50,6 +59,8 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   if (pianoRoll.options.showPianoKeys) {
     // const pianoKeysWidth = this.timeScale(1) * this.state.zoomX;
     const pianoKeysWidth = pianoRoll.playheadX;
+    
+    // Draw piano key background (fixed, no panY)
     pianoRoll.backgroundGrid.rect(
       0,
       0,
@@ -66,25 +77,43 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     );
     pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.6 });
 
-    // Draw piano key lines
+    // Draw octave labels for C notes (no horizontal lines - cleaner design)
+    // NOTE: panY is NOT applied here - it will be applied via container.y in render()
+    const canvasMid = pianoRoll.options.height / 2;
+    
     for (
       let midi = pianoRoll.options.noteRange.min;
       midi <= pianoRoll.options.noteRange.max;
       midi++
     ) {
-      const yBase = pianoRoll.pitchScale(midi);
-      const canvasMid = pianoRoll.options.height / 2;
-      const y = (yBase - canvasMid) * pianoRoll.state.zoomY + canvasMid;
-      // const isBlackKey = [1, 3, 6, 8, 10].includes(midi % 12);
+      // Only process C notes for labels
+      if (midi % 12 === 0) {
+        const yBase = pianoRoll.pitchScale(midi);
+        // No panY here - container handles it
+        const y = (yBase - canvasMid) * pianoRoll.state.zoomY + canvasMid;
+        // Calculate next note's Y position to get row height
+        const yNextBase = pianoRoll.pitchScale(midi + 1);
+        // No panY here - container handles it
+        const yNext = (yNextBase - canvasMid) * pianoRoll.state.zoomY + canvasMid;
+        const rowHeight = Math.abs(y - yNext);
 
-      pianoRoll.backgroundGrid.moveTo(0, y);
-      pianoRoll.backgroundGrid.lineTo(pianoKeysWidth, y);
-      pianoRoll.backgroundGrid.stroke({
-        width: 1,
-        color: 0xcccccc,
-        // color: isBlackKey ? 0x000000 : 0xcccccc,
-        alpha: 0.3,
-      });
+        // Only show label if row height is sufficient for readability
+        if (rowHeight >= 8) {
+          const label = new PIXI.Text({
+            text: midiToNoteName(midi),
+            style: {
+              fontSize: Math.min(9, Math.max(7, rowHeight * 0.7)),
+              fill: 0x666666,
+              fontWeight: "500",
+            },
+          });
+          label.x = 4;
+          // Center vertically within the row (y is the center of the row)
+          label.y = y - label.height / 2;
+          // Add to pianoKeyLabelContainer (panY applied via container)
+          pianoRoll.pianoKeyLabelContainer.addChild(label);
+        }
+      }
     }
   }
 
@@ -264,7 +293,12 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   // A lightweight visualization: vertical min/max bars per peak column mapped to time.
   // Render as a bottom band so it appears "below" the piano-roll grid content while
   // remaining synchronized with pan/zoom.
-  try {
+  // Skip waveform rendering if showWaveformBand is disabled
+  if (pianoRoll.options.showWaveformBand === false) {
+    // Clear any existing waveform graphics
+    pianoRoll.waveformLayer?.clear();
+    pr.waveformKeysLayer?.clear();
+  } else try {
     const api = (globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI })._waveRollAudio;
     if (api?.getVisiblePeaks) {
       const peaksPayload = api.getVisiblePeaks();

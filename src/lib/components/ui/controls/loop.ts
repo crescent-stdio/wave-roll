@@ -12,26 +12,15 @@ export function createLoopControlsUI(
   if (!deps.audioPlayer || !deps.pianoRoll) {
     throw new Error("Audio player and piano roll are required");
   }
-  const { element, updateSeekBar } = createCoreLoopControls({
+  const { element } = createCoreLoopControls({
     audioPlayer: deps.audioPlayer,
     pianoRoll: deps.pianoRoll,
   });
 
-  // Preserve any existing seek-bar updater so we can chain both updates.
-  const originalUpdateSeekBar = deps.updateSeekBar;
-
-  // Expose a wrapper that forwards to the previous handler (progress / time
-  // labels) *and* triggers the loop-overlay refresh coming from the core A-B
-  // controls.  This avoids accidentally overriding the seek-bar sync logic,
-  // which previously prevented the loop markers from showing up.
-  deps.updateSeekBar = (state?: { currentTime: number; duration: number }) => {
-    // 1) Trigger core loop-controls refresh & event dispatch.
-    updateSeekBar();
-
-    // 2) Now update the main seek-bar/time display with the latest loopWindow
-    //    already stored by the playerʼs «wr-loop-update» handler.
-    originalUpdateSeekBar?.(state);
-  };
+  // The core loop controls' updateSeekBar() dispatches 'wr-loop-update' event
+  // which is handled by player.ts to update the seekbar overlay.
+  // We don't chain deps.updateSeekBar here to avoid infinite recursion,
+  // as the update loop already calls deps.updateSeekBar directly.
 
   return element;
 }

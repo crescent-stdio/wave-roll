@@ -8,6 +8,7 @@
 
 ![NPM Version](https://img.shields.io/npm/v/wave-roll)
 ![NPM License](https://img.shields.io/npm/l/wave-roll)
+[![arXiv](https://img.shields.io/badge/arXiv-2511.09562-b31b1b.svg)](https://arxiv.org/abs/2511.09562)
 
 ![Screenshot of WaveRoll](./wave-roll.png)
 
@@ -165,6 +166,18 @@ IFrame(src='https://crescent-stdio.github.io/wave-roll/standalone.html', width='
 
 This is particularly useful for music information retrieval (MIR) research, allowing you to visualize and compare transcription results directly in your analysis notebooks.
 
+### VS Code Extension
+
+Use WaveRoll directly in VS Code with the **Wave Roll Solo** extension:
+
+- Open any `.mid` or `.midi` file to view it as an interactive piano roll
+- Play MIDI files with built-in Tone.js synthesis
+- Adjust tempo and export MIDI with modified tempo
+
+**Installation**: Search "WaveRoll Solo" in VS Code Extensions marketplace
+
+**GitHub**: [crescent-stdio/wave-roll-solo](https://github.com/crescent-stdio/wave-roll-solo)
+
 ## API
 
 ### Attributes
@@ -206,23 +219,72 @@ interface FileItem {
   path: string;   // URL or relative path to the file
   name: string;   // Display name shown in UI
   type?: "midi" | "audio"; // Defaults to "midi" when omitted
+  color?: string; // Custom color for track visualization (hex or CSS color)
 }
+```
+
+### JavaScript API
+
+Control the player programmatically:
+
+```javascript
+const waveRoll = document.querySelector('wave-roll');
+
+// Playback controls
+await waveRoll.play();
+waveRoll.pause();
+waveRoll.seek(30);  // Seek to 30 seconds
+
+// State
+console.log(waveRoll.isPlaying);  // boolean
+console.log(waveRoll.getState()); // { currentTime, duration, tempo, ... }
+```
+
+### Tempo Control
+
+WaveRoll includes an interactive tempo control with popover input:
+
+- Click the BPM badge in the player controls to adjust tempo
+- Supports a wide range of tempo adjustments
+- Audio playback automatically adjusts with pitch preservation
+
+### MIDI Export
+
+Export MIDI files with modified tempo via the Settings panel:
+
+1. Adjust tempo using the tempo control
+2. Open Settings (gear icon)
+3. Click "Export with Current Tempo"
+
+The exported file preserves all note data with updated tempo metadata.
+
+**Programmatic usage:**
+
+```javascript
+import { exportMidiWithTempo } from 'wave-roll';
+
+// Export MIDI with new tempo (triggers download)
+await exportMidiWithTempo(midiFile, 144);
+
+// Export as Blob for custom handling
+import { exportMidiWithTempoAsBlob } from 'wave-roll';
+const blob = await exportMidiWithTempoAsBlob(midiFile, 144);
 ```
 
 ## Development
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run development server
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm build
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ## Acknowledgments
@@ -237,5 +299,10 @@ MIT License - see [LICENSE](LICENSE) file for details
 If you use WaveRoll in your research, please cite:
 
 ```bibtex
-
+@inproceedings{waveroll2025,
+  title={WaveRoll: JavaScript Library for Comparative MIDI Piano-Roll Visualization},
+  author={Park, Hannah and Jeong, Dasaem},
+  booktitle={Proceedings of 26th International Society for Music Information Retrieval Conference (ISMIR)},
+  year={2025}
+}
 ```

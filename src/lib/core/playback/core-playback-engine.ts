@@ -50,9 +50,9 @@ export interface VisualUpdateParams {
  * Default configuration values
  */
 const DEFAULT_CONFIG: Required<CorePlaybackEngineConfig> = {
-  defaultVolume: 0.7,
+  defaultVolume: 1.0,
   defaultTempo: 120,
-  minTempo: 30,
+  minTempo: 20,
   maxTempo: 300,
   updateInterval: 150, // Reduced to 150ms (6.7fps) to avoid conflicts with requestAnimationFrame while maintaining sync
   enableStateSync: true,
@@ -91,6 +91,9 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 
   // Cache last known state to prevent flickering during recreation
   private lastKnownState: AudioPlayerState | null = null;
+
+  // Store originalTempo to persist across audioPlayer recreation
+  private pendingOriginalTempo: number | null = null;
 
   constructor(
     stateManager?: StateManager,
@@ -134,7 +137,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    */
   public async updateAudio(notes: NoteData[]): Promise<void> {
     // console.log('[CorePlaybackEngine] updateAudio called with', notes.length, 'notes');
-    
+
     // Calculate signature based on file IDs present in notes, not the actual notes
     // This prevents recreation when only mute states change
     const fileIds = new Set<string>();
@@ -146,7 +149,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     // Signature based only on file IDs to avoid unnecessary audio player
     // recreation when note lists change due to UI transforms (tempo/loop/seek).
     const signature = Array.from(fileIds).sort().join(",");
-    
+
     // console.log('[CorePlaybackEngine] File IDs found:', Array.from(fileIds));
     // console.log('[CorePlaybackEngine] Current signature:', signature, 'Last signature:', this.lastAudioSignature);
 
@@ -192,11 +195,29 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     }
 
     // Create new player with preserved settings
-    this.audioPlayer = await createAudioPlayer(notes, {
-      tempo: prevState?.tempo || this.config.defaultTempo,
-      volume: prevState?.volume || this.config.defaultVolume,
-      repeat: prevState?.isRepeating || false,
-    }, pianoRollInstance);
+    this.audioPlayer = await createAudioPlayer(
+      notes,
+      {
+        tempo: prevState?.tempo || this.config.defaultTempo,
+        volume: prevState?.volume || this.config.defaultVolume,
+        repeat: prevState?.isRepeating || false,
+      },
+      pianoRollInstance
+    );
+
+    // Restore originalTempo from pendingOriginalTempo or prevState
+    const originalTempoToRestore = this.pendingOriginalTempo ?? prevState?.originalTempo;
+    if (originalTempoToRestore && Number.isFinite(originalTempoToRestore) && originalTempoToRestore > 0) {
+      (this.audioPlayer as any)?.setOriginalTempo?.(originalTempoToRestore);
+      // Also set current tempo to match originalTempo if not explicitly different
+      if (!prevState || prevState.tempo === prevState.originalTempo) {
+        this.audioPlayer.setTempo(originalTempoToRestore);
+      }
+      // Force UI refresh so tempo display updates
+      try {
+        document.dispatchEvent(new CustomEvent("wr-force-ui-refresh"));
+      } catch {}
+    }
 
     // Restore state
     if (prevState) {
@@ -274,12 +295,12 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    */
   public async play(): Promise<void> {
     // console.log('[CorePlaybackEngine] Play called, audioPlayer exists:', !!this.audioPlayer);
-    
+
     if (!this.audioPlayer) {
-      console.error('[CorePlaybackEngine] audioPlayer is null, cannot play');
+      console.error("[CorePlaybackEngine] audioPlayer is null, cannot play");
       return;
     }
-    
+
     // Get state before playing to check if we're starting from the beginning
     const stateBefore = this.audioPlayer!.getState();
     // Do not auto-rewind here; preserve last bookmark position exactly
@@ -384,10 +405,16 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
    */
   public setOriginalTempo(bpm: number): void {
     if (!Number.isFinite(bpm) || bpm <= 0) return;
+    // Always store for persistence across audioPlayer recreation
+    this.pendingOriginalTempo = bpm;
     (this.audioPlayer as any)?.setOriginalTempo?.(bpm);
   }
 
-  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
+  public setLoopPoints(
+    start: number | null,
+    end: number | null,
+    preservePosition: boolean = false
+  ): void {
     this.loopPoints = { a: start, b: end };
     this.audioPlayer?.setLoopPoints(start, end, preservePosition);
 
@@ -478,7 +505,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         isRepeating: false,
         // New unified state management fields
         masterVolume: this.config.defaultVolume,
-        loopMode: 'off' as const,
+        loopMode: "off" as const,
         markerA: null,
         markerB: null,
         nowTime: 0,

@@ -37,6 +37,8 @@ interface MidiPlayerInfo {
  * User requirements: Individual control of volume, pan, mute for each MIDI player
  */
 export class MidiPlayerGroup implements PlayerGroup {
+  private static DEBUG = false;
+  
   private players = new Map<string, MidiPlayerInfo>();
   private part: Tone.Part | null = null;
   private notes: MidiNote[] = [];
@@ -485,13 +487,15 @@ export class MidiPlayerGroup implements PlayerGroup {
       } else {
         invalidCount++;
         this.updateErrorStats('invalidData');
-        console.warn('[MidiPlayerGroup] Invalid MIDI note filtered out:', {
-          time: note.time,
-          pitch: note.pitch,
-          velocity: note.velocity,
-          duration: note.duration,
-          fileId: note.fileId
-        });
+        if (MidiPlayerGroup.DEBUG) {
+          console.warn('[MidiPlayerGroup] Invalid MIDI note filtered out:', {
+            time: note.time,
+            pitch: note.pitch,
+            velocity: note.velocity,
+            duration: note.duration,
+            fileId: note.fileId
+          });
+        }
       }
     }
     
@@ -509,18 +513,12 @@ export class MidiPlayerGroup implements PlayerGroup {
   }
 
   private createMidiPart(startTime: number = 0, endTime?: number): void {
-    // console.log('[DEBUG][MidiPlayerGroup] createMidiPart called with startTime:', startTime, 'endTime:', endTime);
-    // console.log('[DEBUG][MidiPlayerGroup] Available notes:', this.notes ? this.notes.length : 0);
-    // console.log('[DEBUG][MidiPlayerGroup] Current tempoScale:', this.tempoScale);
-    
     if (this.part) {
-      // console.log('[MidiPlayerGroup] Disposing existing Part');
       this.part.dispose();
       this.part = null;
     }
     
     if (!this.notes || this.notes.length === 0) {
-      // console.warn('[MidiPlayerGroup] No notes available for Part creation');
       return;
     }
     
@@ -546,9 +544,6 @@ export class MidiPlayerGroup implements PlayerGroup {
     const currentBpm = Number(trForScale?.bpm?.value) || this.originalTempoBase || 120;
     const baseBpm = this.originalTempoBase || 120;
     const timeScale = (baseBpm > 0 && currentBpm > 0) ? (baseBpm / currentBpm) : 1;
-    try {
-      // console.log('[TEMPO][MidiPlayerGroup] Time scaling for Part', { baseBpm, currentBpm, timeScale });
-    } catch {}
 
     // For seek/resume (no endTime specified): include sustaining notes that began before safeStart
     // and are still active at safeStart by re-triggering them at t=0 with remaining duration.
@@ -730,25 +725,29 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Synchronized start
    */
   async startSynchronized(syncInfo: SynchronizationInfo): Promise<void> {
-    // console.log('[TEMPO][MidiPlayerGroup] Starting sync playback:', syncInfo.mode, 'masterTime:', syncInfo.masterTime, 'tempoScale:', this.tempoScale);
+    
     // Dedupe: ignore duplicate start requests for the same generation
-    if (typeof syncInfo.generation === 'number') {
-      if (this.lastStartGen === syncInfo.generation) {
-        try { /* console.log('[SYNC][MidiPlayerGroup] Duplicate start ignored for generation', syncInfo.generation); */ } catch {}
+    const currentGen = syncInfo.generation;
+    if (typeof currentGen === 'number') {
+      if (this.lastStartGen === currentGen) {
         return;
       }
-      this.lastStartGen = syncInfo.generation;
+      this.lastStartGen = currentGen;
     }
     
     // Initialize samplers
     await this.initialize();
+    
+    // Re-check generation after await to prevent race condition
+    if (typeof currentGen === 'number' && this.lastStartGen !== currentGen) {
+      return;
+    }
     
     if (this.players.size === 0) {
       return;
     }
     
     const transport = Tone.getTransport();
-    // console.log('[TEMPO][MidiPlayerGroup] Transport before start - state:', transport.state, 'BPM:', transport.bpm.value, 'seconds:', transport.seconds);
     
     // Unmute all gates
     for (const playerInfo of this.players.values()) {
@@ -764,9 +763,7 @@ export class MidiPlayerGroup implements PlayerGroup {
 
     // Create MIDI Part without preroll to maintain exact timing
     const partStartTime = syncInfo.masterTime; // No preroll applied
-    // console.log('[TEMPO][MidiPlayerGroup] Creating Part - startTime:', partStartTime, 'tempoScale:', this.tempoScale);
     this.createMidiPart(partStartTime);
-    // console.log('[TEMPO][MidiPlayerGroup] Part created with', this.part ? 'success' : 'failure');
     
     if (this.part) {
       try {
@@ -783,21 +780,12 @@ export class MidiPlayerGroup implements PlayerGroup {
 
         // First play vs seek: Use best anchor per mode to avoid drift
         if (syncInfo.mode === 'seek') {
-          const ts = transport.seconds;
-          // console.log('[TEMPO][MidiPlayerGroup] Part.start(seek) - at transport.seconds:', ts.toFixed(3));
-          this.part.start(ts, 0);
+          // Use masterTime directly to avoid drift from already-started transport
+          this.part.start(syncInfo.masterTime, 0);
         } else {
-          if (syncInfo.masterTime === 0) {
-            // console.log('[TEMPO][MidiPlayerGroup] Part.start(play) - at transport 0');
-            this.part.start(0);
-          } else {
-            const ts = transport.seconds;
-            // console.log('[TEMPO][MidiPlayerGroup] Part.start(resume) - at transport.seconds:', ts.toFixed(3));
-            this.part.start(ts, 0);
-          }
+          // Use masterTime directly to avoid drift from already-started transport
+          this.part.start(syncInfo.masterTime, 0);
         }
-
-        // console.log('[TEMPO][MidiPlayerGroup] Part started - state:', this.part.state, 'Transport state:', transport.state);
 
       } catch (error) {
         console.error('[MidiPlayerGroup] ERROR in Part start process:', error instanceof Error ? error.message : String(error));
@@ -870,17 +858,10 @@ export class MidiPlayerGroup implements PlayerGroup {
    * PlayerGroup interface implementation: Set tempo
    */
   setTempo(bpm: number): void {
-    // console.log('[TEMPO][MidiPlayerGroup] Setting tempo:', bpm);
-    // Compute tempoScale relative to original baseline; used for logging and potential future policies
+    // Compute tempoScale relative to original baseline
     const base = this.originalTempoBase || 120;
     const newScale = (base > 0) ? (bpm / base) : 1;
-    const oldTempoScale = this.tempoScale;
     this.tempoScale = newScale;
-    // console.log('[TEMPO][MidiPlayerGroup] tempoScale updated:', oldTempoScale, '->', this.tempoScale, '(= bpm/base). Event times are scaled in Part creation.');
-    // console.log('[TEMPO][MidiPlayerGroup] Current Part exists:', !!this.part);
-    if (this.part) {
-      // console.log('[TEMPO][MidiPlayerGroup] Part state:', this.part.state);
-    }
     // Part will be recreated on next seek/restart initiated by master clock
   }
 

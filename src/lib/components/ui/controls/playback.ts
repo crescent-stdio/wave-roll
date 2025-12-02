@@ -26,7 +26,7 @@ export function createPlaybackControlsUI(
     height: 48px;
     background: var(--panel-bg);
     color: var(--text-primary);
-    padding: 4px;
+    padding: 4px 8px;
     border-radius: 8px;
     position: relative;
     z-index: 10;

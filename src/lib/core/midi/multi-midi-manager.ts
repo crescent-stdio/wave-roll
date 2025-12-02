@@ -3,6 +3,7 @@ import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
+import { tempoEventBus } from "./tempo-event-bus";
 
 const PALETTE_STORAGE_KEY = "waveRoll.paletteState";
 
@@ -85,9 +86,7 @@ export class MultiMidiManager {
     const palette = this.getActivePalette();
     const colors = palette.colors;
     const color =
-      colors.length > 0
-        ? colors[this.colorIndex % colors.length]
-        : 0x666666;
+      colors.length > 0 ? colors[this.colorIndex % colors.length] : 0x666666;
     this.colorIndex++;
     return color;
   }
@@ -108,6 +107,7 @@ export class MultiMidiManager {
     displayName?: string,
     originalInput?: File | string
   ): string {
+    const isFirstFile = this.state.files.length === 0;
     const entry: MidiFileEntry = createMidiFileEntry(
       fileName,
       parsedData,
@@ -121,17 +121,35 @@ export class MultiMidiManager {
     entry.isVisible = shouldBeVisible;
     this.state.files.push(entry);
     try {
-      // Set baseline/original tempo from MIDI header's first/initial tempo
-      const tempos = parsedData.header?.tempos || [];
-      const EPS = 1e-3;
-      const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
-      const first = (atZero.length > 0 ? atZero : tempos).sort((a, b) => (a.time || 0) - (b.time || 0))[0];
-      const bpm0 = Math.max(20, Math.min(300, first?.bpm || 120));
-      // Push into visualization engine (core playback engine)
-      const viz = (window as unknown as { _waveRollViz?: { setTempo?: (n: number) => void; setOriginalTempo?: (n: number) => void } })._waveRollViz;
-      if (viz?.setOriginalTempo && viz?.setTempo) {
-        viz.setOriginalTempo(bpm0);
-        viz.setTempo(bpm0);
+      // Extract BPM from MIDI header's first/initial tempo
+      const bpm0 = this.extractInitialBpm(parsedData);
+
+      // Emit tempo event via event bus (primary mechanism)
+      // This supports late subscribers and solves initialization order issues
+      if (isFirstFile) {
+        // First file: emit as baseline reset to set originalTempo
+        tempoEventBus.emitBaselineReset(bpm0, entry.id);
+      } else {
+        // Subsequent files: emit regular tempo event
+        tempoEventBus.emit(bpm0, entry.id);
+      }
+
+      // Fallback: Push into visualization engine via global hook (deprecated)
+      // Only apply for the first file to match EventBus behavior.
+      // Subsequent files should not change the baseline tempo.
+      if (isFirstFile) {
+        const viz = (
+          window as unknown as {
+            _waveRollViz?: {
+              setTempo?: (n: number) => void;
+              setOriginalTempo?: (n: number) => void;
+            };
+          }
+        )._waveRollViz;
+        if (viz?.setOriginalTempo && viz?.setTempo) {
+          viz.setOriginalTempo(bpm0);
+          viz.setTempo(bpm0);
+        }
       }
     } catch {}
     this.notifyStateChange();
@@ -139,11 +157,38 @@ export class MultiMidiManager {
   }
 
   /**
+   * Extract initial BPM from parsed MIDI data.
+   * Uses tempo event at or closest to time=0.
+   * Falls back to 120 BPM if no tempo events are present.
+   */
+  private extractInitialBpm(parsedData: ParsedMidi): number {
+    const tempos = parsedData.header?.tempos || [];
+    const EPS = 1e-3;
+    const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
+    const first = (atZero.length > 0 ? atZero : tempos).sort(
+      (a, b) => (a.time || 0) - (b.time || 0)
+    )[0];
+    return Math.max(20, Math.min(300, first?.bpm || 120));
+  }
+
+  /**
    * Remove a MIDI file
    */
   public removeMidiFile(id: string): void {
+    const wasFirstFile = this.state.files.length > 0 && this.state.files[0].id === id;
     this.state.files = this.state.files.filter((f) => f.id !== id);
     this.resetColorIndex();
+
+    // If the removed file was the first (top) file, emit baseline reset
+    // with the new first file's BPM
+    if (wasFirstFile && this.state.files.length > 0) {
+      const newFirstFile = this.state.files[0];
+      if (newFirstFile.parsedData) {
+        const newBpm = this.extractInitialBpm(newFirstFile.parsedData);
+        tempoEventBus.emitBaselineReset(newBpm, newFirstFile.id);
+      }
+    }
+
     this.notifyStateChange();
   }
 
@@ -409,7 +454,7 @@ export class MultiMidiManager {
           // Reparse the MIDI file with new options
           const reparsedData = await parseMidi(file.originalInput, options);
           file.parsedData = reparsedData;
-          
+
           current++;
           if (onProgress) {
             onProgress(current, total);

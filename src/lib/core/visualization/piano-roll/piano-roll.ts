@@ -24,6 +24,7 @@ import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/ov
 import { NoteInterval } from "@/lib/core/controls/utils/overlap";
 import type { FileInfoMap } from "./types-internal";
 import { initializeContainers } from "@/lib/core/visualization/piano-roll/ui/containers";
+import { midiToNoteName } from "@/lib/core/utils/midi/pitch";
 // (Note) Evaluation utilities removed - no longer required here
 
 export class PianoRoll {
@@ -34,6 +35,10 @@ export class PianoRoll {
   public sustainContainer!: PIXI.Container;
   public playheadLine!: PIXI.Graphics;
   public backgroundGrid!: PIXI.Graphics;
+  /** Piano key horizontal lines (panY applied via container) */
+  public pianoKeyLines!: PIXI.Graphics;
+  /** Container for octave labels on piano keys (panY applied via container) */
+  public pianoKeyLabelContainer!: PIXI.Container;
   /** Waveform overlay layer (rendered below the grid) */
   public waveformLayer!: PIXI.Graphics;
   /** Waveform overlay drawn above the piano-keys area so it shows left of playhead */
@@ -52,6 +57,10 @@ export class PianoRoll {
   // Help button and panel (overlay UI for interaction hints)
   private helpButtonEl: HTMLButtonElement | null = null;
   private helpPanelEl: HTMLDivElement | null = null;
+  // Pitch hover indicator element (shows current pitch row on hover)
+  private pitchHoverDiv: HTMLDivElement | null = null;
+  // PIXI Graphics for pitch row highlight
+  public pitchHoverHighlight!: PIXI.Graphics;
 
   public playheadX: number = 0;
   public notes: NoteData[] = [];
@@ -138,6 +147,7 @@ export class PianoRoll {
       timeStep: 1,
       minorTimeStep: 0.1,
       noteRenderer: undefined,
+      showWaveformBand: true,
       ...options,
     } as Required<PianoRollConfig>;
 
@@ -160,12 +170,16 @@ export class PianoRoll {
 
   private initializeScales(): void {
     // Reserve bottom pixels for waveform band so pitch scale never maps into it
-    const bandPadding = 6;
-    const bandHeight = Math.max(
-      24,
-      Math.min(96, Math.floor(this.options.height * 0.22))
-    );
-    const reservedBottomPx = bandPadding + bandHeight;
+    // Skip reservation if waveform band is disabled
+    let reservedBottomPx = 0;
+    if (this.options.showWaveformBand !== false) {
+      const bandPadding = 6;
+      const bandHeight = Math.max(
+        24,
+        Math.min(96, Math.floor(this.options.height * 0.22))
+      );
+      reservedBottomPx = bandPadding + bandHeight;
+    }
 
     const { timeScale, pitchScale, pxPerSecond } = createScales(
       this.notes,
@@ -196,12 +210,19 @@ export class PianoRoll {
     const instance = new PianoRoll(canvas, domContainer, options);
     await instance.initializeApp(canvas);
     instance.initializeContainers();
+    
     instance.initializeScales();
     // Add tooltip overlay after containers are ready
     instance.initializeTooltip(canvas);
     instance.initializeHelpButton(canvas);
+    instance.initializePitchHover();
     instance.setupInteraction();
+    
     instance.render(); // Full render including playhead
+    
+    // Force a manual render to ensure content is displayed
+    instance.app.renderer.render(instance.app.stage);
+    
     return instance;
   }
 
@@ -217,13 +238,9 @@ export class PianoRoll {
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true,
+      // Only set preference if explicitly configured; otherwise let PixiJS auto-select
+      ...(this.options.rendererPreference && { preference: this.options.rendererPreference }),
     });
-    // console.log(
-    //   "[initializeApp] renderer",
-    //   this.app.renderer.resolution,
-    //   this.app.renderer.width,
-    //   this.app.renderer.height
-    // );
   }
 
   /**
@@ -242,6 +259,34 @@ export class PianoRoll {
     const { button, panel } = initializeHelpOverlay(canvas, this.domContainer);
     this.helpButtonEl = button;
     this.helpPanelEl = panel;
+  }
+
+  /** Initialize pitch hover indicator for showing current pitch row */
+  private initializePitchHover(): void {
+    // Create DOM element for pitch label display
+    this.pitchHoverDiv = document.createElement("div");
+    this.pitchHoverDiv.style.cssText = `
+      position: absolute;
+      left: 0;
+      width: 60px;
+      padding: 2px 6px;
+      background: rgba(30, 64, 175, 0.9);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      border-radius: 0 4px 4px 0;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+      white-space: nowrap;
+      box-sizing: border-box;
+    `;
+    this.domContainer.appendChild(this.pitchHoverDiv);
+
+    // Create PIXI Graphics for row highlight
+    this.pitchHoverHighlight = new PIXI.Graphics();
+    this.pitchHoverHighlight.zIndex = 5;
+    this.container.addChild(this.pitchHoverHighlight);
   }
 
   /**
@@ -403,6 +448,115 @@ export class PianoRoll {
   }
 
   /**
+   * Update pitch hover indicator based on mouse Y position
+   * @param clientY - Mouse Y position relative to viewport
+   */
+  public updatePitchHover(clientY: number): void {
+    if (!this.pitchHoverDiv || !this.options.showPianoKeys) return;
+
+    const canvas = this.app.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const localY = clientY - rect.top;
+
+    // Calculate the waveform band height to exclude from pitch area
+    let reservedBottomPx = 0;
+    if (this.options.showWaveformBand !== false) {
+      const bandPadding = 6;
+      const bandHeight = Math.max(
+        24,
+        Math.min(96, Math.floor(this.options.height * 0.22))
+      );
+      reservedBottomPx = bandPadding + bandHeight;
+    }
+
+    // Check if mouse is within the pitch area (not in waveform band)
+    const usableHeight = this.options.height - reservedBottomPx;
+    if (localY < 0 || localY > usableHeight) {
+      this.hidePitchHover();
+      return;
+    }
+
+    // Convert Y position to pitch using pitchScale
+    const canvasMid = this.options.height / 2;
+    // Subtract panY to align with the note container's vertical offset
+    const adjustedY = localY - this.state.panY;
+    // Reverse the zoom transformation: y = (yBase - canvasMid) * zoomY + canvasMid
+    // So: yBase = (y - canvasMid) / zoomY + canvasMid
+    const yBase = (adjustedY - canvasMid) / this.state.zoomY + canvasMid;
+    const pitch = Math.round(this.pitchScale.invert(yBase));
+
+    // Clamp pitch to valid MIDI range
+    const clampedPitch = clamp(
+      pitch,
+      this.options.noteRange.min,
+      this.options.noteRange.max
+    );
+
+    // Get pitch name
+    let pitchName: string;
+    try {
+      pitchName = midiToNoteName(clampedPitch);
+    } catch {
+      pitchName = `MIDI ${clampedPitch}`;
+    }
+
+    // Calculate row Y position and height for highlight
+    // NOTE: panY is NOT applied here - it will be applied via container.y in render()
+    // Use pitchScale(clampedPitch) as CENTER (same as notes), not edge
+    const yPitchBase = this.pitchScale(clampedPitch);
+    const yNextBase = this.pitchScale(clampedPitch + 1);
+    const rowHeight = Math.abs(
+      (yPitchBase - canvasMid) * this.state.zoomY - 
+      (yNextBase - canvasMid) * this.state.zoomY
+    );
+    // centerY is where the note is centered (pitchScale returns center, not edge)
+    const centerY = (yPitchBase - canvasMid) * this.state.zoomY + canvasMid;
+    const rowTop = centerY - rowHeight / 2;
+
+    // Update pitch hover label (DOM element - add panY to CSS top)
+    this.pitchHoverDiv.textContent = `${pitchName} (${clampedPitch})`;
+    this.pitchHoverDiv.style.display = "block";
+    // Add panY for DOM element since it doesn't get container transform
+    this.pitchHoverDiv.style.top = `${centerY - 10 + this.state.panY}px`;
+
+    // Update PIXI highlight (panY applied via container.y)
+    const pianoKeysWidth = this.playheadX;
+    this.pitchHoverHighlight.clear();
+    this.pitchHoverHighlight.rect(0, rowTop, pianoKeysWidth, rowHeight);
+    this.pitchHoverHighlight.fill({ color: 0x1e40af, alpha: 0.15 });
+
+    // Draw dashed horizontal line across the entire timeline
+    // NOTE: panY is NOT applied here - it will be applied via container.y in render()
+    const pitchCenterBase = this.pitchScale(clampedPitch);
+    const rowMidY = (pitchCenterBase - canvasMid) * this.state.zoomY + canvasMid;
+    
+    const dashLength = 4;
+    const gapLength = 4;
+    const lineColor = 0x1e40af;
+    const lineAlpha = 0.15;
+
+    // Start from after piano keys area and draw to the end of canvas
+    let x = pianoKeysWidth;
+    while (x < this.options.width) {
+      const dashEnd = Math.min(x + dashLength, this.options.width);
+      this.pitchHoverHighlight.moveTo(x, rowMidY);
+      this.pitchHoverHighlight.lineTo(dashEnd, rowMidY);
+      this.pitchHoverHighlight.stroke({ width: 1, color: lineColor, alpha: lineAlpha });
+      x += dashLength + gapLength;
+    }
+  }
+
+  /** Hide pitch hover indicator */
+  public hidePitchHover(): void {
+    if (this.pitchHoverDiv) {
+      this.pitchHoverDiv.style.display = "none";
+    }
+    if (this.pitchHoverHighlight) {
+      this.pitchHoverHighlight.clear();
+    }
+  }
+
+  /**
    * Set up mouse/touch interaction for panning and zooming
    */
   private setupInteraction(): void {
@@ -425,11 +579,18 @@ export class PianoRoll {
     );
     canvas.addEventListener(
       "mousemove",
-      (event) => onPointerMove(event, this),
+      (event) => {
+        onPointerMove(event, this);
+        // Update pitch hover indicator (also during panning for real-time feedback)
+        this.updatePitchHover(event.clientY);
+      },
       nonPassive
     );
     canvas.addEventListener("mouseup", (event) => onPointerUp(event, this));
-    canvas.addEventListener("mouseleave", (event) => onPointerUp(event, this));
+    canvas.addEventListener("mouseleave", (event) => {
+      onPointerUp(event, this);
+      this.hidePitchHover();
+    });
 
     // Touch events - explicit non-passive options because we call preventDefault() in the handlers.
     canvas.addEventListener(
@@ -468,7 +629,11 @@ export class PianoRoll {
     // Wheel event for zooming - preventDefault() is used, so keep it non-passive.
     canvas.addEventListener(
       "wheel",
-      (event) => onWheel(event, this),
+      (event) => {
+        onWheel(event, this);
+        // Update pitch hover indicator after zoom changes
+        this.updatePitchHover(event.clientY);
+      },
       nonPassive
     );
 
@@ -516,13 +681,17 @@ export class PianoRoll {
     // to background and note layers (e.g., pianoKeys shading uses playheadX).
 
     // Update mask for notes/sustains prior to drawing
+    // Skip waveform band reservation if showWaveformBand is disabled
     {
-      const bandPadding = 6;
-      const bandHeight = Math.max(
-        24,
-        Math.min(96, Math.floor(this.options.height * 0.22))
-      );
-      const reservedBottomPx = bandPadding + bandHeight;
+      let reservedBottomPx = 0;
+      if (this.options.showWaveformBand !== false) {
+        const bandPadding = 6;
+        const bandHeight = Math.max(
+          24,
+          Math.min(96, Math.floor(this.options.height * 0.22))
+        );
+        reservedBottomPx = bandPadding + bandHeight;
+      }
       const usableHeight = Math.max(0, this.options.height - reservedBottomPx);
       this.notesMask.clear();
       this.notesMask.rect(0, 0, this.options.width, usableHeight);
@@ -555,6 +724,17 @@ export class PianoRoll {
     this.overlapOverlay.x = this.state.panX;
     this.overlapOverlay.y = this.state.panY;
 
+    // Apply panY to piano key lines/labels and hover highlight
+    // (These elements should move vertically with notes)
+    this.pianoKeyLines.y = this.state.panY;
+    this.pianoKeyLabelContainer.y = this.state.panY;
+    this.pitchHoverHighlight.y = this.state.panY;
+
+    // Fixed elements (no panY applied)
+    // this.backgroundGrid.y = 0;  // already 0 by default
+    // this.waveformLayer.y = 0;   // already 0 by default
+    // this.loopOverlay.y = 0;     // already 0 by default
+
     // Ensure proper rendering order
     this.container.sortChildren();
     
@@ -581,11 +761,13 @@ export class PianoRoll {
    * Set note data and trigger re-render
    */
   public setNotes(notes: NoteData[]): void {
-    // console.log("[setNotes] incoming notes", notes.length);
     this.notes = notes;
     this.initializeScales(); // Recalculate scales based on new data
     this.needsNotesRedraw = true; // geometry must be rebuilt
     this.render();
+    
+    // Force manual render
+    this.app.renderer.render(this.app.stage);
   }
 
   /**
@@ -774,6 +956,13 @@ export class PianoRoll {
     this.noteGraphics.forEach((graphic) => graphic.destroy());
     // Clean up Sprite instances used by the default renderer
     this.noteSprites.forEach((sprite) => sprite.destroy());
+    // Clean up pitch hover elements
+    if (this.pitchHoverDiv && this.pitchHoverDiv.parentElement) {
+      this.pitchHoverDiv.parentElement.removeChild(this.pitchHoverDiv);
+    }
+    if (this.pitchHoverHighlight) {
+      this.pitchHoverHighlight.destroy();
+    }
     this.app.destroy(true);
   }
 

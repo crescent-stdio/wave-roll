@@ -23,6 +23,10 @@ export interface PianoRollConfig {
   showPianoKeys: boolean;
   noteRange: { min: number; max: number };
   minorTimeStep: number;
+  /** Whether to show waveform band at the bottom (default: true) */
+  showWaveformBand?: boolean;
+  /** Preferred renderer type for PixiJS (default: auto-select) */
+  rendererPreference?: 'webgl' | 'webgpu';
 }
 
 /**

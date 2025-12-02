@@ -66,7 +66,7 @@ export class AudioController {
   ) {
     this.stateManager = stateManager;
     this.config = {
-      defaultVolume: 0.7,
+      defaultVolume: 1.0,
       defaultTempo: 120,
       minTempo: 30,
       maxTempo: 300,
@@ -101,9 +101,11 @@ export class AudioController {
     // This is a bit of a hack to maintain backward compatibility
     if (pianoRollInstance) {
       // Store reference to external piano roll instance (compatibility path)
-      (this.pianoRollManager as unknown as {
-        pianoRollInstance: import("@/core/playback").PianoRollInstance | null;
-      }).pianoRollInstance = pianoRollInstance;
+      (
+        this.pianoRollManager as unknown as {
+          pianoRollInstance: import("@/core/playback").PianoRollInstance | null;
+        }
+      ).pianoRollInstance = pianoRollInstance;
     }
 
     // Initialize core engine
@@ -179,7 +181,11 @@ export class AudioController {
   /**
    * Set A-B loop points
    */
-  public setLoopPoints(start: number | null, end: number | null, preservePosition: boolean = false): void {
+  public setLoopPoints(
+    start: number | null,
+    end: number | null,
+    preservePosition: boolean = false
+  ): void {
     this.loopPoints = { a: start, b: end };
     this.coreEngine.setLoopPoints(start, end, preservePosition);
   }

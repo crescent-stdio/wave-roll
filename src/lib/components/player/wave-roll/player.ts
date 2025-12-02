@@ -13,7 +13,7 @@
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 import { MidiFileItemList } from "@/lib/core/file/types";
-import { WaveRollPlayerOptions } from "./types";
+import { WaveRollPlayerOptions, CreateWaveRollPlayerOptions, MidiExportOptions } from "./types";
 import {
   createDefaultConfig,
   setupLayout,
@@ -51,6 +51,24 @@ import { UIUpdater } from "./ui-updater";
 import { KeyboardHandler } from "./keyboard-handler";
 import { FileLoader } from "./file-loader";
 import { SilenceDetector } from "@/core/playback";
+
+// Import types and constants for appearance API
+import type { OnsetMarkerStyle, OnsetMarkerShape } from "@/types";
+import { ColorPalette } from "@/lib/core/midi/types";
+import { DEFAULT_PALETTES } from "@/lib/core/midi/palette";
+import { ONSET_MARKER_SHAPES } from "@/core/constants";
+
+/**
+ * Appearance settings structure for solo mode integration
+ */
+export interface AppearanceSettings {
+  paletteId: string;
+  noteColor?: number;
+  onsetMarker?: {
+    shape: OnsetMarkerShape;
+    variant: "filled" | "outlined";
+  };
+}
 
 /**
  * Demo for multiple MIDI files - Acts as orchestrator for extracted modules
@@ -121,6 +139,15 @@ export class WaveRollPlayer {
     canRemoveFiles: true,
   };
 
+  // Solo mode: hides evaluation UI, file sections, and waveform band
+  private soloMode: boolean = false;
+
+  // MIDI export options
+  private midiExportOptions: MidiExportOptions | undefined;
+  
+  // Piano roll config overrides from options
+  private pianoRollConfigOverrides: Partial<PianoRollConfig> = {};
+
   // Compute effective UI duration considering tempo and WAV length
   private getEffectiveDuration(): number {
     try {
@@ -148,11 +175,30 @@ export class WaveRollPlayer {
       path: string;
       displayName?: string;
       type?: "midi" | "audio";
-    }> = []
+    }> = [],
+    options?: CreateWaveRollPlayerOptions
   ) {
     this.container = container;
     this.midiManager = new MultiMidiManager();
     this.initialFileItemList = initialFileItemList;
+    
+    // Apply options
+    if (options?.soloMode) {
+      this.soloMode = true;
+      // In solo mode, hide waveform band by default
+      this.pianoRollConfigOverrides.showWaveformBand = false;
+      // Force light background color for solo mode
+      this.pianoRollConfigOverrides.backgroundColor = 0xffffff;
+    }
+    if (options?.midiExport) {
+      this.midiExportOptions = options.midiExport;
+    }
+    if (options?.pianoRoll) {
+      this.pianoRollConfigOverrides = {
+        ...this.pianoRollConfigOverrides,
+        ...options.pianoRoll,
+      };
+    }
 
     // Initialize configuration
     this.config = createDefaultConfig();
@@ -199,6 +245,7 @@ export class WaveRollPlayer {
     const pianoRollConfig: PianoRollConfig = {
       ...DEFAULT_PIANO_ROLL_CONFIG,
       ...this.config.pianoRoll,
+      ...this.pianoRollConfigOverrides,
     } as PianoRollConfig;
 
     // Initialize visualization engine with resolved piano-roll configuration
@@ -370,6 +417,8 @@ export class WaveRollPlayer {
         formatTime: (seconds: number) => formatTime(seconds),
         silenceDetector: this.silenceDetector,
         permissions: { ...this.permissions },
+        soloMode: this.soloMode,
+        midiExport: this.midiExportOptions,
       };
 
       // After creation, convert seconds -> % once we know (tempo/WAV-aware) duration.
@@ -520,11 +569,14 @@ export class WaveRollPlayer {
     );
 
     // 4) File-visibility toggle section (below controls)
-    this.fileToggleContainer = setupFileToggleSection(
-      uiElements.playerContainer,
-      depsReady
-    );
-    uiElements.fileToggleContainer = this.fileToggleContainer;
+    // Skip in solo mode
+    if (!this.soloMode) {
+      this.fileToggleContainer = setupFileToggleSection(
+        uiElements.playerContainer,
+        depsReady
+      );
+      uiElements.fileToggleContainer = this.fileToggleContainer;
+    }
 
     // Load initial files if provided
     if (this.initialFileItemList.length > 0) {
@@ -614,6 +666,15 @@ export class WaveRollPlayer {
             });
           }
         } catch {}
+
+        // Force seekbar update after audio player initialization
+        // Use setTimeout to ensure audio player is fully initialized
+        setTimeout(() => {
+          const effectiveDuration = this.getEffectiveDuration();
+          const currentTime = this.visualizationEngine.getState().currentTime;
+          const deps = this.getUIDependencies();
+          deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
+        }, 100);
       },
     });
   }
@@ -771,6 +832,145 @@ export class WaveRollPlayer {
       this.updateFileToggleSection();
     } catch {}
   }
+
+  // --- Appearance API (for solo mode / external integrations) ---
+
+  /**
+   * Set the active color palette by ID.
+   * This will reassign colors to all loaded files.
+   */
+  public setActivePalette(paletteId: string): void {
+    this.midiManager.setActivePalette(paletteId);
+  }
+
+  /**
+   * Get the list of available color palettes (built-in + custom).
+   */
+  public getAvailablePalettes(): ColorPalette[] {
+    const state = this.midiManager.getState();
+    return [...DEFAULT_PALETTES, ...state.customPalettes];
+  }
+
+  /**
+   * Get the currently active palette ID.
+   */
+  public getActivePaletteId(): string {
+    return this.midiManager.getState().activePaletteId;
+  }
+
+  /**
+   * Set the note color for the first loaded file (useful in solo mode).
+   * @param color - Hex color as number (e.g., 0x4e79a7)
+   */
+  public setNoteColor(color: number): void {
+    const files = this.midiManager.getState().files;
+    if (files.length > 0) {
+      this.midiManager.updateColor(files[0].id, color);
+    }
+  }
+
+  /**
+   * Get the note color of the first loaded file.
+   * @returns Color as hex number, or 0x666666 if no file is loaded.
+   */
+  public getNoteColor(): number {
+    const files = this.midiManager.getState().files;
+    return files.length > 0 ? files[0].color : 0x666666;
+  }
+
+  /**
+   * Set the onset marker style for the first loaded file.
+   */
+  public setOnsetMarkerStyle(style: OnsetMarkerStyle): void {
+    const files = this.midiManager.getState().files;
+    if (files.length > 0) {
+      this.stateManager.setOnsetMarkerForFile(files[0].id, style);
+    }
+  }
+
+  /**
+   * Get the onset marker style for the first loaded file.
+   */
+  public getOnsetMarkerStyle(): OnsetMarkerStyle | null {
+    const files = this.midiManager.getState().files;
+    if (files.length > 0) {
+      return this.stateManager.getOnsetMarkerForFile(files[0].id) || null;
+    }
+    return null;
+  }
+
+  /**
+   * Get the list of available onset marker shapes.
+   */
+  public getAvailableOnsetMarkerShapes(): OnsetMarkerShape[] {
+    return [...ONSET_MARKER_SHAPES];
+  }
+
+  /**
+   * Get current appearance settings (for persistence).
+   */
+  public getAppearanceSettings(): AppearanceSettings {
+    const paletteId = this.getActivePaletteId();
+    const noteColor = this.getNoteColor();
+    const style = this.getOnsetMarkerStyle();
+
+    return {
+      paletteId,
+      noteColor,
+      onsetMarker: style ? {
+        shape: style.shape,
+        variant: style.variant,
+      } : undefined,
+    };
+  }
+
+  /**
+   * Apply appearance settings (for restoration from persistence).
+   */
+  public applyAppearanceSettings(settings: AppearanceSettings): void {
+    // Apply palette first (this may reassign colors)
+    if (settings.paletteId) {
+      this.setActivePalette(settings.paletteId);
+    }
+
+    // Then apply specific note color if provided
+    if (settings.noteColor !== undefined) {
+      this.setNoteColor(settings.noteColor);
+    }
+
+    // Apply onset marker style if provided
+    if (settings.onsetMarker) {
+      const style: OnsetMarkerStyle = {
+        shape: settings.onsetMarker.shape,
+        variant: settings.onsetMarker.variant,
+        size: 12,
+        strokeWidth: 2,
+      };
+      this.setOnsetMarkerStyle(style);
+    }
+  }
+
+  /**
+   * Subscribe to appearance changes.
+   * Returns an unsubscribe function.
+   */
+  public onAppearanceChange(callback: (settings: AppearanceSettings) => void): () => void {
+    // Subscribe to midiManager state changes for palette/color changes
+    const unsubMidi = this.midiManager.subscribe(() => {
+      callback(this.getAppearanceSettings());
+    });
+
+    // Subscribe to stateManager for onset marker changes
+    const stateCallback = () => {
+      callback(this.getAppearanceSettings());
+    };
+    this.stateManager.onStateChange(stateCallback);
+
+    return () => {
+      unsubMidi();
+      this.stateManager.offStateChange(stateCallback);
+    };
+  }
 }
 
 /**
@@ -778,9 +978,10 @@ export class WaveRollPlayer {
  */
 export async function createWaveRollPlayer(
   container: HTMLElement,
-  files: Array<{ path: string; name?: string }> = []
+  files: Array<{ path: string; name?: string }> = [],
+  options?: CreateWaveRollPlayerOptions
 ): Promise<WaveRollPlayer> {
-  const demo = new WaveRollPlayer(container, files);
+  const demo = new WaveRollPlayer(container, files, options);
   await demo.initialize();
   return demo;
 }

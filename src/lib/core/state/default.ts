@@ -9,7 +9,7 @@ import type { OnsetMarkerStyle } from "@/types";
 import { EvaluationState } from "./types";
 
 export const DEFAULT_STATE_CONFIG: StateManagerConfig = {
-  defaultVolume: 0.7,
+  defaultVolume: 1.0,
   defaultMinorTimeStep: 0.1,
   defaultZoomLevel: 1.0,
   updateInterval: 50, // 50ms update interval
@@ -33,10 +33,10 @@ export const DEFAULT_PLAYBACK_STATE: PlaybackState = {
   nowTime: 0,
   masterVolume: DEFAULT_STATE_CONFIG.defaultVolume,
   tempo: 120,
-  loopMode: 'off',
+  loopMode: "off",
   markerA: null,
   markerB: null,
-};;
+};
 
 export const DEFAULT_FILE_VISIBILITY_STATE: FileVisibilityState = {
   visibleFileIds: new Set(),

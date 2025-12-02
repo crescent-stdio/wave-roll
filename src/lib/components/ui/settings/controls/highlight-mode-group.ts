@@ -1,24 +1,40 @@
 import { UIComponentDependencies } from "../../types";
 import { HighlightMode } from "@/core/state/types";
 
+export interface HighlightModeGroupOptions {
+  /** Apply wrapper styles (background, padding, border-radius, box-shadow) for toolbar use */
+  withWrapper?: boolean;
+}
+
 /**
- * Build the “Highlight Mode” select menu.
+ * Build the "Highlight Mode" select menu.
  */
 export function createHighlightModeGroup(
-  deps: UIComponentDependencies
+  deps: UIComponentDependencies,
+  options?: HighlightModeGroupOptions
 ): HTMLDivElement {
+  const withWrapper = options?.withWrapper ?? false;
+
   const group = document.createElement("div");
-  group.style.cssText = `display:flex;
+
+  // Base styles
+  const baseStyles = `display:flex;
     align-items:center;
     gap:8px;
     font-size:12px;
-    height: 48px;
-    background: var(--panel-bg);
-    padding: 4px 12px;
-    border-radius: 8px;
     max-width: 100%;
-    overflow: hidden;
-    `;
+    overflow: hidden;`;
+
+  // Wrapper styles for toolbar use
+  const wrapperStyles = withWrapper
+    ? `height: 48px;
+    background: var(--panel-bg);
+    padding: 4px 8px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);`
+    : "";
+
+  group.style.cssText = baseStyles + wrapperStyles;
 
   const label = document.createElement("span");
   label.textContent = "Show notes:";
@@ -70,10 +86,12 @@ export function createHighlightModeGroup(
     "eval-tp-only-own": "Highlight True Positive (TP) segments, mute others",
     "eval-tp-only-gray": "Mute True Positive (TP) segments, keep others normal",
     "eval-fp-only-own": "Highlight False Positive (FP) segments, mute others",
-    "eval-fp-only-gray": "Mute False Positive (FP) segments, keep others normal",
+    "eval-fp-only-gray":
+      "Mute False Positive (FP) segments, keep others normal",
     "eval-fn-only-own": "Highlight False Negative (FN) segments, mute others",
-    "eval-fn-only-gray": "Mute False Negative (FN) segments, keep others normal",
-  }
+    "eval-fn-only-gray":
+      "Mute False Negative (FN) segments, keep others normal",
+  };
 
   // Short labels for compact select text; hover/tap shows detailed descriptions above
   const labels: Record<HighlightMode, string> = {
@@ -94,7 +112,7 @@ export function createHighlightModeGroup(
     "eval-fp-only-gray": "Mute False Positive (FP)",
     "eval-fn-only-own": "Highlight False Negative (FN)",
     "eval-fn-only-gray": "Mute False Negative (FN)",
-  };;;
+  };
 
   // Hidden modes (kept for backward-compat in state, but not shown in UI)
   const hiddenModes: Set<HighlightMode> = new Set([
@@ -146,7 +164,7 @@ export function createHighlightModeGroup(
       label: "Reference missed only",
       items: ["eval-gt-missed-only-own", "eval-gt-missed-only-gray"],
     },
-  ];;
+  ];
 
   grouped.forEach((g) => {
     const og = document.createElement("optgroup");
@@ -184,8 +202,8 @@ export function createHighlightModeGroup(
     }
     const opts = deps.uiOptions?.highlightToast;
     // Position
-    const pos = opts?.position ?? 'bottom';
-    if (pos === 'top') {
+    const pos = opts?.position ?? "bottom";
+    if (pos === "top") {
       tip.style.bottom = "";
       tip.style.top = "52px";
     } else {
