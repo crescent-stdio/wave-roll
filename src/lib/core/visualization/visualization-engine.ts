@@ -66,10 +66,8 @@ export class VisualizationEngine {
   private pianoRollManager: PianoRollManager;
   private config: VisualizationEngineConfig;
   private visualUpdateCallbacks: ((params: VisualUpdateParams) => void)[] = [];
-  /** Unsubscribe function for tempo event bus */
-  private unsubscribeTempoEvent: (() => void) | null = null;
-  /** Track if original tempo has been set to implement first-file policy */
-  private isOriginalTempoSet: boolean = false;
+  /** Unsubscribe function for baseline tempo reset events */
+  private unsubscribeBaselineEvent: (() => void) | null = null;
 
   constructor(config: Partial<VisualizationEngineConfig> = {}) {
     this.config = { ...DEFAULT_VISUALIZATION_CONFIG, ...config };
@@ -101,17 +99,18 @@ export class VisualizationEngine {
       this.notifyVisualUpdateCallbacks(extendedParams);
     });
 
-    // Subscribe to tempo events from MIDI file loading
-    // This solves the race condition where MIDI files may load before visualization is ready
-    this.unsubscribeTempoEvent = tempoEventBus.subscribe((tempo, _fileId) => {
-      // First file policy: only set originalTempo once
-      if (!this.isOriginalTempoSet) {
-        try {
-          (this.coreEngine as any).setOriginalTempo?.(tempo);
-        } catch {}
-        this.isOriginalTempoSet = true;
-      }
-      // Always update current tempo to match the loaded file
+    // Subscribe to baseline reset events only
+    // These are emitted when the "top file" changes (first file added, or first file deleted)
+    // The baseline tempo is used as the originalTempo (100% reference point for tempo slider)
+    //
+    // Note: We do NOT subscribe to regular tempo events (tempoEventBus.subscribe) because
+    // we don't want the tempo to change when additional files are added.
+    // Only the "top file" (first in list) determines the baseline tempo.
+    this.unsubscribeBaselineEvent = tempoEventBus.subscribeBaseline((tempo, _fileId) => {
+      try {
+        (this.coreEngine as any).setOriginalTempo?.(tempo);
+      } catch {}
+      // Also update current tempo to match the baseline
       this.setTempo(tempo);
     });
   }
@@ -374,10 +373,10 @@ export class VisualizationEngine {
    * Clean up resources
    */
   public destroy(): void {
-    // Unsubscribe from tempo event bus to prevent memory leaks
-    if (this.unsubscribeTempoEvent) {
-      this.unsubscribeTempoEvent();
-      this.unsubscribeTempoEvent = null;
+    // Unsubscribe from baseline tempo event bus to prevent memory leaks
+    if (this.unsubscribeBaselineEvent) {
+      this.unsubscribeBaselineEvent();
+      this.unsubscribeBaselineEvent = null;
     }
 
     this.coreEngine.destroy();
