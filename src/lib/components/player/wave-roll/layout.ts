@@ -44,8 +44,8 @@ export function createDefaultConfig(): WaveRollPlayerOptions {
     audioController: {
       defaultVolume: 1.0,
       defaultTempo: 120,
-      minTempo: 50,
-      maxTempo: 200,
+      minTempo: 20,
+      maxTempo: 300,
       updateInterval: 50,
     },
     pianoRoll: {

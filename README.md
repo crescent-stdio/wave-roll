@@ -245,7 +245,7 @@ console.log(waveRoll.getState()); // { currentTime, duration, tempo, ... }
 WaveRoll includes an interactive tempo control with popover input:
 
 - Click the BPM badge in the player controls to adjust tempo
-- Supports range from 10 to 200 BPM
+- Supports a wide range of tempo adjustments
 - Audio playback automatically adjusts with pitch preservation
 
 ### MIDI Export

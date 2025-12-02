@@ -37,6 +37,8 @@ interface MidiPlayerInfo {
  * User requirements: Individual control of volume, pan, mute for each MIDI player
  */
 export class MidiPlayerGroup implements PlayerGroup {
+  private static DEBUG = false;
+  
   private players = new Map<string, MidiPlayerInfo>();
   private part: Tone.Part | null = null;
   private notes: MidiNote[] = [];
@@ -485,13 +487,15 @@ export class MidiPlayerGroup implements PlayerGroup {
       } else {
         invalidCount++;
         this.updateErrorStats('invalidData');
-        console.warn('[MidiPlayerGroup] Invalid MIDI note filtered out:', {
-          time: note.time,
-          pitch: note.pitch,
-          velocity: note.velocity,
-          duration: note.duration,
-          fileId: note.fileId
-        });
+        if (MidiPlayerGroup.DEBUG) {
+          console.warn('[MidiPlayerGroup] Invalid MIDI note filtered out:', {
+            time: note.time,
+            pitch: note.pitch,
+            velocity: note.velocity,
+            duration: note.duration,
+            fileId: note.fileId
+          });
+        }
       }
     }
     

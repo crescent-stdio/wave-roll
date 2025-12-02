@@ -52,7 +52,7 @@ export interface VisualUpdateParams {
 const DEFAULT_CONFIG: Required<CorePlaybackEngineConfig> = {
   defaultVolume: 1.0,
   defaultTempo: 120,
-  minTempo: 30,
+  minTempo: 20,
   maxTempo: 300,
   updateInterval: 150, // Reduced to 150ms (6.7fps) to avoid conflicts with requestAnimationFrame while maintaining sync
   enableStateSync: true,
