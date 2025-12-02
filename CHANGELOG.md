@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This library is published at [ISMIR 2025 LBD](https://ismir2025program.ismir.net/lbd_459.html). See [Citation](#citation) for reference.
 
-## [Unreleased]
 
 ## [0.3.0] - 2025-12-02
 
@@ -15,13 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Appearance API and solo mode for single MIDI visualization
 - Tempo control with popover input for precise BPM adjustment
-- MIDI export functionality
+- Flexible MIDI export options
 - Pitch hover indicator to piano roll
 - VS Code extension support (`wave-roll-solo`) for viewing MIDI files directly in the editor
 - GitHub Actions workflow for automated release creation from tags
 
 ### Changed
 
+- Improved MIDI export and settings UI
 - Improved audio synchronization and tempo handling
 - Improved tempo handling for multi-MIDI playback
 - Enhanced piano roll pitch hover and piano key visuals
@@ -29,8 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Refactored
 
-- Removed console logs for cleaner output
-- Fixed and stabilized tests
+- Refactored settings modal
+- Removed console logs and stabilized the tests
+
 
 ## [0.2.5] - 2025-10-09
 
