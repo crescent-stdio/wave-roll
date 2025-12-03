@@ -14,6 +14,7 @@ import { mixColorsOklch } from "@/core/utils/color";
 import { EvaluationHandler } from "./evaluation-handler";
 import type { PianoRoll } from "@/core/visualization/piano-roll";
 import type { PianoRollAugments } from "@/core/visualization/piano-roll/types-internal";
+import { ColorCalculator } from "@/core/visualization/piano-roll/utils/color-calculator";
 type AugPR = PianoRoll & PianoRollAugments;
 
 export class VisualizationHandler {
@@ -203,6 +204,11 @@ export class VisualizationHandler {
     const toNumberColor = (c: string | number): number =>
       typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
 
+    const highlightMode =
+      this.stateManager.getState().visual.highlightMode ?? "file";
+    // Apply track-based lightness variation only in "file" mode
+    const applyTrackColors = highlightMode === "file";
+
     // 1) Base notes -------------------------------------------------------
     const baseNotes: ColoredNote[] = [];
     state.files.forEach((file, idx: number) => {
@@ -210,6 +216,12 @@ export class VisualizationHandler {
 
       const raw = file.color ?? fallbackColors[idx % fallbackColors.length];
       const baseColor = toNumberColor(raw);
+
+      // Pre-compute totalTracks once per file for performance
+      const totalTracks = file.parsedData.tracks?.length ?? 1;
+
+      // Cache track variant colors to avoid repeated HSL conversion
+      const trackColorCache: Record<number, number> = {};
 
       file.parsedData.notes.forEach((n, noteIdx: number) => {
         // Check track visibility: if trackId is set, respect trackVisibility
@@ -230,6 +242,19 @@ export class VisualizationHandler {
           trackId !== undefined ? (file.trackVolume?.[trackId] ?? 1.0) : 1.0;
         const scaledVelocity = n.velocity * trackVolume;
 
+        // Determine note color: apply track-based lightness variation in "file" mode
+        let noteColor = baseColor;
+        if (applyTrackColors && trackId !== undefined && totalTracks > 1) {
+          if (trackColorCache[trackId] === undefined) {
+            trackColorCache[trackId] = ColorCalculator.getTrackVariantColor(
+              baseColor,
+              trackId,
+              totalTracks
+            );
+          }
+          noteColor = trackColorCache[trackId];
+        }
+
         baseNotes.push({
           note: {
             ...n,
@@ -237,7 +262,7 @@ export class VisualizationHandler {
             fileId: file.id,
             sourceIndex: noteIdx,
           } as NoteData,
-          color: baseColor,
+          color: noteColor,
           fileId: file.id,
           isMuted: (file.isMuted ?? false) || isTrackMuted,
         });
@@ -245,9 +270,6 @@ export class VisualizationHandler {
     });
 
     if (baseNotes.length === 0) return [];
-
-    const highlightMode =
-      this.stateManager.getState().visual.highlightMode ?? "file";
 
     // Plain per-file colouring -> return early ---------------------------
     if (highlightMode === "file") {

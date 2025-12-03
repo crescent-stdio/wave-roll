@@ -15,6 +15,7 @@ import { createIconButton } from "../../utils/icon-button";
 import { FileVolumeControl } from "../../controls/file-volume";
 import { ShapeRenderer } from "../utils/shape-renderer";
 import { EvaluationControls } from "./evaluation-controls";
+import { ColorCalculator } from "@/core/visualization/piano-roll/utils/color-calculator";
 
 /**
  * Stores accordion expanded state per fileId.
@@ -55,14 +56,20 @@ export class FileToggleItem {
     let trackList: HTMLElement | null = null;
     let isExpanded = accordionExpandedState.get(file.id) ?? false;
 
+    // Always create chevron space for alignment
+    chevronSpan = document.createElement("span");
+    chevronSpan.style.cssText =
+      "display:flex;align-items:center;width:16px;min-width:16px;";
+
     if (hasMultipleTracks) {
-      chevronSpan = document.createElement("span");
       chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
-      chevronSpan.style.cssText =
-        "display:flex;align-items:center;cursor:pointer;color:var(--text-muted);transition:transform 0.2s;";
+      chevronSpan.style.cursor = "pointer";
+      chevronSpan.style.color = "var(--text-muted)";
+      chevronSpan.style.transition = "transform 0.2s";
       chevronSpan.title = `${tracks.length} tracks`;
-      item.appendChild(chevronSpan);
     }
+
+    item.appendChild(chevronSpan);
 
     // Add all components
     item.appendChild(this.createColorIndicator(file, dependencies));
@@ -162,13 +169,33 @@ export class FileToggleItem {
       return (a.program ?? 0) - (b.program ?? 0);
     });
 
+    // Pre-compute file base color and total tracks for track color indicators
+    const fileBaseColor = file.color;
+    const totalTracks = tracks.length;
+
     // Populate track items
     sortedTracks.forEach((track: TrackInfo) => {
       const trackRow = document.createElement("div");
       trackRow.style.cssText =
         "display:flex;align-items:center;gap:8px;padding:2px 0;";
 
-      // Instrument icon (first)
+      // Track color dot (first) - shows lightness-variant color for this track
+      const trackColor = ColorCalculator.getTrackVariantColor(
+        fileBaseColor,
+        track.id,
+        totalTracks
+      );
+      const colorDot = document.createElement("span");
+      colorDot.style.cssText = `
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #${trackColor.toString(16).padStart(6, "0")};
+        flex-shrink: 0;
+      `;
+      colorDot.title = `Track ${track.id + 1} color`;
+
+      // Instrument icon (second)
       const iconSpan = document.createElement("span");
       iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
       iconSpan.style.cssText =
@@ -281,7 +308,8 @@ export class FileToggleItem {
       noteCount.style.cssText =
         "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:center;";
 
-      // Append in new order: InstrumentIcon | TrackName | Eye | AutoInstrument | Volume | NoteCount
+      // Append in new order: ColorDot | InstrumentIcon | TrackName | Eye | AutoInstrument | Volume | NoteCount
+      trackRow.appendChild(colorDot);
       trackRow.appendChild(iconSpan);
       trackRow.appendChild(trackName);
       trackRow.appendChild(visBtn);
