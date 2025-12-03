@@ -50,6 +50,12 @@ export interface MidiFileEntry {
    * Used to restore volume when unmuting a track.
    */
   trackLastNonZeroVolume?: Record<number, number>;
+  /**
+   * Per-track auto instrument state. Key is trackId, value is whether to use
+   * the track's instrumentFamily soundfont (true) or default piano (false).
+   * Default is false (piano) when not specified.
+   */
+  trackUseAutoInstrument?: Record<number, boolean>;
 }
 
 /**

@@ -78,6 +78,13 @@ export class SamplerManager {
   /** Alignment delay in seconds to compensate downstream (e.g., WAV PitchShift) latency */
   private alignmentDelaySec: number = 0;
 
+  // --- InstrumentFamily-based Sampler Cache (Lazy Loading) ---
+  /** Map of InstrumentFamily -> loaded Tone.Sampler for auto-instrument routing */
+  private familySamplers: Map<InstrumentFamily, Tone.Sampler> = new Map();
+  /** Map of InstrumentFamily -> loading Promise to prevent duplicate loads */
+  private familySamplerLoading: Map<InstrumentFamily, Promise<Tone.Sampler>> =
+    new Map();
+
   constructor(notes: NoteData[], midiManager?: any) {
     this.notes = notes;
     this.midiManager = midiManager;
@@ -96,6 +103,92 @@ export class SamplerManager {
 
   private applyPannerPan(panner: Tone.Panner, pan: number): void {
     panner.pan.value = clamp(pan, -1, 1);
+  }
+
+  // --- InstrumentFamily Sampler Methods ---
+
+  /**
+   * Get the SoundFont URL for a specific instrument family.
+   * @param family - The instrument family
+   * @returns Full URL to the instrument's mp3 folder
+   */
+  private getFamilySoundFontUrl(family: InstrumentFamily): string {
+    const gmName =
+      INSTRUMENT_FAMILY_TO_GM_NAME[family] ?? "acoustic_grand_piano";
+    return `${SOUNDFONT_BASE_URL}${gmName}-mp3/`;
+  }
+
+  /**
+   * Get or create a sampler for a specific instrument family (lazy loading).
+   * Returns the sampler immediately if already loaded, otherwise starts loading
+   * and returns a Promise that resolves when the sampler is ready.
+   * @param family - The instrument family to load
+   * @returns Promise that resolves to the loaded Tone.Sampler
+   */
+  public getOrCreateFamilySampler(
+    family: InstrumentFamily
+  ): Promise<Tone.Sampler> {
+    // Return existing sampler if already loaded
+    const existing = this.familySamplers.get(family);
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+
+    // Return existing loading promise if already loading
+    const loadingPromise = this.familySamplerLoading.get(family);
+    if (loadingPromise) {
+      return loadingPromise;
+    }
+
+    // Start loading the sampler
+    const promise = new Promise<Tone.Sampler>((resolve, reject) => {
+      const soundFontUrl = this.getFamilySoundFontUrl(family);
+      const sampler = new Tone.Sampler({
+        urls: DEFAULT_SAMPLE_MAP,
+        baseUrl: soundFontUrl,
+        onload: () => {
+          this.familySamplers.set(family, sampler);
+          this.familySamplerLoading.delete(family);
+          resolve(sampler);
+        },
+        onerror: (error: Error) => {
+          console.error(`Failed to load sampler for family ${family}:`, error);
+          this.familySamplerLoading.delete(family);
+          reject(error);
+        },
+      }).toDestination();
+    });
+
+    this.familySamplerLoading.set(family, promise);
+    return promise;
+  }
+
+  /**
+   * Get the family sampler synchronously if already loaded.
+   * Returns null if the sampler is not yet loaded.
+   * @param family - The instrument family
+   * @returns The loaded sampler or null
+   */
+  public getFamilySamplerSync(family: InstrumentFamily): Tone.Sampler | null {
+    return this.familySamplers.get(family) ?? null;
+  }
+
+  /**
+   * Preload samplers for specific instrument families.
+   * Useful for loading all families used in a MIDI file at initialization.
+   * @param families - Array of instrument families to preload
+   */
+  public async preloadFamilySamplers(
+    families: InstrumentFamily[]
+  ): Promise<void> {
+    const uniqueFamilies = [...new Set(families)];
+    const loadPromises = uniqueFamilies.map((family) =>
+      this.getOrCreateFamilySampler(family).catch((err) => {
+        console.warn(`Failed to preload sampler for ${family}:`, err);
+        return null;
+      })
+    );
+    await Promise.allSettled(loadPromises);
   }
 
   /** Return notes filtered to intersect the [loopStart, loopEnd) window, or all if window inactive. */
@@ -432,6 +525,14 @@ export class SamplerManager {
             _waveRollMidiManager?: {
               isTrackMuted?: (fileId: string, trackId: number) => boolean;
               getTrackVolume?: (fileId: string, trackId: number) => number;
+              isTrackAutoInstrument?: (
+                fileId: string,
+                trackId: number
+              ) => boolean;
+              getTrackInstrumentFamily?: (
+                fileId: string,
+                trackId: number
+              ) => InstrumentFamily;
             };
           }
         )._waveRollMidiManager;
@@ -451,10 +552,32 @@ export class SamplerManager {
           velocity = velocity * trackVolume;
         }
 
-        if (track.sampler.loaded) {
+        // Determine which sampler to use: family-specific or default piano
+        let targetSampler: Tone.Sampler | null = null;
+        const useAutoInstrument =
+          event.trackId !== undefined &&
+          midiMgr?.isTrackAutoInstrument?.(fid, event.trackId);
+
+        if (useAutoInstrument && midiMgr?.getTrackInstrumentFamily) {
+          const family = midiMgr.getTrackInstrumentFamily(fid, event.trackId!);
+          const familySampler = this.getFamilySamplerSync(family);
+          if (familySampler?.loaded) {
+            targetSampler = familySampler;
+          } else {
+            // Lazy load the family sampler for future notes
+            this.getOrCreateFamilySampler(family).catch(() => {});
+            // Fallback to default track sampler for this note
+            targetSampler = track.sampler.loaded ? track.sampler : null;
+          }
+        } else {
+          // Use default piano sampler
+          targetSampler = track.sampler.loaded ? track.sampler : null;
+        }
+
+        if (targetSampler) {
           // Schedule note with slight lookahead for smoother playback
           const scheduledTime = Math.max(time, Tone.now());
-          track.sampler.triggerAttackRelease(
+          targetSampler.triggerAttackRelease(
             event.note,
             event.duration,
             scheduledTime,

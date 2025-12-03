@@ -1,12 +1,36 @@
 import * as Tone from 'tone';
 import type { PlayerGroup, SynchronizationInfo } from '../master-clock';
 import { DEFAULT_SAMPLE_MAP } from '../player-types';
+import { InstrumentFamily } from '@/lib/midi/types';
+
+/**
+ * SoundFont URL configuration for different instrument families.
+ * Uses paulrosen's fork which includes percussion (Channel 10).
+ */
+const SOUNDFONT_BASE_URL =
+  "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
+
+/**
+ * Map of InstrumentFamily to GM instrument names for SoundFont loading.
+ */
+const INSTRUMENT_FAMILY_TO_GM_NAME: Record<InstrumentFamily, string> = {
+  piano: "acoustic_grand_piano",
+  strings: "string_ensemble_1",
+  drums: "synth_drum",
+  guitar: "acoustic_guitar_nylon",
+  bass: "acoustic_bass",
+  synth: "lead_1_square",
+  winds: "flute",
+  brass: "trumpet",
+  others: "acoustic_grand_piano",
+};
 
 /**
  * MIDI note information
  */
 interface MidiNote {
   fileId?: string;
+  trackId?: number;  // Track ID within the MIDI file (0-based index)
   time: number;
   duration: number;
   pitch: number | string;  // Support both numeric MIDI note and string note name
@@ -52,6 +76,13 @@ export class MidiPlayerGroup implements PlayerGroup {
   
   // MIDI-related references
   private midiManager: any = null;
+  
+  // --- InstrumentFamily-based Sampler Cache (Lazy Loading) ---
+  /** Map of InstrumentFamily -> loaded Tone.Sampler for auto-instrument routing */
+  private familySamplers: Map<InstrumentFamily, Tone.Sampler> = new Map();
+  /** Map of InstrumentFamily -> loading Promise to prevent duplicate loads */
+  private familySamplerLoading: Map<InstrumentFamily, Promise<Tone.Sampler>> = new Map();
+  
   // Error tracking and statistics
   private errorStats = {
     totalNoteAttempts: 0,
@@ -63,6 +94,59 @@ export class MidiPlayerGroup implements PlayerGroup {
   
   constructor() {
     // console.log('[MidiPlayerGroup] Initialized');
+  }
+
+  // --- InstrumentFamily Sampler Methods ---
+
+  /**
+   * Get the SoundFont URL for a specific instrument family.
+   */
+  private getFamilySoundFontUrl(family: InstrumentFamily): string {
+    const gmName = INSTRUMENT_FAMILY_TO_GM_NAME[family] ?? "acoustic_grand_piano";
+    return `${SOUNDFONT_BASE_URL}${gmName}-mp3/`;
+  }
+
+  /**
+   * Get or create a sampler for a specific instrument family (lazy loading).
+   */
+  public getOrCreateFamilySampler(family: InstrumentFamily): Promise<Tone.Sampler> {
+    const existing = this.familySamplers.get(family);
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+
+    const loadingPromise = this.familySamplerLoading.get(family);
+    if (loadingPromise) {
+      return loadingPromise;
+    }
+
+    const promise = new Promise<Tone.Sampler>((resolve, reject) => {
+      const soundFontUrl = this.getFamilySoundFontUrl(family);
+      const sampler = new Tone.Sampler({
+        urls: DEFAULT_SAMPLE_MAP,
+        baseUrl: soundFontUrl,
+        onload: () => {
+          this.familySamplers.set(family, sampler);
+          this.familySamplerLoading.delete(family);
+          resolve(sampler);
+        },
+        onerror: (error: Error) => {
+          console.error(`[MidiPlayerGroup] Failed to load sampler for family ${family}:`, error);
+          this.familySamplerLoading.delete(family);
+          reject(error);
+        },
+      }).toDestination();
+    });
+
+    this.familySamplerLoading.set(family, promise);
+    return promise;
+  }
+
+  /**
+   * Get the family sampler synchronously if already loaded.
+   */
+  public getFamilySamplerSync(family: InstrumentFamily): Tone.Sampler | null {
+    return this.familySamplers.get(family) ?? null;
   }
   
   /**
@@ -645,10 +729,12 @@ export class MidiPlayerGroup implements PlayerGroup {
       const midiMgr = (globalThis as unknown as { _waveRollMidiManager?: {
         isTrackMuted?: (fileId: string, trackId: number) => boolean;
         getTrackVolume?: (fileId: string, trackId: number) => number;
+        isTrackAutoInstrument?: (fileId: string, trackId: number) => boolean;
+        getTrackInstrumentFamily?: (fileId: string, trackId: number) => InstrumentFamily;
       } })._waveRollMidiManager;
 
       const fileId = (event.fileId ?? '') as string;
-      const trackId = (event as { trackId?: number }).trackId;
+      const trackId = event.trackId;
 
       // Skip if track is muted
       if (trackId !== undefined && midiMgr?.isTrackMuted?.(fileId, trackId)) {
@@ -680,8 +766,26 @@ export class MidiPlayerGroup implements PlayerGroup {
         // Apply volume: master * individual * track * velocity
         const finalVolume = this.masterVolume * playerInfo.volume * trackVolume * event.velocity;
         
-        // Use Sampler's triggerAttackRelease with proper volume scaling
-        playerInfo.sampler.triggerAttackRelease(
+        // Determine which sampler to use: family-specific or default piano
+        let targetSampler: Tone.Sampler = playerInfo.sampler;
+        const useAutoInstrument =
+          trackId !== undefined &&
+          midiMgr?.isTrackAutoInstrument?.(fileId, trackId);
+
+        if (useAutoInstrument && midiMgr?.getTrackInstrumentFamily) {
+          const family = midiMgr.getTrackInstrumentFamily(fileId, trackId!);
+          const familySampler = this.getFamilySamplerSync(family);
+          if (familySampler?.loaded) {
+            targetSampler = familySampler;
+          } else {
+            // Lazy load the family sampler for future notes
+            this.getOrCreateFamilySampler(family).catch(() => {});
+            // Use default sampler for this note
+          }
+        }
+        
+        // Use selected Sampler's triggerAttackRelease with proper volume scaling
+        targetSampler.triggerAttackRelease(
           event.note,
           event.duration,
           time,

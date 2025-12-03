@@ -1,4 +1,4 @@
-import { NoteData, ParsedMidi } from "@/lib/midi/types";
+import { NoteData, ParsedMidi, InstrumentFamily } from "@/lib/midi/types";
 import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
@@ -384,6 +384,60 @@ export class MultiMidiManager {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return 1.0;
     return file.trackLastNonZeroVolume?.[trackId] ?? 1.0;
+  }
+
+  /**
+   * Set auto instrument state for a specific track within a MIDI file.
+   * When enabled, the track will use its instrumentFamily soundfont instead of default piano.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param useAuto - Whether to use auto instrument matching
+   */
+  public setTrackAutoInstrument(
+    fileId: string,
+    trackId: number,
+    useAuto: boolean
+  ): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackUseAutoInstrument if not present
+    if (!file.trackUseAutoInstrument) {
+      file.trackUseAutoInstrument = {};
+    }
+
+    file.trackUseAutoInstrument[trackId] = useAuto;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if a specific track uses auto instrument matching.
+   * Returns false if trackUseAutoInstrument is not set (default piano).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackAutoInstrument(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackUseAutoInstrument?.[trackId] ?? false;
+  }
+
+  /**
+   * Get the instrument family for a specific track.
+   * Looks up the instrumentFamily from the parsed MIDI track data.
+   * Returns 'piano' as fallback if track info is not available.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackInstrumentFamily(
+    fileId: string,
+    trackId: number
+  ): InstrumentFamily {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file?.parsedData?.tracks) return "piano";
+
+    const track = file.parsedData.tracks.find((t) => t.id === trackId);
+    return track?.instrumentFamily ?? "piano";
   }
 
   /**

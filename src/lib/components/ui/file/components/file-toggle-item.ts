@@ -201,10 +201,47 @@ export class FileToggleItem {
       visBtn.style.boxShadow = "none";
       visBtn.style.padding = "0";
       visBtn.style.minWidth = "20px";
-      // Add margin-right to align with file row's Volume (skip S button space)
-      visBtn.style.marginRight = "28px";
 
-      // Volume slider for track audio (fourth) - increased size
+      // Auto-instrument toggle button (fourth) - between Eye and Volume
+      const isAutoInstrument =
+        dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ??
+        false;
+      const autoInstrumentBtn = document.createElement("button");
+      // Show piano icon when OFF (default piano), show track's instrument icon when ON (auto)
+      autoInstrumentBtn.innerHTML = isAutoInstrument
+        ? getInstrumentIcon(track.instrumentFamily)
+        : getInstrumentIcon("piano");
+      autoInstrumentBtn.style.cssText = `
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${isAutoInstrument ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
+        transition: color 0.15s ease;
+        `;
+      // margin-right: 28px;
+      autoInstrumentBtn.title = isAutoInstrument
+        ? `Using ${track.instrumentFamily} sound (click for piano)`
+        : "Using piano sound (click for auto instrument)";
+      autoInstrumentBtn.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        const newState = !dependencies.midiManager.isTrackAutoInstrument?.(
+          file.id,
+          track.id
+        );
+        dependencies.midiManager.setTrackAutoInstrument?.(
+          file.id,
+          track.id,
+          newState
+        );
+      };
+
+      // Volume slider for track audio (fifth) - increased size
       const isTrackMuted = dependencies.midiManager.isTrackMuted(
         file.id,
         track.id
@@ -240,10 +277,11 @@ export class FileToggleItem {
       noteCount.style.cssText =
         "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:center;";
 
-      // Append in new order: InstrumentIcon | TrackName | Eye | Volume | NoteCount
+      // Append in new order: InstrumentIcon | TrackName | Eye | AutoInstrument | Volume | NoteCount
       trackRow.appendChild(iconSpan);
       trackRow.appendChild(trackName);
       trackRow.appendChild(visBtn);
+      trackRow.appendChild(autoInstrumentBtn);
       trackRow.appendChild(volumeEl);
       trackRow.appendChild(noteCount);
       trackList.appendChild(trackRow);
