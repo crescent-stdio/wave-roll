@@ -168,6 +168,9 @@ export class UnifiedAudioController {
       await this.midiPlayerGroup.waitUntilReady();
       await this.wavPlayerGroup.waitUntilReady();
 
+      // Preload soundfonts for auto-instrument tracks (AudioContext is now active after initialize())
+      await this.preloadAutoInstrumentSamplers();
+
       // If the anchor is too close, refresh nowTime and let master clock compute a fresh anchor
       const now = Tone.now();
       const lastAnchor = (this as any)._lastPlayAnchor as number | undefined;
@@ -186,6 +189,51 @@ export class UnifiedAudioController {
     } catch (error) {
       console.error('[UnifiedAudioController] Failed to start playback:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Preload soundfonts for tracks with auto-instrument enabled.
+   * Called after AudioContext is active to ensure successful loading.
+   */
+  private async preloadAutoInstrumentSamplers(): Promise<void> {
+    try {
+      // Access MIDI manager from global reference
+      const midiMgr = (globalThis as unknown as {
+        _waveRollMidiManager?: {
+          getState?: () => { files: Array<{ id: string; parsedData?: { tracks?: Array<{ id: number; program?: number }> } }> };
+          isTrackAutoInstrument?: (fileId: string, trackId: number) => boolean;
+          getTrackProgram?: (fileId: string, trackId: number) => number;
+        };
+      })._waveRollMidiManager;
+
+      if (!midiMgr?.getState || !midiMgr?.isTrackAutoInstrument || !midiMgr?.getTrackProgram) {
+        return;
+      }
+
+      const programs: number[] = [];
+      const state = midiMgr.getState();
+
+      for (const file of state.files) {
+        if (file.parsedData?.tracks) {
+          for (const track of file.parsedData.tracks) {
+            const isAutoInstrument = midiMgr.isTrackAutoInstrument(file.id, track.id);
+            if (isAutoInstrument) {
+              // Use getTrackProgram to get correct program (handles drum tracks → 114)
+              const program = midiMgr.getTrackProgram(file.id, track.id);
+              programs.push(program);
+            }
+          }
+        }
+      }
+
+      if (programs.length > 0) {
+        console.log('[UnifiedAudioController] Preloading soundfonts for programs:', [...new Set(programs)]);
+        await this.preloadProgramSamplers(programs);
+        console.log('[UnifiedAudioController] Soundfont preload completed');
+      }
+    } catch (err) {
+      console.warn('[UnifiedAudioController] Error during soundfont preload:', err);
     }
   }
   
@@ -612,5 +660,13 @@ export class UnifiedAudioController {
       const masterTime = this.masterClock.getCurrentTime();
       this.wavPlayerGroup.syncStartIfNeeded(fileId, masterTime, lookahead);
     } catch {}
+  }
+
+  /**
+   * Preload samplers for specific MIDI Program Numbers.
+   * @param programs - Array of MIDI Program Numbers to preload
+   */
+  async preloadProgramSamplers(programs: number[]): Promise<void> {
+    return this.midiPlayerGroup.preloadProgramSamplers(programs);
   }
 }

@@ -412,14 +412,14 @@ export class MultiMidiManager {
 
   /**
    * Check if a specific track uses auto instrument matching.
-   * Returns false if trackUseAutoInstrument is not set (default piano).
+   * Returns true if trackUseAutoInstrument is not set (default auto-instrument).
    * @param fileId - The ID of the MIDI file
    * @param trackId - The track ID (0-based index)
    */
   public isTrackAutoInstrument(fileId: string, trackId: number): boolean {
     const file = this.state.files.find((f) => f.id === fileId);
-    if (!file) return false;
-    return file.trackUseAutoInstrument?.[trackId] ?? false;
+    if (!file) return true;
+    return file.trackUseAutoInstrument?.[trackId] ?? true;
   }
 
   /**
@@ -438,6 +438,28 @@ export class MultiMidiManager {
 
     const track = file.parsedData.tracks.find((t) => t.id === trackId);
     return track?.instrumentFamily ?? "piano";
+  }
+
+  /**
+   * Get the MIDI Program Number for a specific track.
+   * Returns 118 (synth_drum) for drum tracks (channel 9/10).
+   * Returns 0 (acoustic_grand_piano) as fallback if track info is not available.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackProgram(fileId: string, trackId: number): number {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file?.parsedData?.tracks) return 0;
+
+    const track = file.parsedData.tracks.find((t) => t.id === trackId);
+    if (!track) return 0;
+
+    // Use synth_drum (program 118) for drum tracks
+    if (track.isDrum) {
+      return 118;
+    }
+
+    return track.program ?? 0;
   }
 
   /**

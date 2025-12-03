@@ -1,7 +1,7 @@
 /**
  * Sampler Manager for MIDI playback
  * Handles Tone.js sampler creation, loading, and playback
- * Supports multi-instrument routing based on InstrumentFamily
+ * Supports multi-instrument routing based on MIDI Program Number
  */
 
 import * as Tone from "tone";
@@ -13,30 +13,11 @@ import {
 } from "../player-types";
 import { clamp } from "../../utils";
 import { toDb, fromDb, clamp01, isSilentDb, mixLinear } from "../utils";
-
-/**
- * SoundFont URL configuration for different instrument families.
- * Uses paulrosen's fork which includes percussion (Channel 10).
- * Reference: https://paulrosen.github.io/midi-js-soundfonts/
- */
-const SOUNDFONT_BASE_URL =
-  "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
-
-/**
- * Map of InstrumentFamily to GM instrument names for SoundFont loading.
- * Each family maps to a representative instrument from the FluidR3_GM soundfont.
- */
-const INSTRUMENT_FAMILY_TO_GM_NAME: Record<InstrumentFamily, string> = {
-  piano: "acoustic_grand_piano",
-  strings: "string_ensemble_1",
-  drums: "synth_drum", // For melodic drum sounds; Channel 10 uses percussion bank
-  guitar: "acoustic_guitar_nylon",
-  bass: "acoustic_bass",
-  synth: "lead_1_square",
-  winds: "flute",
-  brass: "trumpet",
-  others: "acoustic_grand_piano", // Fallback to piano
-};
+import {
+  getGMInstrumentUrl,
+  SOUNDFONT_BASE_URL,
+  GM_SAMPLE_MAP,
+} from "../gm-instruments";
 
 /**
  * Loading state for an instrument family sampler.
@@ -78,12 +59,11 @@ export class SamplerManager {
   /** Alignment delay in seconds to compensate downstream (e.g., WAV PitchShift) latency */
   private alignmentDelaySec: number = 0;
 
-  // --- InstrumentFamily-based Sampler Cache (Lazy Loading) ---
-  /** Map of InstrumentFamily -> loaded Tone.Sampler for auto-instrument routing */
-  private familySamplers: Map<InstrumentFamily, Tone.Sampler> = new Map();
-  /** Map of InstrumentFamily -> loading Promise to prevent duplicate loads */
-  private familySamplerLoading: Map<InstrumentFamily, Promise<Tone.Sampler>> =
-    new Map();
+  // --- Program Number-based Sampler Cache (Lazy Loading) ---
+  /** Map of MIDI Program Number -> loaded Tone.Sampler for auto-instrument routing */
+  private programSamplers: Map<number, Tone.Sampler> = new Map();
+  /** Map of MIDI Program Number -> loading Promise to prevent duplicate loads */
+  private programSamplerLoading: Map<number, Promise<Tone.Sampler>> = new Map();
 
   constructor(notes: NoteData[], midiManager?: any) {
     this.notes = notes;
@@ -105,86 +85,74 @@ export class SamplerManager {
     panner.pan.value = clamp(pan, -1, 1);
   }
 
-  // --- InstrumentFamily Sampler Methods ---
+  // --- Program Number-based Sampler Methods ---
 
   /**
-   * Get the SoundFont URL for a specific instrument family.
-   * @param family - The instrument family
-   * @returns Full URL to the instrument's mp3 folder
-   */
-  private getFamilySoundFontUrl(family: InstrumentFamily): string {
-    const gmName =
-      INSTRUMENT_FAMILY_TO_GM_NAME[family] ?? "acoustic_grand_piano";
-    return `${SOUNDFONT_BASE_URL}${gmName}-mp3/`;
-  }
-
-  /**
-   * Get or create a sampler for a specific instrument family (lazy loading).
+   * Get or create a sampler for a specific MIDI Program Number (lazy loading).
    * Returns the sampler immediately if already loaded, otherwise starts loading
    * and returns a Promise that resolves when the sampler is ready.
-   * @param family - The instrument family to load
+   * @param program - The MIDI Program Number (0-127) to load
    * @returns Promise that resolves to the loaded Tone.Sampler
    */
-  public getOrCreateFamilySampler(
-    family: InstrumentFamily
-  ): Promise<Tone.Sampler> {
+  public getOrCreateProgramSampler(program: number): Promise<Tone.Sampler> {
     // Return existing sampler if already loaded
-    const existing = this.familySamplers.get(family);
+    const existing = this.programSamplers.get(program);
     if (existing) {
       return Promise.resolve(existing);
     }
 
     // Return existing loading promise if already loading
-    const loadingPromise = this.familySamplerLoading.get(family);
+    const loadingPromise = this.programSamplerLoading.get(program);
     if (loadingPromise) {
       return loadingPromise;
     }
 
     // Start loading the sampler
     const promise = new Promise<Tone.Sampler>((resolve, reject) => {
-      const soundFontUrl = this.getFamilySoundFontUrl(family);
+      const soundFontUrl = getGMInstrumentUrl(program);
       const sampler = new Tone.Sampler({
-        urls: DEFAULT_SAMPLE_MAP,
+        urls: GM_SAMPLE_MAP, // Use flat notation for paulrosen soundfonts
         baseUrl: soundFontUrl,
         onload: () => {
-          this.familySamplers.set(family, sampler);
-          this.familySamplerLoading.delete(family);
+          this.programSamplers.set(program, sampler);
+          this.programSamplerLoading.delete(program);
           resolve(sampler);
         },
         onerror: (error: Error) => {
-          console.error(`Failed to load sampler for family ${family}:`, error);
-          this.familySamplerLoading.delete(family);
+          console.error(
+            `Failed to load sampler for program ${program}:`,
+            error
+          );
+          this.programSamplerLoading.delete(program);
           reject(error);
         },
       }).toDestination();
     });
 
-    this.familySamplerLoading.set(family, promise);
+    this.programSamplerLoading.set(program, promise);
     return promise;
   }
 
   /**
-   * Get the family sampler synchronously if already loaded.
+   * Get the program sampler synchronously if already loaded.
    * Returns null if the sampler is not yet loaded.
-   * @param family - The instrument family
+   * @param program - The MIDI Program Number (0-127)
    * @returns The loaded sampler or null
    */
-  public getFamilySamplerSync(family: InstrumentFamily): Tone.Sampler | null {
-    return this.familySamplers.get(family) ?? null;
+  public getProgramSamplerSync(program: number): Tone.Sampler | null {
+    return this.programSamplers.get(program) ?? null;
   }
 
   /**
-   * Preload samplers for specific instrument families.
-   * Useful for loading all families used in a MIDI file at initialization.
-   * @param families - Array of instrument families to preload
+   * Preload samplers for specific MIDI Program Numbers.
+   * Useful for loading all programs used in a MIDI file at initialization.
+   * @param programs - Array of MIDI Program Numbers to preload
    */
-  public async preloadFamilySamplers(
-    families: InstrumentFamily[]
-  ): Promise<void> {
-    const uniqueFamilies = [...new Set(families)];
-    const loadPromises = uniqueFamilies.map((family) =>
-      this.getOrCreateFamilySampler(family).catch((err) => {
-        console.warn(`Failed to preload sampler for ${family}:`, err);
+  public async preloadProgramSamplers(programs: number[]): Promise<void> {
+    const uniquePrograms = [...new Set(programs)];
+    const loadPromises = uniquePrograms.map((program) =>
+      this.getOrCreateProgramSampler(program).catch((err) => {
+        console.warn(`Failed to preload sampler for program ${program}:`, err);
         return null;
       })
     );
@@ -529,10 +497,7 @@ export class SamplerManager {
                 fileId: string,
                 trackId: number
               ) => boolean;
-              getTrackInstrumentFamily?: (
-                fileId: string,
-                trackId: number
-              ) => InstrumentFamily;
+              getTrackProgram?: (fileId: string, trackId: number) => number;
             };
           }
         )._waveRollMidiManager;
@@ -552,20 +517,20 @@ export class SamplerManager {
           velocity = velocity * trackVolume;
         }
 
-        // Determine which sampler to use: family-specific or default piano
+        // Determine which sampler to use: program-specific or default piano
         let targetSampler: Tone.Sampler | null = null;
         const useAutoInstrument =
           event.trackId !== undefined &&
           midiMgr?.isTrackAutoInstrument?.(fid, event.trackId);
 
-        if (useAutoInstrument && midiMgr?.getTrackInstrumentFamily) {
-          const family = midiMgr.getTrackInstrumentFamily(fid, event.trackId!);
-          const familySampler = this.getFamilySamplerSync(family);
-          if (familySampler?.loaded) {
-            targetSampler = familySampler;
+        if (useAutoInstrument && midiMgr?.getTrackProgram) {
+          const program = midiMgr.getTrackProgram(fid, event.trackId!);
+          const programSampler = this.getProgramSamplerSync(program);
+          if (programSampler?.loaded) {
+            targetSampler = programSampler;
           } else {
-            // Lazy load the family sampler for future notes
-            this.getOrCreateFamilySampler(family).catch(() => {});
+            // Lazy load the program sampler for future notes
+            this.getOrCreateProgramSampler(program).catch(() => {});
             // Fallback to default track sampler for this note
             targetSampler = track.sampler.loaded ? track.sampler : null;
           }

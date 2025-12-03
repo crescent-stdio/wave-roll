@@ -153,10 +153,14 @@ export class FileToggleItem {
     const trackList = document.createElement("div");
     trackList.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:32px;margin-top:2px;`;
 
-    // Sort tracks by MIDI program number (ascending)
-    const sortedTracks = [...tracks].sort(
-      (a, b) => (a.program ?? 0) - (b.program ?? 0)
-    );
+    // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
+    const sortedTracks = [...tracks].sort((a, b) => {
+      // Drums go to the bottom
+      if (a.isDrum && !b.isDrum) return 1;
+      if (!a.isDrum && b.isDrum) return -1;
+      // Both drums or both non-drums: sort by program number
+      return (a.program ?? 0) - (b.program ?? 0);
+    });
 
     // Populate track items
     sortedTracks.forEach((track: TrackInfo) => {
@@ -205,9 +209,9 @@ export class FileToggleItem {
       // Auto-instrument toggle button (fourth) - between Eye and Volume
       const isAutoInstrument =
         dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ??
-        false;
+        true;
       const autoInstrumentBtn = document.createElement("button");
-      // Show piano icon when OFF (default piano), show track's instrument icon when ON (auto)
+      // Show current playing instrument icon: auto-instrument ON → track instrument, OFF → piano
       autoInstrumentBtn.innerHTML = isAutoInstrument
         ? getInstrumentIcon(track.instrumentFamily)
         : getInstrumentIcon("piano");

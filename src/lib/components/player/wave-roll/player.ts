@@ -678,6 +678,8 @@ export class WaveRollPlayer {
           const deps = this.getUIDependencies();
           deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
         }, 100);
+
+        // Note: Soundfont preload is done on first play() to ensure AudioContext is active
       },
     });
   }

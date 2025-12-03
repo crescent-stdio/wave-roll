@@ -24,6 +24,7 @@ import {
   midiToPitchClass,
   midiToOctave,
 } from "@/lib/core/utils/midi";
+import { getGMInstrumentDisplayName } from "@/lib/core/audio/gm-instruments";
 
 /**
  * GM Program Number to Instrument Family mapping.
@@ -563,11 +564,20 @@ export async function parseMidi(
       const instrumentFamily = getInstrumentFamily(program, channel);
 
       // Create TrackInfo for this track
+      let trackName: string;
+      if (t.name) {
+        trackName = t.name;
+      } else if (isDrum) {
+        // Drum tracks: "Drums (ch.9)" or "Drums (ch.10)"
+        trackName = `Drums (ch.${channel})`;
+      } else {
+        // Regular tracks: "Acoustic Grand Piano (0)"
+        trackName = `${getGMInstrumentDisplayName(program)} (${program})`;
+      }
+
       const trackInfo: TrackInfo = {
         id: trackIndex,
-        name:
-          t.name ||
-          `${getInstrumentFamilyName(instrumentFamily)} ${trackIndex + 1}`,
+        name: trackName,
         channel,
         program,
         isDrum,
