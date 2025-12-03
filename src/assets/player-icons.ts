@@ -17,8 +17,8 @@ export const PLAYER_ICONS = {
   </svg>`,
 
   pause: `<svg ${SVG_ATTRS}>
-    <line x1="10" y1="4" x2="10" y2="20" />
-    <line x1="14" y1="4" x2="14" y2="20" />
+    <line x1="8" y1="4" x2="8" y2="20" />
+    <line x1="16" y1="4" x2="16" y2="20" />
   </svg>`,
 
   // Restart: Skip Back / Rewind style
