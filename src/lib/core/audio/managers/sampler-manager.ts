@@ -1,13 +1,52 @@
 /**
  * Sampler Manager for MIDI playback
  * Handles Tone.js sampler creation, loading, and playback
+ * Supports multi-instrument routing based on InstrumentFamily
  */
 
 import * as Tone from "tone";
-import { NoteData } from "@/lib/midi/types";
-import { DEFAULT_SAMPLE_MAP, AUDIO_CONSTANTS, AudioPlayerState } from "../player-types";
+import { NoteData, InstrumentFamily } from "@/lib/midi/types";
+import {
+  DEFAULT_SAMPLE_MAP,
+  AUDIO_CONSTANTS,
+  AudioPlayerState,
+} from "../player-types";
 import { clamp } from "../../utils";
 import { toDb, fromDb, clamp01, isSilentDb, mixLinear } from "../utils";
+
+/**
+ * SoundFont URL configuration for different instrument families.
+ * Uses paulrosen's fork which includes percussion (Channel 10).
+ * Reference: https://paulrosen.github.io/midi-js-soundfonts/
+ */
+const SOUNDFONT_BASE_URL =
+  "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
+
+/**
+ * Map of InstrumentFamily to GM instrument names for SoundFont loading.
+ * Each family maps to a representative instrument from the FluidR3_GM soundfont.
+ */
+const INSTRUMENT_FAMILY_TO_GM_NAME: Record<InstrumentFamily, string> = {
+  piano: "acoustic_grand_piano",
+  strings: "string_ensemble_1",
+  drums: "synth_drum", // For melodic drum sounds; Channel 10 uses percussion bank
+  guitar: "acoustic_guitar_nylon",
+  bass: "acoustic_bass",
+  synth: "lead_1_square",
+  winds: "flute",
+  brass: "trumpet",
+  others: "acoustic_grand_piano", // Fallback to piano
+};
+
+/**
+ * Loading state for an instrument family sampler.
+ */
+export interface InstrumentLoadState {
+  family: InstrumentFamily;
+  isLoading: boolean;
+  isLoaded: boolean;
+  error?: string;
+}
 
 export interface SamplerTrack {
   sampler: Tone.Sampler;
@@ -15,6 +54,10 @@ export interface SamplerTrack {
   gate: Tone.Gain;
   panner: Tone.Panner;
   muted: boolean;
+  /** Instrument family for this track (used for multi-instrument routing) */
+  instrumentFamily?: InstrumentFamily;
+  /** Whether to use oscillator fallback (when sampler fails to load) */
+  useOscillatorFallback?: boolean;
 }
 
 export class SamplerManager {
@@ -34,7 +77,7 @@ export class SamplerManager {
   private midiManager: any;
   /** Alignment delay in seconds to compensate downstream (e.g., WAV PitchShift) latency */
   private alignmentDelaySec: number = 0;
-  
+
   constructor(notes: NoteData[], midiManager?: any) {
     this.notes = notes;
     this.midiManager = midiManager;
@@ -145,7 +188,14 @@ export class SamplerManager {
   /** Build Tone.Part from events and callback, configure loop settings. */
   private buildPart<T extends { time: number }>(
     events: T[],
-    options: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number } | undefined,
+    options:
+      | {
+          repeat?: boolean;
+          duration?: number;
+          tempo?: number;
+          originalTempo?: number;
+        }
+      | undefined,
     callback: (time: number, event: T) => void
   ): void {
     // Dispose of existing part to prevent memory leak and double triggering
@@ -155,7 +205,7 @@ export class SamplerManager {
       this.part.dispose();
       this.part = null;
     }
-    
+
     this.part = new Tone.Part(callback as any, events as any);
     // Important: do NOT enable Part.loop. We explicitly handle Transport
     // loop events in AudioPlayer.handleTransportLoop() by cancelling and
@@ -180,7 +230,10 @@ export class SamplerManager {
   /**
    * Initialize samplers - either multi-track or legacy single sampler
    */
-  async initialize(options: { soundFont?: string; volume?: number }): Promise<void> {
+  async initialize(options: {
+    soundFont?: string;
+    volume?: number;
+  }): Promise<void> {
     // Try multi-file setup first
     if (!this.setupTrackSamplers(options)) {
       // Fallback to legacy single sampler
@@ -209,7 +262,10 @@ export class SamplerManager {
    * Set up per-track samplers for multi-file playback
    * @returns true if multi-file setup succeeded, false for fallback
    */
-  private setupTrackSamplers(options: { soundFont?: string; volume?: number }): boolean {
+  private setupTrackSamplers(options: {
+    soundFont?: string;
+    volume?: number;
+  }): boolean {
     // Group notes by fileId
     const fileNotes = new Map<string, NoteData[]>();
     this.notes.forEach((note) => {
@@ -226,17 +282,23 @@ export class SamplerManager {
         const panner = new Tone.Panner(0).toDestination();
         const gate = new Tone.Gain(1).connect(panner);
         // Optional alignment delay node between sampler and gate
-        const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
+        const delay =
+          this.alignmentDelaySec > 0
+            ? new Tone.Delay(this.alignmentDelaySec)
+            : null;
         const sampler = new Tone.Sampler({
           urls: DEFAULT_SAMPLE_MAP,
-          baseUrl:
-            options.soundFont ||
-            "https://tonejs.github.io/audio/salamander/",
+          baseUrl: options.soundFont || SOUNDFONT_BASE_URL,
           onload: () => {
             // Sampler loaded for file
           },
           onerror: (error: Error) => {
             console.error(`Failed to load sampler for file ${fid}:`, error);
+            // Mark track for oscillator fallback on next play attempt
+            const track = this.trackSamplers.get(fid);
+            if (track) {
+              track.useOscillatorFallback = true;
+            }
           },
         }).connect(delay ? delay : gate);
         if (delay) delay.connect(gate);
@@ -255,7 +317,14 @@ export class SamplerManager {
           }
         }
 
-        this.trackSamplers.set(fid, { sampler, delay, gate, panner, muted: initialMuted });
+        this.trackSamplers.set(fid, {
+          sampler,
+          delay,
+          gate,
+          panner,
+          muted: initialMuted,
+          useOscillatorFallback: false,
+        });
       }
     });
 
@@ -265,14 +334,19 @@ export class SamplerManager {
   /**
    * Fallback: Set up legacy single sampler
    */
-  private async setupLegacySampler(options: { soundFont?: string; volume?: number }): Promise<void> {
+  private async setupLegacySampler(options: {
+    soundFont?: string;
+    volume?: number;
+  }): Promise<void> {
     this.panner = new Tone.Panner(0).toDestination();
     this.gate = new Tone.Gain(1).connect(this.panner);
-    const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
+    const delay =
+      this.alignmentDelaySec > 0
+        ? new Tone.Delay(this.alignmentDelaySec)
+        : null;
     this.sampler = new Tone.Sampler({
       urls: DEFAULT_SAMPLE_MAP,
-      baseUrl:
-        options.soundFont || "https://tonejs.github.io/audio/salamander/",
+      baseUrl: options.soundFont || SOUNDFONT_BASE_URL,
     }).connect(delay ? delay : this.gate);
     if (delay) delay.connect(this.gate);
 
@@ -290,7 +364,12 @@ export class SamplerManager {
   setupNotePart(
     loopStartVisual?: number | null,
     loopEndVisual?: number | null,
-    options?: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number }
+    options?: {
+      repeat?: boolean;
+      duration?: number;
+      tempo?: number;
+      originalTempo?: number;
+    }
   ): void {
     // Multi-file setup always takes precedence
     if (this.trackSamplers.size > 0) {
@@ -306,7 +385,12 @@ export class SamplerManager {
   private setupMultiTrackPart(
     loopStartVisual?: number | null,
     loopEndVisual?: number | null,
-    options?: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number }
+    options?: {
+      repeat?: boolean;
+      duration?: number;
+      tempo?: number;
+      originalTempo?: number;
+    }
   ): void {
     const scaleToTransport = this.computeScaleToTransport(
       options?.originalTempo,
@@ -332,7 +416,7 @@ export class SamplerManager {
 
     // Track if we've warned about each unloaded sampler
     const warnedSamplers = new Set<string>();
-    
+
     // Build events for Part
 
     const callback = (time: number, event: ScheduledNoteEvent) => {
@@ -371,7 +455,12 @@ export class SamplerManager {
   private setupLegacyPart(
     loopStartVisual?: number | null,
     loopEndVisual?: number | null,
-    options?: { repeat?: boolean; duration?: number; tempo?: number; originalTempo?: number }
+    options?: {
+      repeat?: boolean;
+      duration?: number;
+      tempo?: number;
+      originalTempo?: number;
+    }
   ): void {
     const scaleToTransport = this.computeScaleToTransport(
       options?.originalTempo,
@@ -423,7 +512,7 @@ export class SamplerManager {
       console.warn("[SamplerManager] No Part to start");
       return;
     }
-    
+
     // Check Part state to prevent duplicate starts
     const partState = (this.part as any).state;
     if (partState === "started") {
@@ -431,14 +520,17 @@ export class SamplerManager {
       this.part.stop(0);
       this.part.cancel(0);
     }
-    
+
     // Ensure the part is completely stopped before starting
     this.part.stop(0);
     this.part.cancel(0);
-    
+
     // Start part with a safe non-negative offset (avoid tiny negative epsilons)
-    const off = typeof offset === 'number' && Number.isFinite(offset) ? Math.max(0, offset) : 0;
-    
+    const off =
+      typeof offset === "number" && Number.isFinite(offset)
+        ? Math.max(0, offset)
+        : 0;
+
     try {
       (this.part as Tone.Part).start(time, off);
       // console.log("[SamplerManager] Part started", { time, offset: off });
@@ -458,7 +550,7 @@ export class SamplerManager {
       // Don't dispose here - let buildPart handle disposal when creating a new one
     }
   }
-  
+
   /**
    * Restart the part for seamless looping
    * This avoids recreating the Part which can cause gaps
@@ -467,7 +559,7 @@ export class SamplerManager {
     if (this.part) {
       // Cancel any scheduled events to prevent overlap
       this.part.cancel();
-      
+
       // Immediately restart the part from the beginning
       // Use a very small offset to ensure smooth transition
       const restartTime = Tone.now() + 0.001;
@@ -531,7 +623,9 @@ export class SamplerManager {
           track.sampler.connect(track.panner);
         } catch {}
       } else if (track.delay) {
-        try { track.delay.delayTime.value = d; } catch {}
+        try {
+          track.delay.delayTime.value = d;
+        } catch {}
       }
     });
     // Legacy sampler path: cannot easily rewire if already connected; best-effort
@@ -627,7 +721,7 @@ export class SamplerManager {
    */
   retriggerAllUnmutedHeldNotes(currentTime: number): void {
     let totalRetriggered = 0;
-    
+
     // Retrigger for all unmuted tracks
     this.trackSamplers.forEach((track, fileId) => {
       if (!track.muted) {
@@ -636,7 +730,7 @@ export class SamplerManager {
         // Note: retriggerHeldNotes doesn't return count, so we can't track exact numbers
       }
     });
-    
+
     // console.log("[SamplerManager] Retriggered held notes for all unmuted tracks at", currentTime);
   }
 
@@ -691,7 +785,7 @@ export class SamplerManager {
       return this.sampler ? this.sampler.volume.value <= SILENT_DB : true;
     }
     return !Array.from(this.trackSamplers.values()).some(
-      track => !track.muted && track.sampler.volume.value > SILENT_DB
+      (track) => !track.muted && track.sampler.volume.value > SILENT_DB
     );
   }
 
@@ -700,19 +794,19 @@ export class SamplerManager {
    */
   areAllTracksMuted(): boolean {
     const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
-    
+
     // Check multi-track samplers
     if (this.trackSamplers.size > 0) {
       return !Array.from(this.trackSamplers.values()).some(
         (t) => !t.muted && t.sampler.volume.value > SILENT_DB
       );
     }
-    
+
     // Check legacy sampler
     if (this.sampler) {
       return this.sampler.volume.value <= SILENT_DB;
     }
-    
+
     return true;
   }
 
@@ -735,7 +829,9 @@ export class SamplerManager {
       this.panner = null;
     }
     if (this.gate) {
-      try { this.gate.dispose(); } catch {}
+      try {
+        this.gate.dispose();
+      } catch {}
       this.gate = null;
     }
 
@@ -758,7 +854,10 @@ export class SamplerManager {
     this.trackSamplers.forEach(({ sampler }) => {
       try {
         // Try PolySynth-like API if available
-        const anyS = sampler as unknown as { releaseAll?: (time?: number) => void; triggerRelease?: (notes?: any, time?: number) => void };
+        const anyS = sampler as unknown as {
+          releaseAll?: (time?: number) => void;
+          triggerRelease?: (notes?: any, time?: number) => void;
+        };
         if (typeof anyS.releaseAll === "function") {
           anyS.releaseAll(now);
           return;
@@ -774,7 +873,10 @@ export class SamplerManager {
     // Legacy single sampler
     if (this.sampler) {
       try {
-        const anyS = this.sampler as unknown as { releaseAll?: (time?: number) => void; triggerRelease?: (notes?: any, time?: number) => void };
+        const anyS = this.sampler as unknown as {
+          releaseAll?: (time?: number) => void;
+          triggerRelease?: (notes?: any, time?: number) => void;
+        };
         if (typeof anyS.releaseAll === "function") {
           anyS.releaseAll(now);
         } else if (typeof anyS.triggerRelease === "function") {
@@ -796,8 +898,16 @@ export class SamplerManager {
    */
   hardMuteAllGates(): void {
     try {
-      this.trackSamplers.forEach(({ gate }) => { try { gate.gain.value = 0; } catch {} });
-      if (this.gate) { try { this.gate.gain.value = 0; } catch {} }
+      this.trackSamplers.forEach(({ gate }) => {
+        try {
+          gate.gain.value = 0;
+        } catch {}
+      });
+      if (this.gate) {
+        try {
+          this.gate.gain.value = 0;
+        } catch {}
+      }
     } catch {}
   }
 
@@ -806,8 +916,16 @@ export class SamplerManager {
    */
   hardUnmuteAllGates(): void {
     try {
-      this.trackSamplers.forEach(({ gate }) => { try { gate.gain.value = 1; } catch {} });
-      if (this.gate) { try { this.gate.gain.value = 1; } catch {} }
+      this.trackSamplers.forEach(({ gate }) => {
+        try {
+          gate.gain.value = 1;
+        } catch {}
+      });
+      if (this.gate) {
+        try {
+          this.gate.gain.value = 1;
+        } catch {}
+      }
     } catch {}
   }
 

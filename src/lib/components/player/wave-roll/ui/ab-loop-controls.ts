@@ -85,7 +85,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       updateSeekBar();
     },
     undefined,
-    PLAYER_ICONS.loop_restart
+    PLAYER_ICONS.loop_start
   );
 
   /* A & B buttons */

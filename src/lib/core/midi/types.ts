@@ -30,6 +30,11 @@ export interface MidiFileEntry {
   error?: string;
   /** Volume level (0-1) */
   volume?: number;
+  /**
+   * Per-track visibility state. Key is trackId, value is visibility.
+   * All tracks are visible by default when not specified.
+   */
+  trackVisibility?: Record<number, boolean>;
 }
 
 /**

@@ -119,6 +119,15 @@ export class MultiMidiManager {
     const shouldBeVisible = this.state.files.length < 2;
     entry.isPianoRollVisible = shouldBeVisible;
     entry.isVisible = shouldBeVisible;
+
+    // Initialize trackVisibility: all tracks visible by default
+    if (parsedData.tracks && parsedData.tracks.length > 0) {
+      entry.trackVisibility = {};
+      for (const track of parsedData.tracks) {
+        entry.trackVisibility[track.id] = true;
+      }
+    }
+
     this.state.files.push(entry);
     try {
       // Extract BPM from MIDI header's first/initial tempo
@@ -175,7 +184,8 @@ export class MultiMidiManager {
    * Remove a MIDI file
    */
   public removeMidiFile(id: string): void {
-    const wasFirstFile = this.state.files.length > 0 && this.state.files[0].id === id;
+    const wasFirstFile =
+      this.state.files.length > 0 && this.state.files[0].id === id;
     this.state.files = this.state.files.filter((f) => f.id !== id);
     this.resetColorIndex();
 
@@ -221,6 +231,61 @@ export class MultiMidiManager {
       file.isMuted = !file.isMuted;
       this.notifyStateChange();
     }
+  }
+
+  /**
+   * Set visibility of a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param visible - Whether the track should be visible
+   */
+  public setTrackVisibility(
+    fileId: string,
+    trackId: number,
+    visible: boolean
+  ): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackVisibility if not present
+    if (!file.trackVisibility) {
+      file.trackVisibility = {};
+    }
+
+    file.trackVisibility[trackId] = visible;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Toggle visibility of a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public toggleTrackVisibility(fileId: string, trackId: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackVisibility if not present
+    if (!file.trackVisibility) {
+      file.trackVisibility = {};
+    }
+
+    // Default to true (visible) if not set, then toggle
+    const currentVisibility = file.trackVisibility[trackId] ?? true;
+    file.trackVisibility[trackId] = !currentVisibility;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if a specific track is visible.
+   * Returns true if trackVisibility is not set (default visible).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackVisible(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackVisibility?.[trackId] ?? true;
   }
 
   /**
@@ -351,7 +416,8 @@ export class MultiMidiManager {
   }
 
   /**
-   * Get combined notes from visible files
+   * Get combined notes from visible files, respecting track visibility.
+   * Notes from hidden tracks are excluded.
    */
   public getVisibleNotes(): Array<{
     note: NoteData;
@@ -364,11 +430,19 @@ export class MultiMidiManager {
     this.state.files.forEach((file) => {
       if (file.isPianoRollVisible && file.parsedData) {
         file.parsedData.notes.forEach((note) => {
-          allNotes.push({
-            note,
-            color: file.color,
-            fileId: file.id,
-          });
+          // Check track visibility: if trackId is set, respect trackVisibility
+          // Default to visible if trackVisibility is not defined for this track
+          const trackId = note.trackId;
+          const isTrackVisible =
+            trackId === undefined || file.trackVisibility?.[trackId] !== false;
+
+          if (isTrackVisible) {
+            allNotes.push({
+              note,
+              color: file.color,
+              fileId: file.id,
+            });
+          }
         });
       }
     });

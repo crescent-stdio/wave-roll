@@ -89,7 +89,7 @@ export function createCoreLoopControls(
    * Restart / Loop toggle button (icon)
    * ------------------------------------------------------------------ */
   const btnLoopRestart = document.createElement("button");
-  btnLoopRestart.innerHTML = PLAYER_ICONS.loop_restart;
+  btnLoopRestart.innerHTML = PLAYER_ICONS.loop_start;
   btnLoopRestart.title = "Toggle A-B Loop Mode";
   btnLoopRestart.style.cssText = `
     width: 32px;

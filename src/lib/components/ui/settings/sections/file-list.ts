@@ -2,9 +2,11 @@ import { UIComponentDependencies } from "../../types";
 import { renderOnsetSVG } from "@/assets/onset-icons";
 import { openOnsetPicker } from "../components/onset-picker";
 import { PLAYER_ICONS } from "@/assets/player-icons";
+import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
 import { toHexColor } from "@/lib/core/utils/color";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { MidiFileEntry } from "@/core/midi";
+import { TrackInfo } from "@/lib/midi/types";
 import { DEFAULT_PALETTES } from "@/lib/core/midi/palette";
 import {
   computeNoteMetrics,
@@ -268,6 +270,89 @@ export function createFileList(
         row.appendChild(delBtn);
       }
       fileList.appendChild(row);
+
+      // ---- Track Accordion (for multi-track MIDI files) ----
+      const tracks = file.parsedData?.tracks;
+      if (tracks && tracks.length > 1) {
+        // Create accordion container
+        const accordionContainer = document.createElement("div");
+        accordionContainer.style.cssText =
+          "margin-left:26px;margin-top:4px;margin-bottom:4px;";
+
+        // Accordion header (toggle button)
+        const accordionHeader = document.createElement("button");
+        accordionHeader.type = "button";
+        accordionHeader.style.cssText =
+          "display:flex;align-items:center;gap:6px;padding:4px 8px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:12px;width:100%;text-align:left;";
+        
+        const chevronSpan = document.createElement("span");
+        chevronSpan.innerHTML = CHEVRON_RIGHT;
+        chevronSpan.style.cssText = "display:flex;align-items:center;transition:transform 0.2s;";
+        
+        const trackCountText = document.createElement("span");
+        trackCountText.textContent = `${tracks.length} tracks`;
+        
+        accordionHeader.appendChild(chevronSpan);
+        accordionHeader.appendChild(trackCountText);
+
+        // Track list (hidden by default)
+        const trackList = document.createElement("div");
+        trackList.style.cssText =
+          "display:none;flex-direction:column;gap:4px;padding:8px;background:var(--surface);border-radius:4px;margin-top:4px;";
+
+        // Populate track items
+        tracks.forEach((track: TrackInfo) => {
+          const trackRow = document.createElement("div");
+          trackRow.style.cssText =
+            "display:flex;align-items:center;gap:8px;padding:4px;";
+
+          // Checkbox for track visibility
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = dependencies.midiManager.isTrackVisible(file.id, track.id);
+          checkbox.style.cssText = "cursor:pointer;";
+          checkbox.onchange = () => {
+            dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
+          };
+
+          // Instrument icon
+          const iconSpan = document.createElement("span");
+          iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
+          iconSpan.style.cssText =
+            "display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--text-muted);";
+          iconSpan.title = track.instrumentFamily;
+
+          // Track name
+          const trackName = document.createElement("span");
+          trackName.textContent = track.name;
+          trackName.style.cssText =
+            "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+          // Note count badge
+          const noteCount = document.createElement("span");
+          noteCount.textContent = `${track.noteCount} notes`;
+          noteCount.style.cssText =
+            "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;";
+
+          trackRow.appendChild(checkbox);
+          trackRow.appendChild(iconSpan);
+          trackRow.appendChild(trackName);
+          trackRow.appendChild(noteCount);
+          trackList.appendChild(trackRow);
+        });
+
+        // Toggle accordion on header click
+        let isExpanded = false;
+        accordionHeader.onclick = () => {
+          isExpanded = !isExpanded;
+          trackList.style.display = isExpanded ? "flex" : "none";
+          chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+        };
+
+        accordionContainer.appendChild(accordionHeader);
+        accordionContainer.appendChild(trackList);
+        fileList.appendChild(accordionContainer);
+      }
     });
 
     /* ---------- Add MIDI button ---------- */
