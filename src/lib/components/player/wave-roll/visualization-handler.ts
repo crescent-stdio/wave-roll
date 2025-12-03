@@ -46,7 +46,8 @@ export class VisualizationHandler {
     // --- Audio mixing --------------------------------------------------
     // IMPORTANT: Include ALL files in audioNotes regardless of mute state
     // This prevents audio player recreation when all MIDI tracks are muted
-    // The actual muting is handled at the sampler level via setFileMute
+    // FILE muting is handled at the sampler level via setFileMute
+    // TRACK muting/volume is handled at runtime in the audio player callbacks
     const totalFileCount = state.files.filter(
       (file: any) => file.parsedData
     ).length;
@@ -55,8 +56,8 @@ export class VisualizationHandler {
     const audioNotes: NoteData[] = [];
     state.files.forEach((file: MidiFileEntry) => {
       if (file.parsedData) {
-        // Include ALL notes, even from muted files
-        // Muting is handled by the audio player, not by excluding notes
+        // Include ALL notes, even from muted files/tracks
+        // Muting is handled by the audio player at runtime, not by excluding notes
         file.parsedData.notes.forEach((note: NoteData) => {
           // Keep velocity within valid [0,1] range.
           const scaledVel = Math.min(1, note.velocity * velocityScale);

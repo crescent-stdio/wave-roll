@@ -213,9 +213,11 @@ export class FileToggleItem {
         file.id,
         track.id
       );
+      const trackLastNonZeroVolume =
+        dependencies.midiManager.getTrackLastNonZeroVolume(file.id, track.id);
       const volumeControl = new FileVolumeControl({
         initialVolume: isTrackMuted ? 0 : trackVolume,
-        lastNonZeroVolume: trackVolume,
+        lastNonZeroVolume: trackLastNonZeroVolume,
         size: 22,
         onVolumeChange: (volume) => {
           dependencies.midiManager.setTrackVolume(file.id, track.id, volume);

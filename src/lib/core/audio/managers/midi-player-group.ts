@@ -548,7 +548,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     // For seek/resume (no endTime specified): include sustaining notes that began before safeStart
     // and are still active at safeStart by re-triggering them at t=0 with remaining duration.
     const includeCarryOver = (endTime === undefined);
-    let carryOverEvents: Array<{ time: number; note: string; velocity: number; duration: number; fileId?: string } > = [];
+    let carryOverEvents: Array<{ time: number; note: string; velocity: number; duration: number; fileId?: string; trackId?: number } > = [];
     if (includeCarryOver) {
       const sustaining = validNotes.filter(note => {
         const noteEnd = note.time + note.duration;
@@ -562,7 +562,8 @@ export class MidiPlayerGroup implements PlayerGroup {
           note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
           velocity: note.velocity,
           duration: scaledRemaining,
-          fileId: note.fileId
+          fileId: note.fileId,
+          trackId: note.trackId
         };
       });
     }
@@ -593,7 +594,8 @@ export class MidiPlayerGroup implements PlayerGroup {
       note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
       velocity: note.velocity,
       duration: Math.max(0.01, note.duration * timeScale),
-      fileId: note.fileId as string | undefined
+      fileId: note.fileId as string | undefined,
+      trackId: note.trackId
     }));
 
     // Prepend carry-over sustaining notes (if any)
@@ -604,7 +606,8 @@ export class MidiPlayerGroup implements PlayerGroup {
         note: e.note,
         velocity: e.velocity,
         duration: Math.max(0.01, e.duration),
-        fileId: (e.fileId as string | undefined)
+        fileId: (e.fileId as string | undefined),
+        trackId: e.trackId
       }));
       events = [...normalizedCarry, ...events];
     }
@@ -637,6 +640,20 @@ export class MidiPlayerGroup implements PlayerGroup {
         // console.debug('[MidiPlayerGroup] Player muted, skipping:', event.fileId);
         return; // Don't play muted players (not counted as error)
       }
+
+      // Check track-level mute via global midiManager reference
+      const midiMgr = (globalThis as unknown as { _waveRollMidiManager?: {
+        isTrackMuted?: (fileId: string, trackId: number) => boolean;
+        getTrackVolume?: (fileId: string, trackId: number) => number;
+      } })._waveRollMidiManager;
+
+      const fileId = (event.fileId ?? '') as string;
+      const trackId = (event as { trackId?: number }).trackId;
+
+      // Skip if track is muted
+      if (trackId !== undefined && midiMgr?.isTrackMuted?.(fileId, trackId)) {
+        return;
+      }
       
       // console.log('[MidiPlayerGroup] Playing note:', event.note, 'at time:', time, 'transportSeconds', Tone.getTransport().seconds);
       
@@ -653,9 +670,15 @@ export class MidiPlayerGroup implements PlayerGroup {
           console.warn('[MidiPlayerGroup] Runtime duration validation failed:', event);
           return;
         }
+
+        // Get track volume
+        let trackVolume = 1.0;
+        if (trackId !== undefined && midiMgr?.getTrackVolume) {
+          trackVolume = midiMgr.getTrackVolume(fileId, trackId);
+        }
         
-        // Apply volume: master * individual * velocity
-        const finalVolume = this.masterVolume * playerInfo.volume * event.velocity;
+        // Apply volume: master * individual * track * velocity
+        const finalVolume = this.masterVolume * playerInfo.volume * trackVolume * event.velocity;
         
         // Use Sampler's triggerAttackRelease with proper volume scaling
         playerInfo.sampler.triggerAttackRelease(

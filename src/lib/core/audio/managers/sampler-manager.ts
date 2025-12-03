@@ -152,7 +152,7 @@ export class SamplerManager {
     });
   }
 
-  /** Map notes to Part events with fileId. */
+  /** Map notes to Part events with fileId and trackId. */
   private notesToEventsWithFileId(
     notes: NoteData[],
     loopStartVisual: number | null | undefined,
@@ -163,6 +163,7 @@ export class SamplerManager {
     duration: number;
     velocity: number;
     fileId: string;
+    trackId?: number;
   }> {
     return notes.map((note) => {
       const onset = note.time;
@@ -181,6 +182,7 @@ export class SamplerManager {
         duration: durationSafe,
         velocity: note.velocity,
         fileId: note.fileId || "__default",
+        trackId: note.trackId,
       };
     });
   }
@@ -407,6 +409,7 @@ export class SamplerManager {
       duration: number;
       velocity: number;
       fileId: string;
+      trackId?: number;
     };
     const events: ScheduledNoteEvent[] = this.notesToEventsWithFileId(
       filtered,
@@ -423,6 +426,31 @@ export class SamplerManager {
       const fid = event.fileId || "__default";
       const track = this.trackSamplers.get(fid);
       if (track && !track.muted) {
+        // Check track-level mute via global midiManager reference
+        const midiMgr = (
+          globalThis as unknown as {
+            _waveRollMidiManager?: {
+              isTrackMuted?: (fileId: string, trackId: number) => boolean;
+              getTrackVolume?: (fileId: string, trackId: number) => number;
+            };
+          }
+        )._waveRollMidiManager;
+
+        // Skip if track is muted
+        if (
+          event.trackId !== undefined &&
+          midiMgr?.isTrackMuted?.(fid, event.trackId)
+        ) {
+          return;
+        }
+
+        // Apply track volume
+        let velocity = event.velocity;
+        if (event.trackId !== undefined && midiMgr?.getTrackVolume) {
+          const trackVolume = midiMgr.getTrackVolume(fid, event.trackId);
+          velocity = velocity * trackVolume;
+        }
+
         if (track.sampler.loaded) {
           // Schedule note with slight lookahead for smoother playback
           const scheduledTime = Math.max(time, Tone.now());
@@ -430,7 +458,7 @@ export class SamplerManager {
             event.note,
             event.duration,
             scheduledTime,
-            event.velocity
+            velocity
           );
         } else if (!warnedSamplers.has(fid)) {
           console.warn(

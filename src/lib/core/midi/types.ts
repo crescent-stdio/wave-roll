@@ -45,6 +45,11 @@ export interface MidiFileEntry {
    * All tracks have full volume (1.0) by default when not specified.
    */
   trackVolume?: Record<number, number>;
+  /**
+   * Per-track last non-zero volume level. Key is trackId, value is volume (0-1).
+   * Used to restore volume when unmuting a track.
+   */
+  trackLastNonZeroVolume?: Record<number, number>;
 }
 
 /**

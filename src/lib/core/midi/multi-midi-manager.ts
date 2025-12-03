@@ -123,14 +123,17 @@ export class MultiMidiManager {
     // Initialize trackVisibility: all tracks visible by default
     // Initialize trackMuted: all tracks unmuted by default
     // Initialize trackVolume: all tracks at full volume by default
+    // Initialize trackLastNonZeroVolume: all tracks at full volume by default
     if (parsedData.tracks && parsedData.tracks.length > 0) {
       entry.trackVisibility = {};
       entry.trackMuted = {};
       entry.trackVolume = {};
+      entry.trackLastNonZeroVolume = {};
       for (const track of parsedData.tracks) {
         entry.trackVisibility[track.id] = true;
         entry.trackMuted[track.id] = false;
         entry.trackVolume[track.id] = 1.0;
+        entry.trackLastNonZeroVolume[track.id] = 1.0;
       }
     }
 
@@ -341,8 +344,20 @@ export class MultiMidiManager {
       file.trackVolume = {};
     }
 
+    // Initialize trackLastNonZeroVolume if not present
+    if (!file.trackLastNonZeroVolume) {
+      file.trackLastNonZeroVolume = {};
+    }
+
     // Clamp volume to 0-1 range
-    file.trackVolume[trackId] = Math.max(0, Math.min(1, volume));
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    file.trackVolume[trackId] = clampedVolume;
+
+    // Store last non-zero volume for unmute restore
+    if (clampedVolume > 0) {
+      file.trackLastNonZeroVolume[trackId] = clampedVolume;
+    }
+
     this.notifyStateChange();
   }
 
@@ -356,6 +371,19 @@ export class MultiMidiManager {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return 1.0;
     return file.trackVolume?.[trackId] ?? 1.0;
+  }
+
+  /**
+   * Get last non-zero volume for a specific track.
+   * Used to restore volume when unmuting a track.
+   * Returns 1.0 if trackLastNonZeroVolume is not set (default full volume).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackLastNonZeroVolume(fileId: string, trackId: number): number {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return 1.0;
+    return file.trackLastNonZeroVolume?.[trackId] ?? 1.0;
   }
 
   /**

@@ -181,6 +181,9 @@ export class WaveRollPlayer {
     this.container = container;
     this.midiManager = new MultiMidiManager();
     this.initialFileItemList = initialFileItemList;
+
+    // Expose midiManager globally for audio player track mute/volume checks
+    (globalThis as unknown as { _waveRollMidiManager?: MultiMidiManager })._waveRollMidiManager = this.midiManager;
     
     // Apply options
     if (options?.soloMode) {
