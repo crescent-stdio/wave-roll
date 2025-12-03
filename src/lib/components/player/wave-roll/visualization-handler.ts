@@ -209,6 +209,13 @@ export class VisualizationHandler {
       const baseColor = toNumberColor(raw);
 
       file.parsedData.notes.forEach((n, noteIdx: number) => {
+        // Check track visibility: if trackId is set, respect trackVisibility
+        // Default to visible if trackVisibility is not defined for this track
+        const trackId = n.trackId;
+        const isTrackVisible =
+          trackId === undefined || file.trackVisibility?.[trackId] !== false;
+        if (!isTrackVisible) return;
+
         baseNotes.push({
           note: { ...n, fileId: file.id, sourceIndex: noteIdx } as NoteData,
           color: baseColor,

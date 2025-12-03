@@ -2,7 +2,11 @@ import { UIComponentDependencies } from "../../types";
 import { renderOnsetSVG } from "@/assets/onset-icons";
 import { openOnsetPicker } from "../components/onset-picker";
 import { PLAYER_ICONS } from "@/assets/player-icons";
-import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
+import {
+  getInstrumentIcon,
+  CHEVRON_DOWN,
+  CHEVRON_RIGHT,
+} from "@/assets/instrument-icons";
 import { toHexColor } from "@/lib/core/utils/color";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { MidiFileEntry } from "@/core/midi";
@@ -12,6 +16,13 @@ import {
   computeNoteMetrics,
   DEFAULT_TOLERANCES,
 } from "@/lib/evaluation/transcription";
+import { createIconButton } from "@/lib/components/ui/utils/icon-button";
+
+/**
+ * Stores accordion expanded state per fileId.
+ * Persists across re-renders so accordion doesn't collapse when track visibility changes.
+ */
+const accordionExpandedState = new Map<string, boolean>();
 
 /**
  * Build the "MIDI Files" list section of the settings modal.
@@ -112,8 +123,13 @@ export function createFileList(
       const shapeHost = document.createElement("div");
       shapeHost.style.cssText = `width:18px;height:18px;display:flex;align-items:center;justify-content:center;`;
       // Unified onset marker SVG renderer for both swatch and marker picker
-      const renderOnsetSvg = (style: import("@/types").OnsetMarkerStyle, color: string) => renderOnsetSVG(style, color, 16);
-      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(file.id);
+      const renderOnsetSvg = (
+        style: import("@/types").OnsetMarkerStyle,
+        color: string
+      ) => renderOnsetSVG(style, color, 16);
+      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(
+        file.id
+      );
       shapeHost.innerHTML = renderOnsetSvg(ensuredStyle, initialHex);
       swatchBtn.appendChild(shapeHost);
 
@@ -126,14 +142,9 @@ export function createFileList(
 
       // Unified picker trigger (clicking the swatch opens the combined picker)
       swatchBtn.onclick = (e) => {
-        openOnsetPicker(
-          dependencies,
-          file.id,
-          swatchBtn,
-          (style, hex) => {
-            shapeHost.innerHTML = renderOnsetSvg(style, hex);
-          }
-        );
+        openOnsetPicker(dependencies, file.id, swatchBtn, (style, hex) => {
+          shapeHost.innerHTML = renderOnsetSvg(style, hex);
+        });
       };
 
       // Handle color change from native picker
@@ -147,7 +158,9 @@ export function createFileList(
         );
 
         // Update swatch shape color
-        const styleNow = dependencies.stateManager.getOnsetMarkerForFile(file.id) || ensuredStyle;
+        const styleNow =
+          dependencies.stateManager.getOnsetMarkerForFile(file.id) ||
+          ensuredStyle;
         shapeHost.innerHTML = renderOnsetSvg(styleNow, hex);
       };
 
@@ -178,7 +191,9 @@ export function createFileList(
       delBtn.style.cssText =
         "border:none;background:transparent;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);";
       delBtn.onclick = () => {
-        if (!canRemove) { return; }
+        if (!canRemove) {
+          return;
+        }
         if (confirm(`Delete ${file.name}?`)) {
           dependencies.midiManager.removeMidiFile(file.id);
           refreshFileList();
@@ -274,6 +289,9 @@ export function createFileList(
       // ---- Track Accordion (for multi-track MIDI files) ----
       const tracks = file.parsedData?.tracks;
       if (tracks && tracks.length > 1) {
+        // Restore expanded state from module-level Map
+        let isExpanded = accordionExpandedState.get(file.id) ?? false;
+
         // Create accordion container
         const accordionContainer = document.createElement("div");
         accordionContainer.style.cssText =
@@ -284,21 +302,21 @@ export function createFileList(
         accordionHeader.type = "button";
         accordionHeader.style.cssText =
           "display:flex;align-items:center;gap:6px;padding:4px 8px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:12px;width:100%;text-align:left;";
-        
+
         const chevronSpan = document.createElement("span");
-        chevronSpan.innerHTML = CHEVRON_RIGHT;
-        chevronSpan.style.cssText = "display:flex;align-items:center;transition:transform 0.2s;";
-        
+        chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+        chevronSpan.style.cssText =
+          "display:flex;align-items:center;transition:transform 0.2s;";
+
         const trackCountText = document.createElement("span");
         trackCountText.textContent = `${tracks.length} tracks`;
-        
+
         accordionHeader.appendChild(chevronSpan);
         accordionHeader.appendChild(trackCountText);
 
-        // Track list (hidden by default)
+        // Track list (restore display state)
         const trackList = document.createElement("div");
-        trackList.style.cssText =
-          "display:none;flex-direction:column;gap:4px;padding:8px;background:var(--surface);border-radius:4px;margin-top:4px;";
+        trackList.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:4px;padding:8px;background:var(--surface);border-radius:4px;margin-top:4px;`;
 
         // Populate track items
         tracks.forEach((track: TrackInfo) => {
@@ -306,14 +324,31 @@ export function createFileList(
           trackRow.style.cssText =
             "display:flex;align-items:center;gap:8px;padding:4px;";
 
-          // Checkbox for track visibility
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.checked = dependencies.midiManager.isTrackVisible(file.id, track.id);
-          checkbox.style.cssText = "cursor:pointer;";
-          checkbox.onchange = () => {
+          // Eye icon button for track visibility (replaces checkbox)
+          const isTrackVisible = dependencies.midiManager.isTrackVisible(
+            file.id,
+            track.id
+          );
+          const visBtn = createIconButton(
+            isTrackVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
+            () => {
+              dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
+            },
+            "Toggle track visibility",
+            { size: 18 }
+          );
+          // Override onclick to add stopPropagation
+          visBtn.onclick = (e: MouseEvent) => {
+            e.stopPropagation();
             dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
           };
+          visBtn.style.color = isTrackVisible
+            ? "var(--text-muted)"
+            : "rgba(71,85,105,0.4)";
+          visBtn.style.border = "none";
+          visBtn.style.boxShadow = "none";
+          visBtn.style.padding = "0";
+          visBtn.style.minWidth = "18px";
 
           // Instrument icon
           const iconSpan = document.createElement("span");
@@ -334,17 +369,17 @@ export function createFileList(
           noteCount.style.cssText =
             "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;";
 
-          trackRow.appendChild(checkbox);
+          trackRow.appendChild(visBtn);
           trackRow.appendChild(iconSpan);
           trackRow.appendChild(trackName);
           trackRow.appendChild(noteCount);
           trackList.appendChild(trackRow);
         });
 
-        // Toggle accordion on header click
-        let isExpanded = false;
+        // Toggle accordion on header click and persist state
         accordionHeader.onclick = () => {
           isExpanded = !isExpanded;
+          accordionExpandedState.set(file.id, isExpanded);
           trackList.style.display = isExpanded ? "flex" : "none";
           chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
         };
@@ -369,10 +404,14 @@ export function createFileList(
     hiddenInput.multiple = true;
     hiddenInput.style.display = "none";
 
-    addBtn.onclick = () => { if (canAdd) hiddenInput.click(); };
+    addBtn.onclick = () => {
+      if (canAdd) hiddenInput.click();
+    };
 
     hiddenInput.onchange = async (e) => {
-      if (!canAdd) { return; }
+      if (!canAdd) {
+        return;
+      }
       const files = Array.from((e.target as HTMLInputElement).files || []);
       if (files.length === 0) return;
 
@@ -381,11 +420,16 @@ export function createFileList(
           const state = dependencies.stateManager?.getState();
           const pedalElongate = state?.visual.pedalElongate ?? true;
           const pedalThreshold = state?.visual.pedalThreshold ?? 64;
-          const parsed = await parseMidi(file, { 
+          const parsed = await parseMidi(file, {
             applyPedalElongate: pedalElongate,
-            pedalThreshold: pedalThreshold 
+            pedalThreshold: pedalThreshold,
           });
-          dependencies.midiManager.addMidiFile(file.name, parsed, undefined, file);
+          dependencies.midiManager.addMidiFile(
+            file.name,
+            parsed,
+            undefined,
+            file
+          );
         } catch (err) {
           console.error("Failed to parse MIDI", err);
         }

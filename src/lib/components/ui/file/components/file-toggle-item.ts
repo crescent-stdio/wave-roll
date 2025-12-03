@@ -3,21 +3,33 @@
  */
 
 import { PLAYER_ICONS } from "@/assets/player-icons";
+import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
+import { TrackInfo } from "@/lib/midi/types";
 import { UIComponentDependencies } from "@/lib/components/ui";
 import { createIconButton } from "../../utils/icon-button";
 import { FileVolumeControl } from "../../controls/file-volume";
 import { ShapeRenderer } from "../utils/shape-renderer";
 import { EvaluationControls } from "./evaluation-controls";
 
+/**
+ * Stores accordion expanded state per fileId.
+ * Persists across re-renders so accordion doesn't collapse when track visibility changes.
+ */
+const accordionExpandedState = new Map<string, boolean>();
+
 export class FileToggleItem {
   /**
-   * Create a MIDI file toggle item
+   * Create a MIDI file toggle item with optional track accordion
    */
   static create(
     file: MidiFileEntry,
     dependencies: UIComponentDependencies
   ): HTMLElement {
+    // Container for file row + track accordion
+    const container = document.createElement("div");
+    container.style.cssText = `display:flex;flex-direction:column;gap:0;`;
+
     const item = document.createElement("div");
     item.style.cssText = `
       display: flex;
@@ -64,7 +76,120 @@ export class FileToggleItem {
     window.addEventListener('wr-master-mirror', handleMasterMirror);
     (item as any).__cleanupMasterMirror = () => window.removeEventListener('wr-master-mirror', handleMasterMirror);
 
-    return item;
+    container.appendChild(item);
+
+    // Add track accordion for multi-track MIDI files
+    const tracks = file.parsedData?.tracks;
+    if (tracks && tracks.length > 1) {
+      const accordion = this.createTrackAccordion(file, tracks, dependencies);
+      container.appendChild(accordion);
+    }
+
+    return container;
+  }
+
+  /**
+   * Create track accordion for multi-track MIDI files
+   */
+  private static createTrackAccordion(
+    file: MidiFileEntry,
+    tracks: TrackInfo[],
+    dependencies: UIComponentDependencies
+  ): HTMLElement {
+    const accordionContainer = document.createElement("div");
+    accordionContainer.style.cssText =
+      "margin-left:16px;margin-top:4px;margin-bottom:4px;";
+
+    // Restore expanded state from module-level Map
+    let isExpanded = accordionExpandedState.get(file.id) ?? false;
+
+    // Accordion header (toggle button)
+    const accordionHeader = document.createElement("button");
+    accordionHeader.type = "button";
+    accordionHeader.style.cssText =
+      "display:flex;align-items:center;gap:6px;padding:4px 8px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:12px;width:100%;text-align:left;";
+
+    const chevronSpan = document.createElement("span");
+    chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+    chevronSpan.style.cssText =
+      "display:flex;align-items:center;transition:transform 0.2s;";
+
+    const trackCountText = document.createElement("span");
+    trackCountText.textContent = `${tracks.length} tracks`;
+
+    accordionHeader.appendChild(chevronSpan);
+    accordionHeader.appendChild(trackCountText);
+
+    // Track list (restore display state)
+    const trackList = document.createElement("div");
+    trackList.style.cssText =
+      `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:4px;padding:8px;background:var(--surface);border-radius:4px;margin-top:4px;`;
+
+    // Populate track items
+    tracks.forEach((track: TrackInfo) => {
+      const trackRow = document.createElement("div");
+      trackRow.style.cssText =
+        "display:flex;align-items:center;gap:8px;padding:4px;";
+
+      // Eye icon button for track visibility (replaces checkbox)
+      const isTrackVisible = dependencies.midiManager.isTrackVisible(file.id, track.id);
+      const visBtn = createIconButton(
+        isTrackVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
+        () => {
+          dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
+        },
+        "Toggle track visibility",
+        { size: 18 }
+      );
+      // Override onclick to add stopPropagation
+      visBtn.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
+      };
+      visBtn.style.color = isTrackVisible ? "var(--text-muted)" : "rgba(71,85,105,0.4)";
+      visBtn.style.border = "none";
+      visBtn.style.boxShadow = "none";
+      visBtn.style.padding = "0";
+      visBtn.style.minWidth = "18px";
+
+      // Instrument icon
+      const iconSpan = document.createElement("span");
+      iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
+      iconSpan.style.cssText =
+        "display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--text-muted);";
+      iconSpan.title = track.instrumentFamily;
+
+      // Track name
+      const trackName = document.createElement("span");
+      trackName.textContent = track.name;
+      trackName.style.cssText =
+        "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+      // Note count badge
+      const noteCount = document.createElement("span");
+      noteCount.textContent = `${track.noteCount} notes`;
+      noteCount.style.cssText =
+        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;";
+
+      trackRow.appendChild(visBtn);
+      trackRow.appendChild(iconSpan);
+      trackRow.appendChild(trackName);
+      trackRow.appendChild(noteCount);
+      trackList.appendChild(trackRow);
+    });
+
+    // Toggle accordion on header click and persist state
+    accordionHeader.onclick = () => {
+      isExpanded = !isExpanded;
+      accordionExpandedState.set(file.id, isExpanded);
+      trackList.style.display = isExpanded ? "flex" : "none";
+      chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+    };
+
+    accordionContainer.appendChild(accordionHeader);
+    accordionContainer.appendChild(trackList);
+
+    return accordionContainer;
   }
 
   private static createColorIndicator(file: MidiFileEntry, dependencies: UIComponentDependencies): HTMLElement {
