@@ -350,6 +350,32 @@ export function createFileList(
           visBtn.style.padding = "0";
           visBtn.style.minWidth = "18px";
 
+          // Mute icon button for track audio
+          const isTrackMuted = dependencies.midiManager.isTrackMuted(
+            file.id,
+            track.id
+          );
+          const muteBtn = createIconButton(
+            isTrackMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume,
+            () => {
+              dependencies.midiManager.toggleTrackMute(file.id, track.id);
+            },
+            "Toggle track mute",
+            { size: 18 }
+          );
+          // Override onclick to add stopPropagation
+          muteBtn.onclick = (e: MouseEvent) => {
+            e.stopPropagation();
+            dependencies.midiManager.toggleTrackMute(file.id, track.id);
+          };
+          muteBtn.style.color = isTrackMuted
+            ? "rgba(71,85,105,0.4)"
+            : "var(--text-muted)";
+          muteBtn.style.border = "none";
+          muteBtn.style.boxShadow = "none";
+          muteBtn.style.padding = "0";
+          muteBtn.style.minWidth = "18px";
+
           // Instrument icon
           const iconSpan = document.createElement("span");
           iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
@@ -370,6 +396,7 @@ export function createFileList(
             "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;";
 
           trackRow.appendChild(visBtn);
+          trackRow.appendChild(muteBtn);
           trackRow.appendChild(iconSpan);
           trackRow.appendChild(trackName);
           trackRow.appendChild(noteCount);

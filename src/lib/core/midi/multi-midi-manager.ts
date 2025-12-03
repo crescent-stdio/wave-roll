@@ -121,10 +121,13 @@ export class MultiMidiManager {
     entry.isVisible = shouldBeVisible;
 
     // Initialize trackVisibility: all tracks visible by default
+    // Initialize trackMuted: all tracks unmuted by default
     if (parsedData.tracks && parsedData.tracks.length > 0) {
       entry.trackVisibility = {};
+      entry.trackMuted = {};
       for (const track of parsedData.tracks) {
         entry.trackVisibility[track.id] = true;
+        entry.trackMuted[track.id] = false;
       }
     }
 
@@ -286,6 +289,38 @@ export class MultiMidiManager {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return false;
     return file.trackVisibility?.[trackId] ?? true;
+  }
+
+  /**
+   * Toggle mute state of a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public toggleTrackMute(fileId: string, trackId: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackMuted if not present
+    if (!file.trackMuted) {
+      file.trackMuted = {};
+    }
+
+    // Default to false (unmuted) if not set, then toggle
+    const currentMuted = file.trackMuted[trackId] ?? false;
+    file.trackMuted[trackId] = !currentMuted;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if a specific track is muted.
+   * Returns false if trackMuted is not set (default unmuted).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackMuted(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackMuted?.[trackId] ?? false;
   }
 
   /**

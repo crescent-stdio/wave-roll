@@ -35,6 +35,11 @@ export interface MidiFileEntry {
    * All tracks are visible by default when not specified.
    */
   trackVisibility?: Record<number, boolean>;
+  /**
+   * Per-track mute state. Key is trackId, value is muted.
+   * All tracks are unmuted by default when not specified.
+   */
+  trackMuted?: Record<number, boolean>;
 }
 
 /**

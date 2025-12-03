@@ -216,11 +216,16 @@ export class VisualizationHandler {
           trackId === undefined || file.trackVisibility?.[trackId] !== false;
         if (!isTrackVisible) return;
 
+        // Check track mute: if trackId is set, respect trackMuted
+        // Default to unmuted if trackMuted is not defined for this track
+        const isTrackMuted =
+          trackId !== undefined && file.trackMuted?.[trackId] === true;
+
         baseNotes.push({
           note: { ...n, fileId: file.id, sourceIndex: noteIdx } as NoteData,
           color: baseColor,
           fileId: file.id,
-          isMuted: file.isMuted ?? false,
+          isMuted: (file.isMuted ?? false) || isTrackMuted,
         });
       });
     });
