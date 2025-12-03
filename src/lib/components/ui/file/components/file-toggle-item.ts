@@ -158,7 +158,7 @@ export class FileToggleItem {
   ): { trackList: HTMLElement } {
     // Track list container - aligned with file row (chevron + colorIndicator width)
     const trackList = document.createElement("div");
-    trackList.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:32px;margin-top:2px;`;
+    trackList.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:27px;margin-top:2px;`;
 
     // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
     const sortedTracks = [...tracks].sort((a, b) => {

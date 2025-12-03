@@ -61,6 +61,14 @@ export class MidiPlayerGroup implements PlayerGroup {
   /** Map of MIDI Program Number -> loading Promise to prevent duplicate loads */
   private programSamplerLoading: Map<number, Promise<Tone.Sampler>> = new Map();
   
+  // --- Pending Player States (for settings applied before player creation) ---
+  /** Stores mute/volume/pan states set before the player is initialized */
+  private pendingPlayerStates = new Map<string, {
+    muted?: boolean;
+    volume?: number;
+    pan?: number;
+  }>();
+  
   // Error tracking and statistics
   private errorStats = {
     totalNoteAttempts: 0,
@@ -242,6 +250,23 @@ export class MidiPlayerGroup implements PlayerGroup {
       };
       
       this.players.set(fileId, playerInfo);
+      
+      // Apply any pending states that were set before player creation
+      const pendingState = this.pendingPlayerStates.get(fileId);
+      if (pendingState) {
+        if (pendingState.volume !== undefined) {
+          this.setPlayerVolume(fileId, pendingState.volume);
+        }
+        if (pendingState.pan !== undefined) {
+          this.setPlayerPan(fileId, pendingState.pan);
+        }
+        if (pendingState.muted !== undefined) {
+          this.setPlayerMute(fileId, pendingState.muted);
+        }
+        this.pendingPlayerStates.delete(fileId);
+        // console.log('[MidiPlayerGroup] Applied pending states for file:', fileId, pendingState);
+      }
+      
       // console.log('[MidiPlayerGroup] Successfully created and loaded sampler for file:', fileId);
       
     } catch (error) {
@@ -1035,7 +1060,10 @@ export class MidiPlayerGroup implements PlayerGroup {
   setPlayerVolume(fileId: string, volume: number): void {
     const playerInfo = this.players.get(fileId);
     if (!playerInfo) {
-      console.warn('[MidiPlayerGroup] Player not found:', fileId);
+      // Store pending volume state for later application when player is created
+      const pending = this.pendingPlayerStates.get(fileId) || {};
+      pending.volume = Math.max(0, Math.min(1, volume));
+      this.pendingPlayerStates.set(fileId, pending);
       return;
     }
     
@@ -1054,7 +1082,10 @@ export class MidiPlayerGroup implements PlayerGroup {
   setPlayerPan(fileId: string, pan: number): void {
     const playerInfo = this.players.get(fileId);
     if (!playerInfo) {
-      console.warn('[MidiPlayerGroup] Player not found:', fileId);
+      // Store pending pan state for later application when player is created
+      const pending = this.pendingPlayerStates.get(fileId) || {};
+      pending.pan = Math.max(-1, Math.min(1, pan));
+      this.pendingPlayerStates.set(fileId, pending);
       return;
     }
     
@@ -1070,7 +1101,10 @@ export class MidiPlayerGroup implements PlayerGroup {
   setPlayerMute(fileId: string, muted: boolean): void {
     const playerInfo = this.players.get(fileId);
     if (!playerInfo) {
-      console.warn('[MidiPlayerGroup] Player not found:', fileId);
+      // Store pending mute state for later application when player is created
+      const pending = this.pendingPlayerStates.get(fileId) || {};
+      pending.muted = muted;
+      this.pendingPlayerStates.set(fileId, pending);
       return;
     }
     
@@ -1128,5 +1162,6 @@ export class MidiPlayerGroup implements PlayerGroup {
     }
     
     this.players.clear();
+    this.pendingPlayerStates.clear();
   }
 }
