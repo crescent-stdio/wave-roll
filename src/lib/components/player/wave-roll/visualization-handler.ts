@@ -14,7 +14,7 @@ import { mixColorsOklch } from "@/core/utils/color";
 import { EvaluationHandler } from "./evaluation-handler";
 import type { PianoRoll } from "@/core/visualization/piano-roll";
 import type { PianoRollAugments } from "@/core/visualization/piano-roll/types-internal";
- type AugPR = PianoRoll & PianoRollAugments;
+type AugPR = PianoRoll & PianoRollAugments;
 
 export class VisualizationHandler {
   private evaluationHandler: EvaluationHandler;
@@ -60,10 +60,10 @@ export class VisualizationHandler {
         file.parsedData.notes.forEach((note: NoteData) => {
           // Keep velocity within valid [0,1] range.
           const scaledVel = Math.min(1, note.velocity * velocityScale);
-          audioNotes.push({ 
-            ...note, 
-            velocity: scaledVel, 
-            fileId: file.id
+          audioNotes.push({
+            ...note,
+            velocity: scaledVel,
+            fileId: file.id,
           });
         });
       }
@@ -102,7 +102,8 @@ export class VisualizationHandler {
     const piano = this.visualizationEngine.getPianoRollInstance();
     if (piano) {
       // Get the actual PianoRoll instance for internal property access
-      const pianoInstance = (piano as unknown as { _instance?: PianoRoll })._instance;
+      const pianoInstance = (piano as unknown as { _instance?: PianoRoll })
+        ._instance;
 
       // ------------------------------------------------------------
       // Provide original per-file colours (sidebar swatch) so that
@@ -165,7 +166,8 @@ export class VisualizationHandler {
         (pianoInstance as AugPR).highlightMode = visual.highlightMode;
         (pianoInstance as AugPR).showOnsetMarkers = visual.showOnsetMarkers;
         // Ensure each file has a unique onset marker style assigned and pass mapping
-        const onsetStyles: Record<string, import("@/types").OnsetMarkerStyle> = {};
+        const onsetStyles: Record<string, import("@/types").OnsetMarkerStyle> =
+          {};
         state.files.forEach((f: MidiFileEntry) => {
           const style = this.stateManager.ensureOnsetMarkerForFile(f.id);
           onsetStyles[f.id] = style;
@@ -221,8 +223,19 @@ export class VisualizationHandler {
         const isTrackMuted =
           trackId !== undefined && file.trackMuted?.[trackId] === true;
 
+        // Apply track volume to note velocity
+        // Default to full volume (1.0) if trackVolume is not defined for this track
+        const trackVolume =
+          trackId !== undefined ? (file.trackVolume?.[trackId] ?? 1.0) : 1.0;
+        const scaledVelocity = n.velocity * trackVolume;
+
         baseNotes.push({
-          note: { ...n, fileId: file.id, sourceIndex: noteIdx } as NoteData,
+          note: {
+            ...n,
+            velocity: scaledVelocity,
+            fileId: file.id,
+            sourceIndex: noteIdx,
+          } as NoteData,
           color: baseColor,
           fileId: file.id,
           isMuted: (file.isMuted ?? false) || isTrackMuted,

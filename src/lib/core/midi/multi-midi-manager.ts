@@ -122,12 +122,15 @@ export class MultiMidiManager {
 
     // Initialize trackVisibility: all tracks visible by default
     // Initialize trackMuted: all tracks unmuted by default
+    // Initialize trackVolume: all tracks at full volume by default
     if (parsedData.tracks && parsedData.tracks.length > 0) {
       entry.trackVisibility = {};
       entry.trackMuted = {};
+      entry.trackVolume = {};
       for (const track of parsedData.tracks) {
         entry.trackVisibility[track.id] = true;
         entry.trackMuted[track.id] = false;
+        entry.trackVolume[track.id] = 1.0;
       }
     }
 
@@ -321,6 +324,38 @@ export class MultiMidiManager {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return false;
     return file.trackMuted?.[trackId] ?? false;
+  }
+
+  /**
+   * Set volume for a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param volume - Volume level (0-1)
+   */
+  public setTrackVolume(fileId: string, trackId: number, volume: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackVolume if not present
+    if (!file.trackVolume) {
+      file.trackVolume = {};
+    }
+
+    // Clamp volume to 0-1 range
+    file.trackVolume[trackId] = Math.max(0, Math.min(1, volume));
+    this.notifyStateChange();
+  }
+
+  /**
+   * Get volume for a specific track.
+   * Returns 1.0 if trackVolume is not set (default full volume).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackVolume(fileId: string, trackId: number): number {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return 1.0;
+    return file.trackVolume?.[trackId] ?? 1.0;
   }
 
   /**

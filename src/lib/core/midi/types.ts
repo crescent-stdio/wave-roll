@@ -40,6 +40,11 @@ export interface MidiFileEntry {
    * All tracks are unmuted by default when not specified.
    */
   trackMuted?: Record<number, boolean>;
+  /**
+   * Per-track volume level. Key is trackId, value is volume (0-1).
+   * All tracks have full volume (1.0) by default when not specified.
+   */
+  trackVolume?: Record<number, number>;
 }
 
 /**

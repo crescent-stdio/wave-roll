@@ -3,7 +3,11 @@
  */
 
 import { PLAYER_ICONS } from "@/assets/player-icons";
-import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
+import {
+  getInstrumentIcon,
+  CHEVRON_DOWN,
+  CHEVRON_RIGHT,
+} from "@/assets/instrument-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
 import { TrackInfo } from "@/lib/midi/types";
 import { UIComponentDependencies } from "@/lib/components/ui";
@@ -42,6 +46,24 @@ export class FileToggleItem {
       border: 1px solid var(--ui-border);
     `;
 
+    // Check if this file has multiple tracks for accordion toggle
+    const tracks = file.parsedData?.tracks;
+    const hasMultipleTracks = tracks && tracks.length > 1;
+
+    // Add accordion toggle chevron at the start if multi-track
+    let chevronSpan: HTMLElement | null = null;
+    let trackList: HTMLElement | null = null;
+    let isExpanded = accordionExpandedState.get(file.id) ?? false;
+
+    if (hasMultipleTracks) {
+      chevronSpan = document.createElement("span");
+      chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+      chevronSpan.style.cssText =
+        "display:flex;align-items:center;cursor:pointer;color:var(--text-muted);transition:transform 0.2s;";
+      chevronSpan.title = `${tracks.length} tracks`;
+      item.appendChild(chevronSpan);
+    }
+
     // Add all components
     item.appendChild(this.createColorIndicator(file, dependencies));
     item.appendChild(this.createFileName(file));
@@ -50,39 +72,68 @@ export class FileToggleItem {
     const evalGroup = document.createElement("div");
     evalGroup.style.cssText = `display:flex;align-items:center;gap:2px;`;
     evalGroup.appendChild(this.createReferenceButton(file, dependencies, item));
-    evalGroup.appendChild(this.createEstimationButton(file, dependencies, item));
+    evalGroup.appendChild(
+      this.createEstimationButton(file, dependencies, item)
+    );
     item.appendChild(evalGroup);
     item.appendChild(this.createVisibilityButton(file, dependencies));
     item.appendChild(this.createSustainButton(file, dependencies));
     item.appendChild(this.createVolumeControl(file, dependencies));
-    
-    const { labelL, slider, labelR } = this.createPanControls(file, dependencies);
+
+    const { labelL, slider, labelR } = this.createPanControls(
+      file,
+      dependencies
+    );
     item.appendChild(labelL);
     item.appendChild(slider);
     item.appendChild(labelR);
 
     // Dim/tooltip when master muted
     const handleMasterMirror = (e: Event) => {
-      const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+      const detail = (
+        e as CustomEvent<{
+          mode: "mirror-mute" | "mirror-restore" | "mirror-set";
+          volume?: number;
+        }>
+      ).detail;
       if (!detail || !detail.mode) return;
-      if (detail.mode === 'mirror-mute') {
-        item.style.opacity = '0.6';
-        item.title = 'Master muted — changes apply after unmute';
-      } else if (detail.mode === 'mirror-restore') {
-        item.style.opacity = '';
-        item.removeAttribute('title');
+      if (detail.mode === "mirror-mute") {
+        item.style.opacity = "0.6";
+        item.title = "Master muted — changes apply after unmute";
+      } else if (detail.mode === "mirror-restore") {
+        item.style.opacity = "";
+        item.removeAttribute("title");
       }
     };
-    window.addEventListener('wr-master-mirror', handleMasterMirror);
-    (item as any).__cleanupMasterMirror = () => window.removeEventListener('wr-master-mirror', handleMasterMirror);
+    window.addEventListener("wr-master-mirror", handleMasterMirror);
+    (item as any).__cleanupMasterMirror = () =>
+      window.removeEventListener("wr-master-mirror", handleMasterMirror);
 
     container.appendChild(item);
 
     // Add track accordion for multi-track MIDI files
-    const tracks = file.parsedData?.tracks;
-    if (tracks && tracks.length > 1) {
-      const accordion = this.createTrackAccordion(file, tracks, dependencies);
-      container.appendChild(accordion);
+    if (hasMultipleTracks && chevronSpan) {
+      const accordionResult = this.createTrackAccordion(
+        file,
+        tracks,
+        dependencies,
+        isExpanded
+      );
+      trackList = accordionResult.trackList;
+      container.appendChild(trackList);
+
+      // Toggle accordion on chevron click
+      chevronSpan.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        isExpanded = !isExpanded;
+        accordionExpandedState.set(file.id, isExpanded);
+        if (trackList) {
+          trackList.style.display = isExpanded ? "flex" : "none";
+        }
+        if (chevronSpan) {
+          chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+        }
+      };
     }
 
     return container;
@@ -90,133 +141,125 @@ export class FileToggleItem {
 
   /**
    * Create track accordion for multi-track MIDI files
+   * Returns the track list element for external toggle control
    */
   private static createTrackAccordion(
     file: MidiFileEntry,
     tracks: TrackInfo[],
-    dependencies: UIComponentDependencies
-  ): HTMLElement {
-    const accordionContainer = document.createElement("div");
-    accordionContainer.style.cssText =
-      "margin-left:16px;margin-top:4px;margin-bottom:4px;";
-
-    // Restore expanded state from module-level Map
-    let isExpanded = accordionExpandedState.get(file.id) ?? false;
-
-    // Accordion header (toggle button)
-    const accordionHeader = document.createElement("button");
-    accordionHeader.type = "button";
-    accordionHeader.style.cssText =
-      "display:flex;align-items:center;gap:6px;padding:4px 8px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:12px;width:100%;text-align:left;";
-
-    const chevronSpan = document.createElement("span");
-    chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
-    chevronSpan.style.cssText =
-      "display:flex;align-items:center;transition:transform 0.2s;";
-
-    const trackCountText = document.createElement("span");
-    trackCountText.textContent = `${tracks.length} tracks`;
-
-    accordionHeader.appendChild(chevronSpan);
-    accordionHeader.appendChild(trackCountText);
-
-    // Track list (restore display state)
+    dependencies: UIComponentDependencies,
+    isExpanded: boolean
+  ): { trackList: HTMLElement } {
+    // Track list container - aligned with file row (chevron + colorIndicator width)
     const trackList = document.createElement("div");
-    trackList.style.cssText =
-      `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:4px;padding:8px;background:var(--surface);border-radius:4px;margin-top:4px;`;
+    trackList.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:32px;margin-top:2px;`;
+
+    // Sort tracks by MIDI program number (ascending)
+    const sortedTracks = [...tracks].sort(
+      (a, b) => (a.program ?? 0) - (b.program ?? 0)
+    );
 
     // Populate track items
-    tracks.forEach((track: TrackInfo) => {
+    sortedTracks.forEach((track: TrackInfo) => {
       const trackRow = document.createElement("div");
       trackRow.style.cssText =
-        "display:flex;align-items:center;gap:8px;padding:4px;";
+        "display:flex;align-items:center;gap:8px;padding:2px 0;";
 
-      // Eye icon button for track visibility (replaces checkbox)
-      const isTrackVisible = dependencies.midiManager.isTrackVisible(file.id, track.id);
+      // Instrument icon (first)
+      const iconSpan = document.createElement("span");
+      iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
+      iconSpan.style.cssText =
+        "display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--text-muted);";
+      iconSpan.title = track.instrumentFamily;
+
+      // Track name (second)
+      const trackName = document.createElement("span");
+      trackName.textContent = track.name;
+      trackName.style.cssText =
+        "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+      // Eye icon button for track visibility (third)
+      const isTrackVisible = dependencies.midiManager.isTrackVisible(
+        file.id,
+        track.id
+      );
       const visBtn = createIconButton(
         isTrackVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
         () => {
           dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
         },
         "Toggle track visibility",
-        { size: 18 }
+        { size: 20 }
       );
-      // Override onclick to add stopPropagation
       visBtn.onclick = (e: MouseEvent) => {
         e.stopPropagation();
         dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
       };
-      visBtn.style.color = isTrackVisible ? "var(--text-muted)" : "rgba(71,85,105,0.4)";
+      visBtn.style.color = isTrackVisible
+        ? "var(--text-muted)"
+        : "rgba(71,85,105,0.4)";
       visBtn.style.border = "none";
       visBtn.style.boxShadow = "none";
       visBtn.style.padding = "0";
-      visBtn.style.minWidth = "18px";
+      visBtn.style.minWidth = "20px";
+      // Add margin-right to align with file row's Volume (skip S button space)
+      visBtn.style.marginRight = "28px";
 
-      // Mute icon button for track audio
-      const isTrackMuted = dependencies.midiManager.isTrackMuted(file.id, track.id);
-      const muteBtn = createIconButton(
-        isTrackMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume,
-        () => {
-          dependencies.midiManager.toggleTrackMute(file.id, track.id);
-        },
-        "Toggle track mute",
-        { size: 18 }
+      // Volume slider for track audio (fourth) - increased size
+      const isTrackMuted = dependencies.midiManager.isTrackMuted(
+        file.id,
+        track.id
       );
-      // Override onclick to add stopPropagation
-      muteBtn.onclick = (e: MouseEvent) => {
-        e.stopPropagation();
-        dependencies.midiManager.toggleTrackMute(file.id, track.id);
-      };
-      muteBtn.style.color = isTrackMuted ? "rgba(71,85,105,0.4)" : "var(--text-muted)";
-      muteBtn.style.border = "none";
-      muteBtn.style.boxShadow = "none";
-      muteBtn.style.padding = "0";
-      muteBtn.style.minWidth = "18px";
+      const trackVolume = dependencies.midiManager.getTrackVolume(
+        file.id,
+        track.id
+      );
+      const volumeControl = new FileVolumeControl({
+        initialVolume: isTrackMuted ? 0 : trackVolume,
+        lastNonZeroVolume: trackVolume,
+        size: 22,
+        onVolumeChange: (volume) => {
+          dependencies.midiManager.setTrackVolume(file.id, track.id, volume);
+          // Also toggle mute state based on volume
+          const shouldMute = volume === 0;
+          const currentlyMuted = dependencies.midiManager.isTrackMuted(
+            file.id,
+            track.id
+          );
+          if (shouldMute !== currentlyMuted) {
+            dependencies.midiManager.toggleTrackMute(file.id, track.id);
+          }
+        },
+      });
+      const volumeEl = volumeControl.getElement();
 
-      // Instrument icon
-      const iconSpan = document.createElement("span");
-      iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
-      iconSpan.style.cssText =
-        "display:flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--text-muted);";
-      iconSpan.title = track.instrumentFamily;
-
-      // Track name
-      const trackName = document.createElement("span");
-      trackName.textContent = track.name;
-      trackName.style.cssText =
-        "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-
-      // Note count badge
+      // Note count badge (fifth/last) - aligns with file row's L-slider-R (Pan control) ~106px
       const noteCount = document.createElement("span");
       noteCount.textContent = `${track.noteCount} notes`;
       noteCount.style.cssText =
-        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;";
+        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:center;";
 
-      trackRow.appendChild(visBtn);
-      trackRow.appendChild(muteBtn);
+      // Append in new order: InstrumentIcon | TrackName | Eye | Volume | NoteCount
       trackRow.appendChild(iconSpan);
       trackRow.appendChild(trackName);
+      trackRow.appendChild(visBtn);
+      trackRow.appendChild(volumeEl);
       trackRow.appendChild(noteCount);
       trackList.appendChild(trackRow);
     });
 
-    // Toggle accordion on header click and persist state
-    accordionHeader.onclick = () => {
-      isExpanded = !isExpanded;
-      accordionExpandedState.set(file.id, isExpanded);
-      trackList.style.display = isExpanded ? "flex" : "none";
-      chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
-    };
-
-    accordionContainer.appendChild(accordionHeader);
-    accordionContainer.appendChild(trackList);
-
-    return accordionContainer;
+    return { trackList };
   }
 
-  private static createColorIndicator(file: MidiFileEntry, dependencies: UIComponentDependencies): HTMLElement {
+  private static createColorIndicator(
+    file: MidiFileEntry,
+    dependencies: UIComponentDependencies
+  ): HTMLElement {
     const fileColor = `#${file.color.toString(16).padStart(6, "0")}`;
-    return ShapeRenderer.createColorIndicator(file.id, fileColor, dependencies.stateManager as any);
+    return ShapeRenderer.createColorIndicator(
+      file.id,
+      fileColor,
+      dependencies.stateManager as any
+    );
   }
 
   private static createFileName(file: MidiFileEntry): HTMLElement {
@@ -270,13 +313,13 @@ export class FileToggleItem {
       "Toggle visibility",
       { size: 24 }
     );
-    
+
     visBtn.style.color = file.isPianoRollVisible
       ? "var(--text-muted)"
       : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
-    
+
     return visBtn;
   }
 
@@ -340,8 +383,8 @@ export class FileToggleItem {
     });
 
     const el = volumeControl.getElement();
-    el.setAttribute('data-role', 'file-volume');
-    el.setAttribute('data-file-id', file.id);
+    el.setAttribute("data-role", "file-volume");
+    el.setAttribute("data-file-id", file.id);
     return el;
   }
 
