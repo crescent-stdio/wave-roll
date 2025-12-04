@@ -135,7 +135,7 @@ export class VisualizationHandler {
       const evalState = this.stateManager.getState().evaluation;
       const fileInfoMap: Record<
         string,
-        { name: string; fileName: string; kind: string; color: number }
+        { name: string; fileName: string; kind: string; color: number; tracks?: Array<{ id: number; name: string }> }
       > = {};
       state.files.forEach((f: MidiFileEntry) => {
         const name = f.name || f.fileName || f.id;
@@ -149,11 +149,17 @@ export class VisualizationHandler {
           (typeof f.color === "number"
             ? f.color
             : parseInt(String(f.color ?? 0).replace("#", ""), 16));
+        // Extract track info for tooltip display (id -> name mapping)
+        const tracks = f.parsedData?.tracks?.map((t) => ({
+          id: t.id,
+          name: t.name,
+        }));
         fileInfoMap[f.id] = {
           name,
           fileName: f.fileName ?? "",
           kind,
           color,
+          tracks,
         };
       });
       if (pianoInstance) {
