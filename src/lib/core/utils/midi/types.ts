@@ -169,4 +169,9 @@ export interface ControlChangeEvent {
   name?: string;
   /** The ID of the source MIDI file this control change belongs to */
   fileId?: string;
+  /**
+   * Track ID within the MIDI file (0-based index).
+   * Used to filter sustain pedal visibility per track.
+   */
+  trackId?: number;
 }

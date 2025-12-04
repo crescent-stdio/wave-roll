@@ -56,6 +56,11 @@ export interface MidiFileEntry {
    * Default is false (piano) when not specified.
    */
   trackUseAutoInstrument?: Record<number, boolean>;
+  /**
+   * Per-track sustain pedal visibility. Key is trackId, value is visibility.
+   * All tracks show sustain by default (true) when not specified.
+   */
+  trackSustainVisibility?: Record<number, boolean>;
 }
 
 /**

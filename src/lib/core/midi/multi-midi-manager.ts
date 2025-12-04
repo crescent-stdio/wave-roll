@@ -124,16 +124,19 @@ export class MultiMidiManager {
     // Initialize trackMuted: all tracks unmuted by default
     // Initialize trackVolume: all tracks at full volume by default
     // Initialize trackLastNonZeroVolume: all tracks at full volume by default
+    // Initialize trackSustainVisibility: all tracks show sustain by default
     if (parsedData.tracks && parsedData.tracks.length > 0) {
       entry.trackVisibility = {};
       entry.trackMuted = {};
       entry.trackVolume = {};
       entry.trackLastNonZeroVolume = {};
+      entry.trackSustainVisibility = {};
       for (const track of parsedData.tracks) {
         entry.trackVisibility[track.id] = true;
         entry.trackMuted[track.id] = false;
         entry.trackVolume[track.id] = 1.0;
         entry.trackLastNonZeroVolume[track.id] = 1.0;
+        entry.trackSustainVisibility[track.id] = true;
       }
     }
 
@@ -295,6 +298,38 @@ export class MultiMidiManager {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return false;
     return file.trackVisibility?.[trackId] ?? true;
+  }
+
+  /**
+   * Toggle sustain pedal visibility for a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public toggleTrackSustainVisibility(fileId: string, trackId: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackSustainVisibility if not present
+    if (!file.trackSustainVisibility) {
+      file.trackSustainVisibility = {};
+    }
+
+    // Default to true (visible) if not set, then toggle
+    const currentVisibility = file.trackSustainVisibility[trackId] ?? true;
+    file.trackSustainVisibility[trackId] = !currentVisibility;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if sustain pedal is visible for a specific track.
+   * Returns true if trackSustainVisibility is not set (default visible).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackSustainVisible(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackSustainVisibility?.[trackId] ?? true;
   }
 
   /**

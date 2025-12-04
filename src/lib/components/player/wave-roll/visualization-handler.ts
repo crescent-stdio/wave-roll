@@ -76,16 +76,23 @@ export class VisualizationHandler {
     // --------------------------------------------------------------
     const controlChanges: ControlChangeEvent[] = [];
     state.files.forEach((file: MidiFileEntry) => {
-      const sustainVisible = file.isSustainVisible ?? true;
+      const fileSustainVisible = file.isSustainVisible ?? true;
       if (
         !file.isPianoRollVisible ||
-        !sustainVisible ||
+        !fileSustainVisible ||
         !file.parsedData?.controlChanges
       )
         return;
       // Stamp each CC event with the originating fileId so the renderer can
       // apply consistent per-track colouring.
+      // Also filter by per-track sustain visibility if trackId is present.
       file.parsedData.controlChanges.forEach((cc: ControlChangeEvent) => {
+        // Check track-level sustain visibility (defaults to true if not set)
+        if (cc.trackId !== undefined) {
+          const trackSustainVisible =
+            file.trackSustainVisibility?.[cc.trackId] ?? true;
+          if (!trackSustainVisible) return;
+        }
         controlChanges.push({ ...cc, fileId: file.id });
       });
     });

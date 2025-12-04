@@ -237,7 +237,37 @@ export class FileToggleItem {
       visBtn.style.padding = "0";
       visBtn.style.minWidth = "20px";
 
-      // Auto-instrument toggle button (fourth) - between Eye and Volume
+      // Sustain pedal visibility button - after Eye (visibility)
+      const isTrackSustainVisible =
+        dependencies.midiManager.isTrackSustainVisible?.(file.id, track.id) ??
+        true;
+      const sustainBtn = document.createElement("button");
+      sustainBtn.innerHTML = PLAYER_ICONS.sustain;
+      sustainBtn.style.cssText = `
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${isTrackSustainVisible ? "var(--text-muted)" : "rgba(71,85,105,0.4)"};
+        transition: color 0.15s ease;
+      `;
+      sustainBtn.title = isTrackSustainVisible
+        ? "Hide sustain pedal regions"
+        : "Show sustain pedal regions";
+      sustainBtn.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        dependencies.midiManager.toggleTrackSustainVisibility?.(
+          file.id,
+          track.id
+        );
+      };
+
+      // Auto-instrument toggle button - after TrackName, before Eye
       const isAutoInstrument =
         dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ??
         true;
@@ -258,8 +288,8 @@ export class FileToggleItem {
         justify-content: center;
         color: ${isAutoInstrument ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
         transition: color 0.15s ease;
+        margin-right: 22px;
         `;
-      // margin-right: 28px;
       autoInstrumentBtn.title = isAutoInstrument
         ? `Using ${track.instrumentFamily} sound (click for piano)`
         : "Using piano sound (click for auto instrument)";
@@ -312,12 +342,13 @@ export class FileToggleItem {
       noteCount.style.cssText =
         "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:center;";
 
-      // Append in new order: ColorDot | InstrumentIcon | TrackName | Eye | AutoInstrument | Volume | NoteCount
+      // Append in order: ColorDot | InstrumentIcon | TrackName | AutoInstrument | Eye | Sustain | Volume | NoteCount
       trackRow.appendChild(colorDot);
       trackRow.appendChild(iconSpan);
       trackRow.appendChild(trackName);
-      trackRow.appendChild(visBtn);
       trackRow.appendChild(autoInstrumentBtn);
+      trackRow.appendChild(visBtn);
+      trackRow.appendChild(sustainBtn);
       trackRow.appendChild(volumeEl);
       trackRow.appendChild(noteCount);
       trackList.appendChild(trackRow);

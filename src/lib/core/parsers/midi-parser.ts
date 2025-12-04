@@ -173,8 +173,10 @@ function extractMidiHeader(midi: any): MidiHeader {
 /**
  * Extracts control change events (e.g., sustain-pedal CC 64) from a Tone.js
  * MIDI track.
+ * @param track - The Tone.js MIDI track object
+ * @param trackId - Optional track ID to associate with these control changes
  */
-function extractControlChanges(track: any): ControlChangeEvent[] {
+function extractControlChanges(track: any, trackId?: number): ControlChangeEvent[] {
   // Tone.js represents controlChanges as Record<number, ToneControlChange[]>
   const result: ControlChangeEvent[] = [];
 
@@ -192,6 +194,7 @@ function extractControlChanges(track: any): ControlChangeEvent[] {
         ticks: evt.ticks,
         name: evt.name,
         fileId: track.name,
+        trackId,
       });
     }
   }
@@ -601,8 +604,8 @@ export async function parseMidi(
       );
 
       if (applyPedal) {
-        // Extract CC exclusively from this track (channel)
-        const cc = extractControlChanges(t);
+        // Extract CC exclusively from this track (channel) with trackId
+        const cc = extractControlChanges(t, trackIndex);
         if (cc.some((e) => e.controller === 64)) {
           // Use the enhanced sustain-pedal elongation which follows
           // onsets-and-frames ordering (sustain_off > note_off > sustain_on > note_on)
@@ -624,8 +627,9 @@ export async function parseMidi(
 
     // Collect merged control changes across all note tracks for UI/diagnostics
     const ccMerged: ControlChangeEvent[] = [];
-    for (const t of noteTracks) {
-      const cc = extractControlChanges(t).map((evt) => ({
+    for (let i = 0; i < noteTracks.length; i++) {
+      const t = noteTracks[i];
+      const cc = extractControlChanges(t, i).map((evt) => ({
         ...evt,
         fileId: primaryTrack.name,
       }));
