@@ -172,6 +172,8 @@ export class FileToggleItem {
     // Pre-compute file base color and total tracks for track color indicators
     const fileBaseColor = file.color;
     const totalTracks = tracks.length;
+    const uniformTrackColor =
+      dependencies.stateManager.getState().visual.uniformTrackColor ?? false;
 
     // Populate track items
     sortedTracks.forEach((track: TrackInfo) => {
@@ -179,12 +181,14 @@ export class FileToggleItem {
       trackRow.style.cssText =
         "display:flex;align-items:center;gap:8px;padding:2px 0;";
 
-      // Track color dot (first) - shows lightness-variant color for this track
-      const trackColor = ColorCalculator.getTrackVariantColor(
-        fileBaseColor,
-        track.id,
-        totalTracks
-      );
+      // Track color dot (first) - shows lightness-variant color for this track (unless uniformTrackColor is enabled)
+      const trackColor = uniformTrackColor
+        ? fileBaseColor
+        : ColorCalculator.getTrackVariantColor(
+            fileBaseColor,
+            track.id,
+            totalTracks
+          );
       const colorDot = document.createElement("span");
       colorDot.style.cssText = `
         width: 8px;

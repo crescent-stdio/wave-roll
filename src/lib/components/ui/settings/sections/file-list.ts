@@ -38,11 +38,43 @@ export function createFileList(
   // Section wrapper
   const filesSection = document.createElement("div");
 
+  // Header row with title and uniform track color toggle
+  const headerRow = document.createElement("div");
+  headerRow.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;";
+
   // Header
   const filesHeader = document.createElement("h3");
   filesHeader.textContent = "MIDI Files";
-  filesHeader.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;";
-  filesSection.appendChild(filesHeader);
+  filesHeader.style.cssText = "margin:0;font-size:16px;font-weight:600;";
+  headerRow.appendChild(filesHeader);
+
+  // Uniform Track Color toggle
+  const uniformColorToggle = document.createElement("label");
+  uniformColorToggle.style.cssText =
+    "display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;";
+
+  const uniformColorCheckbox = document.createElement("input");
+  uniformColorCheckbox.type = "checkbox";
+  uniformColorCheckbox.checked =
+    dependencies.stateManager.getState().visual.uniformTrackColor ?? false;
+  uniformColorCheckbox.style.cssText = "cursor:pointer;";
+  uniformColorCheckbox.onchange = () => {
+    dependencies.stateManager.updateVisualState({
+      uniformTrackColor: uniformColorCheckbox.checked,
+    });
+    // Refresh the file list to update track color dots
+    refreshFileList();
+  };
+
+  const uniformColorLabel = document.createElement("span");
+  uniformColorLabel.textContent = "Uniform Track Color";
+
+  uniformColorToggle.appendChild(uniformColorCheckbox);
+  uniformColorToggle.appendChild(uniformColorLabel);
+  headerRow.appendChild(uniformColorToggle);
+
+  filesSection.appendChild(headerRow);
 
   // List container
   const fileList = document.createElement("div");

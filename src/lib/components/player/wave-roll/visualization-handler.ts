@@ -210,10 +210,11 @@ export class VisualizationHandler {
     const toNumberColor = (c: string | number): number =>
       typeof c === "number" ? c : parseInt(c.replace("#", ""), 16);
 
-    const highlightMode =
-      this.stateManager.getState().visual.highlightMode ?? "file";
-    // Apply track-based lightness variation only in "file" mode
-    const applyTrackColors = highlightMode === "file";
+    const visualState = this.stateManager.getState().visual;
+    const highlightMode = visualState.highlightMode ?? "file";
+    const uniformTrackColor = visualState.uniformTrackColor ?? false;
+    // Apply track-based lightness variation only in "file" mode and when uniformTrackColor is false
+    const applyTrackColors = highlightMode === "file" && !uniformTrackColor;
 
     // 1) Base notes -------------------------------------------------------
     const baseNotes: ColoredNote[] = [];

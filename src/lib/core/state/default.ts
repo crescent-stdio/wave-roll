@@ -63,6 +63,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   pedalThreshold: 64,
   showOnsetMarkers: true,
   fileOnsetMarkers: {},
+  uniformTrackColor: false,
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {
