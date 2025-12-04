@@ -27,7 +27,7 @@ export function createSettingsControlUI(
   container.appendChild(settingsBtn);
 
   // Appearance button (Palette, Color, Onset Marker) - only in solo mode
-  // In non-solo mode, use "Tracks & Appearance" button in Files section
+  // In non-solo mode, use "Files & Appearance" button in Files section
   if (dependencies.soloMode) {
     const appearanceBtn = createIconButton(PLAYER_ICONS.palette, () => {
       openSettingsModal(dependencies);
