@@ -340,7 +340,7 @@ export class FileToggleItem {
       const noteCount = document.createElement("span");
       noteCount.textContent = `${track.noteCount} notes`;
       noteCount.style.cssText =
-        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:center;";
+        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:right;";
 
       // Append in order: ColorDot | InstrumentIcon | TrackName | AutoInstrument | Eye | Sustain | Volume | NoteCount
       trackRow.appendChild(colorDot);

@@ -152,6 +152,10 @@ export class WaveRollPlayer {
   // Piano roll config overrides from options
   private pianoRollConfigOverrides: Partial<PianoRollConfig> = {};
 
+  // File add request callbacks (for VS Code integration)
+  private fileAddRequestCallback: (() => void) | null = null;
+  private audioFileAddRequestCallback: (() => void) | null = null;
+
   // Compute effective UI duration considering tempo and WAV length
   private getEffectiveDuration(): number {
     try {
@@ -452,6 +456,14 @@ export class WaveRollPlayer {
         permissions: { ...this.permissions },
         soloMode: this.soloMode,
         midiExport: this.midiExportOptions,
+        onFileAddRequest: this.fileAddRequestCallback
+          ? () => this.triggerFileAddRequest()
+          : undefined,
+        onAudioFileAddRequest: this.audioFileAddRequestCallback
+          ? () => this.triggerAudioFileAddRequest()
+          : undefined,
+        addFileFromData: (data: ArrayBuffer | string, filename: string) =>
+          this.addFileFromData(data, filename),
       };
 
       // After creation, convert seconds -> % once we know (tempo/WAV-aware) duration.
@@ -1052,6 +1064,132 @@ export class WaveRollPlayer {
       unsubMidi();
       this.stateManager.offStateChange(stateCallback);
     };
+  }
+
+  // --- File Add API (for VS Code integration) ---
+
+  /**
+   * Register a callback to be invoked when the user clicks "Add Files" button.
+   * This allows VS Code extension to intercept the file add request and show
+   * a native file dialog instead of relying on HTML5 file input.
+   * Returns an unsubscribe function.
+   */
+  public onFileAddRequest(callback: () => void): () => void {
+    this.fileAddRequestCallback = callback;
+    return () => {
+      this.fileAddRequestCallback = null;
+    };
+  }
+
+  /**
+   * Check if there's a file add request callback registered.
+   * Used by UI components to decide whether to trigger callback or use default behavior.
+   */
+  public hasFileAddRequestCallback(): boolean {
+    return this.fileAddRequestCallback !== null;
+  }
+
+  /**
+   * Trigger the file add request callback (called by UI components).
+   */
+  public triggerFileAddRequest(): void {
+    if (this.fileAddRequestCallback) {
+      this.fileAddRequestCallback();
+    }
+  }
+
+  /**
+   * Register a callback to be invoked when the user clicks "Add Audio File" button.
+   * This allows VS Code extension to intercept the audio file add request and show
+   * a native file dialog with audio file filters.
+   * Returns an unsubscribe function.
+   */
+  public onAudioFileAddRequest(callback: () => void): () => void {
+    this.audioFileAddRequestCallback = callback;
+    return () => {
+      this.audioFileAddRequestCallback = null;
+    };
+  }
+
+  /**
+   * Trigger the audio file add request callback (called by UI components).
+   */
+  public triggerAudioFileAddRequest(): void {
+    if (this.audioFileAddRequestCallback) {
+      this.audioFileAddRequestCallback();
+    }
+  }
+
+  /**
+   * Add a file from raw data (ArrayBuffer or Base64 string).
+   * This is useful for VS Code integration where files are passed via postMessage.
+   * @param data - File data as ArrayBuffer or Base64 string
+   * @param filename - Original filename (used to determine file type)
+   */
+  public async addFileFromData(
+    data: ArrayBuffer | string,
+    filename: string
+  ): Promise<void> {
+    const MIDI_EXTENSIONS = [".mid", ".midi"];
+    const AUDIO_EXTENSIONS = [".wav", ".mp3", ".m4a", ".ogg"];
+
+    const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0] || "";
+
+    // Convert Base64 to ArrayBuffer if needed
+    let arrayBuffer: ArrayBuffer;
+    if (typeof data === "string") {
+      // Decode Base64 to ArrayBuffer
+      const binaryString = atob(data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      arrayBuffer = bytes.buffer;
+    } else {
+      arrayBuffer = data;
+    }
+
+    if (MIDI_EXTENSIONS.includes(ext)) {
+      // Process MIDI file
+      try {
+        // Create a File object from ArrayBuffer for parseMidi
+        const blob = new Blob([arrayBuffer], { type: "audio/midi" });
+        const file = new File([blob], filename, { type: "audio/midi" });
+
+        const { parseMidi } = await import("@/lib/core/parsers/midi-parser");
+        const state = this.stateManager?.getState();
+        const pedalElongate = state?.visual.pedalElongate ?? true;
+        const pedalThreshold = state?.visual.pedalThreshold ?? 64;
+        const parsed = await parseMidi(file, {
+          applyPedalElongate: pedalElongate,
+          pedalThreshold: pedalThreshold,
+        });
+        this.midiManager.addMidiFile(filename, parsed, undefined, file);
+      } catch (err) {
+        console.error("Failed to parse MIDI:", err);
+        throw err;
+      }
+    } else if (AUDIO_EXTENSIONS.includes(ext)) {
+      // Process audio file
+      try {
+        const blob = new Blob([arrayBuffer], { type: `audio/${ext.slice(1)}` });
+        const url = URL.createObjectURL(blob);
+        const { addAudioFileFromUrl } = await import(
+          "@/lib/core/waveform/register"
+        );
+        await addAudioFileFromUrl(null, url, filename);
+      } catch (err) {
+        console.error("Failed to load audio file:", err);
+        throw err;
+      }
+    } else {
+      throw new Error(`Unsupported file type: ${ext}`);
+    }
+
+    // Trigger UI update
+    this.updateVisualization();
+    this.updateSidebar();
+    this.updateFileToggleSection();
   }
 }
 

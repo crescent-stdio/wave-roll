@@ -83,6 +83,26 @@ export interface UIComponentDependencies {
 
   /** MIDI export options (mode and custom handler) */
   midiExport?: MidiExportOptions;
+
+  /**
+   * Optional callback to trigger when user wants to add MIDI files.
+   * If provided, UI will call this instead of using the default file input.
+   * Used for VS Code integration where native dialogs are preferred.
+   */
+  onFileAddRequest?: () => void;
+
+  /**
+   * Optional callback to trigger when user wants to add audio files.
+   * If provided, UI will call this instead of using the default file input.
+   * Used for VS Code integration where native dialogs are preferred.
+   */
+  onAudioFileAddRequest?: () => void;
+
+  /**
+   * Optional function to add a file from raw data (ArrayBuffer or Base64).
+   * Used for VS Code integration where files are passed via postMessage.
+   */
+  addFileFromData?: (data: ArrayBuffer | string, filename: string) => Promise<void>;
 }
 
 export interface UIElements {
