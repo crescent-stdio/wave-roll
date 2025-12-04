@@ -37,6 +37,9 @@ export type InstrumentFamily =
   | "synth"
   | "winds"
   | "brass"
+  | "vocal"
+  | "organ"
+  | "mallet"
   | "others";
 
 /**

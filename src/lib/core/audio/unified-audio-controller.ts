@@ -227,10 +227,15 @@ export class UnifiedAudioController {
         }
       }
 
-      if (programs.length > 0) {
-        console.log('[UnifiedAudioController] Preloading soundfonts for programs:', [...new Set(programs)]);
-        await this.preloadProgramSamplers(programs);
-        console.log('[UnifiedAudioController] Soundfont preload completed');
+      const uniquePrograms = [...new Set(programs)];
+      const unloadedPrograms = uniquePrograms.filter(p => 
+        !this.midiPlayerGroup.isProgramLoadedOrLoading(p)
+      );
+
+      if (unloadedPrograms.length > 0) {
+        console.log('[UnifiedAudioController] Loading soundfonts for programs:', unloadedPrograms);
+        await this.preloadProgramSamplers(unloadedPrograms);
+        console.log('[UnifiedAudioController] Soundfont load completed');
       }
     } catch (err) {
       console.warn('[UnifiedAudioController] Error during soundfont preload:', err);

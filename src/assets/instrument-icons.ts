@@ -16,6 +16,9 @@
  * - Synth: rack with two knobs plus three grouped keys
  * - Winds: horizontal flute pill, mouthpiece, and three tone holes
  * - Brass: flared trumpet bell, short lead pipe, and two valves
+ * - Vocal: microphone with singing figure silhouette
+ * - Organ: pipe organ with vertical pipes
+ * - Mallet: maracas percussion instrument
  * - Others: generic musical note retained for catch-all usage
  */
 
@@ -115,6 +118,38 @@ export const INSTRUMENT_ICONS: Record<InstrumentFamily, string> = {
     <line x1="11" y1="11" x2="11" y2="11"/>
     <line x1="14" y1="11" x2="14" y2="11"/>
     <line x1="17" y1="11" x2="17" y2="11"/>
+  </svg>`,
+
+  // Vocal: microphone with singing figure (from SVG Repo)
+  vocal: `<svg width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <path d="M7.6,12c2.1,2.1,4.7,1.3,6.7-0.7s2.8-4.7,0.7-6.7s-5.4-2.1-7.5,0S5.5,9.9,7.6,12z"/>
+    <path d="M6.8,11c1.7,0.3,3.5-0.6,5-2.1c1.5-1.5,2.4-3.3,2.1-5"/>
+    <path d="M16.3,7.3c4.8,5,9.3,11.3,10.1,14.3l-1.7,1.7c-3-0.7-9.3-5.3-14.3-10.1"/>
+    <line x1="16.9" y1="14" x2="17.8" y2="14.9"/>
+    <path d="M8.4,21.5L8.4,21.5c1.5-2,4.5-2.3,6.4-0.7l8.6,7.5c1.1,0.9,2.7,0.9,3.8-0.1l0,0c1.1-1.1,1.1-2.8,0-3.9l-1.8-1.8"/>
+  </svg>`,
+
+  // Organ: pipe organ with vertical pipes (stroke style)
+  organ: `<svg width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <rect x="4" y="22" width="24" height="7"/>
+    <line x1="8" y1="22" x2="8" y2="8"/>
+    <line x1="12" y1="22" x2="12" y2="5"/>
+    <line x1="16" y1="22" x2="16" y2="3"/>
+    <line x1="20" y1="22" x2="20" y2="5"/>
+    <line x1="24" y1="22" x2="24" y2="8"/>
+    <circle cx="8" cy="7" r="1.5"/>
+    <circle cx="12" cy="4" r="1.5"/>
+    <circle cx="16" cy="2" r="1.5"/>
+    <circle cx="20" cy="4" r="1.5"/>
+    <circle cx="24" cy="7" r="1.5"/>
+  </svg>`,
+
+  // Mallet: maracas percussion (from SVG Repo)
+  mallet: `<svg width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+    <path d="M13.6,26l-3-12.2c1.9-1,3-3.5,2.5-6.1C12.5,4.6,10,2.5,7.4,3C4.8,3.5,3.2,6.4,3.8,9.5c0.5,2.6,2.4,4.5,4.5,4.8l1.8,12.5c0.1,1,1.1,1.7,2.1,1.5C13.2,28,13.8,27,13.6,26z"/>
+    <path d="M3.8,9.5L3.8,9.5c3.2,0.6,6.6,0,9.4-1.8l0,0"/>
+    <path d="M24.5,5C22,4.5,19.6,6.5,19,9.5c-0.5,2.5,0.6,4.9,2.4,5.8l-2.8,11.7c-0.3,0.9,0.4,1.9,1.3,2.1s1.9-0.5,2-1.5l1.7-11.9c2-0.2,3.8-2.1,4.3-4.5C28.5,8.2,27,5.4,24.5,5z"/>
+    <path d="M27.9,11.2L27.9,11.2c-3.1,0.6-6.3,0-8.9-1.7l0,0"/>
   </svg>`,
 
   // Others: scores notes audio (from SVG Repo)

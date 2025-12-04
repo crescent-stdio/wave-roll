@@ -42,11 +42,13 @@ export function getInstrumentFamily(
 
   // GM Program Number ranges (0-127)
   if (program >= 0 && program <= 7) return "piano"; // 0-7: Piano
-  if (program >= 8 && program <= 15) return "others"; // 8-15: Chromatic Percussion
-  if (program >= 16 && program <= 23) return "others"; // 16-23: Organ
+  if (program >= 8 && program <= 15) return "mallet"; // 8-15: Chromatic Percussion (mallet instruments)
+  if (program >= 16 && program <= 23) return "organ"; // 16-23: Organ, Accordion, Harmonica
   if (program >= 24 && program <= 31) return "guitar"; // 24-31: Guitar
   if (program >= 32 && program <= 39) return "bass"; // 32-39: Bass
-  if (program >= 40 && program <= 55) return "strings"; // 40-55: Strings & Ensemble
+  if (program >= 40 && program <= 51) return "strings"; // 40-51: Strings (Violin, Viola, Cello, etc.)
+  if (program >= 52 && program <= 54) return "vocal"; // 52-54: Choir/Voice (choir_aahs, voice_oohs, synth_choir)
+  if (program === 55) return "strings"; // 55: Orchestra Hit (keep with strings/ensemble)
   if (program >= 56 && program <= 63) return "brass"; // 56-63: Brass
   if (program >= 64 && program <= 79) return "winds"; // 64-79: Reed & Pipe
   if (program >= 80 && program <= 103) return "synth"; // 80-103: Synth Lead, Pad, FX
@@ -70,6 +72,9 @@ export function getInstrumentFamilyName(family: InstrumentFamily): string {
     synth: "Synth",
     winds: "Winds",
     brass: "Brass",
+    vocal: "Vocal",
+    organ: "Organ",
+    mallet: "Mallet",
     others: "Other",
   };
   return names[family] ?? "Other";
@@ -564,14 +569,18 @@ export async function parseMidi(
       const instrumentFamily = getInstrumentFamily(program, channel);
 
       // Create TrackInfo for this track
+      // Always show program number for clarity
       let trackName: string;
-      if (t.name) {
-        trackName = t.name;
-      } else if (isDrum) {
+      if (isDrum) {
         // Drum tracks: "Drums (ch.9)" or "Drums (ch.10)"
-        trackName = `Drums (ch.${channel})`;
+        trackName = t.name
+          ? `${t.name} (ch.${channel})`
+          : `Drums (ch.${channel})`;
+      } else if (t.name) {
+        // Named tracks: "Track Name (program)"
+        trackName = `${t.name} (${program})`;
       } else {
-        // Regular tracks: "Acoustic Grand Piano (0)"
+        // Unnamed tracks: "Acoustic Grand Piano (0)"
         trackName = `${getGMInstrumentDisplayName(program)} (${program})`;
       }
 

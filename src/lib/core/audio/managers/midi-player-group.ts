@@ -128,6 +128,13 @@ export class MidiPlayerGroup implements PlayerGroup {
   }
 
   /**
+   * Check if a program sampler is already loaded or currently loading.
+   */
+  public isProgramLoadedOrLoading(program: number): boolean {
+    return this.programSamplers.has(program) || this.programSamplerLoading.has(program);
+  }
+
+  /**
    * Preload samplers for specific MIDI Program Numbers.
    * Useful for loading all programs used in a MIDI file at initialization.
    * @param programs - Array of MIDI Program Numbers to preload
