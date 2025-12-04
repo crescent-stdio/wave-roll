@@ -16,8 +16,6 @@ import {
   computeNoteMetrics,
   DEFAULT_TOLERANCES,
 } from "@/lib/evaluation/transcription";
-import { createIconButton } from "@/lib/components/ui/utils/icon-button";
-import { FileVolumeControl } from "../../controls/file-volume";
 
 /**
  * Stores accordion expanded state per fileId.
@@ -343,7 +341,7 @@ export function createFileList(
       if (hasMultipleTracks && chevronSpan) {
         // Track list container - aligned with file row (handle + chevron + colorPicker width)
         trackListEl = document.createElement("div");
-        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:50px;margin-top:2px;`;
+        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:60px;margin-top:2px;`;
 
         // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
         const sortedTracks = [...tracks].sort((a, b) => {
@@ -358,7 +356,7 @@ export function createFileList(
         sortedTracks.forEach((track: TrackInfo) => {
           const trackRow = document.createElement("div");
           trackRow.style.cssText =
-            "display:flex;align-items:center;gap:8px;padding:2px 0;";
+            "display:flex;align-items:center;gap:16px;padding:2px 0;";
 
           // Instrument icon (first)
           const iconSpan = document.createElement("span");
@@ -373,79 +371,15 @@ export function createFileList(
           trackName.style.cssText =
             "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
 
-          // Eye icon button for track visibility (third)
-          const isTrackVisible = dependencies.midiManager.isTrackVisible(
-            file.id,
-            track.id
-          );
-          const visBtn = createIconButton(
-            isTrackVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
-            () => {
-              dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
-            },
-            "Toggle track visibility",
-            { size: 20 }
-          );
-          visBtn.onclick = (e: MouseEvent) => {
-            e.stopPropagation();
-            dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
-          };
-          visBtn.style.color = isTrackVisible
-            ? "var(--text-muted)"
-            : "rgba(71,85,105,0.4)";
-          visBtn.style.border = "none";
-          visBtn.style.boxShadow = "none";
-          visBtn.style.padding = "0";
-          visBtn.style.minWidth = "20px";
-
-          // Volume slider for track audio (fourth) - increased size
-          const isTrackMuted = dependencies.midiManager.isTrackMuted(
-            file.id,
-            track.id
-          );
-          const trackVolume = dependencies.midiManager.getTrackVolume(
-            file.id,
-            track.id
-          );
-          const trackLastNonZeroVolume =
-            dependencies.midiManager.getTrackLastNonZeroVolume(
-              file.id,
-              track.id
-            );
-          const volumeControl = new FileVolumeControl({
-            initialVolume: isTrackMuted ? 0 : trackVolume,
-            lastNonZeroVolume: trackLastNonZeroVolume,
-            size: 22,
-            onVolumeChange: (volume) => {
-              dependencies.midiManager.setTrackVolume(
-                file.id,
-                track.id,
-                volume
-              );
-              // Also toggle mute state based on volume
-              const shouldMute = volume === 0;
-              const currentlyMuted = dependencies.midiManager.isTrackMuted(
-                file.id,
-                track.id
-              );
-              if (shouldMute !== currentlyMuted) {
-                dependencies.midiManager.toggleTrackMute(file.id, track.id);
-              }
-            },
-          });
-          const volumeEl = volumeControl.getElement();
-
-          // Note count badge (fifth/last)
+          // Note count badge (third/last)
           const noteCount = document.createElement("span");
           noteCount.textContent = `${track.noteCount} notes`;
           noteCount.style.cssText =
             "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;";
 
-          // Append in new order: InstrumentIcon | TrackName | Eye | Volume | NoteCount
+          // Append in new order: InstrumentIcon | TrackName | NoteCount
           trackRow.appendChild(iconSpan);
           trackRow.appendChild(trackName);
-          trackRow.appendChild(visBtn);
-          trackRow.appendChild(volumeEl);
           trackRow.appendChild(noteCount);
           trackListEl!.appendChild(trackRow);
         });
