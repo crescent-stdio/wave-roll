@@ -1172,7 +1172,29 @@ export class WaveRollPlayer {
           applyPedalElongate: pedalElongate,
           pedalThreshold: pedalThreshold,
         });
-        this.midiManager.addMidiFile(filename, parsed, undefined, file);
+
+        const isVsCodeWebview =
+          typeof (globalThis as unknown as { acquireVsCodeApi?: unknown })
+            .acquireVsCodeApi === "function";
+
+        const entryId = this.midiManager.addMidiFile(
+          filename,
+          parsed,
+          // Keep file extension visible for VS Code integration
+          filename,
+          file
+        );
+
+        // Ensure VS Code shows the full filename (with extension) and surface a debug log.
+        if (isVsCodeWebview) {
+          this.midiManager.updateName(entryId, filename);
+          // Debug: trace file names arriving from VS Code add-file flow
+          // (requested by user; remove when no longer needed).
+          console.log("[WaveRoll VSCode] Added MIDI file", {
+            filename,
+            entryId,
+          });
+        }
       } catch (err) {
         console.error("Failed to parse MIDI:", err);
         throw err;

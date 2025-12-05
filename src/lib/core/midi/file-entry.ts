@@ -18,9 +18,15 @@ export function createMidiFileEntry(
   name?: string,
   originalInput?: File | string
 ): MidiFileEntry {
+  const isVsCodeWebview =
+    typeof (globalThis as unknown as { acquireVsCodeApi?: unknown })
+      .acquireVsCodeApi === "function";
+
   return {
     id: generateMidiFileId(),
-    name: name ?? fileName.replace(/\.mid$/i, ""),
+    // VS Code 통합 시에는 확장자를 포함한 원본 파일명을 그대로 사용해 표시를 보존한다.
+    name:
+      name ?? (isVsCodeWebview ? fileName : fileName.replace(/\.mid$/i, "")),
     fileName,
     parsedData,
     isVisible: true,
