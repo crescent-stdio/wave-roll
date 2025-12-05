@@ -34,13 +34,15 @@ export function createSoloAppearanceSection(
   // Section title
   const title = document.createElement("h3");
   title.textContent = "Note Appearance";
-  title.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
+  title.style.cssText =
+    "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
   wrapper.appendChild(title);
 
   // Current color and style (mutable)
   let currentColorHex = toHexColor(file.color);
-  let currentStyle = deps.stateManager.getOnsetMarkerForFile(fileId) 
-    || deps.stateManager.ensureOnsetMarkerForFile(fileId);
+  let currentStyle =
+    deps.stateManager.getOnsetMarkerForFile(fileId) ||
+    deps.stateManager.ensureOnsetMarkerForFile(fileId);
 
   // Forward declarations for functions used in rebuildColorButtons
   let updateMarkerPreviews: () => void = () => {};
@@ -52,7 +54,8 @@ export function createSoloAppearanceSection(
 
   const colorLabel = document.createElement("div");
   colorLabel.textContent = "Note Color";
-  colorLabel.style.cssText = "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
+  colorLabel.style.cssText =
+    "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
   colorSection.appendChild(colorLabel);
 
   const colorsRow = document.createElement("div");
@@ -62,7 +65,8 @@ export function createSoloAppearanceSection(
 
   const updateColorSelection = () => {
     colorButtons.forEach((btn) => {
-      const isSelected = (btn.dataset.hex || "").toLowerCase() === currentColorHex.toLowerCase();
+      const isSelected =
+        (btn.dataset.hex || "").toLowerCase() === currentColorHex.toLowerCase();
       btn.style.outline = isSelected ? "2px solid var(--focus-ring)" : "none";
       btn.style.outlineOffset = isSelected ? "2px" : "0";
     });
@@ -75,7 +79,9 @@ export function createSoloAppearanceSection(
   const rebuildColorButtons = () => {
     const state = deps.midiManager.getState();
     const allPalettes = [...DEFAULT_PALETTES, ...state.customPalettes];
-    const palette = allPalettes.find((p) => p.id === state.activePaletteId) || DEFAULT_PALETTES[0];
+    const palette =
+      allPalettes.find((p) => p.id === state.activePaletteId) ||
+      DEFAULT_PALETTES[0];
 
     // Sync current color from file state (palette switch may have changed it)
     const currentFile = state.files.find((f) => f.id === fileId);
@@ -99,8 +105,12 @@ export function createSoloAppearanceSection(
         border:1px solid var(--ui-border);background:${hex};
         cursor:pointer;transition:transform 0.1s;
       `;
-      btn.onmouseenter = () => { btn.style.transform = "scale(1.1)"; };
-      btn.onmouseleave = () => { btn.style.transform = "scale(1)"; };
+      btn.onmouseenter = () => {
+        btn.style.transform = "scale(1.1)";
+      };
+      btn.onmouseleave = () => {
+        btn.style.transform = "scale(1)";
+      };
       btn.onclick = () => {
         deps.midiManager.updateColor(fileId, color);
         currentColorHex = hex;
@@ -124,7 +134,8 @@ export function createSoloAppearanceSection(
 
   const markerLabel = document.createElement("div");
   markerLabel.textContent = "Onset Marker";
-  markerLabel.style.cssText = "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
+  markerLabel.style.cssText =
+    "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
   markerSection.appendChild(markerLabel);
 
   const markerWrapper = document.createElement("div");
@@ -136,7 +147,8 @@ export function createSoloAppearanceSection(
 
   // Toggle button container
   const toggleContainer = document.createElement("div");
-  toggleContainer.style.cssText = "display:flex;gap:2px;background:var(--ui-border);border-radius:6px;padding:2px;";
+  toggleContainer.style.cssText =
+    "display:flex;gap:2px;background:var(--ui-border);border-radius:6px;padding:2px;";
 
   const toggleButtons: HTMLButtonElement[] = [];
   const updateToggleStyles = () => {
@@ -171,12 +183,13 @@ export function createSoloAppearanceSection(
 
   // Single grid for active variant
   const grid = document.createElement("div");
-  grid.style.cssText = "display:grid;grid-template-columns:repeat(7,32px);gap:6px;";
+  grid.style.cssText =
+    "display:grid;grid-template-columns:repeat(7,32px);gap:6px;";
 
   const updateMarkerSelection = () => {
     markerButtons.forEach((btn) => {
-      const isSelected = 
-        btn.dataset.shape === currentStyle.shape && 
+      const isSelected =
+        btn.dataset.shape === currentStyle.shape &&
         btn.dataset.variant === currentStyle.variant;
       btn.style.outline = isSelected ? "2px solid var(--focus-ring)" : "none";
       btn.style.outlineOffset = isSelected ? "1px" : "0";
@@ -188,7 +201,12 @@ export function createSoloAppearanceSection(
     markerButtons.forEach((btn) => {
       const shape = btn.dataset.shape as OnsetMarkerShape;
       const variant = btn.dataset.variant as OnsetMarkerStyle["variant"];
-      const style: OnsetMarkerStyle = { shape, variant, size: 12, strokeWidth: 2 };
+      const style: OnsetMarkerStyle = {
+        shape,
+        variant,
+        size: 12,
+        strokeWidth: 2,
+      };
       btn.innerHTML = renderOnsetSVG(style, currentColorHex, 18);
     });
   };
@@ -198,11 +216,11 @@ export function createSoloAppearanceSection(
     markerButtons.length = 0;
 
     ONSET_MARKER_SHAPES.forEach((shape) => {
-      const style: OnsetMarkerStyle = { 
-        shape: shape as OnsetMarkerShape, 
-        variant: activeVariant, 
-        size: 12, 
-        strokeWidth: 2 
+      const style: OnsetMarkerStyle = {
+        shape: shape as OnsetMarkerShape,
+        variant: activeVariant,
+        size: 12,
+        strokeWidth: 2,
       };
       const btn = document.createElement("button");
       btn.type = "button";
@@ -217,8 +235,12 @@ export function createSoloAppearanceSection(
         cursor:pointer;transition:background 0.1s;
       `;
       btn.innerHTML = renderOnsetSVG(style, currentColorHex, 18);
-      btn.onmouseenter = () => { btn.style.background = "var(--hover-surface)"; };
-      btn.onmouseleave = () => { btn.style.background = "var(--surface)"; };
+      btn.onmouseenter = () => {
+        btn.style.background = "var(--hover-surface)";
+      };
+      btn.onmouseleave = () => {
+        btn.style.background = "var(--surface)";
+      };
       btn.onclick = () => {
         deps.stateManager.setOnsetMarkerForFile(fileId, style);
         currentStyle = style;
@@ -232,7 +254,7 @@ export function createSoloAppearanceSection(
     updateMarkerSelection();
   };
 
-  // Dispatch custom event when settings change (for wave-roll-solo integration)
+  // Dispatch custom event when settings change (for wave-roll-studio integration)
   dispatchSettingsChange = () => {
     const state = deps.midiManager.getState();
     const event = new CustomEvent("wr-appearance-change", {
@@ -271,7 +293,10 @@ export function createSoloAppearanceSection(
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.removedNodes) {
-        if (node === wrapper || (node instanceof Element && node.contains(wrapper))) {
+        if (
+          node === wrapper ||
+          (node instanceof Element && node.contains(wrapper))
+        ) {
           unsubscribe();
           observer.disconnect();
           return;

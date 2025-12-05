@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tempo control with popover input for precise BPM adjustment
 - Flexible MIDI export options
 - Pitch hover indicator to piano roll
-- VS Code extension support (`wave-roll-solo`) for viewing MIDI files directly in the editor
+- VS Code extension support (`wave-roll-studio`, formerly `wave-roll-solo`) for viewing MIDI files directly in the editor
 - GitHub Actions workflow for automated release creation from tags
 
 ### Changed
