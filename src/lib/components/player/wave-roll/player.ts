@@ -61,6 +61,7 @@ import type { OnsetMarkerStyle, OnsetMarkerShape } from "@/types";
 import { ColorPalette } from "@/lib/core/midi/types";
 import { DEFAULT_PALETTES } from "@/lib/core/midi/palette";
 import { ONSET_MARKER_SHAPES } from "@/core/constants";
+import { HighlightMode } from "@/core/state/types";
 
 /**
  * Appearance settings structure for solo mode integration
@@ -155,6 +156,7 @@ export class WaveRollPlayer {
   // File add request callbacks (for VS Code integration)
   private fileAddRequestCallback: (() => void) | null = null;
   private audioFileAddRequestCallback: (() => void) | null = null;
+  private defaultHighlightMode: HighlightMode | undefined;
 
   // Compute effective UI duration considering tempo and WAV length
   private getEffectiveDuration(): number {
@@ -220,6 +222,7 @@ export class WaveRollPlayer {
         ...options.pianoRoll,
       };
     }
+    this.defaultHighlightMode = options?.defaultHighlightMode;
 
     // Initialize configuration
     this.config = createDefaultConfig();
@@ -258,6 +261,11 @@ export class WaveRollPlayer {
   private initializeModules(): void {
     // Initialize state manager
     this.stateManager = new StateManager();
+    if (this.defaultHighlightMode) {
+      this.stateManager.updateVisualState({
+        highlightMode: this.defaultHighlightMode,
+      });
+    }
 
     // Initialize file manager
     this.fileManager = new FileManager(this.midiManager, this.stateManager);
