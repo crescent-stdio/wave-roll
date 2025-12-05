@@ -14,6 +14,7 @@
 
 - You can try the web demo at [https://crescent-stdio.github.io/wave-roll/](https://crescent-stdio.github.io/wave-roll/).
 - NPM package: [https://www.npmjs.com/package/wave-roll](https://www.npmjs.com/package/wave-roll)
+- Multi-instrument MIDI files are supported with automatic GM instrument mapping and per-track mute/volume/visibility controls.
 
 
 ## Installation
