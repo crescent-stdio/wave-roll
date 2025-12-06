@@ -1,4 +1,4 @@
-import { NoteData, ParsedMidi } from "@/lib/midi/types";
+import { NoteData, ParsedMidi, InstrumentFamily } from "@/lib/midi/types";
 import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
@@ -119,6 +119,27 @@ export class MultiMidiManager {
     const shouldBeVisible = this.state.files.length < 2;
     entry.isPianoRollVisible = shouldBeVisible;
     entry.isVisible = shouldBeVisible;
+
+    // Initialize trackVisibility: all tracks visible by default
+    // Initialize trackMuted: all tracks unmuted by default
+    // Initialize trackVolume: all tracks at full volume by default
+    // Initialize trackLastNonZeroVolume: all tracks at full volume by default
+    // Initialize trackSustainVisibility: all tracks show sustain by default
+    if (parsedData.tracks && parsedData.tracks.length > 0) {
+      entry.trackVisibility = {};
+      entry.trackMuted = {};
+      entry.trackVolume = {};
+      entry.trackLastNonZeroVolume = {};
+      entry.trackSustainVisibility = {};
+      for (const track of parsedData.tracks) {
+        entry.trackVisibility[track.id] = true;
+        entry.trackMuted[track.id] = false;
+        entry.trackVolume[track.id] = 1.0;
+        entry.trackLastNonZeroVolume[track.id] = 1.0;
+        entry.trackSustainVisibility[track.id] = true;
+      }
+    }
+
     this.state.files.push(entry);
     try {
       // Extract BPM from MIDI header's first/initial tempo
@@ -175,7 +196,8 @@ export class MultiMidiManager {
    * Remove a MIDI file
    */
   public removeMidiFile(id: string): void {
-    const wasFirstFile = this.state.files.length > 0 && this.state.files[0].id === id;
+    const wasFirstFile =
+      this.state.files.length > 0 && this.state.files[0].id === id;
     this.state.files = this.state.files.filter((f) => f.id !== id);
     this.resetColorIndex();
 
@@ -221,6 +243,258 @@ export class MultiMidiManager {
       file.isMuted = !file.isMuted;
       this.notifyStateChange();
     }
+  }
+
+  /**
+   * Set visibility of a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param visible - Whether the track should be visible
+   */
+  public setTrackVisibility(
+    fileId: string,
+    trackId: number,
+    visible: boolean
+  ): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackVisibility if not present
+    if (!file.trackVisibility) {
+      file.trackVisibility = {};
+    }
+
+    file.trackVisibility[trackId] = visible;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Toggle visibility of a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public toggleTrackVisibility(fileId: string, trackId: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackVisibility if not present
+    if (!file.trackVisibility) {
+      file.trackVisibility = {};
+    }
+
+    // Default to true (visible) if not set, then toggle
+    const currentVisibility = file.trackVisibility[trackId] ?? true;
+    file.trackVisibility[trackId] = !currentVisibility;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if a specific track is visible.
+   * Returns true if trackVisibility is not set (default visible).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackVisible(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackVisibility?.[trackId] ?? true;
+  }
+
+  /**
+   * Toggle sustain pedal visibility for a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public toggleTrackSustainVisibility(fileId: string, trackId: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackSustainVisibility if not present
+    if (!file.trackSustainVisibility) {
+      file.trackSustainVisibility = {};
+    }
+
+    // Default to true (visible) if not set, then toggle
+    const currentVisibility = file.trackSustainVisibility[trackId] ?? true;
+    file.trackSustainVisibility[trackId] = !currentVisibility;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if sustain pedal is visible for a specific track.
+   * Returns true if trackSustainVisibility is not set (default visible).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackSustainVisible(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackSustainVisibility?.[trackId] ?? true;
+  }
+
+  /**
+   * Toggle mute state of a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public toggleTrackMute(fileId: string, trackId: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackMuted if not present
+    if (!file.trackMuted) {
+      file.trackMuted = {};
+    }
+
+    // Default to false (unmuted) if not set, then toggle
+    const currentMuted = file.trackMuted[trackId] ?? false;
+    file.trackMuted[trackId] = !currentMuted;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if a specific track is muted.
+   * Returns false if trackMuted is not set (default unmuted).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackMuted(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return false;
+    return file.trackMuted?.[trackId] ?? false;
+  }
+
+  /**
+   * Set volume for a specific track within a MIDI file.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param volume - Volume level (0-1)
+   */
+  public setTrackVolume(fileId: string, trackId: number, volume: number): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackVolume if not present
+    if (!file.trackVolume) {
+      file.trackVolume = {};
+    }
+
+    // Initialize trackLastNonZeroVolume if not present
+    if (!file.trackLastNonZeroVolume) {
+      file.trackLastNonZeroVolume = {};
+    }
+
+    // Clamp volume to 0-1 range
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    file.trackVolume[trackId] = clampedVolume;
+
+    // Store last non-zero volume for unmute restore
+    if (clampedVolume > 0) {
+      file.trackLastNonZeroVolume[trackId] = clampedVolume;
+    }
+
+    this.notifyStateChange();
+  }
+
+  /**
+   * Get volume for a specific track.
+   * Returns 1.0 if trackVolume is not set (default full volume).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackVolume(fileId: string, trackId: number): number {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return 1.0;
+    return file.trackVolume?.[trackId] ?? 1.0;
+  }
+
+  /**
+   * Get last non-zero volume for a specific track.
+   * Used to restore volume when unmuting a track.
+   * Returns 1.0 if trackLastNonZeroVolume is not set (default full volume).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackLastNonZeroVolume(fileId: string, trackId: number): number {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return 1.0;
+    return file.trackLastNonZeroVolume?.[trackId] ?? 1.0;
+  }
+
+  /**
+   * Set auto instrument state for a specific track within a MIDI file.
+   * When enabled, the track will use its instrumentFamily soundfont instead of default piano.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param useAuto - Whether to use auto instrument matching
+   */
+  public setTrackAutoInstrument(
+    fileId: string,
+    trackId: number,
+    useAuto: boolean
+  ): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    // Initialize trackUseAutoInstrument if not present
+    if (!file.trackUseAutoInstrument) {
+      file.trackUseAutoInstrument = {};
+    }
+
+    file.trackUseAutoInstrument[trackId] = useAuto;
+    this.notifyStateChange();
+  }
+
+  /**
+   * Check if a specific track uses auto instrument matching.
+   * Returns true if trackUseAutoInstrument is not set (default auto-instrument).
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public isTrackAutoInstrument(fileId: string, trackId: number): boolean {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return true;
+    return file.trackUseAutoInstrument?.[trackId] ?? true;
+  }
+
+  /**
+   * Get the instrument family for a specific track.
+   * Looks up the instrumentFamily from the parsed MIDI track data.
+   * Returns 'piano' as fallback if track info is not available.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackInstrumentFamily(
+    fileId: string,
+    trackId: number
+  ): InstrumentFamily {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file?.parsedData?.tracks) return "piano";
+
+    const track = file.parsedData.tracks.find((t) => t.id === trackId);
+    return track?.instrumentFamily ?? "piano";
+  }
+
+  /**
+   * Get the MIDI Program Number for a specific track.
+   * Returns 118 (synth_drum) for drum tracks (channel 9/10).
+   * Returns 0 (acoustic_grand_piano) as fallback if track info is not available.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   */
+  public getTrackProgram(fileId: string, trackId: number): number {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file?.parsedData?.tracks) return 0;
+
+    const track = file.parsedData.tracks.find((t) => t.id === trackId);
+    if (!track) return 0;
+
+    // Use synth_drum (program 118) for drum tracks
+    if (track.isDrum) {
+      return 118;
+    }
+
+    return track.program ?? 0;
   }
 
   /**
@@ -351,7 +625,8 @@ export class MultiMidiManager {
   }
 
   /**
-   * Get combined notes from visible files
+   * Get combined notes from visible files, respecting track visibility.
+   * Notes from hidden tracks are excluded.
    */
   public getVisibleNotes(): Array<{
     note: NoteData;
@@ -364,11 +639,19 @@ export class MultiMidiManager {
     this.state.files.forEach((file) => {
       if (file.isPianoRollVisible && file.parsedData) {
         file.parsedData.notes.forEach((note) => {
-          allNotes.push({
-            note,
-            color: file.color,
-            fileId: file.id,
-          });
+          // Check track visibility: if trackId is set, respect trackVisibility
+          // Default to visible if trackVisibility is not defined for this track
+          const trackId = note.trackId;
+          const isTrackVisible =
+            trackId === undefined || file.trackVisibility?.[trackId] !== false;
+
+          if (isTrackVisible) {
+            allNotes.push({
+              note,
+              color: file.color,
+              fileId: file.id,
+            });
+          }
         });
       }
     });

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="./wave-roll-logo.png" />
+    <title>WaveRoll - MIDI Visualizer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: #ffffff;
+        color: #1d1d1f;
+        height: 100vh;
+      }
+
+      #app {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: #ffffff;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 12px 24px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+
+      header h1 {
+        font-size: 20px;
+        font-weight: 600;
+        color: #1d1d1f;
+      }
+      h1 a {
+        color: #1d1d1f;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>
+          <a
+            href="https://www.github.com/crescent-stdio/wave-roll"
+            target="_blank"
+            rel="noopener"
+            >WaveRoll - MIDI Visualizer</a
+          >
+        </h1>
+      </header>
+      <wave-roll
+        style="height: calc(100vh - 100px); display: block; width: 100%"
+        files='[
+          {"path": "./src/sample_midi/section_5.midi", "name": "Section 5", "type": "midi"}
+          ]'
+      ></wave-roll>
+
+      <script type="module">
+        import "/src/index.ts";
+      </script>
+    </div>
+  </body>
+</html>

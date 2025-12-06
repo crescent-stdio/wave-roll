@@ -3,21 +3,38 @@
  */
 
 import { PLAYER_ICONS } from "@/assets/player-icons";
+import {
+  getInstrumentIcon,
+  CHEVRON_DOWN,
+  CHEVRON_RIGHT,
+} from "@/assets/instrument-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
+import { TrackInfo } from "@/lib/midi/types";
 import { UIComponentDependencies } from "@/lib/components/ui";
 import { createIconButton } from "../../utils/icon-button";
 import { FileVolumeControl } from "../../controls/file-volume";
 import { ShapeRenderer } from "../utils/shape-renderer";
 import { EvaluationControls } from "./evaluation-controls";
+import { ColorCalculator } from "@/core/visualization/piano-roll/utils/color-calculator";
+
+/**
+ * Stores accordion expanded state per fileId.
+ * Persists across re-renders so accordion doesn't collapse when track visibility changes.
+ */
+const accordionExpandedState = new Map<string, boolean>();
 
 export class FileToggleItem {
   /**
-   * Create a MIDI file toggle item
+   * Create a MIDI file toggle item with optional track accordion
    */
   static create(
     file: MidiFileEntry,
     dependencies: UIComponentDependencies
   ): HTMLElement {
+    // Container for file row + track accordion
+    const container = document.createElement("div");
+    container.style.cssText = `display:flex;flex-direction:column;gap:0;`;
+
     const item = document.createElement("div");
     item.style.cssText = `
       display: flex;
@@ -30,6 +47,30 @@ export class FileToggleItem {
       border: 1px solid var(--ui-border);
     `;
 
+    // Check if this file has multiple tracks for accordion toggle
+    const tracks = file.parsedData?.tracks;
+    const hasMultipleTracks = tracks && tracks.length > 1;
+
+    // Add accordion toggle chevron at the start if multi-track
+    let chevronSpan: HTMLElement | null = null;
+    let trackList: HTMLElement | null = null;
+    let isExpanded = accordionExpandedState.get(file.id) ?? false;
+
+    // Always create chevron space for alignment
+    chevronSpan = document.createElement("span");
+    chevronSpan.style.cssText =
+      "display:flex;align-items:center;width:16px;min-width:16px;";
+
+    if (hasMultipleTracks) {
+      chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+      chevronSpan.style.cursor = "pointer";
+      chevronSpan.style.color = "var(--text-muted)";
+      chevronSpan.style.transition = "transform 0.2s";
+      chevronSpan.title = `${tracks.length} tracks`;
+    }
+
+    item.appendChild(chevronSpan);
+
     // Add all components
     item.appendChild(this.createColorIndicator(file, dependencies));
     item.appendChild(this.createFileName(file));
@@ -38,38 +79,295 @@ export class FileToggleItem {
     const evalGroup = document.createElement("div");
     evalGroup.style.cssText = `display:flex;align-items:center;gap:2px;`;
     evalGroup.appendChild(this.createReferenceButton(file, dependencies, item));
-    evalGroup.appendChild(this.createEstimationButton(file, dependencies, item));
+    evalGroup.appendChild(
+      this.createEstimationButton(file, dependencies, item)
+    );
     item.appendChild(evalGroup);
     item.appendChild(this.createVisibilityButton(file, dependencies));
     item.appendChild(this.createSustainButton(file, dependencies));
     item.appendChild(this.createVolumeControl(file, dependencies));
-    
-    const { labelL, slider, labelR } = this.createPanControls(file, dependencies);
+
+    const { labelL, slider, labelR } = this.createPanControls(
+      file,
+      dependencies
+    );
     item.appendChild(labelL);
     item.appendChild(slider);
     item.appendChild(labelR);
 
     // Dim/tooltip when master muted
     const handleMasterMirror = (e: Event) => {
-      const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+      const detail = (
+        e as CustomEvent<{
+          mode: "mirror-mute" | "mirror-restore" | "mirror-set";
+          volume?: number;
+        }>
+      ).detail;
       if (!detail || !detail.mode) return;
-      if (detail.mode === 'mirror-mute') {
-        item.style.opacity = '0.6';
-        item.title = 'Master muted — changes apply after unmute';
-      } else if (detail.mode === 'mirror-restore') {
-        item.style.opacity = '';
-        item.removeAttribute('title');
+      if (detail.mode === "mirror-mute") {
+        item.style.opacity = "0.6";
+        item.title = "Master muted — changes apply after unmute";
+      } else if (detail.mode === "mirror-restore") {
+        item.style.opacity = "";
+        item.removeAttribute("title");
       }
     };
-    window.addEventListener('wr-master-mirror', handleMasterMirror);
-    (item as any).__cleanupMasterMirror = () => window.removeEventListener('wr-master-mirror', handleMasterMirror);
+    window.addEventListener("wr-master-mirror", handleMasterMirror);
+    (item as any).__cleanupMasterMirror = () =>
+      window.removeEventListener("wr-master-mirror", handleMasterMirror);
 
-    return item;
+    container.appendChild(item);
+
+    // Add track accordion for multi-track MIDI files
+    if (hasMultipleTracks && chevronSpan) {
+      const accordionResult = this.createTrackAccordion(
+        file,
+        tracks,
+        dependencies,
+        isExpanded
+      );
+      trackList = accordionResult.trackList;
+      container.appendChild(trackList);
+
+      // Toggle accordion on chevron click
+      chevronSpan.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        isExpanded = !isExpanded;
+        accordionExpandedState.set(file.id, isExpanded);
+        if (trackList) {
+          trackList.style.display = isExpanded ? "flex" : "none";
+        }
+        if (chevronSpan) {
+          chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+        }
+      };
+    }
+
+    return container;
   }
 
-  private static createColorIndicator(file: MidiFileEntry, dependencies: UIComponentDependencies): HTMLElement {
+  /**
+   * Create track accordion for multi-track MIDI files
+   * Returns the track list element for external toggle control
+   */
+  private static createTrackAccordion(
+    file: MidiFileEntry,
+    tracks: TrackInfo[],
+    dependencies: UIComponentDependencies,
+    isExpanded: boolean
+  ): { trackList: HTMLElement } {
+    // Track list container - aligned with file row (chevron + colorIndicator width)
+    const trackList = document.createElement("div");
+    trackList.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:27px;margin-top:2px;`;
+
+    // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
+    const sortedTracks = [...tracks].sort((a, b) => {
+      // Drums go to the bottom
+      if (a.isDrum && !b.isDrum) return 1;
+      if (!a.isDrum && b.isDrum) return -1;
+      // Both drums or both non-drums: sort by program number
+      return (a.program ?? 0) - (b.program ?? 0);
+    });
+
+    // Pre-compute file base color and total tracks for track color indicators
+    const fileBaseColor = file.color;
+    const totalTracks = tracks.length;
+    const uniformTrackColor =
+      dependencies.stateManager.getState().visual.uniformTrackColor ?? false;
+
+    // Populate track items
+    sortedTracks.forEach((track: TrackInfo) => {
+      const trackRow = document.createElement("div");
+      trackRow.style.cssText =
+        "display:flex;align-items:center;gap:8px;padding:2px 0;";
+
+      // Track color dot (first) - shows lightness-variant color for this track (unless uniformTrackColor is enabled)
+      const trackColor = uniformTrackColor
+        ? fileBaseColor
+        : ColorCalculator.getTrackVariantColor(
+            fileBaseColor,
+            track.id,
+            totalTracks
+          );
+      const colorDot = document.createElement("span");
+      colorDot.style.cssText = `
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #${trackColor.toString(16).padStart(6, "0")};
+        flex-shrink: 0;
+      `;
+      colorDot.title = `Track ${track.id + 1} color`;
+
+      // Instrument icon (second)
+      const iconSpan = document.createElement("span");
+      iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
+      iconSpan.style.cssText =
+        "display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--text-muted);";
+      iconSpan.title = track.instrumentFamily;
+
+      // Track name (second)
+      const trackName = document.createElement("span");
+      trackName.textContent = track.name;
+      trackName.style.cssText =
+        "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+      // Eye icon button for track visibility (third)
+      const isTrackVisible = dependencies.midiManager.isTrackVisible(
+        file.id,
+        track.id
+      );
+      const visBtn = createIconButton(
+        isTrackVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
+        () => {
+          dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
+        },
+        "Toggle track visibility",
+        { size: 20 }
+      );
+      visBtn.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
+      };
+      visBtn.style.color = isTrackVisible
+        ? "var(--text-muted)"
+        : "rgba(71,85,105,0.4)";
+      visBtn.style.border = "none";
+      visBtn.style.boxShadow = "none";
+      visBtn.style.padding = "0";
+      visBtn.style.minWidth = "20px";
+      visBtn.style.marginRight = "2px";
+
+      // Sustain pedal visibility button - after Eye (visibility)
+      const isTrackSustainVisible =
+        dependencies.midiManager.isTrackSustainVisible?.(file.id, track.id) ??
+        true;
+      const sustainBtn = document.createElement("button");
+      sustainBtn.innerHTML = PLAYER_ICONS.sustain;
+      sustainBtn.style.cssText = `
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${isTrackSustainVisible ? "var(--text-muted)" : "rgba(71,85,105,0.4)"};
+        transition: color 0.15s ease;
+      `;
+      sustainBtn.title = isTrackSustainVisible
+        ? "Hide sustain pedal regions"
+        : "Show sustain pedal regions";
+      sustainBtn.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        dependencies.midiManager.toggleTrackSustainVisibility?.(
+          file.id,
+          track.id
+        );
+      };
+
+      // Auto-instrument toggle button - after TrackName, before Eye
+      const isAutoInstrument =
+        dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ??
+        true;
+      const autoInstrumentBtn = document.createElement("button");
+      // Show current playing instrument icon: auto-instrument ON → track instrument, OFF → piano
+      autoInstrumentBtn.innerHTML = isAutoInstrument
+        ? getInstrumentIcon(track.instrumentFamily)
+        : getInstrumentIcon("piano");
+      autoInstrumentBtn.style.cssText = `
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: ${isAutoInstrument ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
+        transition: color 0.15s ease;
+        margin-right: 20px;
+        `;
+      autoInstrumentBtn.title = isAutoInstrument
+        ? `Using ${track.instrumentFamily} sound (click for piano)`
+        : "Using piano sound (click for auto instrument)";
+      autoInstrumentBtn.onclick = (e: MouseEvent) => {
+        e.stopPropagation();
+        const newState = !dependencies.midiManager.isTrackAutoInstrument?.(
+          file.id,
+          track.id
+        );
+        dependencies.midiManager.setTrackAutoInstrument?.(
+          file.id,
+          track.id,
+          newState
+        );
+      };
+
+      // Volume slider for track audio (fifth) - increased size
+      const isTrackMuted = dependencies.midiManager.isTrackMuted(
+        file.id,
+        track.id
+      );
+      const trackVolume = dependencies.midiManager.getTrackVolume(
+        file.id,
+        track.id
+      );
+      const trackLastNonZeroVolume =
+        dependencies.midiManager.getTrackLastNonZeroVolume(file.id, track.id);
+      const volumeControl = new FileVolumeControl({
+        initialVolume: isTrackMuted ? 0 : trackVolume,
+        lastNonZeroVolume: trackLastNonZeroVolume,
+        size: 22,
+        onVolumeChange: (volume) => {
+          dependencies.midiManager.setTrackVolume(file.id, track.id, volume);
+          // Also toggle mute state based on volume
+          const shouldMute = volume === 0;
+          const currentlyMuted = dependencies.midiManager.isTrackMuted(
+            file.id,
+            track.id
+          );
+          if (shouldMute !== currentlyMuted) {
+            dependencies.midiManager.toggleTrackMute(file.id, track.id);
+          }
+        },
+      });
+      const volumeEl = volumeControl.getElement();
+
+      // Note count badge (fifth/last) - aligns with file row's L-slider-R (Pan control) ~106px
+      const noteCount = document.createElement("span");
+      noteCount.textContent = `${track.noteCount} notes`;
+      noteCount.style.cssText =
+        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:95px;text-align:right;margin-right:10px;";
+
+      // Append in order: ColorDot | InstrumentIcon | TrackName | AutoInstrument | Eye | Sustain | Volume | NoteCount
+      trackRow.appendChild(colorDot);
+      trackRow.appendChild(iconSpan);
+      trackRow.appendChild(trackName);
+      trackRow.appendChild(autoInstrumentBtn);
+      trackRow.appendChild(visBtn);
+      trackRow.appendChild(sustainBtn);
+      trackRow.appendChild(volumeEl);
+      trackRow.appendChild(noteCount);
+      trackList.appendChild(trackRow);
+    });
+
+    return { trackList };
+  }
+
+  private static createColorIndicator(
+    file: MidiFileEntry,
+    dependencies: UIComponentDependencies
+  ): HTMLElement {
     const fileColor = `#${file.color.toString(16).padStart(6, "0")}`;
-    return ShapeRenderer.createColorIndicator(file.id, fileColor, dependencies.stateManager as any);
+    return ShapeRenderer.createColorIndicator(
+      file.id,
+      fileColor,
+      dependencies.stateManager as any
+    );
   }
 
   private static createFileName(file: MidiFileEntry): HTMLElement {
@@ -123,13 +421,13 @@ export class FileToggleItem {
       "Toggle visibility",
       { size: 24 }
     );
-    
+
     visBtn.style.color = file.isPianoRollVisible
       ? "var(--text-muted)"
       : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
-    
+
     return visBtn;
   }
 
@@ -193,8 +491,8 @@ export class FileToggleItem {
     });
 
     const el = volumeControl.getElement();
-    el.setAttribute('data-role', 'file-volume');
-    el.setAttribute('data-file-id', file.id);
+    el.setAttribute("data-role", "file-volume");
+    el.setAttribute("data-file-id", file.id);
     return el;
   }
 

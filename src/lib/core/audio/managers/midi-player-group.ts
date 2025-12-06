@@ -1,12 +1,14 @@
 import * as Tone from 'tone';
 import type { PlayerGroup, SynchronizationInfo } from '../master-clock';
 import { DEFAULT_SAMPLE_MAP } from '../player-types';
+import { getGMInstrumentUrl, GM_SAMPLE_MAP } from '../gm-instruments';
 
 /**
  * MIDI note information
  */
 interface MidiNote {
   fileId?: string;
+  trackId?: number;  // Track ID within the MIDI file (0-based index)
   time: number;
   duration: number;
   pitch: number | string;  // Support both numeric MIDI note and string note name
@@ -52,6 +54,21 @@ export class MidiPlayerGroup implements PlayerGroup {
   
   // MIDI-related references
   private midiManager: any = null;
+  
+  // --- Program Number-based Sampler Cache (Lazy Loading) ---
+  /** Map of MIDI Program Number -> loaded Tone.Sampler for auto-instrument routing */
+  private programSamplers: Map<number, Tone.Sampler> = new Map();
+  /** Map of MIDI Program Number -> loading Promise to prevent duplicate loads */
+  private programSamplerLoading: Map<number, Promise<Tone.Sampler>> = new Map();
+  
+  // --- Pending Player States (for settings applied before player creation) ---
+  /** Stores mute/volume/pan states set before the player is initialized */
+  private pendingPlayerStates = new Map<string, {
+    muted?: boolean;
+    volume?: number;
+    pan?: number;
+  }>();
+  
   // Error tracking and statistics
   private errorStats = {
     totalNoteAttempts: 0,
@@ -63,6 +80,74 @@ export class MidiPlayerGroup implements PlayerGroup {
   
   constructor() {
     // console.log('[MidiPlayerGroup] Initialized');
+  }
+
+  // --- Program Number-based Sampler Methods ---
+
+  /**
+   * Get or create a sampler for a specific MIDI Program Number (lazy loading).
+   */
+  public getOrCreateProgramSampler(program: number): Promise<Tone.Sampler> {
+    const existing = this.programSamplers.get(program);
+    if (existing) {
+      return Promise.resolve(existing);
+    }
+
+    const loadingPromise = this.programSamplerLoading.get(program);
+    if (loadingPromise) {
+      return loadingPromise;
+    }
+
+    const promise = new Promise<Tone.Sampler>((resolve, reject) => {
+      const soundFontUrl = getGMInstrumentUrl(program);
+      const sampler = new Tone.Sampler({
+        urls: GM_SAMPLE_MAP, // Use flat notation for paulrosen soundfonts
+        baseUrl: soundFontUrl,
+        onload: () => {
+          this.programSamplers.set(program, sampler);
+          this.programSamplerLoading.delete(program);
+          resolve(sampler);
+        },
+        onerror: (error: Error) => {
+          console.error(`[MidiPlayerGroup] Failed to load sampler for program ${program}:`, error);
+          this.programSamplerLoading.delete(program);
+          reject(error);
+        },
+      }).toDestination();
+    });
+
+    this.programSamplerLoading.set(program, promise);
+    return promise;
+  }
+
+  /**
+   * Get the program sampler synchronously if already loaded.
+   */
+  public getProgramSamplerSync(program: number): Tone.Sampler | null {
+    return this.programSamplers.get(program) ?? null;
+  }
+
+  /**
+   * Check if a program sampler is already loaded or currently loading.
+   */
+  public isProgramLoadedOrLoading(program: number): boolean {
+    return this.programSamplers.has(program) || this.programSamplerLoading.has(program);
+  }
+
+  /**
+   * Preload samplers for specific MIDI Program Numbers.
+   * Useful for loading all programs used in a MIDI file at initialization.
+   * @param programs - Array of MIDI Program Numbers to preload
+   */
+  public async preloadProgramSamplers(programs: number[]): Promise<void> {
+    const uniquePrograms = [...new Set(programs)];
+    const loadPromises = uniquePrograms.map((program) =>
+      this.getOrCreateProgramSampler(program).catch((err) => {
+        console.warn(`[MidiPlayerGroup] Failed to preload sampler for program ${program}:`, err);
+        return null;
+      })
+    );
+    await Promise.allSettled(loadPromises);
   }
   
   /**
@@ -172,6 +257,23 @@ export class MidiPlayerGroup implements PlayerGroup {
       };
       
       this.players.set(fileId, playerInfo);
+      
+      // Apply any pending states that were set before player creation
+      const pendingState = this.pendingPlayerStates.get(fileId);
+      if (pendingState) {
+        if (pendingState.volume !== undefined) {
+          this.setPlayerVolume(fileId, pendingState.volume);
+        }
+        if (pendingState.pan !== undefined) {
+          this.setPlayerPan(fileId, pendingState.pan);
+        }
+        if (pendingState.muted !== undefined) {
+          this.setPlayerMute(fileId, pendingState.muted);
+        }
+        this.pendingPlayerStates.delete(fileId);
+        // console.log('[MidiPlayerGroup] Applied pending states for file:', fileId, pendingState);
+      }
+      
       // console.log('[MidiPlayerGroup] Successfully created and loaded sampler for file:', fileId);
       
     } catch (error) {
@@ -548,7 +650,7 @@ export class MidiPlayerGroup implements PlayerGroup {
     // For seek/resume (no endTime specified): include sustaining notes that began before safeStart
     // and are still active at safeStart by re-triggering them at t=0 with remaining duration.
     const includeCarryOver = (endTime === undefined);
-    let carryOverEvents: Array<{ time: number; note: string; velocity: number; duration: number; fileId?: string } > = [];
+    let carryOverEvents: Array<{ time: number; note: string; velocity: number; duration: number; fileId?: string; trackId?: number } > = [];
     if (includeCarryOver) {
       const sustaining = validNotes.filter(note => {
         const noteEnd = note.time + note.duration;
@@ -562,7 +664,8 @@ export class MidiPlayerGroup implements PlayerGroup {
           note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
           velocity: note.velocity,
           duration: scaledRemaining,
-          fileId: note.fileId
+          fileId: note.fileId,
+          trackId: note.trackId
         };
       });
     }
@@ -593,7 +696,8 @@ export class MidiPlayerGroup implements PlayerGroup {
       note: (note as any).name || this.normalizeNoteName(typeof note.pitch === 'number' ? note.pitch : Number(note.pitch) || 60),
       velocity: note.velocity,
       duration: Math.max(0.01, note.duration * timeScale),
-      fileId: note.fileId as string | undefined
+      fileId: note.fileId as string | undefined,
+      trackId: note.trackId
     }));
 
     // Prepend carry-over sustaining notes (if any)
@@ -604,7 +708,8 @@ export class MidiPlayerGroup implements PlayerGroup {
         note: e.note,
         velocity: e.velocity,
         duration: Math.max(0.01, e.duration),
-        fileId: (e.fileId as string | undefined)
+        fileId: (e.fileId as string | undefined),
+        trackId: e.trackId
       }));
       events = [...normalizedCarry, ...events];
     }
@@ -637,6 +742,22 @@ export class MidiPlayerGroup implements PlayerGroup {
         // console.debug('[MidiPlayerGroup] Player muted, skipping:', event.fileId);
         return; // Don't play muted players (not counted as error)
       }
+
+      // Check track-level mute via global midiManager reference
+      const midiMgr = (globalThis as unknown as { _waveRollMidiManager?: {
+        isTrackMuted?: (fileId: string, trackId: number) => boolean;
+        getTrackVolume?: (fileId: string, trackId: number) => number;
+        isTrackAutoInstrument?: (fileId: string, trackId: number) => boolean;
+        getTrackProgram?: (fileId: string, trackId: number) => number;
+      } })._waveRollMidiManager;
+
+      const fileId = (event.fileId ?? '') as string;
+      const trackId = event.trackId;
+
+      // Skip if track is muted
+      if (trackId !== undefined && midiMgr?.isTrackMuted?.(fileId, trackId)) {
+        return;
+      }
       
       // console.log('[MidiPlayerGroup] Playing note:', event.note, 'at time:', time, 'transportSeconds', Tone.getTransport().seconds);
       
@@ -653,12 +774,36 @@ export class MidiPlayerGroup implements PlayerGroup {
           console.warn('[MidiPlayerGroup] Runtime duration validation failed:', event);
           return;
         }
+
+        // Get track volume
+        let trackVolume = 1.0;
+        if (trackId !== undefined && midiMgr?.getTrackVolume) {
+          trackVolume = midiMgr.getTrackVolume(fileId, trackId);
+        }
         
-        // Apply volume: master * individual * velocity
-        const finalVolume = this.masterVolume * playerInfo.volume * event.velocity;
+        // Apply volume: master * individual * track * velocity
+        const finalVolume = this.masterVolume * playerInfo.volume * trackVolume * event.velocity;
         
-        // Use Sampler's triggerAttackRelease with proper volume scaling
-        playerInfo.sampler.triggerAttackRelease(
+        // Determine which sampler to use: program-specific or default piano
+        let targetSampler: Tone.Sampler = playerInfo.sampler;
+        const useAutoInstrument =
+          trackId !== undefined &&
+          midiMgr?.isTrackAutoInstrument?.(fileId, trackId);
+
+        if (useAutoInstrument && midiMgr?.getTrackProgram) {
+          const program = midiMgr.getTrackProgram(fileId, trackId!);
+          const programSampler = this.getProgramSamplerSync(program);
+          if (programSampler?.loaded) {
+            targetSampler = programSampler;
+          } else {
+            // Lazy load the program sampler for future notes
+            this.getOrCreateProgramSampler(program).catch(() => {});
+            // Use default sampler for this note
+          }
+        }
+        
+        // Use selected Sampler's triggerAttackRelease with proper volume scaling
+        targetSampler.triggerAttackRelease(
           event.note,
           event.duration,
           time,
@@ -922,7 +1067,10 @@ export class MidiPlayerGroup implements PlayerGroup {
   setPlayerVolume(fileId: string, volume: number): void {
     const playerInfo = this.players.get(fileId);
     if (!playerInfo) {
-      console.warn('[MidiPlayerGroup] Player not found:', fileId);
+      // Store pending volume state for later application when player is created
+      const pending = this.pendingPlayerStates.get(fileId) || {};
+      pending.volume = Math.max(0, Math.min(1, volume));
+      this.pendingPlayerStates.set(fileId, pending);
       return;
     }
     
@@ -941,7 +1089,10 @@ export class MidiPlayerGroup implements PlayerGroup {
   setPlayerPan(fileId: string, pan: number): void {
     const playerInfo = this.players.get(fileId);
     if (!playerInfo) {
-      console.warn('[MidiPlayerGroup] Player not found:', fileId);
+      // Store pending pan state for later application when player is created
+      const pending = this.pendingPlayerStates.get(fileId) || {};
+      pending.pan = Math.max(-1, Math.min(1, pan));
+      this.pendingPlayerStates.set(fileId, pending);
       return;
     }
     
@@ -957,7 +1108,10 @@ export class MidiPlayerGroup implements PlayerGroup {
   setPlayerMute(fileId: string, muted: boolean): void {
     const playerInfo = this.players.get(fileId);
     if (!playerInfo) {
-      console.warn('[MidiPlayerGroup] Player not found:', fileId);
+      // Store pending mute state for later application when player is created
+      const pending = this.pendingPlayerStates.get(fileId) || {};
+      pending.muted = muted;
+      this.pendingPlayerStates.set(fileId, pending);
       return;
     }
     
@@ -1015,5 +1169,6 @@ export class MidiPlayerGroup implements PlayerGroup {
     }
     
     this.players.clear();
+    this.pendingPlayerStates.clear();
   }
 }

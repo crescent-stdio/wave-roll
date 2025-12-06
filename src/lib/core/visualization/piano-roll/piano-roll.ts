@@ -327,11 +327,11 @@ export class PianoRoll {
     const notesAtPosition = this.findNotesAtPosition(time, note.midi);
 
     const fileInfoMap = this.fileInfoMap as
-      | Record<string, { name: string; fileName: string; kind: string; color: number }>
+      | Record<string, { name: string; fileName: string; kind: string; color: number; tracks?: Array<{ id: number; name: string }> }>
       | undefined;
 
     // Group notes by unique file IDs
-    const fileInfos: Map<string, { info: { name: string; fileName: string; kind: string; color: number }; notes: NoteData[] }> = new Map();
+    const fileInfos: Map<string, { info: { name: string; fileName: string; kind: string; color: number; tracks?: Array<{ id: number; name: string }> }; notes: NoteData[] }> = new Map();
 
     for (const n of notesAtPosition) {
       if (n.fileId && fileInfoMap) {
@@ -370,7 +370,26 @@ export class PianoRoll {
               6,
               "0"
             )};border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(255,255,255,0.3);"></span>`;
-          return `<div style="margin-top:4px;display:flex;align-items:center;">${swatch}<span style="font-weight:500;">${info.kind}: ${info.name}</span></div>`;
+          
+          // Collect unique track IDs from notes at this position
+          const uniqueTrackIds = [
+            ...new Set(
+              notes
+                .map((n) => n.trackId)
+                .filter((id): id is number => id !== undefined)
+            ),
+          ];
+          
+          // Get track names from file info
+          const trackNames = uniqueTrackIds
+            .map((tid) => info.tracks?.find((t) => t.id === tid)?.name)
+            .filter((name): name is string => name !== undefined);
+          
+          // Build track suffix with · separator
+          const trackSuffix =
+            trackNames.length > 0 ? ` · ${trackNames.join(", ")}` : "";
+          
+          return `<div style="margin-top:4px;display:flex;align-items:center;">${swatch}<span style="font-weight:500;">${info.kind}: ${info.name}${trackSuffix}</span></div>`;
         })
         .join("");
     }
@@ -907,6 +926,12 @@ export class PianoRoll {
 
     // Resize Pixi renderer
     this.app.renderer.resize(newWidth, newHeight);
+
+    // Ensure canvas CSS follows container dimensions
+    // (PixiJS autoDensity sets fixed pixel values which prevents responsive layout)
+    const canvas = this.app.canvas;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
 
     // Recalculate scales based on new size and re-render
     // IMPORTANT: Drop cached pxPerSecond so createScales picks a new value

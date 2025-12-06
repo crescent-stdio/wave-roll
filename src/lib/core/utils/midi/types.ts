@@ -25,6 +25,24 @@ export interface TimeSignatureEvent {
 }
 
 /**
+ * Instrument family categories based on GM Program Number groupings.
+ * Used for UI icons and audio sampler routing.
+ */
+export type InstrumentFamily =
+  | "piano"
+  | "strings"
+  | "drums"
+  | "guitar"
+  | "bass"
+  | "synth"
+  | "winds"
+  | "brass"
+  | "vocal"
+  | "organ"
+  | "mallet"
+  | "others";
+
+/**
  * Represents a musical note in the Tone.js format
  */
 export interface NoteData {
@@ -46,6 +64,11 @@ export interface NoteData {
   duration: number;
   /** The ID of the source MIDI file this note belongs to */
   fileId?: string;
+  /**
+   * Track ID within the MIDI file (0-based index).
+   * Combined with fileId to uniquely identify the source track.
+   */
+  trackId?: number;
   /** Optional source index for note matching/mapping */
   sourceIndex?: number;
   /** Mark this rendered fragment as an evaluation highlight segment */
@@ -64,6 +87,27 @@ export interface TrackData {
   name: string;
   /** The MIDI channel (0-15) */
   channel: number;
+}
+
+/**
+ * Extended track metadata with instrument information.
+ * Used for multi-instrument MIDI files.
+ */
+export interface TrackInfo {
+  /** Unique track ID within the MIDI file (0-based index) */
+  id: number;
+  /** The name of the track */
+  name: string;
+  /** The MIDI channel (0-15, channel 9 is typically drums) */
+  channel: number;
+  /** MIDI Program Number (0-127) for instrument selection */
+  program?: number;
+  /** Whether this track is a drum/percussion track (channel 9 or 10) */
+  isDrum: boolean;
+  /** Instrument family for UI icons and audio routing */
+  instrumentFamily: InstrumentFamily;
+  /** Number of notes in this track */
+  noteCount: number;
 }
 
 /**
@@ -88,11 +132,17 @@ export interface ParsedMidi {
   header: MidiHeader;
   /** Total duration of the piece in seconds */
   duration: number;
-  /** Information about the piano track */
+  /** Information about the primary track (legacy, for backward compatibility) */
   track: TrackData;
   /** Array of all notes in the piece */
   notes: NoteData[];
+  /** Control change events (e.g., sustain pedal) */
   controlChanges: ControlChangeEvent[];
+  /**
+   * Detailed track information for multi-instrument support.
+   * Each track has its own ID, instrument family, and note count.
+   */
+  tracks: TrackInfo[];
 }
 
 /**
@@ -119,4 +169,9 @@ export interface ControlChangeEvent {
   name?: string;
   /** The ID of the source MIDI file this control change belongs to */
   fileId?: string;
+  /**
+   * Track ID within the MIDI file (0-based index).
+   * Used to filter sustain pedal visibility per track.
+   */
+  trackId?: number;
 }

@@ -35,7 +35,9 @@ export interface UIComponentDependencies {
    * Callback used by visualisation engine to update the seek bar.
    * Accepts an optional override payload when the caller has its own time values.
    */
-  updateSeekBar: ((state?: { currentTime: number; duration: number }) => void) | null;
+  updateSeekBar:
+    | ((state?: { currentTime: number; duration: number }) => void)
+    | null;
 
   /** Callback that toggles play ↔ pause icon. */
   updatePlayButton: (() => void) | null;
@@ -70,7 +72,7 @@ export interface UIComponentDependencies {
     /** Toast tooltip options for highlight mode */
     highlightToast?: {
       /** Position: e.g., 'bottom', 'top' */
-      position?: 'bottom' | 'top';
+      position?: "bottom" | "top";
       /** Milliseconds to keep the toast visible */
       durationMs?: number;
       /** Inline CSS to override the toast container style */
@@ -78,11 +80,40 @@ export interface UIComponentDependencies {
     };
   };
 
+  /**
+   * When false, external drag & drop upload surfaces should be disabled.
+   * Click-to-open flows remain available.
+   */
+  allowFileDrop?: boolean;
+
   /** Solo mode: hides evaluation UI, file sections, and waveform band */
   soloMode?: boolean;
 
   /** MIDI export options (mode and custom handler) */
   midiExport?: MidiExportOptions;
+
+  /**
+   * Optional callback to trigger when user wants to add MIDI files.
+   * If provided, UI will call this instead of using the default file input.
+   * Used for VS Code integration where native dialogs are preferred.
+   */
+  onFileAddRequest?: () => void;
+
+  /**
+   * Optional callback to trigger when user wants to add audio files.
+   * If provided, UI will call this instead of using the default file input.
+   * Used for VS Code integration where native dialogs are preferred.
+   */
+  onAudioFileAddRequest?: () => void;
+
+  /**
+   * Optional function to add a file from raw data (ArrayBuffer or Base64).
+   * Used for VS Code integration where files are passed via postMessage.
+   */
+  addFileFromData?: (
+    data: ArrayBuffer | string,
+    filename: string
+  ) => Promise<void>;
 }
 
 export interface UIElements {

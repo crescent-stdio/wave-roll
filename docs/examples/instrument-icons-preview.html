@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wave Roll Icon System Preview</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;600;700&display=swap");
+
+      :root {
+        --bg-color: #ffffff;
+        --bg-secondary: #f8f9fa;
+        --text-primary: #1a1a1a;
+        --text-secondary: #666;
+        --accent-color: #333;
+        --border-color: rgba(0, 0, 0, 0.1);
+        --icon-color: #000000;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Outfit", sans-serif;
+        background: #ffffff;
+        min-height: 100vh;
+        color: var(--text-primary);
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 60px;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 12px;
+      }
+
+      .subtitle {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .section {
+        margin-bottom: 60px;
+        background: #f8f9fa;
+        border-radius: 24px;
+        padding: 32px;
+        border: 1px solid var(--border-color);
+      }
+
+      .section-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 24px;
+        gap: 12px;
+      }
+
+      .section-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--accent-color);
+      }
+
+      .section-desc {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-left: auto;
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .section-note {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        font-family: "JetBrains Mono", monospace;
+        margin-bottom: 16px;
+      }
+
+      .icons-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .icon-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .icon-card:hover {
+        background: #ffffff;
+        border-color: rgba(0, 0, 0, 0.2);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+      }
+
+      .icon-preview-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-bottom: 16px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      }
+
+      .icon-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .icon-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f0f0f0;
+        border-radius: 8px;
+        color: var(--icon-color, #000000);
+      }
+
+      .size-16 {
+        width: 32px;
+        height: 32px;
+      } /* Display box size */
+      .size-24 {
+        width: 48px;
+        height: 48px;
+      } /* Display box size */
+
+      /* Actual SVG sizing override for presentation */
+      .size-16 svg {
+        width: 16px;
+        height: 16px;
+      }
+      .size-24 svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .size-label {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .icon-name {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.9rem;
+        color: #1a1a1a;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .source-path {
+        font-size: 0.7rem;
+        color: #888;
+        text-align: center;
+        margin-top: auto;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 60px;
+        padding-top: 30px;
+        border-top: 1px solid var(--border-color);
+        color: #888;
+        font-size: 0.9rem;
+      }
+
+      /* All icons use black color for light theme */
+      [data-family="piano"],
+      [data-family="strings"],
+      [data-family="drums"],
+      [data-family="guitar"],
+      [data-family="bass"],
+      [data-family="synth"],
+      [data-family="winds"],
+      [data-family="brass"],
+      [data-family="others"],
+      .player-icon {
+        --icon-color: #000000;
+      }
+
+      /* Onset variants */
+      .onset-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎨 Wave Roll Icon System</h1>
+        <p class="subtitle">24x24 Grid • Lucide Style • Consistent Geometry</p>
+      </header>
+
+      <!-- Instrument Icons -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Instrument Icons</h2>
+          <span class="section-desc">src/assets/instrument-icons.ts</span>
+        </div>
+        <p class="section-note">
+          Every tile renders the redesigned 16px vs 24px silhouettes so you can
+          sanity check readability before shipping.
+        </p>
+        <div class="icons-grid" id="instrumentIcons"></div>
+      </section>
+
+      <!-- Player Icons -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Player Icons</h2>
+          <span class="section-desc">src/assets/player-icons.ts</span>
+        </div>
+        <div class="icons-grid" id="playerIcons"></div>
+      </section>
+
+      <!-- Onset Icons -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Onset Markers</h2>
+          <span class="section-desc">src/assets/onset-icons.ts</span>
+        </div>
+        <div class="icons-grid onset-grid" id="onsetIcons"></div>
+      </section>
+
+      <footer>
+        <p>Wave Roll Design System Preview</p>
+      </footer>
+    </div>
+
+    <script type="module">
+      import {
+        INSTRUMENT_ICONS,
+        CHEVRON_DOWN,
+        CHEVRON_RIGHT,
+      } from "../../src/assets/instrument-icons.ts";
+      import { PLAYER_ICONS } from "../../src/assets/player-icons.ts";
+      import { renderOnsetSVG } from "../../src/assets/onset-icons.ts";
+
+      // 1. Render Instrument Icons
+      const instrumentGrid = document.getElementById("instrumentIcons");
+
+      // Add UI icons to instruments for preview
+      const allInstruments = {
+        ...INSTRUMENT_ICONS,
+        "chevron-down": CHEVRON_DOWN,
+        "chevron-right": CHEVRON_RIGHT,
+      };
+
+      for (const [name, svg] of Object.entries(allInstruments)) {
+        const card = createIconCard(name, svg, name); // Use name as family for color mapping if matches
+        instrumentGrid.appendChild(card);
+      }
+
+      // 2. Render Player Icons
+      const playerGrid = document.getElementById("playerIcons");
+      for (const [name, svg] of Object.entries(PLAYER_ICONS)) {
+        const card = createIconCard(name, svg, "player-icon");
+        card.classList.add("player-icon");
+        playerGrid.appendChild(card);
+      }
+
+      // 3. Render Onset Icons
+      const onsetGrid = document.getElementById("onsetIcons");
+      const onsetShapes = [
+        "circle",
+        "square",
+        "diamond",
+        "triangle-up",
+        "triangle-down",
+        "triangle-left",
+        "triangle-right",
+        "star",
+        "cross",
+        "plus",
+        "hexagon",
+        "pentagon",
+        "chevron-up",
+        "chevron-down",
+      ];
+
+      onsetShapes.forEach((shape) => {
+        // Render dynamic SVG
+        // We render a 24px version for preview
+        const svg = renderOnsetSVG(
+          { shape, variant: "outlined", strokeWidth: 2 },
+          "currentColor",
+          24
+        );
+
+        const card = document.createElement("div");
+        card.className = "icon-card";
+        card.style.setProperty("--icon-color", "#000000");
+
+        card.innerHTML = `
+          <div class="icon-preview-row" style="justify-content: center;">
+            <div class="icon-wrapper">
+              <div class="icon-display size-24" style="border-radius: 50%;">${svg}</div>
+            </div>
+          </div>
+          <span class="icon-name">${shape}</span>
+        `;
+        onsetGrid.appendChild(card);
+      });
+
+      // Helper to create card
+      function createIconCard(name, svgString, familyClass) {
+        const card = document.createElement("div");
+        card.className = "icon-card";
+        if (familyClass) card.setAttribute("data-family", familyClass);
+
+        // Inject correct width/height for preview if not present or override
+        // We simply wrap it in a container that constrains it,
+        // but we also want to demonstrate 16px vs 24px rendering
+
+        // Replace width/height in string for 16px version preview
+        const svg16 = svgString
+          .replace(/width="\d+"/, 'width="16"')
+          .replace(/height="\d+"/, 'height="16"');
+
+        card.innerHTML = `
+          <div class="icon-preview-row">
+            <div class="icon-wrapper">
+              <div class="icon-display size-16">${svg16}</div>
+              <span class="size-label">16px</span>
+            </div>
+            <div class="icon-wrapper">
+              <div class="icon-display size-24">${svgString}</div>
+              <span class="size-label">24px</span>
+            </div>
+          </div>
+          <span class="icon-name">${name}</span>
+        `;
+        return card;
+      }
+    </script>
+  </body>
+</html>

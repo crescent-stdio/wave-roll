@@ -60,7 +60,10 @@ export function createTempoControlUI(
     min-width: 70px;
   `;
   badge.classList.add("wr-focusable");
-  badge.setAttribute("aria-label", `Playback tempo: ${Math.round(initialTempo)} BPM`);
+  badge.setAttribute(
+    "aria-label",
+    `Playback tempo: ${Math.round(initialTempo)} BPM`
+  );
 
   // Hover effect for badge (consistent with volume button)
   badge.addEventListener("mouseenter", () => {
@@ -221,7 +224,10 @@ export function createTempoControlUI(
 
   // Helper to apply tempo safely
   const applyTempo = (bpm: number) => {
-    const clampedBpm = Math.max(MIN_TEMPO, Math.min(MAX_TEMPO, Math.round(bpm)));
+    const clampedBpm = Math.max(
+      MIN_TEMPO,
+      Math.min(MAX_TEMPO, Math.round(bpm))
+    );
     currentTempo = clampedBpm;
     input.value = String(clampedBpm);
     badge.textContent = `${clampedBpm} BPM`;
@@ -230,7 +236,10 @@ export function createTempoControlUI(
 
     const state = dependencies.audioPlayer?.getState();
     if (state && dependencies.updateSeekBar) {
-      dependencies.updateSeekBar({ currentTime: state.currentTime, duration: state.duration });
+      dependencies.updateSeekBar({
+        currentTime: state.currentTime,
+        duration: state.duration,
+      });
     }
   };
 
@@ -324,7 +333,10 @@ export function createTempoControlUI(
     const { currentTempo: newTempo } = getTempoState();
     currentTempo = newTempo;
     badge.textContent = `${Math.round(newTempo)} BPM`;
-    badge.setAttribute("aria-label", `Playback tempo: ${Math.round(newTempo)} BPM`);
+    badge.setAttribute(
+      "aria-label",
+      `Playback tempo: ${Math.round(newTempo)} BPM`
+    );
     // Only update input if it's not focused
     if (document.activeElement !== input) {
       input.value = String(Math.round(newTempo));
@@ -339,7 +351,10 @@ export function createTempoControlUI(
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.removedNodes) {
-        if (node === container || (node instanceof Element && node.contains(container))) {
+        if (
+          node === container ||
+          (node instanceof Element && node.contains(container))
+        ) {
           document.removeEventListener("wr-force-ui-refresh", handleRefresh);
           observer.disconnect();
           return;
@@ -349,7 +364,10 @@ export function createTempoControlUI(
   });
   requestAnimationFrame(() => {
     if (container.parentElement) {
-      observer.observe(container.parentElement, { childList: true, subtree: true });
+      observer.observe(container.parentElement, {
+        childList: true,
+        subtree: true,
+      });
     }
   });
 

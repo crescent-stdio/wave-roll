@@ -1,4 +1,5 @@
 import { AudioControllerConfig, PianoRollConfig } from "@/core/playback";
+import { HighlightMode } from "@/core/state/types";
 
 export interface WaveRollPlayerOptions {
   /** Configuration for the underlying AudioController */
@@ -41,4 +42,11 @@ export interface CreateWaveRollPlayerOptions {
   pianoRoll?: Partial<PianoRollConfig>;
   /** MIDI export options */
   midiExport?: MidiExportOptions;
+  /** Initial highlight mode for note rendering */
+  defaultHighlightMode?: HighlightMode;
+  /**
+   * When false, disables external drag & drop upload surfaces.
+   * Click-to-open remains available.
+   */
+  allowFileDrop?: boolean;
 }

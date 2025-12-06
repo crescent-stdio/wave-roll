@@ -206,8 +206,13 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     );
 
     // Restore originalTempo from pendingOriginalTempo or prevState
-    const originalTempoToRestore = this.pendingOriginalTempo ?? prevState?.originalTempo;
-    if (originalTempoToRestore && Number.isFinite(originalTempoToRestore) && originalTempoToRestore > 0) {
+    const originalTempoToRestore =
+      this.pendingOriginalTempo ?? prevState?.originalTempo;
+    if (
+      originalTempoToRestore &&
+      Number.isFinite(originalTempoToRestore) &&
+      originalTempoToRestore > 0
+    ) {
       (this.audioPlayer as any)?.setOriginalTempo?.(originalTempoToRestore);
       // Also set current tempo to match originalTempo if not explicitly different
       if (!prevState || prevState.tempo === prevState.originalTempo) {
