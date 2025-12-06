@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This library is published at [ISMIR 2025 LBD](https://ismir2025program.ismir.net/lbd_459.html). See [Citation](#citation) for reference.
 
-## [0.4.0] - 2025-12-05
+## [0.4.0] - 2025-12-06
 
 ### Added
 
