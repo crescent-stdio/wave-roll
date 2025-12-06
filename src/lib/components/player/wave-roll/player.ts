@@ -157,6 +157,7 @@ export class WaveRollPlayer {
   private fileAddRequestCallback: (() => void) | null = null;
   private audioFileAddRequestCallback: (() => void) | null = null;
   private defaultHighlightMode: HighlightMode | undefined;
+  private allowFileDrop: boolean = true;
 
   // Compute effective UI duration considering tempo and WAV length
   private getEffectiveDuration(): number {
@@ -221,6 +222,9 @@ export class WaveRollPlayer {
         ...this.pianoRollConfigOverrides,
         ...options.pianoRoll,
       };
+    }
+    if (options?.allowFileDrop !== undefined) {
+      this.allowFileDrop = options.allowFileDrop;
     }
     this.defaultHighlightMode = options?.defaultHighlightMode;
 
@@ -464,6 +468,7 @@ export class WaveRollPlayer {
         permissions: { ...this.permissions },
         soloMode: this.soloMode,
         midiExport: this.midiExportOptions,
+        allowFileDrop: this.allowFileDrop,
         onFileAddRequest: this.fileAddRequestCallback
           ? () => this.triggerFileAddRequest()
           : undefined,

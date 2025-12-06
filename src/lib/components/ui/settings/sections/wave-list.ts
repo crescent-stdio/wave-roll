@@ -11,7 +11,8 @@ export function createWaveListSection(
   const section = document.createElement("div");
   const header = document.createElement("h3");
   header.textContent = "WAV File";
-  header.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
+  header.style.cssText =
+    "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
   section.appendChild(header);
 
   const list = document.createElement("div");
@@ -40,7 +41,8 @@ export function createWaveListSection(
     }>;
     files.forEach((a) => {
       const row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;gap:8px;background:var(--surface-alt);padding:8px;border-radius:6px;border:1px solid var(--ui-border);";
+      row.style.cssText =
+        "display:flex;align-items:center;gap:8px;background:var(--surface-alt);padding:8px;border-radius:6px;border:1px solid var(--ui-border);";
 
       // color swatch (square)
       const colorBtn = document.createElement("button");
@@ -50,7 +52,8 @@ export function createWaveListSection(
       const input = document.createElement("input");
       input.type = "color";
       input.value = hex;
-      input.style.cssText = "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
+      input.style.cssText =
+        "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
       input.addEventListener("change", () => {
         const newHex = input.value;
         const num = parseInt(newHex.replace("#", ""), 16);
@@ -64,7 +67,8 @@ export function createWaveListSection(
       const name = document.createElement("input");
       name.type = "text";
       name.value = a.name;
-      name.style.cssText = "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
+      name.style.cssText =
+        "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
       name.addEventListener("change", () => {
         api?.updateName?.(a.id, name.value.trim());
       });
@@ -78,9 +82,10 @@ export function createWaveListSection(
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.innerHTML = PLAYER_ICONS.trash;
-        delBtn.style.cssText = "width:24px;height:24px;padding:0;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.7;";
+        delBtn.style.cssText =
+          "width:24px;height:24px;padding:0;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-muted);opacity:0.7;";
         delBtn.title = "Remove audio file";
-        
+
         delBtn.addEventListener("mouseenter", () => {
           delBtn.style.opacity = "1";
           delBtn.style.color = "var(--danger, #dc3545)";
@@ -89,7 +94,7 @@ export function createWaveListSection(
           delBtn.style.opacity = "0.7";
           delBtn.style.color = "var(--text-muted)";
         });
-        
+
         delBtn.addEventListener("click", () => {
           api?.remove?.(a.id);
           // Pause playback when removing audio file
@@ -97,17 +102,22 @@ export function createWaveListSection(
             deps.audioPlayer?.pause?.();
           } catch {}
           refresh();
-          
+
           // Update main screen file toggle section
-          const fileToggleContainer = document.querySelector('[data-role="file-toggle"]') as HTMLElement | null;
+          const fileToggleContainer = document.querySelector(
+            '[data-role="file-toggle"]'
+          ) as HTMLElement | null;
           if (fileToggleContainer) {
             const FileToggleManager = (window as any).FileToggleManager;
             if (FileToggleManager) {
-              FileToggleManager.updateFileToggleSection(fileToggleContainer, deps);
+              FileToggleManager.updateFileToggleSection(
+                fileToggleContainer,
+                deps
+              );
             }
           }
         });
-        
+
         row.appendChild(delBtn);
       }
 
@@ -116,6 +126,7 @@ export function createWaveListSection(
 
     /* ---------- Audio File Drop Zone ---------- */
     const canAdd = deps.permissions?.canAddFiles !== false;
+    const allowFileDrop = deps.allowFileDrop !== false;
 
     // Drop zone container with dashed border
     const dropZone = document.createElement("div");
@@ -136,16 +147,22 @@ export function createWaveListSection(
 
     const dropZoneTitle = document.createElement("div");
     // Change text based on whether an audio file already exists
-    dropZoneTitle.textContent = files.length > 0 ? "Change Audio File" : "+ Add Audio File";
-    dropZoneTitle.style.cssText = "font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:4px;";
+    dropZoneTitle.textContent =
+      files.length > 0 ? "Change Audio File" : "+ Add Audio File";
+    dropZoneTitle.style.cssText =
+      "font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:4px;";
 
     const dropZoneHint = document.createElement("div");
-    dropZoneHint.textContent = "Click or drag & drop audio file";
-    dropZoneHint.style.cssText = "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
+    dropZoneHint.textContent = allowFileDrop
+      ? "Click or drag & drop audio file"
+      : "Click to choose an audio file";
+    dropZoneHint.style.cssText =
+      "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
 
     const dropZoneFormats = document.createElement("div");
     dropZoneFormats.textContent = ".wav, .mp3, .m4a, .ogg";
-    dropZoneFormats.style.cssText = "font-size:10px;color:var(--text-muted);opacity:0.7;";
+    dropZoneFormats.style.cssText =
+      "font-size:10px;color:var(--text-muted);opacity:0.7;";
 
     dropZoneContent.appendChild(dropZoneTitle);
     dropZoneContent.appendChild(dropZoneHint);
@@ -176,11 +193,16 @@ export function createWaveListSection(
         refresh();
 
         // Update main screen file toggle section
-        const fileToggleContainer = document.querySelector('[data-role="file-toggle"]') as HTMLElement | null;
+        const fileToggleContainer = document.querySelector(
+          '[data-role="file-toggle"]'
+        ) as HTMLElement | null;
         if (fileToggleContainer) {
           const FileToggleManager = (window as any).FileToggleManager;
           if (FileToggleManager) {
-            FileToggleManager.updateFileToggleSection(fileToggleContainer, deps);
+            FileToggleManager.updateFileToggleSection(
+              fileToggleContainer,
+              deps
+            );
           }
         }
       } catch (err) {
@@ -210,62 +232,65 @@ export function createWaveListSection(
       hiddenInput.value = "";
     };
 
-    // Drag & drop visual feedback
-    const setDropZoneHighlight = (active: boolean) => {
-      if (active) {
-        dropZone.style.borderColor = "var(--focus-ring)";
-        dropZone.style.background = "var(--surface-alt)";
-        dropZoneTitle.textContent = "Drop audio file here";
-      } else {
-        dropZone.style.borderColor = "var(--ui-border)";
-        dropZone.style.background = "var(--surface)";
-        dropZoneTitle.textContent = files.length > 0 ? "Change Audio File" : "+ Add Audio File";
-      }
-    };
-
-    // Drag enter/over
-    dropZone.addEventListener("dragenter", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.dataTransfer?.types.includes("Files")) {
-        setDropZoneHighlight(true);
-      }
-    });
-
-    dropZone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.dataTransfer?.types.includes("Files")) {
-        e.dataTransfer.dropEffect = "copy";
-      }
-    });
-
-    dropZone.addEventListener("dragleave", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDropZoneHighlight(false);
-    });
-
-    // Drop handler for audio files
-    dropZone.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDropZoneHighlight(false);
-
-      if (!e.dataTransfer?.types.includes("Files")) {
-        return;
-      }
-
-      const droppedFiles = Array.from(e.dataTransfer.files);
-      // Only process the first valid audio file
-      for (const file of droppedFiles) {
-        const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] || "";
-        if (AUDIO_EXTENSIONS.includes(ext)) {
-          await processAudioFile(file);
-          break; // Only one audio file allowed
+    if (allowFileDrop) {
+      // Drag & drop visual feedback
+      const setDropZoneHighlight = (active: boolean) => {
+        if (active) {
+          dropZone.style.borderColor = "var(--focus-ring)";
+          dropZone.style.background = "var(--surface-alt)";
+          dropZoneTitle.textContent = "Drop audio file here";
+        } else {
+          dropZone.style.borderColor = "var(--ui-border)";
+          dropZone.style.background = "var(--surface)";
+          dropZoneTitle.textContent =
+            files.length > 0 ? "Change Audio File" : "+ Add Audio File";
         }
-      }
-    });
+      };
+
+      // Drag enter/over
+      dropZone.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer?.types.includes("Files")) {
+          setDropZoneHighlight(true);
+        }
+      });
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer?.types.includes("Files")) {
+          e.dataTransfer.dropEffect = "copy";
+        }
+      });
+
+      dropZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropZoneHighlight(false);
+      });
+
+      // Drop handler for audio files
+      dropZone.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropZoneHighlight(false);
+
+        if (!e.dataTransfer?.types.includes("Files")) {
+          return;
+        }
+
+        const droppedFiles = Array.from(e.dataTransfer.files);
+        // Only process the first valid audio file
+        for (const file of droppedFiles) {
+          const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] || "";
+          if (AUDIO_EXTENSIONS.includes(ext)) {
+            await processAudioFile(file);
+            break; // Only one audio file allowed
+          }
+        }
+      });
+    }
 
     if (canAdd) {
       dropZone.appendChild(hiddenInput);

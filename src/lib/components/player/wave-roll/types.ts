@@ -44,4 +44,9 @@ export interface CreateWaveRollPlayerOptions {
   midiExport?: MidiExportOptions;
   /** Initial highlight mode for note rendering */
   defaultHighlightMode?: HighlightMode;
+  /**
+   * When false, disables external drag & drop upload surfaces.
+   * Click-to-open remains available.
+   */
+  allowFileDrop?: boolean;
 }

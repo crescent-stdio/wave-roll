@@ -35,7 +35,9 @@ export interface UIComponentDependencies {
    * Callback used by visualisation engine to update the seek bar.
    * Accepts an optional override payload when the caller has its own time values.
    */
-  updateSeekBar: ((state?: { currentTime: number; duration: number }) => void) | null;
+  updateSeekBar:
+    | ((state?: { currentTime: number; duration: number }) => void)
+    | null;
 
   /** Callback that toggles play ↔ pause icon. */
   updatePlayButton: (() => void) | null;
@@ -70,13 +72,19 @@ export interface UIComponentDependencies {
     /** Toast tooltip options for highlight mode */
     highlightToast?: {
       /** Position: e.g., 'bottom', 'top' */
-      position?: 'bottom' | 'top';
+      position?: "bottom" | "top";
       /** Milliseconds to keep the toast visible */
       durationMs?: number;
       /** Inline CSS to override the toast container style */
       style?: Partial<CSSStyleDeclaration>;
     };
   };
+
+  /**
+   * When false, external drag & drop upload surfaces should be disabled.
+   * Click-to-open flows remain available.
+   */
+  allowFileDrop?: boolean;
 
   /** Solo mode: hides evaluation UI, file sections, and waveform band */
   soloMode?: boolean;
@@ -102,7 +110,10 @@ export interface UIComponentDependencies {
    * Optional function to add a file from raw data (ArrayBuffer or Base64).
    * Used for VS Code integration where files are passed via postMessage.
    */
-  addFileFromData?: (data: ArrayBuffer | string, filename: string) => Promise<void>;
+  addFileFromData?: (
+    data: ArrayBuffer | string,
+    filename: string
+  ) => Promise<void>;
 }
 
 export interface UIElements {
