@@ -236,6 +236,7 @@ export class FileToggleItem {
       visBtn.style.boxShadow = "none";
       visBtn.style.padding = "0";
       visBtn.style.minWidth = "20px";
+      visBtn.style.marginRight = "2px";
 
       // Sustain pedal visibility button - after Eye (visibility)
       const isTrackSustainVisible =
@@ -288,7 +289,7 @@ export class FileToggleItem {
         justify-content: center;
         color: ${isAutoInstrument ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
         transition: color 0.15s ease;
-        margin-right: 22px;
+        margin-right: 20px;
         `;
       autoInstrumentBtn.title = isAutoInstrument
         ? `Using ${track.instrumentFamily} sound (click for piano)`
@@ -340,7 +341,7 @@ export class FileToggleItem {
       const noteCount = document.createElement("span");
       noteCount.textContent = `${track.noteCount} notes`;
       noteCount.style.cssText =
-        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:106px;text-align:right;";
+        "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;min-width:95px;text-align:right;margin-right:10px;";
 
       // Append in order: ColorDot | InstrumentIcon | TrackName | AutoInstrument | Eye | Sustain | Volume | NoteCount
       trackRow.appendChild(colorDot);
