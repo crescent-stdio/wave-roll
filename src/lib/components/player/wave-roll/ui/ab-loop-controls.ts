@@ -79,13 +79,15 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       }
       // Reflect UI state
       restartBtn.dataset.active = loopRestart ? "true" : "";
-      restartBtn.style.background = loopRestart ? "rgba(0,123,255,.1)" : "transparent";
+      restartBtn.style.background = loopRestart
+        ? "rgba(0,123,255,.1)"
+        : "transparent";
       restartBtn.style.color = loopRestart ? "#007bff" : "#495057";
       // Always refresh overlay
       updateSeekBar();
     },
     undefined,
-    PLAYER_ICONS.loop_restart
+    PLAYER_ICONS.loop_start
   );
 
   /* A & B buttons */
@@ -110,9 +112,17 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       const midiDur = st.duration || 0;
       let wavMax = 0;
       try {
-        const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+        const api = (
+          globalThis as unknown as {
+            _waveRollAudio?: {
+              getFiles?: () => Array<{ audioBuffer?: AudioBuffer }>;
+            };
+          }
+        )._waveRollAudio;
         const files = api?.getFiles?.() || [];
-        const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+        const durations = files
+          .map((f) => f.audioBuffer?.duration || 0)
+          .filter((d) => d > 0);
         wavMax = durations.length > 0 ? Math.max(...durations) : 0;
       } catch {}
       const rawMax = Math.max(midiDur, wavMax);
@@ -221,7 +231,10 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
   // Call update helper after initial render so existing loop points
   // (if any) appear on seek-bar immediately.
   // --------------------------------------------------------------
-  setTimeout(() => { updateSeekBar(); syncRestartEnabled(); }, 0);
+  setTimeout(() => {
+    updateSeekBar();
+    syncRestartEnabled();
+  }, 0);
 
   function clear() {
     pointAPct = pointBPct = null;

@@ -2,14 +2,29 @@ import { UIComponentDependencies } from "../../types";
 import { renderOnsetSVG } from "@/assets/onset-icons";
 import { openOnsetPicker } from "../components/onset-picker";
 import { PLAYER_ICONS } from "@/assets/player-icons";
+import {
+  getInstrumentIcon,
+  CHEVRON_DOWN,
+  CHEVRON_RIGHT,
+} from "@/assets/instrument-icons";
 import { toHexColor } from "@/lib/core/utils/color";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { MidiFileEntry } from "@/core/midi";
+import { TrackInfo } from "@/lib/midi/types";
 import { DEFAULT_PALETTES } from "@/lib/core/midi/palette";
 import {
   computeNoteMetrics,
   DEFAULT_TOLERANCES,
 } from "@/lib/evaluation/transcription";
+
+/** Supported MIDI file extensions */
+const MIDI_EXTENSIONS = [".mid", ".midi"];
+
+/**
+ * Stores accordion expanded state per fileId.
+ * Persists across re-renders so accordion doesn't collapse when track visibility changes.
+ */
+const accordionExpandedState = new Map<string, boolean>();
 
 /**
  * Build the "MIDI Files" list section of the settings modal.
@@ -24,11 +39,43 @@ export function createFileList(
   // Section wrapper
   const filesSection = document.createElement("div");
 
+  // Header row with title and uniform track color toggle
+  const headerRow = document.createElement("div");
+  headerRow.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;";
+
   // Header
   const filesHeader = document.createElement("h3");
   filesHeader.textContent = "MIDI Files";
-  filesHeader.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;";
-  filesSection.appendChild(filesHeader);
+  filesHeader.style.cssText = "margin:0;font-size:16px;font-weight:600;";
+  headerRow.appendChild(filesHeader);
+
+  // Uniform Track Color toggle
+  const uniformColorToggle = document.createElement("label");
+  uniformColorToggle.style.cssText =
+    "display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;";
+
+  const uniformColorCheckbox = document.createElement("input");
+  uniformColorCheckbox.type = "checkbox";
+  uniformColorCheckbox.checked =
+    dependencies.stateManager.getState().visual.uniformTrackColor ?? false;
+  uniformColorCheckbox.style.cssText = "cursor:pointer;";
+  uniformColorCheckbox.onchange = () => {
+    dependencies.stateManager.updateVisualState({
+      uniformTrackColor: uniformColorCheckbox.checked,
+    });
+    // Refresh the file list to update track color dots
+    refreshFileList();
+  };
+
+  const uniformColorLabel = document.createElement("span");
+  uniformColorLabel.textContent = "Uniform Track Color";
+
+  uniformColorToggle.appendChild(uniformColorCheckbox);
+  uniformColorToggle.appendChild(uniformColorLabel);
+  headerRow.appendChild(uniformColorToggle);
+
+  filesSection.appendChild(headerRow);
 
   // List container
   const fileList = document.createElement("div");
@@ -44,11 +91,20 @@ export function createFileList(
 
     // ---- Enable container-level dragover / drop so that
     //      users can drop _below_ the last item (e.g. when only 2 files)
+    //      Only for internal reorder - external file drops go to the drop zone
     const containerDragOver = (e: DragEvent) => {
+      // Ignore external file drops
+      if (e.dataTransfer?.types.includes("Files")) {
+        return;
+      }
       e.preventDefault();
     };
 
     const containerDrop = (e: DragEvent) => {
+      // Ignore external file drops
+      if (e.dataTransfer?.types.includes("Files")) {
+        return;
+      }
       e.preventDefault();
       const sourceIndex = parseInt(
         (e.dataTransfer as DataTransfer).getData("text/plain"),
@@ -110,8 +166,13 @@ export function createFileList(
       const shapeHost = document.createElement("div");
       shapeHost.style.cssText = `width:18px;height:18px;display:flex;align-items:center;justify-content:center;`;
       // Unified onset marker SVG renderer for both swatch and marker picker
-      const renderOnsetSvg = (style: import("@/types").OnsetMarkerStyle, color: string) => renderOnsetSVG(style, color, 16);
-      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(file.id);
+      const renderOnsetSvg = (
+        style: import("@/types").OnsetMarkerStyle,
+        color: string
+      ) => renderOnsetSVG(style, color, 16);
+      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(
+        file.id
+      );
       shapeHost.innerHTML = renderOnsetSvg(ensuredStyle, initialHex);
       swatchBtn.appendChild(shapeHost);
 
@@ -124,14 +185,9 @@ export function createFileList(
 
       // Unified picker trigger (clicking the swatch opens the combined picker)
       swatchBtn.onclick = (e) => {
-        openOnsetPicker(
-          dependencies,
-          file.id,
-          swatchBtn,
-          (style, hex) => {
-            shapeHost.innerHTML = renderOnsetSvg(style, hex);
-          }
-        );
+        openOnsetPicker(dependencies, file.id, swatchBtn, (style, hex) => {
+          shapeHost.innerHTML = renderOnsetSvg(style, hex);
+        });
       };
 
       // Handle color change from native picker
@@ -145,7 +201,9 @@ export function createFileList(
         );
 
         // Update swatch shape color
-        const styleNow = dependencies.stateManager.getOnsetMarkerForFile(file.id) || ensuredStyle;
+        const styleNow =
+          dependencies.stateManager.getOnsetMarkerForFile(file.id) ||
+          ensuredStyle;
         shapeHost.innerHTML = renderOnsetSvg(styleNow, hex);
       };
 
@@ -176,7 +234,9 @@ export function createFileList(
       delBtn.style.cssText =
         "border:none;background:transparent;cursor:pointer;width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);";
       delBtn.onclick = () => {
-        if (!canRemove) { return; }
+        if (!canRemove) {
+          return;
+        }
         if (confirm(`Delete ${file.name}?`)) {
           dependencies.midiManager.removeMidiFile(file.id);
           refreshFileList();
@@ -221,12 +281,16 @@ export function createFileList(
         element.addEventListener("touchstart", preventDrag);
       });
 
-      // Handle drag over (row)
+      // Handle drag over (row) - only for internal reorder, not external file drops
       row.addEventListener("dragover", (e) => {
+        // Ignore external file drops - those go to the drop zone only
+        if (e.dataTransfer?.types.includes("Files")) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
-        // Highlight potential drop target for live feedback
-        row.style.outline = "2px dashed var(--focus-ring)"; // focus color
+        // Highlight potential drop target for live feedback (internal reorder only)
+        row.style.outline = "2px dashed var(--focus-ring)";
       });
 
       // Clear highlight when leaving the row
@@ -234,15 +298,23 @@ export function createFileList(
         row.style.outline = "none";
       });
 
-      // Handle drag over (handle) - allows dropping directly on the handle area
+      // Handle drag over (handle) - only for internal reorder
       handle.addEventListener("dragover", (e) => {
+        // Ignore external file drops
+        if (e.dataTransfer?.types.includes("Files")) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         row.style.outline = "2px dashed var(--focus-ring)";
       });
 
-      // Unified drop handler
+      // Unified drop handler - only for internal reorder
       const onDrop = (targetIndex: number) => (e: DragEvent) => {
+        // Ignore external file drops - those go to the drop zone only
+        if (e.dataTransfer?.types.includes("Files")) {
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         const sourceIndex = parseInt(
@@ -261,55 +333,271 @@ export function createFileList(
       row.addEventListener("drop", onDrop(idx));
       handle.addEventListener("drop", onDrop(idx));
 
+      // Check if this file has multiple tracks for accordion toggle
+      const tracks = file.parsedData?.tracks;
+      const hasMultipleTracks = tracks && tracks.length > 1;
+
+      // Always create chevron space for alignment (empty for single-track files)
+      let trackListEl: HTMLElement | null = null;
+      let isExpanded = accordionExpandedState.get(file.id) ?? false;
+
+      const chevronSpan = document.createElement("span");
+      chevronSpan.style.cssText =
+        "display:flex;align-items:center;width:16px;min-width:16px;";
+
+      if (hasMultipleTracks) {
+        chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+        chevronSpan.style.cursor = "pointer";
+        chevronSpan.style.color = "var(--text-muted)";
+        chevronSpan.style.transition = "transform 0.2s";
+        chevronSpan.title = `${tracks.length} tracks`;
+      }
+
       row.appendChild(handle);
+      row.appendChild(chevronSpan);
       row.appendChild(colorPickerContainer);
       row.appendChild(nameInput);
       if (canRemove) {
         row.appendChild(delBtn);
       }
       fileList.appendChild(row);
+
+      // ---- Track Accordion (for multi-track MIDI files) ----
+      if (hasMultipleTracks) {
+        // Track list container - aligned with file row (handle + chevron + colorPicker width)
+        trackListEl = document.createElement("div");
+        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:60px;margin-top:2px;`;
+
+        // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
+        const sortedTracks = [...tracks].sort((a, b) => {
+          // Drums go to the bottom
+          if (a.isDrum && !b.isDrum) return 1;
+          if (!a.isDrum && b.isDrum) return -1;
+          // Both drums or both non-drums: sort by program number
+          return (a.program ?? 0) - (b.program ?? 0);
+        });
+
+        // Populate track items
+        sortedTracks.forEach((track: TrackInfo) => {
+          const trackRow = document.createElement("div");
+          trackRow.style.cssText =
+            "display:flex;align-items:center;gap:16px;padding:2px 0;";
+
+          // Instrument icon (first)
+          const iconSpan = document.createElement("span");
+          iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
+          iconSpan.style.cssText =
+            "display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--text-muted);";
+          iconSpan.title = track.instrumentFamily;
+
+          // Track name (second)
+          const trackName = document.createElement("span");
+          trackName.textContent = track.name;
+          trackName.style.cssText =
+            "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+
+          // Note count badge (third/last)
+          const noteCount = document.createElement("span");
+          noteCount.textContent = `${track.noteCount} notes`;
+          noteCount.style.cssText =
+            "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;text-align:right;";
+
+          // Append in new order: InstrumentIcon | TrackName | NoteCount
+          trackRow.appendChild(iconSpan);
+          trackRow.appendChild(trackName);
+          trackRow.appendChild(noteCount);
+          trackListEl!.appendChild(trackRow);
+        });
+
+        fileList.appendChild(trackListEl);
+
+        // Toggle accordion on chevron click
+        chevronSpan.onclick = (e: MouseEvent) => {
+          e.stopPropagation();
+          isExpanded = !isExpanded;
+          accordionExpandedState.set(file.id, isExpanded);
+          if (trackListEl) {
+            trackListEl.style.display = isExpanded ? "flex" : "none";
+          }
+          chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
+        };
+      }
     });
 
-    /* ---------- Add MIDI button ---------- */
+    /* ---------- Unified Drop Zone ---------- */
     const canAdd = dependencies.permissions?.canAddFiles !== false;
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.textContent = "Add MIDI Files";
-    addBtn.style.cssText =
-      "margin-top:12px;padding:8px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:14px;color:var(--text-primary);";
+    const allowFileDrop = dependencies.allowFileDrop !== false;
 
+    // Drop zone container with dashed border
+    const dropZone = document.createElement("div");
+    dropZone.style.cssText = `
+      margin-top:12px;
+      padding:16px;
+      border:2px dashed var(--ui-border);
+      border-radius:8px;
+      background:var(--surface);
+      cursor:pointer;
+      text-align:center;
+      transition:all 0.2s ease;
+    `;
+
+    // Drop zone content
+    const dropZoneContent = document.createElement("div");
+    dropZoneContent.style.cssText = "pointer-events:none;";
+
+    const dropZoneTitle = document.createElement("div");
+    dropZoneTitle.textContent = "+ Add MIDI Files";
+    dropZoneTitle.style.cssText =
+      "font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:4px;";
+
+    const dropZoneHint = document.createElement("div");
+    dropZoneHint.textContent = allowFileDrop
+      ? "Click or drag & drop MIDI files"
+      : "Click to choose MIDI files";
+    dropZoneHint.style.cssText =
+      "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
+
+    const dropZoneFormats = document.createElement("div");
+    dropZoneFormats.textContent = ".mid, .midi";
+    dropZoneFormats.style.cssText =
+      "font-size:10px;color:var(--text-muted);opacity:0.7;";
+
+    dropZoneContent.appendChild(dropZoneTitle);
+    dropZoneContent.appendChild(dropZoneHint);
+    dropZoneContent.appendChild(dropZoneFormats);
+    dropZone.appendChild(dropZoneContent);
+
+    // Hidden file input (MIDI files only)
     const hiddenInput = document.createElement("input");
     hiddenInput.type = "file";
     hiddenInput.accept = ".mid,.midi";
     hiddenInput.multiple = true;
     hiddenInput.style.display = "none";
 
-    addBtn.onclick = () => { if (canAdd) hiddenInput.click(); };
-
-    hiddenInput.onchange = async (e) => {
-      if (!canAdd) { return; }
-      const files = Array.from((e.target as HTMLInputElement).files || []);
-      if (files.length === 0) return;
+    /**
+     * Process dropped/selected MIDI files.
+     */
+    const processFiles = async (files: File[]) => {
+      if (!canAdd || files.length === 0) return;
 
       for (const file of files) {
-        try {
-          const state = dependencies.stateManager?.getState();
-          const pedalElongate = state?.visual.pedalElongate ?? true;
-          const pedalThreshold = state?.visual.pedalThreshold ?? 64;
-          const parsed = await parseMidi(file, { 
-            applyPedalElongate: pedalElongate,
-            pedalThreshold: pedalThreshold 
-          });
-          dependencies.midiManager.addMidiFile(file.name, parsed, undefined, file);
-        } catch (err) {
-          console.error("Failed to parse MIDI", err);
+        const ext = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] || "";
+
+        if (MIDI_EXTENSIONS.includes(ext)) {
+          // Process MIDI file
+          try {
+            const state = dependencies.stateManager?.getState();
+            const pedalElongate = state?.visual.pedalElongate ?? true;
+            const pedalThreshold = state?.visual.pedalThreshold ?? 64;
+            const parsed = await parseMidi(file, {
+              applyPedalElongate: pedalElongate,
+              pedalThreshold: pedalThreshold,
+            });
+            dependencies.midiManager.addMidiFile(
+              file.name,
+              parsed,
+              undefined,
+              file
+            );
+          } catch (err) {
+            console.error("Failed to parse MIDI:", err);
+          }
+        }
+        // Non-MIDI files are silently ignored (audio files should be added via WAV File section)
+      }
+
+      refreshFileList();
+
+      // Update main screen file toggle section if available
+      const fileToggleContainer = document.querySelector(
+        '[data-role="file-toggle"]'
+      ) as HTMLElement | null;
+      if (fileToggleContainer) {
+        const FileToggleManager = (window as any).FileToggleManager;
+        if (FileToggleManager) {
+          FileToggleManager.updateFileToggleSection(
+            fileToggleContainer,
+            dependencies
+          );
         }
       }
-      refreshFileList();
+    };
+
+    // Click to open file picker (or trigger external callback)
+    dropZone.onclick = () => {
+      if (!canAdd) return;
+      // If external callback is registered (e.g., VS Code integration), use it
+      if (dependencies.onFileAddRequest) {
+        dependencies.onFileAddRequest();
+      } else {
+        hiddenInput.click();
+      }
+    };
+
+    // File input change handler
+    hiddenInput.onchange = async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      await processFiles(files);
       hiddenInput.value = "";
     };
+
+    if (allowFileDrop) {
+      // Drag & drop visual feedback
+      const setDropZoneHighlight = (active: boolean) => {
+        if (active) {
+          dropZone.style.borderColor = "var(--focus-ring)";
+          dropZone.style.background = "var(--surface-alt)";
+          dropZoneTitle.textContent = "Drop MIDI files here";
+        } else {
+          dropZone.style.borderColor = "var(--ui-border)";
+          dropZone.style.background = "var(--surface)";
+          dropZoneTitle.textContent = "+ Add MIDI Files";
+        }
+      };
+
+      // Drag enter/over - check if it's external files (not internal reorder)
+      dropZone.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only highlight for external file drops
+        if (e.dataTransfer?.types.includes("Files")) {
+          setDropZoneHighlight(true);
+        }
+      });
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer?.types.includes("Files")) {
+          e.dataTransfer.dropEffect = "copy";
+        }
+      });
+
+      dropZone.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropZoneHighlight(false);
+      });
+
+      // Drop handler for external files
+      dropZone.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropZoneHighlight(false);
+
+        // Only process if it's external files (not internal reorder)
+        if (!e.dataTransfer?.types.includes("Files")) {
+          return;
+        }
+
+        const files = Array.from(e.dataTransfer.files);
+        await processFiles(files);
+      });
+    }
+
     if (canAdd) {
-      fileList.appendChild(addBtn);
+      dropZone.appendChild(hiddenInput);
+      fileList.appendChild(dropZone);
     }
   };
 

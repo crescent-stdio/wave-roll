@@ -4,7 +4,10 @@
 export { createPianoRoll } from "./lib/core/visualization/piano-roll";
 
 // 2) Player demo helper used by the synchronized-player example
-export { createWaveRollPlayer } from "./lib/components/player/wave-roll/player";
+export {
+  createWaveRollPlayer,
+  WaveRollPlayer,
+} from "./lib/components/player/wave-roll/player";
 
 // 3) Appearance settings types (for solo mode integration)
 export type { AppearanceSettings } from "./lib/components/player/wave-roll/player";

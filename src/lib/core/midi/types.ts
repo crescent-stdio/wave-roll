@@ -30,6 +30,37 @@ export interface MidiFileEntry {
   error?: string;
   /** Volume level (0-1) */
   volume?: number;
+  /**
+   * Per-track visibility state. Key is trackId, value is visibility.
+   * All tracks are visible by default when not specified.
+   */
+  trackVisibility?: Record<number, boolean>;
+  /**
+   * Per-track mute state. Key is trackId, value is muted.
+   * All tracks are unmuted by default when not specified.
+   */
+  trackMuted?: Record<number, boolean>;
+  /**
+   * Per-track volume level. Key is trackId, value is volume (0-1).
+   * All tracks have full volume (1.0) by default when not specified.
+   */
+  trackVolume?: Record<number, number>;
+  /**
+   * Per-track last non-zero volume level. Key is trackId, value is volume (0-1).
+   * Used to restore volume when unmuting a track.
+   */
+  trackLastNonZeroVolume?: Record<number, number>;
+  /**
+   * Per-track auto instrument state. Key is trackId, value is whether to use
+   * the track's instrumentFamily soundfont (true) or default piano (false).
+   * Default is false (piano) when not specified.
+   */
+  trackUseAutoInstrument?: Record<number, boolean>;
+  /**
+   * Per-track sustain pedal visibility. Key is trackId, value is visibility.
+   * All tracks show sustain by default (true) when not specified.
+   */
+  trackSustainVisibility?: Record<number, boolean>;
 }
 
 /**

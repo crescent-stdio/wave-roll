@@ -8,6 +8,8 @@ export interface FileInfo {
   fileName: string;
   kind: string; // e.g., "Reference" | "Comparison" | "MIDI"
   color: number; // hex number compatible with PixiJS tint
+  /** Track info for tooltip display (id -> name mapping) */
+  tracks?: Array<{ id: number; name: string }>;
 }
 
 export type FileInfoMap = Record<string, FileInfo>;

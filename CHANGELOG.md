@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note**: This library is published at [ISMIR 2025 LBD](https://ismir2025program.ismir.net/lbd_459.html). See [Citation](#citation) for reference.
 
+## [0.4.0] - 2025-12-05
+
+### Added
+
+- Multi-instrument MIDI support with GM program detection and auto soundfont mapping
+- Per-track controls for visibility, mute, volume, sustain, and waveform/piano-roll toggles
+- Track-aware instrument icons, palettes, and color handling for multi-track MIDI files
+
+### Changed
+
+- Updated player, visualization, and loop controls to handle multi-track state across audio and UI
+- Refreshed file list and wave list UI to expose per-track toggles and multi-file controls
+- Improved MIDI parser and sampler manager to keep track metadata consistent across playback and rendering
+
+### Tests
+
+- Added coverage for multi-MIDI manager behaviors and instrument family mapping
+
 
 ## [0.3.0] - 2025-12-02
 
@@ -16,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tempo control with popover input for precise BPM adjustment
 - Flexible MIDI export options
 - Pitch hover indicator to piano roll
-- VS Code extension support (`wave-roll-solo`) for viewing MIDI files directly in the editor
+- VS Code extension support (`wave-roll-studio`, formerly `wave-roll-solo`) for viewing MIDI files directly in the editor
 - GitHub Actions workflow for automated release creation from tags
 
 ### Changed
@@ -123,7 +141,8 @@ If you use WaveRoll in your research, please cite:
 
 ---
 
-[Unreleased]: https://github.com/crescent-stdio/wave-roll/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/crescent-stdio/wave-roll/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/crescent-stdio/wave-roll/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/crescent-stdio/wave-roll/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/crescent-stdio/wave-roll/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/crescent-stdio/wave-roll/compare/v0.2.3...v0.2.4

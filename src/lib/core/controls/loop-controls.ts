@@ -89,7 +89,7 @@ export function createCoreLoopControls(
    * Restart / Loop toggle button (icon)
    * ------------------------------------------------------------------ */
   const btnLoopRestart = document.createElement("button");
-  btnLoopRestart.innerHTML = PLAYER_ICONS.loop_restart;
+  btnLoopRestart.innerHTML = PLAYER_ICONS.loop_start;
   btnLoopRestart.title = "Toggle A-B Loop Mode";
   btnLoopRestart.style.cssText = `
     width: 32px;
@@ -171,7 +171,8 @@ export function createCoreLoopControls(
     const state = audioPlayer?.getState();
     if (!state) return;
     pointA = state.currentTime;
-    if (pointB !== null && pointA !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
+    if (pointB !== null && pointA !== null && pointA > pointB)
+      [pointA, pointB] = [pointB, pointA];
     // Debug log commented out by request
     // try {
     //   const pr = state.playbackRate ?? 100;
@@ -188,14 +189,14 @@ export function createCoreLoopControls(
     // Dynamic text color for contrast on sky/rose etc.
     btnA.style.color = isHexColorLight(COLOR_A) ? "black" : "white";
     btnA.style.fontWeight = "800";
-    btnA.style.border = "none";  // Remove border when active
+    btnA.style.border = "none"; // Remove border when active
     // Reset B if undefined
     if (pointB === null) {
       btnB.dataset.active = "";
       btnB.setAttribute("aria-pressed", "false");
       btnB.style.background = "transparent";
       btnB.style.color = "var(--text-muted)";
-      btnB.style.border = `2px solid ${COLOR_B}`;  // Show B border when inactive
+      btnB.style.border = `2px solid ${COLOR_B}`; // Show B border when inactive
     }
     // Do not touch the engine when setting markers (no play/seek).
     // Update only UI (overlay/markers).
@@ -212,13 +213,14 @@ export function createCoreLoopControls(
     const state = audioPlayer?.getState();
     if (!state) return;
     pointB = state.currentTime;
-    if (pointA !== null && pointB !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
+    if (pointA !== null && pointB !== null && pointA > pointB)
+      [pointA, pointB] = [pointB, pointA];
     btnB.dataset.active = "true";
     btnB.setAttribute("aria-pressed", "true");
     btnB.style.background = COLOR_B;
     btnB.style.color = isHexColorLight(COLOR_B) ? "black" : "white";
     btnB.style.fontWeight = "800";
-    btnB.style.border = "none";  // Remove border when active
+    btnB.style.border = "none"; // Remove border when active
     // Debug log commented out by request
     // try {
     //   const pr = state.playbackRate ?? 100;
@@ -246,15 +248,17 @@ export function createCoreLoopControls(
     btnB.setAttribute("aria-pressed", "false");
     btnA.style.background = "transparent";
     btnA.style.color = "var(--text-muted)";
-    btnA.style.border = `2px solid ${COLOR_A}`;  // Restore A border
+    btnA.style.border = `2px solid ${COLOR_A}`; // Restore A border
     btnB.style.background = "transparent";
     btnB.style.color = "var(--text-muted)";
-    btnB.style.border = `2px solid ${COLOR_B}`;  // Restore B border
+    btnB.style.border = `2px solid ${COLOR_B}`; // Restore B border
     // If loop restart is currently active, turn it off and disable repeat
     if (isLoopRestartActive) {
       isLoopRestartActive = false;
       setLoopRestartUI();
-      try { audioPlayer?.toggleRepeat?.(false); } catch {}
+      try {
+        audioPlayer?.toggleRepeat?.(false);
+      } catch {}
     }
     // Always preserve current position when clearing loop
     audioPlayer?.setLoopPoints(null, null, true);
@@ -283,13 +287,22 @@ export function createCoreLoopControls(
     const midiDur = state.duration || 0;
     let wavMax = 0;
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: {
+            getFiles?: () => Array<{ audioBuffer?: AudioBuffer }>;
+          };
+        }
+      )._waveRollAudio;
       const files = api?.getFiles?.() || [];
-      const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
+      const durations = files
+        .map((f) => f.audioBuffer?.duration || 0)
+        .filter((d) => d > 0);
       wavMax = durations.length > 0 ? Math.max(...durations) : 0;
     } catch {}
     const rawMax = Math.max(midiDur, wavMax);
-    const effectiveDuration = speed > 0 ? (rawMax > 0 ? rawMax / speed : 0) : rawMax;
+    const effectiveDuration =
+      speed > 0 ? (rawMax > 0 ? rawMax / speed : 0) : rawMax;
     if (effectiveDuration <= 0) return;
 
     // percent positions or null
@@ -303,9 +316,11 @@ export function createCoreLoopControls(
       let end = pointB;
       if (end !== null && start > end) [start, end] = [end, start];
       const clampedStart = Math.min(Math.max(0, start), effectiveDuration);
-      const clampedEnd = end !== null ? Math.min(Math.max(0, end), effectiveDuration) : null;
+      const clampedEnd =
+        end !== null ? Math.min(Math.max(0, end), effectiveDuration) : null;
       loopInfo.a = (clampedStart / effectiveDuration) * 100;
-      loopInfo.b = clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
+      loopInfo.b =
+        clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
       pianoRoll?.setLoopWindow?.(clampedStart, clampedEnd);
     } else if (pointB !== null) {
       const clampedB = Math.min(Math.max(0, pointB), effectiveDuration);

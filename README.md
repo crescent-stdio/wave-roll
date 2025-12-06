@@ -14,6 +14,7 @@
 
 - You can try the web demo at [https://crescent-stdio.github.io/wave-roll/](https://crescent-stdio.github.io/wave-roll/).
 - NPM package: [https://www.npmjs.com/package/wave-roll](https://www.npmjs.com/package/wave-roll)
+- Multi-instrument MIDI files are supported with automatic GM instrument mapping and per-track mute/volume/visibility controls.
 
 
 ## Installation
@@ -168,15 +169,15 @@ This is particularly useful for music information retrieval (MIR) research, allo
 
 ### VS Code Extension
 
-Use WaveRoll directly in VS Code with the **Wave Roll Solo** extension:
+Use WaveRoll directly in VS Code with the **Wave Roll Studio** extension:
 
 - Open any `.mid` or `.midi` file to view it as an interactive piano roll
 - Play MIDI files with built-in Tone.js synthesis
 - Adjust tempo and export MIDI with modified tempo
 
-**Installation**: Search "WaveRoll Solo" in VS Code Extensions marketplace
+**Installation**: Search "WaveRoll Studio" in VS Code Extensions marketplace
 
-**GitHub**: [crescent-stdio/wave-roll-solo](https://github.com/crescent-stdio/wave-roll-solo)
+**GitHub**: [crescent-stdio/wave-roll-studio](https://github.com/crescent-stdio/wave-roll-studio)
 
 ## API
 

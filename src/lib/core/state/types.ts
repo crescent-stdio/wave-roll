@@ -107,6 +107,8 @@ export interface VisualState {
   showOnsetMarkers: boolean;
   /** Per-file onset marker style mapping (fileId -> style) */
   fileOnsetMarkers: Record<string, OnsetMarkerStyle>;
+  /** Whether to use uniform color for all tracks (no lightness variation) */
+  uniformTrackColor: boolean;
 }
 
 /**

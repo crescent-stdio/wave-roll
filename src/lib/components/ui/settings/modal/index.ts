@@ -23,7 +23,7 @@ export function openSettingsModal(deps: UIComponentDependencies): void {
 
   // ---- Build modal content ----
   const isSoloMode = deps.soloMode === true;
-  const headerTitle = isSoloMode ? "Appearance" : "Tracks & Appearance";
+  const headerTitle = isSoloMode ? "Appearance" : "Files & Appearance";
   const header = createModalHeader(headerTitle, () => overlay.remove());
   modal.appendChild(header);
 
