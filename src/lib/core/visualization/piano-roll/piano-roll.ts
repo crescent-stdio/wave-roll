@@ -927,6 +927,12 @@ export class PianoRoll {
     // Resize Pixi renderer
     this.app.renderer.resize(newWidth, newHeight);
 
+    // Ensure canvas CSS follows container dimensions
+    // (PixiJS autoDensity sets fixed pixel values which prevents responsive layout)
+    const canvas = this.app.canvas;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+
     // Recalculate scales based on new size and re-render
     // IMPORTANT: Drop cached pxPerSecond so createScales picks a new value
     // that matches the new width. Otherwise scrolling speed stays stuck at
