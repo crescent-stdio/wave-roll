@@ -12,7 +12,7 @@ export function openOnsetPicker(
   deps: UIComponentDependencies,
   fileId: string,
   anchorEl: HTMLElement,
-  onUpdate?: (style: OnsetMarkerStyle, colorHex: string) => void
+  onUpdate?: (style: OnsetMarkerStyle, colorHex: string) => void,
 ): void {
   // Ensure only one picker exists at a time
   const existing = document.getElementById("wr-onset-picker-overlay");
@@ -22,14 +22,14 @@ export function openOnsetPicker(
   const overlay = document.createElement("div");
   overlay.id = "wr-onset-picker-overlay";
   overlay.style.cssText = `
-    position: fixed; inset: 0; z-index: 3000; background: transparent; 
+    position: fixed; inset: 0; z-index: 3000; background: transparent;
   `;
 
   const panel = document.createElement("div");
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", "Onset marker picker");
   panel.style.cssText = `
-    position: absolute; min-width: 240px; max-width: 420px; 
+    position: absolute; min-width: 240px; max-width: 420px;
     background: var(--surface); border: 1px solid var(--ui-border);
     border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     padding: 10px; display: flex; flex-direction: column; gap: 10px;
@@ -54,7 +54,7 @@ export function openOnsetPicker(
     }
 
     // Horizontal clamping
-    let left = Math.max(padding, Math.min(window.innerWidth - pw - padding, rect.left));
+    const left = Math.max(padding, Math.min(window.innerWidth - pw - padding, rect.left));
 
     panel.style.top = `${Math.round(top)}px`;
     panel.style.left = `${Math.round(left)}px`;
@@ -73,7 +73,9 @@ export function openOnsetPicker(
   // Current color/style
   const file = deps.midiManager.getState().files.find((f) => f.id === fileId);
   const currentColorHex = toHexColor(file?.color ?? 0x000000);
-  const currentStyle = deps.stateManager.getOnsetMarkerForFile(fileId) || deps.stateManager.ensureOnsetMarkerForFile(fileId);
+  const currentStyle =
+    deps.stateManager.getOnsetMarkerForFile(fileId) ||
+    deps.stateManager.ensureOnsetMarkerForFile(fileId);
 
   // Color chips row
   const colorsRow = document.createElement("div");
@@ -124,7 +126,8 @@ export function openOnsetPicker(
 
   // Toggle button container
   const toggleContainer = document.createElement("div");
-  toggleContainer.style.cssText = "display:flex;gap:2px;margin-bottom:6px;background:var(--ui-border);border-radius:6px;padding:2px;";
+  toggleContainer.style.cssText =
+    "display:flex;gap:2px;margin-bottom:6px;background:var(--ui-border);border-radius:6px;padding:2px;";
 
   const toggleButtons: HTMLButtonElement[] = [];
   const updateToggleStyles = () => {
@@ -161,7 +164,8 @@ export function openOnsetPicker(
 
   const highlightSelectedStyle = () => {
     shapeButtons.forEach((b) => {
-      const isSel = b.dataset.shape === selectedStyle.shape && b.dataset.variant === selectedStyle.variant;
+      const isSel =
+        b.dataset.shape === selectedStyle.shape && b.dataset.variant === selectedStyle.variant;
       b.style.outline = isSel ? "2px solid var(--focus-ring)" : "none";
       b.setAttribute("aria-pressed", String(isSel));
       if (isSel) b.tabIndex = 0;
@@ -173,14 +177,20 @@ export function openOnsetPicker(
     shapeButtons.length = 0;
 
     ONSET_MARKER_SHAPES.forEach((shape) => {
-      const style: OnsetMarkerStyle = { shape: shape as OnsetMarkerShape, variant: activeVariant, size: 12, strokeWidth: 2 };
+      const style: OnsetMarkerStyle = {
+        shape: shape as OnsetMarkerShape,
+        variant: activeVariant,
+        size: 12,
+        strokeWidth: 2,
+      };
       const btn = document.createElement("button");
       btn.type = "button";
       btn.setAttribute("aria-label", `${shape} ${activeVariant}`);
       btn.dataset.shape = String(shape);
       btn.dataset.variant = String(activeVariant);
       btn.dataset.index = String(shapeButtons.length);
-      btn.style.cssText = "width:28px;height:28px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;";
+      btn.style.cssText =
+        "width:28px;height:28px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;";
       btn.innerHTML = renderOnsetSVG(style, currentColorHex, 16);
       btn.onclick = () => {
         deps.stateManager.setOnsetMarkerForFile(fileId, style);
@@ -210,7 +220,8 @@ export function openOnsetPicker(
   const autoBtn = document.createElement("button");
   autoBtn.type = "button";
   autoBtn.textContent = "Auto assign";
-  autoBtn.style.cssText = "padding:4px 8px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);cursor:pointer;";
+  autoBtn.style.cssText =
+    "padding:4px 8px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);cursor:pointer;";
   autoBtn.onclick = () => {
     const picked = deps.stateManager.assignNextUniqueOnsetMarker
       ? deps.stateManager.assignNextUniqueOnsetMarker(fileId)
@@ -226,7 +237,8 @@ export function openOnsetPicker(
   const closeBtn = document.createElement("button");
   closeBtn.type = "button";
   closeBtn.textContent = "Close";
-  closeBtn.style.cssText = "padding:4px 8px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);cursor:pointer;";
+  closeBtn.style.cssText =
+    "padding:4px 8px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);cursor:pointer;";
   closeBtn.onclick = () => overlay.remove();
 
   footer.appendChild(autoBtn);
@@ -241,23 +253,27 @@ export function openOnsetPicker(
   overlay.appendChild(panel);
 
   // Close when clicking outside
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
   // ESC to close
-  overlay.addEventListener("keydown", (e) => { if ((e as KeyboardEvent).key === "Escape") overlay.remove(); });
+  overlay.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Escape") overlay.remove();
+  });
   // Arrow-key navigation in grids
   overlay.addEventListener("keydown", (e) => {
     const ev = e as KeyboardEvent;
     const target = ev.target as HTMLElement;
-    if (target && target.tagName.toLowerCase() === 'button') {
-      const isShape = target.hasAttribute('data-index');
+    if (target && target.tagName.toLowerCase() === "button") {
+      const isShape = target.hasAttribute("data-index");
       if (isShape) {
-        const cur = Number(target.getAttribute('data-index') || '0');
+        const cur = Number(target.getAttribute("data-index") || "0");
         let next = cur;
-        if (ev.key === 'ArrowRight') next = Math.min(shapeButtons.length - 1, cur + 1);
-        else if (ev.key === 'ArrowLeft') next = Math.max(0, cur - 1);
-        else if (ev.key === 'ArrowDown') next = Math.min(shapeButtons.length - 1, cur + 7);
-        else if (ev.key === 'ArrowUp') next = Math.max(0, cur - 7);
-        else if (ev.key === 'Enter' || ev.key === ' ') {
+        if (ev.key === "ArrowRight") next = Math.min(shapeButtons.length - 1, cur + 1);
+        else if (ev.key === "ArrowLeft") next = Math.max(0, cur - 1);
+        else if (ev.key === "ArrowDown") next = Math.min(shapeButtons.length - 1, cur + 7);
+        else if (ev.key === "ArrowUp") next = Math.max(0, cur - 7);
+        else if (ev.key === "Enter" || ev.key === " ") {
           (target as HTMLButtonElement).click();
           ev.preventDefault();
           return;
@@ -270,9 +286,9 @@ export function openOnsetPicker(
         const idx = colorButtons.indexOf(target as HTMLButtonElement);
         if (idx >= 0) {
           let next = idx;
-          if (ev.key === 'ArrowRight') next = Math.min(colorButtons.length - 1, idx + 1);
-          else if (ev.key === 'ArrowLeft') next = Math.max(0, idx - 1);
-          else if (ev.key === 'Enter' || ev.key === ' ') {
+          if (ev.key === "ArrowRight") next = Math.min(colorButtons.length - 1, idx + 1);
+          else if (ev.key === "ArrowLeft") next = Math.max(0, idx - 1);
+          else if (ev.key === "Enter" || ev.key === " ") {
             (target as HTMLButtonElement).click();
             ev.preventDefault();
             return;
@@ -311,5 +327,3 @@ export function openOnsetPicker(
     (first as HTMLButtonElement | null)?.focus?.();
   }, 0);
 }
-
-

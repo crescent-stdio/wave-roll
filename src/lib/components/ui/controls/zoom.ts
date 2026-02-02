@@ -9,9 +9,7 @@ import { createIconButton } from "../utils/icon-button";
  * @param dependencies - The UI component dependencies.
  * @returns The zoom control element.
  */
-export function createZoomControlsUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createZoomControlsUI(dependencies: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
       display: flex;
@@ -75,7 +73,7 @@ export function createZoomControlsUI(
       zoomInput.value = (num + delta).toFixed(1);
       applyZoom();
     },
-    { passive: false }
+    { passive: false },
   );
 
   const suffix = document.createElement("span");
@@ -100,7 +98,8 @@ export function createZoomControlsUI(
 
   // Expose zoomInput so outer update loop can sync value
   // Store reference for coordinated UI updates
-  (dependencies as UIComponentDependencies & { zoomInput?: HTMLInputElement }).zoomInput = zoomInput;
+  (dependencies as UIComponentDependencies & { zoomInput?: HTMLInputElement }).zoomInput =
+    zoomInput;
 
   return container;
 }

@@ -104,11 +104,7 @@ export interface AudioPlayerContainer {
    * If only `start` is provided, the loop will extend to the end of the piece.
    * @param preservePosition - If true, maintains current position when setting loop points
    */
-  setLoopPoints(
-    start: number | null,
-    end: number | null,
-    preservePosition?: boolean
-  ): void;
+  setLoopPoints(start: number | null, end: number | null, preservePosition?: boolean): void;
 
   /** Get current player state */
   getState(): AudioPlayerState;

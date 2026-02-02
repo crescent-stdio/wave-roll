@@ -28,10 +28,7 @@ export interface ProgressState {
 /**
  * Update labels + bar/handle position.
  */
-export function updateTimeDisplay(
-  refs: ProgressDisplayRefs,
-  state: ProgressState
-): void {
+export function updateTimeDisplay(refs: ProgressDisplayRefs, state: ProgressState): void {
   const {
     currentLabel,
     totalLabel,
@@ -52,8 +49,7 @@ export function updateTimeDisplay(
    * Progress bar + handle - skip when user is dragging
    * ------------------------------------------------------------ */
   if (progressBar && !(seeking && seeking())) {
-    const pct =
-      state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
+    const pct = state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
     progressBar.style.width = `${pct}%`;
     seekHandle && (seekHandle.style.left = `${pct}%`);
     progressIndicator && (progressIndicator.style.left = `${pct}%`);

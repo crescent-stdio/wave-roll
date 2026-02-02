@@ -93,5 +93,3 @@ export function initializeContainers(pr: PianoRoll): void {
   pr.container.addChild(endLine);
   pr.loopLines = { start: startLine, end: endLine };
 }
-
-

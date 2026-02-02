@@ -1,15 +1,15 @@
 /**
  * Enhanced note-level transcription matching utilities with 1:N support.
- * 
+ *
  * This implementation provides logical equivalence with mir_eval.transcription_velocity
  * while supporting 1:N matching (currently used as 1:1 by default).
- * 
+ *
  * Key improvements over base implementation:
  * 1. Support for 1:N matching with configurable cardinality
  * 2. Velocity normalization and scaling (mir_eval style)
  * 3. Better handling of missing velocities
  * 4. Enhanced diagnostics for matched pairs
- * 
+ *
  * Reference: https://github.com/mir-evaluation/mir_eval
  * License note: Algorithm design follows mir_eval's documented behavior,
  * but code is independently implemented in TypeScript.
@@ -89,12 +89,16 @@ function buildWeightedAdjacency(
   estPitches: number[],
   estVelocities: number[],
   tolerances: Required<TranscriptionToleranceOptions>,
-  velocityOpts: Required<VelocityToleranceOptions>
+  velocityOpts: Required<VelocityToleranceOptions>,
 ): { adj: boolean[][]; weights: number[][] } {
   const n = refIntervals.length;
   const m = estIntervals.length;
-  const adj: boolean[][] = Array(n).fill(null).map(() => Array(m).fill(false));
-  const weights: number[][] = Array(n).fill(null).map(() => Array(m).fill(0));
+  const adj: boolean[][] = Array(n)
+    .fill(null)
+    .map(() => Array(m).fill(false));
+  const weights: number[][] = Array(n)
+    .fill(null)
+    .map(() => Array(m).fill(0));
 
   for (let i = 0; i < n; i++) {
     const [refOn, refOff] = refIntervals[i];
@@ -103,7 +107,7 @@ function buildWeightedAdjacency(
     const refDur = refOff - refOn;
     const effectiveOffsetTol = Math.max(
       tolerances.offsetMinTolerance,
-      tolerances.offsetRatioTolerance * Math.max(0, refDur)
+      tolerances.offsetRatioTolerance * Math.max(0, refDur),
     );
 
     for (let j = 0; j < m; j++) {
@@ -127,7 +131,7 @@ function buildWeightedAdjacency(
         const onsetScore = 1 - onsetDiff / tolerances.onsetTolerance;
         const pitchScore = 1 - pitchDiff / tolerances.pitchTolerance;
         const offsetScore = 1 - offsetDiff / effectiveOffsetTol;
-        
+
         // Calculate overlap ratio (IoU)
         const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
         const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
@@ -137,20 +141,20 @@ function buildWeightedAdjacency(
         let velocityScore = 1;
         if (refVel >= 0 && estVel >= 0 && velocityOpts.includeInMatching) {
           const velDiff = Math.abs(estVel - refVel);
-          const velTol = velocityOpts.unit === 'midi' 
-            ? velocityOpts.velocityTolerance / 127 
-            : velocityOpts.velocityTolerance;
+          const velTol =
+            velocityOpts.unit === "midi"
+              ? velocityOpts.velocityTolerance / 127
+              : velocityOpts.velocityTolerance;
           velocityScore = Math.max(0, 1 - velDiff / velTol);
         }
 
         // Combined weight (can be customized)
-        weights[i][j] = (
+        weights[i][j] =
           0.3 * onsetScore +
           0.3 * pitchScore +
           0.2 * offsetScore +
           0.1 * overlapScore +
-          0.1 * velocityScore
-        );
+          0.1 * velocityScore;
       }
     }
   }
@@ -202,7 +206,7 @@ function hungarianAlgorithm(weights: number[][]): number[] {
 function findKBestMatches(
   weights: number[][],
   maxMatchesPerRef: number,
-  maxMatchesPerEst: number
+  maxMatchesPerEst: number,
 ): Map<number, number[]> {
   const n = weights.length;
   const m = weights[0]?.length || 0;
@@ -246,7 +250,7 @@ function findKBestMatches(
 function computeVelocityScaling(
   refVelocities: number[],
   estVelocities: number[],
-  matchPairs: Array<[number, number]>
+  matchPairs: Array<[number, number]>,
 ): { slope: number; intercept: number } {
   if (matchPairs.length === 0) {
     return { slope: 1, intercept: 0 };
@@ -260,7 +264,7 @@ function computeVelocityScaling(
   const minRef = Math.min(...refMatched);
   const maxRef = Math.max(...refMatched);
   const range = Math.max(1, maxRef - minRef);
-  const refNorm = refMatched.map(v => (v - minRef) / range);
+  const refNorm = refMatched.map((v) => (v - minRef) / range);
 
   // Linear regression: refNorm = slope * estMatched + intercept
   // Using least squares method
@@ -289,7 +293,7 @@ export function matchNotesEnhanced(
   estimated: ParsedMidi,
   tolerances: Partial<TranscriptionToleranceOptions> = {},
   velocityOpts: Partial<VelocityToleranceOptions> = {},
-  enhancedOpts: EnhancedMatchingOptions = {}
+  enhancedOpts: EnhancedMatchingOptions = {},
 ): EnhancedNoteMatchResult {
   const tol = { ...DEFAULT_TOLERANCES, ...tolerances };
   const vel = { ...DEFAULT_VELOCITY_OPTIONS, ...velocityOpts };
@@ -302,17 +306,19 @@ export function matchNotesEnhanced(
   };
 
   // Extract intervals, pitches, and velocities
-  const refIntervals: [number, number][] = reference.notes.map(n => 
-    [n.time, n.time + n.duration]
-  );
-  const refPitches = reference.notes.map(n => n.midi);
-  const refVelocities = reference.notes.map(n => n.velocity || 0);
+  const refIntervals: [number, number][] = reference.notes.map((n) => [
+    n.time,
+    n.time + n.duration,
+  ]);
+  const refPitches = reference.notes.map((n) => n.midi);
+  const refVelocities = reference.notes.map((n) => n.velocity || 0);
 
-  const estIntervals: [number, number][] = estimated.notes.map(n => 
-    [n.time, n.time + n.duration]
-  );
-  const estPitches = estimated.notes.map(n => n.midi);
-  const estVelocities = estimated.notes.map(n => n.velocity || 0);
+  const estIntervals: [number, number][] = estimated.notes.map((n) => [
+    n.time,
+    n.time + n.duration,
+  ]);
+  const estPitches = estimated.notes.map((n) => n.midi);
+  const estVelocities = estimated.notes.map((n) => n.velocity || 0);
 
   // Build weighted adjacency
   const { adj, weights } = buildWeightedAdjacency(
@@ -323,12 +329,12 @@ export function matchNotesEnhanced(
     estPitches,
     estVelocities,
     tol,
-    vel
+    vel,
   );
 
   // Perform matching based on cardinality constraints
   let matches: Map<number, number[]>;
-  
+
   if (enh.maxMatchesPerRef === 1 && enh.maxMatchesPerEst === 1) {
     // 1:1 matching
     if (enh.useWeightedMatching) {
@@ -339,8 +345,8 @@ export function matchNotesEnhanced(
       });
     } else {
       // Use existing Hopcroft-Karp (convert from matchNotes)
-      const adjList = adj.map((row, i) => 
-        row.map((val, j) => val ? j : -1).filter(j => j !== -1)
+      const adjList = adj.map((row, i) =>
+        row.map((val, j) => (val ? j : -1)).filter((j) => j !== -1),
       );
       // Simplified: just take first match for now
       matches = new Map();
@@ -358,7 +364,7 @@ export function matchNotesEnhanced(
   if (enh.applyVelocityScaling && matches.size > 0) {
     const matchPairs: Array<[number, number]> = [];
     matches.forEach((ests, ref) => {
-      ests.forEach(est => matchPairs.push([ref, est]));
+      ests.forEach((est) => matchPairs.push([ref, est]));
     });
     const scaling = computeVelocityScaling(refVelocities, estVelocities, matchPairs);
     velocityScaling = {
@@ -374,7 +380,7 @@ export function matchNotesEnhanced(
 
   matches.forEach((estIndices, refIdx) => {
     matchedRefs.add(refIdx);
-    estIndices.forEach(estIdx => matchedEsts.add(estIdx));
+    estIndices.forEach((estIdx) => matchedEsts.add(estIdx));
 
     const [refOn, refOff] = refIntervals[refIdx];
     const refVel = refVelocities[refIdx];
@@ -384,10 +390,10 @@ export function matchNotesEnhanced(
       const estIdx = estIndices[0];
       const [estOn, estOff] = estIntervals[estIdx];
       const estVel = estVelocities[estIdx];
-      
+
       const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
       const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
-      
+
       let estVelScaled = estVel;
       if (velocityScaling) {
         estVelScaled = velocityScaling.slope * estVel + velocityScaling.intercept;
@@ -413,12 +419,12 @@ export function matchNotesEnhanced(
       });
     } else {
       // Multiple matches (1:N)
-      const estData = estIndices.map(estIdx => {
+      const estData = estIndices.map((estIdx) => {
         const [estOn, estOff] = estIntervals[estIdx];
         const estVel = estVelocities[estIdx];
         const inter = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
         const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
-        
+
         let estVelScaled = estVel;
         if (velocityScaling) {
           estVelScaled = velocityScaling.slope * estVel + velocityScaling.intercept;
@@ -446,18 +452,18 @@ export function matchNotesEnhanced(
         ref: refIdx,
         est: estIndices,
         refPitch: refPitches[refIdx],
-        estPitch: estData.map(d => d.pitch),
+        estPitch: estData.map((d) => d.pitch),
         refTime: refOn,
-        estTime: estData.map(d => d.time),
-        onsetDiff: estData.map(d => d.onsetDiff),
-        offsetDiff: estData.map(d => d.offsetDiff),
-        pitchDiff: estData.map(d => d.pitchDiff),
-        overlapRatio: estData.map(d => d.overlapRatio),
+        estTime: estData.map((d) => d.time),
+        onsetDiff: estData.map((d) => d.onsetDiff),
+        offsetDiff: estData.map((d) => d.offsetDiff),
+        pitchDiff: estData.map((d) => d.pitchDiff),
+        overlapRatio: estData.map((d) => d.overlapRatio),
         refVelocity: refVel,
-        estVelocity: estData.map(d => d.velocity),
-        estVelocityScaled: estData.map(d => d.velocityScaled),
-        velocityDiff: estData.map(d => d.velocityDiff),
-        confidence: Math.max(...estData.map(d => d.weight)),
+        estVelocity: estData.map((d) => d.velocity),
+        estVelocityScaled: estData.map((d) => d.velocityScaled),
+        velocityDiff: estData.map((d) => d.velocityDiff),
+        confidence: Math.max(...estData.map((d) => d.weight)),
       });
     }
   });
@@ -488,7 +494,7 @@ export function matchNotesWithVelocityEnhanced(
   reference: ParsedMidi,
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {},
-  velocity: Partial<VelocityToleranceOptions> = {}
+  velocity: Partial<VelocityToleranceOptions> = {},
 ): EnhancedNoteMatchResult {
   return matchNotesEnhanced(reference, estimated, options, velocity, {
     maxMatchesPerRef: 1,
@@ -501,9 +507,7 @@ export function matchNotesWithVelocityEnhanced(
 /**
  * Export helper to convert enhanced result to standard format
  */
-export function enhancedToStandardResult(
-  enhanced: EnhancedNoteMatchResult
-): {
+export function enhancedToStandardResult(enhanced: EnhancedNoteMatchResult): {
   matches: Array<{
     ref: number;
     est: number;
@@ -522,7 +526,7 @@ export function enhancedToStandardResult(
   falseNegatives: number[];
   falsePositives: number[];
 } {
-  const standardMatches = enhanced.matches.map(m => {
+  const standardMatches = enhanced.matches.map((m) => {
     // For 1:N matches, take the best (first) match
     const est = Array.isArray(m.est) ? m.est[0] : m.est;
     const estPitch = Array.isArray(m.estPitch) ? m.estPitch[0] : m.estPitch;

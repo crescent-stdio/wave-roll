@@ -4,9 +4,7 @@ import { createIconButton } from "../utils/icon-button";
 import { openZoomGridSettingsModal } from "../settings/modal/zoom-grid";
 import { openSettingsModal } from "../settings/modal";
 
-export function createSettingsControlUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createSettingsControlUI(dependencies: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
     display: flex;

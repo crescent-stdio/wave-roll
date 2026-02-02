@@ -4,9 +4,7 @@ import { UIComponentDependencies } from "@/lib/components/ui";
 /**
  * Build the "Grid step" input row.
  */
-export function createTimeStepGroup(
-  deps: UIComponentDependencies
-): HTMLDivElement {
+export function createTimeStepGroup(deps: UIComponentDependencies): HTMLDivElement {
   const tsGroup = document.createElement("div");
   tsGroup.style.cssText = `display:flex;align-items:center;gap:6px;`;
   const tsLabel = document.createElement("span");
@@ -22,8 +20,7 @@ export function createTimeStepGroup(
   const tsSuffix = document.createElement("span");
   tsSuffix.textContent = "s";
   tsSuffix.style.cssText = tsLabel.style.cssText;
-  const applyTS = () =>
-    applyTimeStep(deps.pianoRoll?.setTimeStep, parseFloat(tsInput.value));
+  const applyTS = () => applyTimeStep(deps.pianoRoll?.setTimeStep, parseFloat(tsInput.value));
   tsInput.addEventListener("change", applyTS);
   tsInput.addEventListener("blur", applyTS);
   tsGroup.appendChild(tsLabel);

@@ -15,7 +15,7 @@ export const COLOR_EVAL_EXCLUSIVE = "#FB7185"; // Rose-400
 
 // Gray mode distinct levels for better separation
 export const GRAY_EVAL_INTERSECTION = "#B0B0B0"; // Light gray for intersection
-export const GRAY_EVAL_EXCLUSIVE = "#707070"; // Medium gray for exclusive  
+export const GRAY_EVAL_EXCLUSIVE = "#707070"; // Medium gray for exclusive
 export const GRAY_EVAL_AMBIGUOUS = "#7A6F66"; // Warm gray for ambiguous (distinct)
 
 export const SUSTAIN_ALPHA = 0.2;

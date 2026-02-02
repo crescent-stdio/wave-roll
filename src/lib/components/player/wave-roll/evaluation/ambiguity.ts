@@ -10,11 +10,17 @@ export function buildAmbiguities(
   estFiles: any[],
   byRef: Map<number, Array<{ estId: string; estIdx: number }>>,
   byEst: Map<string, Map<number, number>>,
-  tolerances: any
+  tolerances: any,
 ): Ambiguities {
   const matchedRef = new Set<number>([...byRef.keys()]);
-  const ambiguousByRef = new Map<number, Array<{ start: number; end: number; estId: string; estIdx: number }>>();
-  const ambiguousByEst = new Map<string, Map<number, Array<{ start: number; end: number; refIdx: number }>>>();
+  const ambiguousByRef = new Map<
+    number,
+    Array<{ start: number; end: number; estId: string; estIdx: number }>
+  >();
+  const ambiguousByEst = new Map<
+    string,
+    Map<number, Array<{ start: number; end: number; refIdx: number }>>
+  >();
 
   const unmatchedEstIdxs = new Map<string, Set<number>>();
   for (const estFile of estFiles) {
@@ -31,14 +37,16 @@ export function buildAmbiguities(
   for (let r = 0; r < refFile.parsedData.notes.length; r++) {
     if (matchedRef.has(r)) continue;
     const rn = refFile.parsedData.notes[r];
-    const rOn = rn.time; const rOff = rn.time + rn.duration;
+    const rOn = rn.time;
+    const rOff = rn.time + rn.duration;
     for (const estFile of estFiles) {
       const estId = estFile.id;
       const uSet = unmatchedEstIdxs.get(estId)!;
       for (const eIdx of uSet) {
         const en = estFile.parsedData.notes[eIdx];
         if (en.midi !== rn.midi) continue;
-        const eOn = en.time; const eOff = en.time + en.duration;
+        const eOn = en.time;
+        const eOff = en.time + en.duration;
         const s = Math.max(rOn, eOn);
         const e = Math.min(rOff, eOff);
         if (e <= s) continue;
@@ -49,7 +57,7 @@ export function buildAmbiguities(
         const refDur = rOff - rOn;
         const effOffsetTol = Math.max(
           tolerances.offsetMinTolerance,
-          tolerances.offsetRatioTolerance * Math.max(0, refDur)
+          tolerances.offsetRatioTolerance * Math.max(0, refDur),
         );
         const offsetDiff = Math.abs(eOff - rOff);
         const nearOnset = onsetDiff <= tolerances.onsetTolerance * 1.25;
@@ -69,5 +77,3 @@ export function buildAmbiguities(
 
   return { ambiguousByRef, ambiguousByEst };
 }
-
-

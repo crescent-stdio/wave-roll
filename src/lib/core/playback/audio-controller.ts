@@ -60,10 +60,7 @@ export class AudioController {
   private muteDueNoLR: boolean = false;
   private lastVolumeBeforeMute: number = 0.7;
 
-  constructor(
-    stateManager: StateManager,
-    config?: Partial<AudioControllerConfig>
-  ) {
+  constructor(stateManager: StateManager, config?: Partial<AudioControllerConfig>) {
     this.stateManager = stateManager;
     this.config = {
       defaultVolume: 1.0,
@@ -90,7 +87,7 @@ export class AudioController {
    */
   public async initializeAudioPlayer(
     notes: NoteData[],
-    pianoRollInstance: import("@/core/playback").PianoRollInstance
+    pianoRollInstance: import("@/core/playback").PianoRollInstance,
   ): Promise<void> {
     // Create a minimal piano roll manager if we don't have one
     if (!this.pianoRollManager) {
@@ -184,7 +181,7 @@ export class AudioController {
   public setLoopPoints(
     start: number | null,
     end: number | null,
-    preservePosition: boolean = false
+    preservePosition: boolean = false,
   ): void {
     this.loopPoints = { a: start, b: end };
     this.coreEngine.setLoopPoints(start, end, preservePosition);
@@ -245,10 +242,7 @@ export class AudioController {
   /**
    * Handle seek bar interaction
    */
-  public handleSeekBarClick(
-    event: MouseEvent,
-    seekBarElement: HTMLElement
-  ): void {
+  public handleSeekBarClick(event: MouseEvent, seekBarElement: HTMLElement): void {
     const rect = seekBarElement.getBoundingClientRect();
     const percent = (event.clientX - rect.left) / rect.width;
     const state = this.coreEngine.getState();
@@ -305,7 +299,7 @@ export class AudioController {
  */
 export function createAudioController(
   stateManager: StateManager,
-  config?: Partial<AudioControllerConfig>
+  config?: Partial<AudioControllerConfig>,
 ): AudioController {
   return new AudioController(stateManager, config);
 }

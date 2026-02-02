@@ -15,7 +15,7 @@ export class UIUpdater {
     private stateManager: StateManager,
     private visualizationEngine: VisualizationEngine,
     private midiManager: MultiMidiManager,
-    private config: { updateInterval: number }
+    private config: { updateInterval: number },
   ) {}
 
   /**
@@ -31,11 +31,27 @@ export class UIUpdater {
     // Query global WAV registry for maximum buffer duration
     let wavMax = 0;
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer; isVisible?: boolean; isMuted?: boolean; volume?: number }> } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: {
+            getFiles?: () => Array<{
+              audioBuffer?: AudioBuffer;
+              isVisible?: boolean;
+              isMuted?: boolean;
+              volume?: number;
+            }>;
+          };
+        }
+      )._waveRollAudio;
       const files = api?.getFiles?.() || [];
       const durations = files
         // Only consider active (visible & unmuted & volume>0 if provided)
-        .filter((f) => (f?.isVisible !== false) && (f?.isMuted !== true) && (f?.volume === undefined || f.volume > 0))
+        .filter(
+          (f) =>
+            f?.isVisible !== false &&
+            f?.isMuted !== true &&
+            (f?.volume === undefined || f.volume > 0),
+        )
         .map((f) => f.audioBuffer?.duration || 0)
         .filter((d) => d > 0);
       wavMax = durations.length > 0 ? Math.max(...durations) : 0;
@@ -55,8 +71,7 @@ export class UIUpdater {
 
     // Use direct references so that UI mutations persist across re-renders
     const filePanValuesRef = this.stateManager.getFilePanValuesRef();
-    const filePanStateHandlersRef =
-      this.stateManager.getFilePanStateHandlersRef();
+    const filePanStateHandlersRef = this.stateManager.getFilePanStateHandlersRef();
 
     // Reuse existing object so that mutations done by UIComponents persist
     if (!uiDeps) {
@@ -74,8 +89,7 @@ export class UIUpdater {
         seeking: uiState.seeking,
         updateSeekBar: () => this.updateSeekBar(uiDeps),
         updatePlayButton: () => this.updatePlayButton(uiDeps),
-        updateMuteState: (shouldMute: boolean) =>
-          this.updateMuteState(shouldMute),
+        updateMuteState: (shouldMute: boolean) => this.updateMuteState(shouldMute),
         openSettingsModal: () => this.openSettingsModal(uiDeps),
         openEvaluationResultsModal: () => this.openEvaluationResultsModal(uiDeps),
         formatTime: (seconds: number) => formatTime(seconds),
@@ -94,8 +108,7 @@ export class UIUpdater {
       // Refresh dynamic fields
       uiDeps.midiManager = this.midiManager;
       uiDeps.audioPlayer = this.visualizationEngine;
-      uiDeps.pianoRoll =
-        this.visualizationEngine.getPianoRollInstance();
+      uiDeps.pianoRoll = this.visualizationEngine.getPianoRollInstance();
       uiDeps.stateManager = this.stateManager;
       uiDeps.filePanStateHandlers = filePanStateHandlersRef;
       uiDeps.filePanValues = filePanValuesRef;
@@ -153,9 +166,12 @@ export class UIUpdater {
         if (uiDeps?.updateSeekBar) {
           // Use cached duration when current effective duration is 0 to avoid seekbar reset to 0 on pause
           const effectiveDuration = this.computeEffectiveDuration();
-          const durationForUI = effectiveDuration > 0
-            ? effectiveDuration
-            : (this.lastKnownDurationSec > 0 ? this.lastKnownDurationSec : (state.duration || 0));
+          const durationForUI =
+            effectiveDuration > 0
+              ? effectiveDuration
+              : this.lastKnownDurationSec > 0
+                ? this.lastKnownDurationSec
+                : state.duration || 0;
           if (durationForUI > 0) {
             this.lastKnownDurationSec = durationForUI;
           }
@@ -172,7 +188,7 @@ export class UIUpdater {
           // Apply CSS scale for focus outline thickness
           document.documentElement.style.setProperty(
             "--wr-outline-scale",
-            String(Math.min(10, Math.max(0.1, zoomLevel)))
+            String(Math.min(10, Math.max(0.1, zoomLevel))),
           );
           // Reflect zoom level in zoom input if available and not being edited
           const zInput = (uiDeps as UIComponentDependencies | null)?.zoomInput;
@@ -190,10 +206,7 @@ export class UIUpdater {
       }
 
       // Keep play/pause button icon in sync with actual playback state
-      if (
-        uiDeps?.updatePlayButton &&
-        typeof uiDeps.updatePlayButton === "function"
-      ) {
+      if (uiDeps?.updatePlayButton && typeof uiDeps.updatePlayButton === "function") {
         uiDeps.updatePlayButton();
       }
     };
@@ -240,10 +253,7 @@ export class UIUpdater {
    * Update seek bar
    */
   updateSeekBar(uiDeps: UIComponentDependencies | null): void {
-    if (
-      !uiDeps?.updateSeekBar ||
-      typeof uiDeps.updateSeekBar !== "function"
-    ) {
+    if (!uiDeps?.updateSeekBar || typeof uiDeps.updateSeekBar !== "function") {
       return;
     }
 
@@ -254,9 +264,12 @@ export class UIUpdater {
       }
       // Always pass explicit state to ensure seekbar is updated
       const effectiveDuration = this.computeEffectiveDuration();
-      const durationForUI = effectiveDuration > 0
-        ? effectiveDuration
-        : (this.lastKnownDurationSec > 0 ? this.lastKnownDurationSec : (state.duration || 0));
+      const durationForUI =
+        effectiveDuration > 0
+          ? effectiveDuration
+          : this.lastKnownDurationSec > 0
+            ? this.lastKnownDurationSec
+            : state.duration || 0;
       if (durationForUI > 0) {
         this.lastKnownDurationSec = durationForUI;
       }
@@ -270,7 +283,8 @@ export class UIUpdater {
       if (!state.isPlaying) {
         const pianoRollInstance = this.visualizationEngine.getPianoRollInstance();
         if (pianoRollInstance) {
-          const safeTime = Number.isFinite(state.currentTime) && state.currentTime >= 0 ? state.currentTime : 0;
+          const safeTime =
+            Number.isFinite(state.currentTime) && state.currentTime >= 0 ? state.currentTime : 0;
           pianoRollInstance.setTime(safeTime);
         }
       }
@@ -294,9 +308,7 @@ export class UIUpdater {
    */
   updateTimeDisplay(overrideTime?: number, timeDisplay?: HTMLElement): void {
     const seconds =
-      overrideTime !== undefined
-        ? overrideTime
-        : this.stateManager.getState().playback.currentTime;
+      overrideTime !== undefined ? overrideTime : this.stateManager.getState().playback.currentTime;
 
     if (timeDisplay) {
       timeDisplay.textContent = formatTime(seconds);
@@ -326,7 +338,8 @@ export class UIUpdater {
    */
   private async openEvaluationResultsModal(deps: UIComponentDependencies | null): Promise<void> {
     if (deps) {
-      const { openEvaluationResultsModal } = await import("@/lib/components/ui/settings/modal/evaluation-results");
+      const { openEvaluationResultsModal } =
+        await import("@/lib/components/ui/settings/modal/evaluation-results");
       openEvaluationResultsModal(deps);
     }
   }
@@ -343,7 +356,7 @@ export class UIUpdater {
    */
   updateFileToggleSection(
     fileToggleContainer: HTMLElement | null,
-    deps: UIComponentDependencies
+    deps: UIComponentDependencies,
   ): void {
     if (!fileToggleContainer) return;
 

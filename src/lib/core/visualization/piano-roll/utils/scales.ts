@@ -24,31 +24,25 @@ export interface Scales {
  */
 export function createScales(
   notes: NoteData[],
-  options: Required<
-    Pick<PianoRollConfig, "width" | "height" | "noteRange" | "showPianoKeys">
-  >,
+  options: Required<Pick<PianoRollConfig, "width" | "height" | "noteRange" | "showPianoKeys">>,
   currentPxPerSecond: number | null = null,
   TARGET_VISIBLE_SECONDS = 8,
-  reservedBottomPx: number = 0
+  reservedBottomPx: number = 0,
 ): Scales {
   // 1. Determine the track's total length.
-  const maxTime =
-    notes.length > 0 ? Math.max(...notes.map((n) => n.time + n.duration)) : 60; // Fallback when no data are present.
+  const maxTime = notes.length > 0 ? Math.max(...notes.map((n) => n.time + n.duration)) : 60; // Fallback when no data are present.
 
   // 2. Decide the baseline pixel-per-second ratio.
   //    The same value is reused on subsequent calls so that grid spacing
   //    never "jumps" when extra notes push maxTime forward.
   const pianoKeysOffset = options.showPianoKeys ? 60 : 0;
   const pxPerSecond =
-    currentPxPerSecond ??
-    (options.width - pianoKeysOffset) / TARGET_VISIBLE_SECONDS;
+    currentPxPerSecond ?? (options.width - pianoKeysOffset) / TARGET_VISIBLE_SECONDS;
 
   // 3. Build the D3 scales.
   const rangeEnd = maxTime * pxPerSecond;
 
-  const timeScale = scaleLinear<number, number>()
-    .domain([0, maxTime])
-    .range([0, rangeEnd]);
+  const timeScale = scaleLinear<number, number>().domain([0, maxTime]).range([0, rangeEnd]);
 
   const pitchScale = scaleLinear<number, number>()
     .domain([options.noteRange.min, options.noteRange.max])

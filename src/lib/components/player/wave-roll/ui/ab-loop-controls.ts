@@ -37,11 +37,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
     "display:flex;gap:6px;align-items:center;height:48px;" +
     "background:rgba(255,255,255,.8);padding:4px;border-radius:8px;";
 
-  const makeBtn = (
-    onClick: () => void,
-    label?: string,
-    icon?: string
-  ): HTMLButtonElement => {
+  const makeBtn = (onClick: () => void, label?: string, icon?: string): HTMLButtonElement => {
     const b = document.createElement("button");
     if (label) b.textContent = label;
     if (icon) b.innerHTML = icon;
@@ -79,15 +75,13 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
       }
       // Reflect UI state
       restartBtn.dataset.active = loopRestart ? "true" : "";
-      restartBtn.style.background = loopRestart
-        ? "rgba(0,123,255,.1)"
-        : "transparent";
+      restartBtn.style.background = loopRestart ? "rgba(0,123,255,.1)" : "transparent";
       restartBtn.style.color = loopRestart ? "#007bff" : "#495057";
       // Always refresh overlay
       updateSeekBar();
     },
     undefined,
-    PLAYER_ICONS.loop_start
+    PLAYER_ICONS.loop_start,
   );
 
   /* A & B buttons */
@@ -120,9 +114,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
           }
         )._waveRollAudio;
         const files = api?.getFiles?.() || [];
-        const durations = files
-          .map((f) => f.audioBuffer?.duration || 0)
-          .filter((d) => d > 0);
+        const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
         wavMax = durations.length > 0 ? Math.max(...durations) : 0;
       } catch {}
       const rawMax = Math.max(midiDur, wavMax);
@@ -223,7 +215,7 @@ export function createABLoopControls(deps: ABLoopDeps): ABLoopAPI {
         detail: { loopWindow },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   }
 

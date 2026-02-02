@@ -7,11 +7,7 @@
  */
 
 import { NoteData } from "@/lib/midi/types";
-import {
-  AudioPlayerContainer,
-  AudioPlayerState,
-  createAudioPlayer,
-} from "@/core/audio";
+import { AudioPlayerContainer, AudioPlayerState, createAudioPlayer } from "@/core/audio";
 import { PianoRollManager } from "@/core/playback";
 import { StateManager } from "@/core/state";
 import { PlaybackValueUtils, ensureInitialized } from "./utils";
@@ -95,10 +91,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   // Store originalTempo to persist across audioPlayer recreation
   private pendingOriginalTempo: number | null = null;
 
-  constructor(
-    stateManager?: StateManager,
-    config: CorePlaybackEngineConfig = {}
-  ) {
+  constructor(stateManager?: StateManager, config: CorePlaybackEngineConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.stateManager = stateManager || null;
   }
@@ -202,12 +195,11 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
         volume: prevState?.volume || this.config.defaultVolume,
         repeat: prevState?.isRepeating || false,
       },
-      pianoRollInstance
+      pianoRollInstance,
     );
 
     // Restore originalTempo from pendingOriginalTempo or prevState
-    const originalTempoToRestore =
-      this.pendingOriginalTempo ?? prevState?.originalTempo;
+    const originalTempoToRestore = this.pendingOriginalTempo ?? prevState?.originalTempo;
     if (
       originalTempoToRestore &&
       Number.isFinite(originalTempoToRestore) &&
@@ -237,11 +229,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
       // Now restore loop points with preservePosition=true
       // Since we've already restored the position, this will maintain it
       if (this.loopPoints.a !== null || this.loopPoints.b !== null) {
-        this.audioPlayer.setLoopPoints(
-          this.loopPoints.a,
-          this.loopPoints.b,
-          true
-        );
+        this.audioPlayer.setLoopPoints(this.loopPoints.a, this.loopPoints.b, true);
       }
 
       // Resume playback if needed
@@ -391,7 +379,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     const clampedTempo = PlaybackValueUtils.clampTempo(
       bpm,
       this.config.minTempo,
-      this.config.maxTempo
+      this.config.maxTempo,
     );
     this.audioPlayer?.setTempo(clampedTempo);
   }
@@ -418,7 +406,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
   public setLoopPoints(
     start: number | null,
     end: number | null,
-    preservePosition: boolean = false
+    preservePosition: boolean = false,
   ): void {
     this.loopPoints = { a: start, b: end };
     this.audioPlayer?.setLoopPoints(start, end, preservePosition);
@@ -671,10 +659,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
     performUpdate();
 
     // Start interval with optimized frequency
-    this.updateLoopId = window.setInterval(
-      performUpdate,
-      this.config.updateInterval
-    );
+    this.updateLoopId = window.setInterval(performUpdate, this.config.updateInterval);
   }
 
   private stopUpdateLoop(): void {
@@ -703,7 +688,7 @@ export class CorePlaybackEngine implements AudioPlayerContainer {
 let __activeCorePlaybackEngine: CorePlaybackEngine | null = null;
 export function createCorePlaybackEngine(
   stateManager?: StateManager,
-  config?: CorePlaybackEngineConfig
+  config?: CorePlaybackEngineConfig,
 ): CorePlaybackEngine {
   // Replace policy: if an active engine exists, destroy it safely and replace
   if (__activeCorePlaybackEngine) {

@@ -17,12 +17,15 @@ function relLum(hex: number): number {
   const r = (hex >> 16) & 0xff;
   const g = (hex >> 8) & 0xff;
   const b = hex & 0xff;
-  const R = srgbToLin(r), G = srgbToLin(g), B = srgbToLin(b);
+  const R = srgbToLin(r),
+    G = srgbToLin(g),
+    B = srgbToLin(b);
   return 0.2126 * R + 0.7152 * G + 0.0722 * B;
 }
 
 function contrastRatio(a: number, b: number): number {
-  const L1 = relLum(a), L2 = relLum(b);
+  const L1 = relLum(a),
+    L2 = relLum(b);
   const lighter = Math.max(L1, L2) + 0.05;
   const darker = Math.min(L1, L2) + 0.05;
   return lighter / darker;
@@ -44,5 +47,3 @@ export const NEUTRAL_GRAY = 0x444444;
 export const HIGHLIGHT_ANCHOR_REF = toNumberColor(COLOR_EVAL_HIGHLIGHT);
 export const HIGHLIGHT_ANCHOR_EST = toNumberColor(COLOR_EVAL_EXCLUSIVE);
 export const HIGHLIGHT_BLEND_RATIO = 0.75;
-
-

@@ -17,7 +17,7 @@ export class UILayoutManager {
   static setupLayout(
     container: HTMLElement,
     elements: UIElements,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): void {
     // Clear container first
     container.innerHTML = "";
@@ -68,10 +68,7 @@ export class UILayoutManager {
 
   /* -------------------------------- sidebar -------------------------------- */
   // Deprecated - sidebar no longer used
-  static setupSidebar(
-    sidebarContainer: HTMLElement,
-    dependencies: UIComponentDependencies
-  ): void {
+  static setupSidebar(sidebarContainer: HTMLElement, dependencies: UIComponentDependencies): void {
     // No-op: sidebar has been removed
   }
 

@@ -3,11 +3,7 @@ declare module "d3-scale" {
    * Minimal generic interface for a D3 linear scale.
    * Covers the small subset of members used in the project (domain / range getter-setters).
    */
-  export interface ScaleLinear<
-    Domain = number,
-    Range = number,
-    Unknown = never,
-  > {
+  export interface ScaleLinear<Domain = number, Range = number, Unknown = never> {
     (value: Domain): Range;
     /** Returns the current domain. */
     domain(): Domain[];
@@ -29,9 +25,5 @@ declare module "d3-scale" {
   /**
    * Factory for a linear scale.
    */
-  export function scaleLinear<D = number, R = number, U = never>(): ScaleLinear<
-    D,
-    R,
-    U
-  >;
+  export function scaleLinear<D = number, R = number, U = never>(): ScaleLinear<D, R, U>;
 }

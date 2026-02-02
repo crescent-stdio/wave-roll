@@ -19,7 +19,7 @@ import { createHighlightModeGroup } from "../settings/controls/highlight-mode-gr
 export function setupUI(
   controlsContainer: HTMLElement,
   playerContainer: HTMLElement,
-  deps: UIComponentDependencies
+  deps: UIComponentDependencies,
 ): void {
   // Reset container
   controlsContainer.innerHTML = "";

@@ -11,7 +11,7 @@ export interface LoopWindow {
 }
 
 export interface SeekBarDeps {
-  /** Audio player - used for seek / drag */
+  /** Audio player - used for seek / drag */
   audioPlayer: AudioPlayerContainer | null;
   /** Optional: piano roll instance to forward loop markers */
   pianoRoll?: { setLoopWindow?: (a: number | null, b: number | null) => void };
@@ -37,7 +37,11 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     // Pull WAV max duration from global registry if present
     let wavMax = 0;
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer }> };
+        }
+      )._waveRollAudio;
       const files = api?.getFiles?.() || [];
       const ds = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
       wavMax = ds.length > 0 ? Math.max(...ds) : 0;
@@ -50,11 +54,27 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   const calculateRawDuration = (midiDuration: number): number => {
     let wavMax = 0;
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ audioBuffer?: AudioBuffer; isVisible?: boolean; isMuted?: boolean; volume?: number }> } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: {
+            getFiles?: () => Array<{
+              audioBuffer?: AudioBuffer;
+              isVisible?: boolean;
+              isMuted?: boolean;
+              volume?: number;
+            }>;
+          };
+        }
+      )._waveRollAudio;
       const files = api?.getFiles?.() || [];
       const ds = files
         // Only consider active (visible & unmuted & volume>0 if provided)
-        .filter((f) => (f?.isVisible !== false) && (f?.isMuted !== true) && (f?.volume === undefined || f.volume > 0))
+        .filter(
+          (f) =>
+            f?.isVisible !== false &&
+            f?.isMuted !== true &&
+            (f?.volume === undefined || f.volume > 0),
+        )
         .map((f) => f.audioBuffer?.duration || 0)
         .filter((d) => d > 0);
       wavMax = ds.length > 0 ? Math.max(...ds) : 0;
@@ -147,8 +167,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     // Keep piano-roll shaded region in sync (seconds)
     if (pianoRoll) {
       if (loop && duration > 0) {
-        const startSec =
-          loop.prev !== null ? (loop.prev / 100) * duration : null;
+        const startSec = loop.prev !== null ? (loop.prev / 100) * duration : null;
         const endSec = loop.next !== null ? (loop.next / 100) * duration : null;
         pianoRoll.setLoopWindow?.(startSec, endSec);
       } else {
@@ -253,8 +272,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   // No separate tooltip; the progress bar itself will reflect dragging.
 
   const labelTotal = document.createElement("span");
-  labelTotal.style.cssText =
-    "font-family: monospace; font-size: 12px; min-width:46px;";
+  labelTotal.style.cssText = "font-family: monospace; font-size: 12px; min-width:46px;";
   labelTotal.textContent = "00:00";
 
   root.appendChild(labelCurrent);
@@ -295,7 +313,7 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
     const st = audioPlayer.getState();
     const midiDuration = st?.duration || 0;
     const targetSec = pct01 * midiDuration;
-    
+
     // console.info("[UI-seek] requested", {
     //   targetSec, // MIDI content-time seconds
     //   pct,
@@ -325,19 +343,11 @@ export function createSeekBar(deps: SeekBarDeps): SeekBarInstance {
   });
 
   /* ---- Update function -------------------------------------------- */
-  type UpdateFn = ((
-    current: number,
-    duration: number,
-    loop: LoopWindow | null
-  ) => void) & {
+  type UpdateFn = ((current: number, duration: number, loop: LoopWindow | null) => void) & {
     prev?: number;
   };
 
-  const update: UpdateFn = (
-    current: number,
-    duration: number,
-    loop: LoopWindow | null
-  ) => {
+  const update: UpdateFn = (current: number, duration: number, loop: LoopWindow | null) => {
     // check flicker
     if (typeof update.prev === "number") {
       const diff = current - update.prev;

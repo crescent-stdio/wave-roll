@@ -32,7 +32,6 @@ export interface WaveRollAudioAPI {
   _store?: { items: RegisteredAudio[] };
 }
 
-
 export interface PeakDatum {
   time: number;
   min: number;

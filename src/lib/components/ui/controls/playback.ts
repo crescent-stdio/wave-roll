@@ -15,9 +15,7 @@ import { ensureAudioContextReady } from "@/lib/core/audio/utils/audio-context";
  * @param dependencies - The UI component dependencies.
  * @returns The playback control element.
  */
-export function createPlaybackControlsUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createPlaybackControlsUI(dependencies: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
     display: flex;
@@ -66,7 +64,9 @@ export function createPlaybackControlsUI(
     audioPlayer: dependencies.audioPlayer,
     prePlay: async () => {
       // 1) Start/resume AudioContext immediately on user gesture
-      try { await ensureAudioContextReady(); } catch {}
+      try {
+        await ensureAudioContextReady();
+      } catch {}
       // 2) Ensure underlying audio player exists before calling play()
       await waitUntil(() => !!dependencies.audioPlayer?.isInitialized?.());
     },

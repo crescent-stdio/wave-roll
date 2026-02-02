@@ -5,10 +5,7 @@ import { MidiFileEntry, MultiMidiManager } from "@/lib/core/midi";
  * Creates lightweight DOM elements representing MIDI files in the sidebar list.
  */
 export class FileItemFactory {
-  static createFileItem(
-    file: MidiFileEntry,
-    midiManager: MultiMidiManager
-  ): HTMLElement {
+  static createFileItem(file: MidiFileEntry, midiManager: MultiMidiManager): HTMLElement {
     const item = document.createElement("div");
     item.style.cssText = `
       display: flex;
@@ -24,9 +21,7 @@ export class FileItemFactory {
     /* -------- visibility toggle -------- */
     const visBtn = document.createElement("button");
     const isVisible = file.isVisible;
-    visBtn.innerHTML = isVisible
-      ? PLAYER_ICONS.eye_open
-      : PLAYER_ICONS.eye_closed;
+    visBtn.innerHTML = isVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed;
     visBtn.style.cssText = `
       width: 20px;
       height: 20px;

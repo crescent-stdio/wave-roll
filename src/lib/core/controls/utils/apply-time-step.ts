@@ -6,7 +6,7 @@
  */
 export function applyTimeStep(
   setTimeStep: ((v: number) => void) | undefined,
-  value: number | string
+  value: number | string,
 ): void {
   const v = parseFloat(value.toString());
   if (isNaN(v) || !Number.isFinite(v) || v <= 0 || !setTimeStep) return;

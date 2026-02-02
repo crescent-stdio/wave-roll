@@ -2,7 +2,7 @@
  * Value utility functions for playback module
  */
 
-import { clamp } from '@/lib/core/utils';
+import { clamp } from "@/lib/core/utils";
 
 /**
  * Playback-specific value utilities
@@ -77,5 +77,5 @@ export const PlaybackValueUtils = {
    */
   playbackRateToTempo(rate: number, baseTempo: number = 120): number {
     return rate * baseTempo;
-  }
+  },
 };

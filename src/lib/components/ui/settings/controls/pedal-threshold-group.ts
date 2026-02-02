@@ -4,9 +4,7 @@ import { UIComponentDependencies } from "../../types";
  * Create a slider control for setting the sustain pedal threshold.
  * This affects the CC64 value required to activate sustain.
  */
-export function createPedalThresholdGroup(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createPedalThresholdGroup(deps: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
     padding: 12px 0;
@@ -86,7 +84,8 @@ export function createPedalThresholdGroup(
     color: var(--text-muted);
     line-height: 1.4;
   `;
-  description.textContent = "MIDI CC64 value threshold for sustain pedal activation. Standard value is 64. Lower values make the pedal more sensitive.";
+  description.textContent =
+    "MIDI CC64 value threshold for sustain pedal activation. Standard value is 64. Lower values make the pedal more sensitive.";
 
   // Loading indicator (initially hidden)
   const loadingIndicator = document.createElement("div");
@@ -107,15 +106,15 @@ export function createPedalThresholdGroup(
   const handleChange = async () => {
     const value = parseInt(slider.value);
     valueDisplay.textContent = String(value);
-    
+
     // Update state
     deps.stateManager?.updateVisualState({ pedalThreshold: value });
-    
+
     // Clear existing timer
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);
     }
-    
+
     // Debounce the reprocessing
     debounceTimer = window.setTimeout(async () => {
       // Only reprocess if pedal elongate is enabled
@@ -123,27 +122,27 @@ export function createPedalThresholdGroup(
       if (!state?.visual.pedalElongate) {
         return;
       }
-      
+
       // Show loading indicator
       loadingIndicator.style.display = "block";
       slider.disabled = true;
-      
+
       try {
         // Reparse all MIDI files with the new threshold
         if (deps.midiManager) {
           await deps.midiManager.reparseAllFiles(
-            { 
+            {
               applyPedalElongate: true,
-              pedalThreshold: value 
+              pedalThreshold: value,
             },
             (current, total) => {
               loadingIndicator.textContent = `Reprocessing files... (${current}/${total})`;
-            }
+            },
           );
-          
+
           // Visualization will refresh via midiManager state change listener
         }
-        
+
         // console.log(`Pedal threshold set to ${value}`);
       } catch (error) {
         console.error("Failed to reprocess files:", error);
@@ -168,11 +167,11 @@ export function createPedalThresholdGroup(
   // Assemble
   header.appendChild(label);
   header.appendChild(valueDisplay);
-  
+
   sliderContainer.appendChild(minLabel);
   sliderContainer.appendChild(slider);
   sliderContainer.appendChild(maxLabel);
-  
+
   container.appendChild(header);
   container.appendChild(sliderContainer);
   container.appendChild(description);

@@ -37,9 +37,7 @@ export function overlapping(tracks: Track[]): NoteInterval[] {
   if (events.length === 0) return [];
 
   // 2) Sort by time asc. Tie-breakers: END (-1) before START (+1)
-  events.sort((a, b) =>
-    a.time === b.time ? a.delta - b.delta : a.time - b.time
-  );
+  events.sort((a, b) => (a.time === b.time ? a.delta - b.delta : a.time - b.time));
 
   // 3) Sweep through the timeline, tracking the number of active tracks.
   const overlaps: NoteInterval[] = [];

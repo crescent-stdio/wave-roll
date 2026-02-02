@@ -26,7 +26,7 @@ export interface PianoRollConfig {
   /** Whether to show waveform band at the bottom (default: true) */
   showWaveformBand?: boolean;
   /** Preferred renderer type for PixiJS (default: auto-select) */
-  rendererPreference?: 'webgl' | 'webgpu';
+  rendererPreference?: "webgl" | "webgpu";
 }
 
 /**
@@ -82,7 +82,7 @@ export class PianoRollManager {
     options: {
       enableOverlapDetection?: boolean;
       overlapColor?: number;
-    } = {}
+    } = {},
   ) {
     this.config = { ...DEFAULT_PIANO_ROLL_CONFIG, ...config };
     this.enableOverlapDetection = options.enableOverlapDetection ?? true;
@@ -92,17 +92,13 @@ export class PianoRollManager {
   /**
    * Initialize piano roll with container
    */
-  public async initialize(
-    container: HTMLElement,
-    notes: NoteData[] = []
-  ): Promise<void> {
+  public async initialize(container: HTMLElement, notes: NoteData[] = []): Promise<void> {
     this.pianoRollContainer = container;
 
     const config = {
       ...this.config,
       width: container.clientWidth || this.config.width,
-      noteRenderer: (_note: NoteData, index: number) =>
-        this.currentNoteColors[index] || 0x666666,
+      noteRenderer: (_note: NoteData, index: number) => this.currentNoteColors[index] || 0x666666,
     };
 
     this.pianoRollInstance = await createPianoRoll(container, notes, config);
@@ -193,10 +189,7 @@ export class PianoRollManager {
     this.config = { ...this.config, ...config };
 
     // Apply minor time step if changed
-    if (
-      config.minorTimeStep !== undefined &&
-      this.pianoRollInstance?.setMinorTimeStep
-    ) {
+    if (config.minorTimeStep !== undefined && this.pianoRollInstance?.setMinorTimeStep) {
       this.pianoRollInstance.setMinorTimeStep(config.minorTimeStep);
     }
   }
@@ -279,7 +272,7 @@ export function createPianoRollManager(
   options?: {
     enableOverlapDetection?: boolean;
     overlapColor?: number;
-  }
+  },
 ): PianoRollManager {
   return new PianoRollManager(config, options);
 }

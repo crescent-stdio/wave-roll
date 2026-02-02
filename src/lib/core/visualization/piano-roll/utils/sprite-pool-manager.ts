@@ -2,18 +2,18 @@
  * Sprite pool management for efficient rendering
  */
 
-import * as PIXI from 'pixi.js';
+import * as PIXI from "pixi.js";
 
 /**
  * Generic sprite pool manager for reusing display objects
  */
 export class SpritePoolManager<T extends { visible: boolean; destroy: () => void }> {
   private pool: T[] = [];
-  
+
   constructor(
     private factory: () => T,
     private container: PIXI.Container,
-    private onSetup?: (sprite: T, index: number) => void
+    private onSetup?: (sprite: T, index: number) => void,
   ) {}
 
   /**
@@ -25,12 +25,12 @@ export class SpritePoolManager<T extends { visible: boolean; destroy: () => void
       const sprite = this.factory();
       this.container.addChild(sprite as any);
       this.pool.push(sprite);
-      
+
       if (this.onSetup) {
         this.onSetup(sprite, this.pool.length - 1);
       }
     }
-    
+
     // Shrink pool if needed
     while (this.pool.length > targetSize) {
       const sprite = this.pool.pop();
@@ -39,7 +39,7 @@ export class SpritePoolManager<T extends { visible: boolean; destroy: () => void
         sprite.destroy();
       }
     }
-    
+
     return this.pool;
   }
 
@@ -82,7 +82,7 @@ export class SpritePoolManager<T extends { visible: boolean; destroy: () => void
    * Show all sprites
    */
   showAll(): void {
-    this.pool.forEach(sprite => {
+    this.pool.forEach((sprite) => {
       sprite.visible = true;
     });
   }
@@ -114,13 +114,9 @@ export class SpritePoolManager<T extends { visible: boolean; destroy: () => void
 export function createSpritePool(
   container: PIXI.Container,
   texture?: PIXI.Texture,
-  onSetup?: (sprite: PIXI.Sprite, index: number) => void
+  onSetup?: (sprite: PIXI.Sprite, index: number) => void,
 ): SpritePoolManager<PIXI.Sprite> {
-  return new SpritePoolManager(
-    () => new PIXI.Sprite(texture),
-    container,
-    onSetup
-  );
+  return new SpritePoolManager(() => new PIXI.Sprite(texture), container, onSetup);
 }
 
 /**
@@ -128,11 +124,7 @@ export function createSpritePool(
  */
 export function createGraphicsPool(
   container: PIXI.Container,
-  onSetup?: (graphics: PIXI.Graphics, index: number) => void
+  onSetup?: (graphics: PIXI.Graphics, index: number) => void,
 ): SpritePoolManager<PIXI.Graphics> {
-  return new SpritePoolManager(
-    () => new PIXI.Graphics(),
-    container,
-    onSetup
-  );
+  return new SpritePoolManager(() => new PIXI.Graphics(), container, onSetup);
 }

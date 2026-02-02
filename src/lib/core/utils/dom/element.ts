@@ -6,11 +6,7 @@
  * @param text - The text content to set on the element.
  * @returns The created element.
  */
-export function createElement(
-  tag: string,
-  styles: string,
-  text?: string
-): HTMLElement {
+export function createElement(tag: string, styles: string, text?: string): HTMLElement {
   const el = document.createElement(tag);
   el.style.cssText = styles;
   if (text) el.textContent = text;

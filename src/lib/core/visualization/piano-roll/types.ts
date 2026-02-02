@@ -32,7 +32,7 @@ export interface PianoRollConfig {
   /** Whether to show waveform band at the bottom (default: true) */
   showWaveformBand?: boolean;
   /** Preferred renderer type for PixiJS (default: auto-select) */
-  rendererPreference?: 'webgl' | 'webgpu';
+  rendererPreference?: "webgl" | "webgpu";
 }
 
 /**
@@ -78,7 +78,7 @@ export type PianoRollInstance = {
 
   /** Resize the visualizer to a new width/height */
   resize: (width: number, height?: number) => void;
-  
+
   /** Internal reference to the PianoRoll instance */
   _instance?: PianoRoll;
 };

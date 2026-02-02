@@ -44,13 +44,9 @@ export interface NoteMetrics {
 export function computeNoteMetrics(
   reference: ParsedMidi,
   estimated: ParsedMidi,
-  options: Partial<TranscriptionToleranceOptions> = {}
+  options: Partial<TranscriptionToleranceOptions> = {},
 ): NoteMetrics {
-  const matchResult: NoteMatchResult = matchNotes(
-    reference,
-    estimated,
-    options
-  );
+  const matchResult: NoteMatchResult = matchNotes(reference, estimated, options);
 
   // console.log("matchResult.matches", matchResult.matches);
 
@@ -60,10 +56,7 @@ export function computeNoteMetrics(
 
   const precision = numEst > 0 ? numCorrect / numEst : 0;
   const recall = numRef > 0 ? numCorrect / numRef : 0;
-  const f1 =
-    precision + recall > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
   // Calculate average overlap ratio for matched notes
   let avgOverlapRatio = 0;
@@ -76,18 +69,13 @@ export function computeNoteMetrics(
       const estOn = estNote.time;
       const estOff = estNote.time + estNote.duration;
 
-      const intersection = Math.max(
-        0,
-        Math.min(refOff, estOff) - Math.max(refOn, estOn)
-      );
+      const intersection = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
       const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
 
       return union > 0 ? intersection / union : 0;
     });
 
-    avgOverlapRatio =
-      overlapRatios.reduce((sum, ratio) => sum + ratio, 0) /
-      overlapRatios.length;
+    avgOverlapRatio = overlapRatios.reduce((sum, ratio) => sum + ratio, 0) / overlapRatios.length;
   }
 
   return {
@@ -108,7 +96,7 @@ export function computeNoteMetrics(
 export function precision_recall_f1_overlap(
   reference: ParsedMidi,
   estimated: ParsedMidi,
-  options: Partial<TranscriptionToleranceOptions> = {}
+  options: Partial<TranscriptionToleranceOptions> = {},
 ): {
   precision: number;
   recall: number;
@@ -141,10 +129,10 @@ export function computeVelocityMetrics(
   reference: ParsedMidi,
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {},
-  velocity: Partial<VelocityToleranceOptions> = {}
+  velocity: Partial<VelocityToleranceOptions> = {},
 ): NoteMetrics & {
   velocity: {
-    mode: VelocityToleranceOptions["mode"]; 
+    mode: VelocityToleranceOptions["mode"];
     toleranceNormalized: number;
     toleranceMidi: number;
     numVelocityCorrect: number;
@@ -153,8 +141,9 @@ export function computeVelocityMetrics(
   };
 } {
   const vopts = { ...DEFAULT_VELOCITY_OPTIONS, ...velocity };
-  const tolNorm = vopts.unit === 'midi' ? vopts.velocityTolerance / 127 : vopts.velocityTolerance;
-  const tolMidi = vopts.unit === 'midi' ? vopts.velocityTolerance : Math.round(vopts.velocityTolerance * 127);
+  const tolNorm = vopts.unit === "midi" ? vopts.velocityTolerance / 127 : vopts.velocityTolerance;
+  const tolMidi =
+    vopts.unit === "midi" ? vopts.velocityTolerance : Math.round(vopts.velocityTolerance * 127);
 
   // Perform matching (optionally velocity-gated)
   const matchResult = matchNotesWithVelocity(reference, estimated, options, vopts);
@@ -165,12 +154,12 @@ export function computeVelocityMetrics(
   // Compute velocity statistics over the matched pairs
   let numVelocityCorrect = 0;
   let weightedSum = 0;
-  let denom = matchResult.matches.length;
+  const denom = matchResult.matches.length;
 
   for (const m of matchResult.matches) {
-    const dv = typeof m.velocityDiff === 'number' ? m.velocityDiff : 0;
+    const dv = typeof m.velocityDiff === "number" ? m.velocityDiff : 0;
     const dvNorm = dv; // already normalized in NoteData
-    if (vopts.mode === 'threshold') {
+    if (vopts.mode === "threshold") {
       if (dvNorm <= tolNorm) numVelocityCorrect += 1;
       // threshold mode still contributes to weighted average as 0/1
       weightedSum += dvNorm <= tolNorm ? 1 : 0;
@@ -209,7 +198,7 @@ export function evaluateTranscription(
   reference: ParsedMidi,
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {},
-  velocity: Partial<VelocityToleranceOptions> = {}
+  velocity: Partial<VelocityToleranceOptions> = {},
 ): ReturnType<typeof computeVelocityMetrics> {
   return computeVelocityMetrics(reference, estimated, options, velocity);
 }
@@ -223,7 +212,7 @@ export function precision_recall_f1(
   estimated_intervals: [number, number][],
   estimated_pitches: number[],
   onset_tolerance: number,
-  pitch_tolerance: number
+  pitch_tolerance: number,
 ): { precision: number; recall: number; f1: number; f_measure: number } {
   const { matches } = match_notes(
     reference_intervals,
@@ -231,7 +220,7 @@ export function precision_recall_f1(
     estimated_intervals,
     estimated_pitches,
     onset_tolerance,
-    pitch_tolerance
+    pitch_tolerance,
   );
 
   const numRef = reference_intervals.length;
@@ -239,10 +228,7 @@ export function precision_recall_f1(
   const numCorrect = matches.length;
   const precision = numEst > 0 ? numCorrect / numEst : 0;
   const recall = numRef > 0 ? numCorrect / numRef : 0;
-  const f1 =
-    precision + recall > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
   return { precision, recall, f1, f_measure: f1 };
 }
 
@@ -257,7 +243,7 @@ export function precision_recall_f1_overlap_arrays(
   onset_tolerance: number,
   pitch_tolerance: number,
   offset_ratio_tolerance: number,
-  offset_min_tolerance: number
+  offset_min_tolerance: number,
 ): {
   precision: number;
   recall: number;
@@ -273,7 +259,7 @@ export function precision_recall_f1_overlap_arrays(
     onset_tolerance,
     pitch_tolerance,
     offset_ratio_tolerance,
-    offset_min_tolerance
+    offset_min_tolerance,
   );
 
   const numRef = reference_intervals.length;
@@ -281,10 +267,7 @@ export function precision_recall_f1_overlap_arrays(
   const numCorrect = matches.length;
   const precision = numEst > 0 ? numCorrect / numEst : 0;
   const recall = numRef > 0 ? numCorrect / numRef : 0;
-  const f1 =
-    precision + recall > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
   // Average overlap ratio (IoU) across matched pairs
   let avgOverlapRatio = 0;
@@ -293,10 +276,7 @@ export function precision_recall_f1_overlap_arrays(
     for (const m of matches) {
       const [refOn, refOff] = reference_intervals[m.ref];
       const [estOn, estOff] = estimated_intervals[m.est];
-      const intersection = Math.max(
-        0,
-        Math.min(refOff, estOff) - Math.max(refOn, estOn)
-      );
+      const intersection = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
       const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
       sum += union > 0 ? intersection / union : 0;
     }
@@ -315,7 +295,7 @@ export function chroma_precision_recall_f1(
   estimated_intervals: [number, number][],
   estimated_pitches: number[],
   onset_tolerance: number,
-  pitch_tolerance: number
+  pitch_tolerance: number,
 ): { precision: number; recall: number; f1: number; f_measure: number } {
   const { matches } = match_notes_chroma_onset(
     reference_intervals,
@@ -323,7 +303,7 @@ export function chroma_precision_recall_f1(
     estimated_intervals,
     estimated_pitches,
     onset_tolerance,
-    pitch_tolerance
+    pitch_tolerance,
   );
 
   const numRef = reference_intervals.length;
@@ -331,10 +311,7 @@ export function chroma_precision_recall_f1(
   const numCorrect = matches.length;
   const precision = numEst > 0 ? numCorrect / numEst : 0;
   const recall = numRef > 0 ? numCorrect / numRef : 0;
-  const f1 =
-    precision + recall > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
   return { precision, recall, f1, f_measure: f1 };
 }
 
@@ -349,7 +326,7 @@ export function chroma_precision_recall_f1_overlap(
   onset_tolerance: number,
   pitch_tolerance: number,
   offset_ratio_tolerance: number,
-  offset_min_tolerance: number
+  offset_min_tolerance: number,
 ): {
   precision: number;
   recall: number;
@@ -365,7 +342,7 @@ export function chroma_precision_recall_f1_overlap(
     onset_tolerance,
     pitch_tolerance,
     offset_ratio_tolerance,
-    offset_min_tolerance
+    offset_min_tolerance,
   );
 
   const numRef = reference_intervals.length;
@@ -373,10 +350,7 @@ export function chroma_precision_recall_f1_overlap(
   const numCorrect = matches.length;
   const precision = numEst > 0 ? numCorrect / numEst : 0;
   const recall = numRef > 0 ? numCorrect / numRef : 0;
-  const f1 =
-    precision + recall > 0
-      ? (2 * precision * recall) / (precision + recall)
-      : 0;
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
   let avgOverlapRatio = 0;
   if (matches.length > 0) {
@@ -384,10 +358,7 @@ export function chroma_precision_recall_f1_overlap(
     for (const m of matches) {
       const [refOn, refOff] = reference_intervals[m.ref];
       const [estOn, estOff] = estimated_intervals[m.est];
-      const intersection = Math.max(
-        0,
-        Math.min(refOff, estOff) - Math.max(refOn, estOn)
-      );
+      const intersection = Math.max(0, Math.min(refOff, estOff) - Math.max(refOn, estOn));
       const union = Math.max(refOff, estOff) - Math.min(refOn, estOn);
       sum += union > 0 ? intersection / union : 0;
     }

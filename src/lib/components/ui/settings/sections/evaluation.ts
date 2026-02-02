@@ -2,9 +2,7 @@ import { UIComponentDependencies } from "../../types";
 import { precision_recall_f1_overlap } from "@/lib/evaluation/transcription/metrics";
 import { ParsedMidi } from "@/lib/midi/types";
 
-export function createEvaluationSection(
-  deps: UIComponentDependencies
-): HTMLDivElement {
+export function createEvaluationSection(deps: UIComponentDependencies): HTMLDivElement {
   const section = document.createElement("div");
   section.style.cssText = "display:flex;flex-direction:column;gap:12px;";
 
@@ -48,18 +46,12 @@ export function createEvaluationSection(
   }
   section.addEventListener("pointermove", (e) => {
     const target = e.target as HTMLElement | null;
-    const tipHost = target
-      ? (target.closest("[data-tip]") as HTMLElement | null)
-      : null;
+    const tipHost = target ? (target.closest("[data-tip]") as HTMLElement | null) : null;
     if (tipHost) {
       const text = tipHost.getAttribute("data-tip");
       if (text) {
         if (!tooltipVisible || tooltipEl.textContent !== text) {
-          showTip(
-            text,
-            (e as PointerEvent).clientX,
-            (e as PointerEvent).clientY
-          );
+          showTip(text, (e as PointerEvent).clientX, (e as PointerEvent).clientY);
         } else {
           positionTip((e as PointerEvent).clientX, (e as PointerEvent).clientY);
         }
@@ -92,12 +84,8 @@ export function createEvaluationSection(
 
   // Reference file select
   const refGroup = document.createElement("div");
-  refGroup.style.cssText =
-    "display:flex;align-items:center;gap:6px;font-size:12px;";
-  attachTip(
-    refGroup,
-    "Select the ground-truth (reference) MIDI file to compare against."
-  );
+  refGroup.style.cssText = "display:flex;align-items:center;gap:6px;font-size:12px;";
+  attachTip(refGroup, "Select the ground-truth (reference) MIDI file to compare against.");
 
   const refLabel = document.createElement("span");
   refLabel.textContent = "Reference:";
@@ -117,11 +105,10 @@ export function createEvaluationSection(
 
   // Estimated file single-select (enforce 1:1 evaluation)
   const estGroup = document.createElement("div");
-  estGroup.style.cssText =
-    "display:flex;align-items:start;gap:6px;font-size:12px;";
+  estGroup.style.cssText = "display:flex;align-items:start;gap:6px;font-size:12px;";
   attachTip(
     estGroup,
-    "Select a single comparison transcription file to evaluate against the reference (1:1)."
+    "Select a single comparison transcription file to evaluate against the reference (1:1).",
   );
 
   const estLabel = document.createElement("span");
@@ -134,7 +121,7 @@ export function createEvaluationSection(
     "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:6px;background:var(--surface);color:var(--text-primary);";
   attachTip(
     estSelect,
-    "Pick one comparison MIDI file (single) produced by a transcription system."
+    "Pick one comparison MIDI file (single) produced by a transcription system.",
   );
 
   // Tolerances inputs
@@ -142,20 +129,15 @@ export function createEvaluationSection(
   tolerancesGroup.style.cssText = "display:flex;flex-direction:column;gap:6px;";
   attachTip(
     tolerancesGroup,
-    "Matching tolerances used to pair reference and comparison notes for metric computation."
+    "Matching tolerances used to pair reference and comparison notes for metric computation.",
   );
 
   const toleranceDescriptions: Record<
-    | "onsetTolerance"
-    | "pitchTolerance"
-    | "offsetRatioTolerance"
-    | "offsetMinTolerance",
+    "onsetTolerance" | "pitchTolerance" | "offsetRatioTolerance" | "offsetMinTolerance",
     string
   > = {
-    onsetTolerance:
-      "Maximum allowed onset difference (in seconds) for a note to count as a match.",
-    pitchTolerance:
-      "Maximum allowed pitch difference (in semitones, MIDI notes) for a match.",
+    onsetTolerance: "Maximum allowed onset difference (in seconds) for a note to count as a match.",
+    pitchTolerance: "Maximum allowed pitch difference (in semitones, MIDI notes) for a match.",
     offsetRatioTolerance:
       "Maximum allowed relative offset difference: |est_end - ref_end| / ref_duration. For example, 0.2 allows a 20% deviation.",
     offsetMinTolerance:
@@ -164,16 +146,11 @@ export function createEvaluationSection(
 
   const createToleranceInput = (
     label: string,
-    field:
-      | "onsetTolerance"
-      | "pitchTolerance"
-      | "offsetRatioTolerance"
-      | "offsetMinTolerance",
-    step: string = "0.01"
+    field: "onsetTolerance" | "pitchTolerance" | "offsetRatioTolerance" | "offsetMinTolerance",
+    step: string = "0.01",
   ) => {
     const row = document.createElement("div");
-    row.style.cssText =
-      "display:flex;align-items:center;gap:6px;font-size:12px;";
+    row.style.cssText = "display:flex;align-items:center;gap:6px;font-size:12px;";
     attachTip(row, toleranceDescriptions[field]);
 
     const lbl = document.createElement("span");
@@ -204,24 +181,20 @@ export function createEvaluationSection(
     createToleranceInput("Onset tol (s):", "onsetTolerance", "0.001"),
     createToleranceInput("Pitch tol (semitones):", "pitchTolerance", "0.1"),
     createToleranceInput("Offset ratio tol:", "offsetRatioTolerance", "0.01"),
-    createToleranceInput("Offset min tol (s):", "offsetMinTolerance", "0.001")
+    createToleranceInput("Offset min tol (s):", "offsetMinTolerance", "0.001"),
   );
 
   // Anchor select (for future use)
   const anchorGroup = document.createElement("div");
-  anchorGroup.style.cssText =
-    "display:flex;align-items:center;gap:6px;font-size:12px;";
-  attachTip(
-    anchorGroup,
-    "Select the time region used as the anchor for overlap/visualization."
-  );
+  anchorGroup.style.cssText = "display:flex;align-items:center;gap:6px;font-size:12px;";
+  attachTip(anchorGroup, "Select the time region used as the anchor for overlap/visualization.");
 
   const anchorLabel = document.createElement("span");
   anchorLabel.textContent = "Anchor:";
   anchorLabel.style.cssText = "min-width:80px;font-weight:600;";
   attachTip(
     anchorLabel,
-    "Intersection: overlap only; \n Ref: reference span; \n Est: estimated span."
+    "Intersection: overlap only; \n Ref: reference span; \n Est: estimated span.",
   );
 
   const anchorSelect = document.createElement("select");
@@ -242,17 +215,14 @@ export function createEvaluationSection(
   });
 
   anchorSelect.value = deps.stateManager.getState().evaluation.anchor;
-  attachTip(
-    anchorSelect,
-    anchorDescriptions[anchorSelect.value as "intersection" | "ref" | "est"]
-  );
+  attachTip(anchorSelect, anchorDescriptions[anchorSelect.value as "intersection" | "ref" | "est"]);
   anchorSelect.addEventListener("change", () => {
     deps.stateManager.updateEvaluationState({
       anchor: anchorSelect.value as "intersection" | "ref" | "est",
     });
     attachTip(
       anchorSelect,
-      anchorDescriptions[anchorSelect.value as "intersection" | "ref" | "est"]
+      anchorDescriptions[anchorSelect.value as "intersection" | "ref" | "est"],
     );
   });
 
@@ -264,7 +234,7 @@ export function createEvaluationSection(
     "border:1px solid var(--ui-border);border-radius:6px;padding:8px;background:var(--surface-alt);font-size:11px;font-family:monospace;color:var(--text-primary);";
   attachTip(
     metricsBox,
-    "Shows Precision, Recall, F1, and average overlap ratio for the selected files under current tolerances. Based on mir_eval.transcription."
+    "Shows Precision, Recall, F1, and average overlap ratio for the selected files under current tolerances. Based on mir_eval.transcription.",
   );
 
   const updateMetrics = () => {
@@ -274,8 +244,7 @@ export function createEvaluationSection(
     metricsBox.innerHTML = "";
 
     if (!state.refId || state.estIds.length === 0) {
-      metricsBox.textContent =
-        "Select reference and comparison files to see metrics";
+      metricsBox.textContent = "Select reference and comparison files to see metrics";
       return;
     }
 
@@ -301,16 +270,12 @@ export function createEvaluationSection(
     }
 
     // Calculate metrics
-    const metrics = precision_recall_f1_overlap(
-      refFile.parsedData,
-      estFile.parsedData,
-      {
-        onsetTolerance: state.onsetTolerance,
-        pitchTolerance: state.pitchTolerance,
-        offsetRatioTolerance: state.offsetRatioTolerance,
-        offsetMinTolerance: state.offsetMinTolerance,
-      }
-    );
+    const metrics = precision_recall_f1_overlap(refFile.parsedData, estFile.parsedData, {
+      onsetTolerance: state.onsetTolerance,
+      pitchTolerance: state.pitchTolerance,
+      offsetRatioTolerance: state.offsetRatioTolerance,
+      offsetMinTolerance: state.offsetMinTolerance,
+    });
 
     // Display metrics
     const lines = [
@@ -384,9 +349,7 @@ export function createEvaluationSection(
       const sel = refSelect.selectedOptions[0];
       attachTip(
         refSelect,
-        sel
-          ? `Reference: ${sel.textContent}`
-          : "Choose the reference MIDI file (ground truth)."
+        sel ? `Reference: ${sel.textContent}` : "Choose the reference MIDI file (ground truth).",
       );
     } else {
       attachTip(refSelect, "Choose the reference MIDI file (ground truth).");
@@ -412,9 +375,7 @@ export function createEvaluationSection(
       const sel = refSelect.selectedOptions[0];
       attachTip(
         refSelect,
-        sel
-          ? `Reference: ${sel.textContent}`
-          : "Choose the reference MIDI file (ground truth)."
+        sel ? `Reference: ${sel.textContent}` : "Choose the reference MIDI file (ground truth).",
       );
     } else {
       attachTip(refSelect, "Choose the reference MIDI file (ground truth).");
@@ -449,11 +410,10 @@ export function createEvaluationSection(
 
   // Ref-on-top toggle
   const refOnTopRow = document.createElement("div");
-  refOnTopRow.style.cssText =
-    "display:flex;align-items:center;gap:6px;font-size:12px;";
+  refOnTopRow.style.cssText = "display:flex;align-items:center;gap:6px;font-size:12px;";
   attachTip(
     refOnTopRow,
-    "When enabled, always render the reference (ground-truth) notes above all other files."
+    "When enabled, always render the reference (ground-truth) notes above all other files.",
   );
 
   const refOnTopLabel = document.createElement("span");
@@ -461,7 +421,7 @@ export function createEvaluationSection(
   refOnTopLabel.style.cssText = "min-width:80px;font-weight:600;";
   attachTip(
     refOnTopLabel,
-    "Render reference notes above others for clearer visibility in evaluation modes."
+    "Render reference notes above others for clearer visibility in evaluation modes.",
   );
 
   const refOnTopInput = document.createElement("input");
@@ -472,22 +432,11 @@ export function createEvaluationSection(
       refOnTop: refOnTopInput.checked,
     });
   });
-  attachTip(
-    refOnTopInput,
-    "If checked, reference notes are drawn last (on top)."
-  );
+  attachTip(refOnTopInput, "If checked, reference notes are drawn last (on top).");
 
   refOnTopRow.append(refOnTopLabel, refOnTopInput);
 
-  section.append(
-    header,
-    refGroup,
-    estGroup,
-    tolerancesGroup,
-    anchorGroup,
-    refOnTopRow,
-    metricsBox
-  );
+  section.append(header, refGroup, estGroup, tolerancesGroup, anchorGroup, refOnTopRow, metricsBox);
 
   return section;
 }

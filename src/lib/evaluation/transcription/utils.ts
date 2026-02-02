@@ -38,31 +38,23 @@ export function validateTranscriptionInputs(
   reference_intervals: [number, number][],
   reference_pitches: number[],
   estimated_intervals: [number, number][],
-  estimated_pitches: number[]
+  estimated_pitches: number[],
 ): void {
   if (reference_intervals.length !== reference_pitches.length) {
-    throw new Error(
-      "Reference intervals and pitches must have the same length"
-    );
+    throw new Error("Reference intervals and pitches must have the same length");
   }
   if (estimated_intervals.length !== estimated_pitches.length) {
-    throw new Error(
-      "Estimated intervals and pitches must have the same length"
-    );
+    throw new Error("Estimated intervals and pitches must have the same length");
   }
 
   function validateIntervals(label: string, intervals: [number, number][]) {
     for (let i = 0; i < intervals.length; i++) {
       const [start, end] = intervals[i];
       if (!Number.isFinite(start) || !Number.isFinite(end)) {
-        throw new Error(
-          `${label} interval has non-finite values at index ${i}`
-        );
+        throw new Error(`${label} interval has non-finite values at index ${i}`);
       }
       if (end < start) {
-        throw new Error(
-          `${label} interval must satisfy end >= start at index ${i}`
-        );
+        throw new Error(`${label} interval must satisfy end >= start at index ${i}`);
       }
     }
   }
@@ -124,7 +116,7 @@ export function getInitialBpm(tempos: TempoEvent[] | undefined): number {
   const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
   // Use the earliest tempo event
   const sorted = (atZero.length > 0 ? atZero : tempos).sort(
-    (a, b) => (a.time || 0) - (b.time || 0)
+    (a, b) => (a.time || 0) - (b.time || 0),
   );
   const first = sorted[0];
 
@@ -147,7 +139,7 @@ export function getInitialBpm(tempos: TempoEvent[] | undefined): number {
 export function scaleIntervalsForBpm(
   intervals: [number, number][],
   sourceBpm: number,
-  targetBpm: number
+  targetBpm: number,
 ): [number, number][] {
   // Avoid division by zero and skip if BPMs are effectively equal
   if (sourceBpm <= 0 || targetBpm <= 0) {

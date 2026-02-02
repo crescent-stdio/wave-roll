@@ -3,11 +3,7 @@
  */
 
 import { PLAYER_ICONS } from "@/assets/player-icons";
-import {
-  getInstrumentIcon,
-  CHEVRON_DOWN,
-  CHEVRON_RIGHT,
-} from "@/assets/instrument-icons";
+import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
 import { MidiFileEntry } from "@/lib/core/midi";
 import { TrackInfo } from "@/lib/midi/types";
 import { UIComponentDependencies } from "@/lib/components/ui";
@@ -27,10 +23,7 @@ export class FileToggleItem {
   /**
    * Create a MIDI file toggle item with optional track accordion
    */
-  static create(
-    file: MidiFileEntry,
-    dependencies: UIComponentDependencies
-  ): HTMLElement {
+  static create(file: MidiFileEntry, dependencies: UIComponentDependencies): HTMLElement {
     // Container for file row + track accordion
     const container = document.createElement("div");
     container.style.cssText = `display:flex;flex-direction:column;gap:0;`;
@@ -58,8 +51,7 @@ export class FileToggleItem {
 
     // Always create chevron space for alignment
     chevronSpan = document.createElement("span");
-    chevronSpan.style.cssText =
-      "display:flex;align-items:center;width:16px;min-width:16px;";
+    chevronSpan.style.cssText = "display:flex;align-items:center;width:16px;min-width:16px;";
 
     if (hasMultipleTracks) {
       chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
@@ -79,18 +71,13 @@ export class FileToggleItem {
     const evalGroup = document.createElement("div");
     evalGroup.style.cssText = `display:flex;align-items:center;gap:2px;`;
     evalGroup.appendChild(this.createReferenceButton(file, dependencies, item));
-    evalGroup.appendChild(
-      this.createEstimationButton(file, dependencies, item)
-    );
+    evalGroup.appendChild(this.createEstimationButton(file, dependencies, item));
     item.appendChild(evalGroup);
     item.appendChild(this.createVisibilityButton(file, dependencies));
     item.appendChild(this.createSustainButton(file, dependencies));
     item.appendChild(this.createVolumeControl(file, dependencies));
 
-    const { labelL, slider, labelR } = this.createPanControls(
-      file,
-      dependencies
-    );
+    const { labelL, slider, labelR } = this.createPanControls(file, dependencies);
     item.appendChild(labelL);
     item.appendChild(slider);
     item.appendChild(labelR);
@@ -120,12 +107,7 @@ export class FileToggleItem {
 
     // Add track accordion for multi-track MIDI files
     if (hasMultipleTracks && chevronSpan) {
-      const accordionResult = this.createTrackAccordion(
-        file,
-        tracks,
-        dependencies,
-        isExpanded
-      );
+      const accordionResult = this.createTrackAccordion(file, tracks, dependencies, isExpanded);
       trackList = accordionResult.trackList;
       container.appendChild(trackList);
 
@@ -154,7 +136,7 @@ export class FileToggleItem {
     file: MidiFileEntry,
     tracks: TrackInfo[],
     dependencies: UIComponentDependencies,
-    isExpanded: boolean
+    isExpanded: boolean,
   ): { trackList: HTMLElement } {
     // Track list container - aligned with file row (chevron + colorIndicator width)
     const trackList = document.createElement("div");
@@ -178,17 +160,12 @@ export class FileToggleItem {
     // Populate track items
     sortedTracks.forEach((track: TrackInfo) => {
       const trackRow = document.createElement("div");
-      trackRow.style.cssText =
-        "display:flex;align-items:center;gap:8px;padding:2px 0;";
+      trackRow.style.cssText = "display:flex;align-items:center;gap:8px;padding:2px 0;";
 
       // Track color dot (first) - shows lightness-variant color for this track (unless uniformTrackColor is enabled)
       const trackColor = uniformTrackColor
         ? fileBaseColor
-        : ColorCalculator.getTrackVariantColor(
-            fileBaseColor,
-            track.id,
-            totalTracks
-          );
+        : ColorCalculator.getTrackVariantColor(fileBaseColor, track.id, totalTracks);
       const colorDot = document.createElement("span");
       colorDot.style.cssText = `
         width: 8px;
@@ -213,25 +190,20 @@ export class FileToggleItem {
         "flex:1;font-size:12px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
 
       // Eye icon button for track visibility (third)
-      const isTrackVisible = dependencies.midiManager.isTrackVisible(
-        file.id,
-        track.id
-      );
+      const isTrackVisible = dependencies.midiManager.isTrackVisible(file.id, track.id);
       const visBtn = createIconButton(
         isTrackVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
         () => {
           dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
         },
         "Toggle track visibility",
-        { size: 20 }
+        { size: 20 },
       );
       visBtn.onclick = (e: MouseEvent) => {
         e.stopPropagation();
         dependencies.midiManager.toggleTrackVisibility(file.id, track.id);
       };
-      visBtn.style.color = isTrackVisible
-        ? "var(--text-muted)"
-        : "rgba(71,85,105,0.4)";
+      visBtn.style.color = isTrackVisible ? "var(--text-muted)" : "rgba(71,85,105,0.4)";
       visBtn.style.border = "none";
       visBtn.style.boxShadow = "none";
       visBtn.style.padding = "0";
@@ -240,8 +212,7 @@ export class FileToggleItem {
 
       // Sustain pedal visibility button - after Eye (visibility)
       const isTrackSustainVisible =
-        dependencies.midiManager.isTrackSustainVisible?.(file.id, track.id) ??
-        true;
+        dependencies.midiManager.isTrackSustainVisible?.(file.id, track.id) ?? true;
       const sustainBtn = document.createElement("button");
       sustainBtn.innerHTML = PLAYER_ICONS.sustain;
       sustainBtn.style.cssText = `
@@ -262,16 +233,12 @@ export class FileToggleItem {
         : "Show sustain pedal regions";
       sustainBtn.onclick = (e: MouseEvent) => {
         e.stopPropagation();
-        dependencies.midiManager.toggleTrackSustainVisibility?.(
-          file.id,
-          track.id
-        );
+        dependencies.midiManager.toggleTrackSustainVisibility?.(file.id, track.id);
       };
 
       // Auto-instrument toggle button - after TrackName, before Eye
       const isAutoInstrument =
-        dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ??
-        true;
+        dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ?? true;
       const autoInstrumentBtn = document.createElement("button");
       // Show current playing instrument icon: auto-instrument ON → track instrument, OFF → piano
       autoInstrumentBtn.innerHTML = isAutoInstrument
@@ -296,28 +263,17 @@ export class FileToggleItem {
         : "Using piano sound (click for auto instrument)";
       autoInstrumentBtn.onclick = (e: MouseEvent) => {
         e.stopPropagation();
-        const newState = !dependencies.midiManager.isTrackAutoInstrument?.(
-          file.id,
-          track.id
-        );
-        dependencies.midiManager.setTrackAutoInstrument?.(
-          file.id,
-          track.id,
-          newState
-        );
+        const newState = !dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id);
+        dependencies.midiManager.setTrackAutoInstrument?.(file.id, track.id, newState);
       };
 
       // Volume slider for track audio (fifth) - increased size
-      const isTrackMuted = dependencies.midiManager.isTrackMuted(
+      const isTrackMuted = dependencies.midiManager.isTrackMuted(file.id, track.id);
+      const trackVolume = dependencies.midiManager.getTrackVolume(file.id, track.id);
+      const trackLastNonZeroVolume = dependencies.midiManager.getTrackLastNonZeroVolume(
         file.id,
-        track.id
+        track.id,
       );
-      const trackVolume = dependencies.midiManager.getTrackVolume(
-        file.id,
-        track.id
-      );
-      const trackLastNonZeroVolume =
-        dependencies.midiManager.getTrackLastNonZeroVolume(file.id, track.id);
       const volumeControl = new FileVolumeControl({
         initialVolume: isTrackMuted ? 0 : trackVolume,
         lastNonZeroVolume: trackLastNonZeroVolume,
@@ -326,10 +282,7 @@ export class FileToggleItem {
           dependencies.midiManager.setTrackVolume(file.id, track.id, volume);
           // Also toggle mute state based on volume
           const shouldMute = volume === 0;
-          const currentlyMuted = dependencies.midiManager.isTrackMuted(
-            file.id,
-            track.id
-          );
+          const currentlyMuted = dependencies.midiManager.isTrackMuted(file.id, track.id);
           if (shouldMute !== currentlyMuted) {
             dependencies.midiManager.toggleTrackMute(file.id, track.id);
           }
@@ -360,14 +313,10 @@ export class FileToggleItem {
 
   private static createColorIndicator(
     file: MidiFileEntry,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): HTMLElement {
     const fileColor = `#${file.color.toString(16).padStart(6, "0")}`;
-    return ShapeRenderer.createColorIndicator(
-      file.id,
-      fileColor,
-      dependencies.stateManager as any
-    );
+    return ShapeRenderer.createColorIndicator(file.id, fileColor, dependencies.stateManager as any);
   }
 
   private static createFileName(file: MidiFileEntry): HTMLElement {
@@ -384,7 +333,7 @@ export class FileToggleItem {
   private static createReferenceButton(
     file: MidiFileEntry,
     dependencies: UIComponentDependencies,
-    container: HTMLElement
+    container: HTMLElement,
   ): HTMLButtonElement {
     const evalState = dependencies.stateManager.getState().evaluation;
     return EvaluationControls.createReferenceButton({
@@ -399,7 +348,7 @@ export class FileToggleItem {
   private static createEstimationButton(
     file: MidiFileEntry,
     dependencies: UIComponentDependencies,
-    container: HTMLElement
+    container: HTMLElement,
   ): HTMLButtonElement {
     const evalState = dependencies.stateManager.getState().evaluation;
     return EvaluationControls.createEstimationButton({
@@ -413,18 +362,16 @@ export class FileToggleItem {
 
   private static createVisibilityButton(
     file: MidiFileEntry,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): HTMLButtonElement {
     const visBtn = createIconButton(
       file.isPianoRollVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
       () => dependencies.midiManager.toggleVisibility(file.id),
       "Toggle visibility",
-      { size: 24 }
+      { size: 24 },
     );
 
-    visBtn.style.color = file.isPianoRollVisible
-      ? "var(--text-muted)"
-      : "rgba(71,85,105,0.5)";
+    visBtn.style.color = file.isPianoRollVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
 
@@ -433,7 +380,7 @@ export class FileToggleItem {
 
   private static createSustainButton(
     file: MidiFileEntry,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): HTMLButtonElement {
     const sustainBtn = document.createElement("button");
     const isSustainVisible = file.isSustainVisible ?? true;
@@ -461,7 +408,7 @@ export class FileToggleItem {
 
   private static createVolumeControl(
     file: MidiFileEntry,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): HTMLElement {
     const volumeControl = new FileVolumeControl({
       initialVolume: file.isMuted ? 0 : (file.volume ?? 1.0),
@@ -498,7 +445,7 @@ export class FileToggleItem {
 
   private static createPanControls(
     file: MidiFileEntry,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): { labelL: HTMLElement; slider: HTMLInputElement; labelR: HTMLElement } {
     // Left label
     const labelL = document.createElement("span");

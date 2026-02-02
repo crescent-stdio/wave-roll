@@ -2,10 +2,7 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import { clampPanX, clampPanY } from "../utils/clamp-pan";
 
-export function onPointerDown(
-  event: MouseEvent | TouchEvent,
-  pianoRoll: PianoRoll
-): void {
+export function onPointerDown(event: MouseEvent | TouchEvent, pianoRoll: PianoRoll): void {
   event.preventDefault();
 
   const pos = getPointerPosition(event, pianoRoll.app);
@@ -13,10 +10,7 @@ export function onPointerDown(
   pianoRoll.state.lastPointerPos = pos;
 }
 
-export function onPointerMove(
-  event: MouseEvent | TouchEvent,
-  pianoRoll: PianoRoll
-): void {
+export function onPointerMove(event: MouseEvent | TouchEvent, pianoRoll: PianoRoll): void {
   if (!pianoRoll.state.isPanning) return;
 
   event.preventDefault();
@@ -50,10 +44,7 @@ export function onPointerMove(
   pianoRoll.requestRender();
 }
 
-export function onPointerUp(
-  event: MouseEvent | TouchEvent,
-  pianoRoll: PianoRoll
-): void {
+export function onPointerUp(event: MouseEvent | TouchEvent, pianoRoll: PianoRoll): void {
   // Only commit if we were actually panning (dragging). This prevents
   // unintended seeks on mere hover + mouseleave without a drag.
   const wasPanning = pianoRoll.state.isPanning === true;
@@ -73,7 +64,7 @@ export function onPointerUp(
 
 export function getPointerPosition(
   event: MouseEvent | TouchEvent,
-  app: PIXI.Application
+  app: PIXI.Application,
 ): {
   x: number;
   y: number;

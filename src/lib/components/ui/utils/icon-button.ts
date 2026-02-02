@@ -14,7 +14,7 @@ export const createIconButton = (
   icon: string,
   onClick: () => void,
   title?: string,
-  options: IconButtonOptions = {}
+  options: IconButtonOptions = {},
 ): HTMLButtonElement => {
   const { size = 32 } = options;
 

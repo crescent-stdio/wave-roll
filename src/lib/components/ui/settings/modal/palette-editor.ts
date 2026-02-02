@@ -14,21 +14,16 @@ export function openPaletteEditorModal(
   deps: UIComponentDependencies,
   palette: ColorPalette | null,
   onSave: () => void,
-  mode: "create" | "edit" | "clone" = palette ? "edit" : "create"
+  mode: "create" | "edit" | "clone" = palette ? "edit" : "create",
 ): void {
-  const { overlay, modal } = createSettingsModalSkeleton(
-    "palette-editor-modal"
-  );
+  const { overlay, modal } = createSettingsModalSkeleton("palette-editor-modal");
 
   // Clear any existing children so that reopening resets the form.
   while (modal.firstChild) modal.removeChild(modal.firstChild);
 
   const isEdit = mode === "edit";
   const workingId = isEdit && palette ? palette.id : Date.now().toString();
-  const workingName =
-    mode === "clone" && palette
-      ? `${palette.name} Copy`
-      : (palette?.name ?? "");
+  const workingName = mode === "clone" && palette ? `${palette.name} Copy` : (palette?.name ?? "");
   // Derive initial colors when creating a new palette.
   // • Edit / Clone modes: start from the provided palette colors.
   // • Create mode: use distinct colors already assigned to MIDI files (if any).
@@ -50,8 +45,7 @@ export function openPaletteEditorModal(
   // ---------- Name input ----------
   const nameLabel = document.createElement("label");
   nameLabel.textContent = "Palette name";
-  nameLabel.style.cssText =
-    "font-weight:600;font-size:14px;display:block;margin-bottom:4px;";
+  nameLabel.style.cssText = "font-weight:600;font-size:14px;display:block;margin-bottom:4px;";
 
   const nameInput = document.createElement("input");
   nameInput.type = "text";
@@ -62,8 +56,7 @@ export function openPaletteEditorModal(
 
   // ---------- Color grid ----------
   const colorGrid = document.createElement("div");
-  colorGrid.style.cssText =
-    "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;";
+  colorGrid.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;";
 
   const renderColorCells = () => {
     // Clear grid first
@@ -72,8 +65,7 @@ export function openPaletteEditorModal(
     workingColors.forEach((hex, idx) => {
       // Wrapper so we can stack swatch + HEX input vertically.
       const wrapper = document.createElement("div");
-      wrapper.style.cssText =
-        "display:flex;flex-direction:column;align-items:center;gap:4px;";
+      wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;";
 
       const cell = document.createElement("button");
       cell.type = "button";
@@ -93,8 +85,7 @@ export function openPaletteEditorModal(
       const colorInput = document.createElement("input");
       colorInput.type = "color";
       colorInput.value = hex;
-      colorInput.style.cssText =
-        "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
+      colorInput.style.cssText = "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
       colorInput.onchange = () => {
         workingColors[idx] = colorInput.value;
         cell.style.background = colorInput.value;

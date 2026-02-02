@@ -2,18 +2,15 @@ import { AppState, StateManagerConfig } from "./types";
 import type { OnsetMarkerStyle } from "@/types";
 import { ONSET_MARKER_SHAPES } from "@/core/constants";
 import { DEFAULT_STATE_CONFIG, DEFAULT_APP_STATE } from "./default";
-import { 
-  createStateUpdater, 
-  batchStateUpdate, 
+import {
+  createStateUpdater,
+  batchStateUpdate,
   deepClone,
-  createStateGetter 
+  createStateGetter,
 } from "./utils/state-updater";
 import { SetManager } from "./utils/set-operations";
 import { ListenerManager } from "./utils/listener-manager";
-import { 
-  normalizeLoopPoints, 
-  percentagesToLoopPoints 
-} from "./utils/value-converters";
+import { normalizeLoopPoints, percentagesToLoopPoints } from "./utils/value-converters";
 
 export class StateManager {
   private state: AppState;
@@ -33,7 +30,7 @@ export class StateManager {
   constructor(config: Partial<StateManagerConfig> = {}) {
     this.config = { ...DEFAULT_STATE_CONFIG, ...config };
     this.state = this.createInitialState();
-    
+
     // Initialize update functions
     const notify = () => this.notify();
     this.updateUI = createStateUpdater("ui", this.state, notify);
@@ -45,14 +42,11 @@ export class StateManager {
     this.updateEvaluation = createStateUpdater("evaluation", this.state, notify);
 
     // Initialize file visibility manager
-    this.fileVisibilityManager = new SetManager(
-      this.state.fileVisibility.visibleFileIds,
-      (set) => {
-        this.state.fileVisibility.visibleFileIds = set;
-        this.state.fileVisibility.totalFiles = set.size;
-        this.notify();
-      }
-    );
+    this.fileVisibilityManager = new SetManager(this.state.fileVisibility.visibleFileIds, (set) => {
+      this.state.fileVisibility.visibleFileIds = set;
+      this.state.fileVisibility.totalFiles = set.size;
+      this.notify();
+    });
   }
 
   /* ====== State Creation ====== */
@@ -64,37 +58,34 @@ export class StateManager {
   public getState = (): AppState => this.state;
   public getUIState = (): AppState["ui"] => this.state.ui;
   public getConfig = (): StateManagerConfig => ({ ...this.config });
-  
+
   // Reference getters for mutable objects
-  public getFilePanValuesRef = (): Record<string, number> => 
-    this.state.panVolume.filePanValues;
-  
-  public getFilePanStateHandlersRef = (): Record<string, (pan: number | null) => void> => 
+  public getFilePanValuesRef = (): Record<string, number> => this.state.panVolume.filePanValues;
+
+  public getFilePanStateHandlersRef = (): Record<string, (pan: number | null) => void> =>
     this.state.panVolume.filePanStateHandlers;
-  
-  public getFileMuteStatesRef = (): Record<string, boolean> => 
-    this.state.panVolume.fileMuteStates;
+
+  public getFileMuteStatesRef = (): Record<string, boolean> => this.state.panVolume.fileMuteStates;
 
   /* ====== State Setters (now using pre-bound updaters) ====== */
-  public updateUIState = (updates: Partial<AppState["ui"]>): void => 
-    this.updateUI(updates);
-  
-  public updatePlaybackState = (updates: Partial<AppState["playback"]>): void => 
+  public updateUIState = (updates: Partial<AppState["ui"]>): void => this.updateUI(updates);
+
+  public updatePlaybackState = (updates: Partial<AppState["playback"]>): void =>
     this.updatePlayback(updates);
-  
-  public updateFileVisibilityState = (updates: Partial<AppState["fileVisibility"]>): void => 
+
+  public updateFileVisibilityState = (updates: Partial<AppState["fileVisibility"]>): void =>
     this.updateFileVisibility(updates);
-  
-  public updateLoopPointsState = (updates: Partial<AppState["loopPoints"]>): void => 
+
+  public updateLoopPointsState = (updates: Partial<AppState["loopPoints"]>): void =>
     this.updateLoopPoints(updates);
-  
-  public updatePanVolumeState = (updates: Partial<AppState["panVolume"]>): void => 
+
+  public updatePanVolumeState = (updates: Partial<AppState["panVolume"]>): void =>
     this.updatePanVolume(updates);
-  
-  public updateVisualState = (updates: Partial<AppState["visual"]>): void => 
+
+  public updateVisualState = (updates: Partial<AppState["visual"]>): void =>
     this.updateVisual(updates);
-  
-  public updateEvaluationState = (updates: Partial<AppState["evaluation"]>): void => 
+
+  public updateEvaluationState = (updates: Partial<AppState["evaluation"]>): void =>
     this.updateEvaluation(updates);
 
   /* ====== Onset Marker Mapping ====== */
@@ -118,9 +109,7 @@ export class StateManager {
     if (existing) return existing;
 
     const usedKeys = new Set(
-      Object.values(this.state.visual.fileOnsetMarkers).map(
-        (s) => `${s.shape}:${s.variant}`
-      )
+      Object.values(this.state.visual.fileOnsetMarkers).map((s) => `${s.shape}:${s.variant}`),
     );
 
     // 1) Try filled variants first
@@ -128,7 +117,12 @@ export class StateManager {
     for (const shape of ONSET_MARKER_SHAPES) {
       const key = `${shape}:filled`;
       if (!usedKeys.has(key)) {
-        picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "filled", size: 12, strokeWidth: 2 };
+        picked = {
+          shape: shape as OnsetMarkerStyle["shape"],
+          variant: "filled",
+          size: 12,
+          strokeWidth: 2,
+        };
         break;
       }
     }
@@ -137,15 +131,28 @@ export class StateManager {
       for (const shape of ONSET_MARKER_SHAPES) {
         const key = `${shape}:outlined`;
         if (!usedKeys.has(key)) {
-          picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "outlined", size: 12, strokeWidth: 2 };
+          picked = {
+            shape: shape as OnsetMarkerStyle["shape"],
+            variant: "outlined",
+            size: 12,
+            strokeWidth: 2,
+          };
           break;
         }
       }
     }
     // 3) Fallback: reuse first with outlined if everything used
     if (!picked) {
-      const shape = ONSET_MARKER_SHAPES[Object.keys(this.state.visual.fileOnsetMarkers).length % ONSET_MARKER_SHAPES.length];
-      picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "outlined", size: 12, strokeWidth: 2 };
+      const shape =
+        ONSET_MARKER_SHAPES[
+          Object.keys(this.state.visual.fileOnsetMarkers).length % ONSET_MARKER_SHAPES.length
+        ];
+      picked = {
+        shape: shape as OnsetMarkerStyle["shape"],
+        variant: "outlined",
+        size: 12,
+        strokeWidth: 2,
+      };
     }
 
     this.state.visual.fileOnsetMarkers[fileId] = picked;
@@ -159,16 +166,14 @@ export class StateManager {
   }
 
   /* ====== File Visibility Operations (using SetManager) ====== */
-  public syncFileVisibility = (fileIds: string[]): void => 
-    this.fileVisibilityManager.sync(fileIds);
-  
-  public addFileToVisibility = (fileId: string): void => 
-    this.fileVisibilityManager.add(fileId);
-  
-  public removeFileFromVisibility = (fileId: string): void => 
+  public syncFileVisibility = (fileIds: string[]): void => this.fileVisibilityManager.sync(fileIds);
+
+  public addFileToVisibility = (fileId: string): void => this.fileVisibilityManager.add(fileId);
+
+  public removeFileFromVisibility = (fileId: string): void =>
     this.fileVisibilityManager.remove(fileId);
-  
-  public toggleFileVisibility = (fileId: string): boolean => 
+
+  public toggleFileVisibility = (fileId: string): boolean =>
     this.fileVisibilityManager.toggle(fileId);
 
   /* ====== Pan/Volume Operations ====== */
@@ -177,10 +182,7 @@ export class StateManager {
     this.notify();
   }
 
-  public registerFilePanHandler(
-    fileId: string,
-    handler: (pan: number | null) => void
-  ): void {
+  public registerFilePanHandler(fileId: string, handler: (pan: number | null) => void): void {
     this.state.panVolume.filePanStateHandlers[fileId] = handler;
   }
 
@@ -189,8 +191,8 @@ export class StateManager {
   }
 
   public syncPanValues(panValue: number | null): void {
-    Object.values(this.state.panVolume.filePanStateHandlers).forEach(
-      (handler) => handler(panValue)
+    Object.values(this.state.panVolume.filePanStateHandlers).forEach((handler) =>
+      handler(panValue),
     );
   }
 
@@ -214,17 +216,11 @@ export class StateManager {
     this.setLoopPoints(null, null);
   }
 
-  public setLoopPointsFromPercentages(
-    aPercent: number | null,
-    bPercent: number | null
-  ): void {
+  public setLoopPointsFromPercentages(aPercent: number | null, bPercent: number | null): void {
     const { duration } = this.state.playback;
     if (duration === 0) return;
 
-    const points = percentagesToLoopPoints(
-      { a: aPercent, b: bPercent },
-      duration
-    );
+    const points = percentagesToLoopPoints({ a: aPercent, b: bPercent }, duration);
     this.setLoopPoints(points.a, points.b);
   }
 
@@ -240,11 +236,9 @@ export class StateManager {
   }
 
   /* ====== Listener Management (using ListenerManager) ====== */
-  public onStateChange = (callback: () => void): void => 
-    this.listeners.add(callback);
-  
-  public offStateChange = (callback: () => void): void => 
-    this.listeners.remove(callback);
+  public onStateChange = (callback: () => void): void => this.listeners.add(callback);
+
+  public offStateChange = (callback: () => void): void => this.listeners.remove(callback);
 
   private notify(): void {
     if (this.state.ui.isBatchLoading) return;
@@ -255,8 +249,6 @@ export class StateManager {
 /**
  * Create a new state manager instance
  */
-export function createStateManager(
-  config?: Partial<StateManagerConfig>
-): StateManager {
+export function createStateManager(config?: Partial<StateManagerConfig>): StateManager {
   return new StateManager(config);
 }

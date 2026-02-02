@@ -8,7 +8,7 @@ import { COLOR_PRIMARY } from "@/lib/core/constants";
 export function attachRepeatToggle(
   btn: HTMLElement,
   audioPlayer: AnyAudioPlayer | null | undefined,
-  colorPrimary: string = COLOR_PRIMARY
+  colorPrimary: string = COLOR_PRIMARY,
 ): void {
   if (!btn) return;
   const updateVisual = (enabled: boolean) => {

@@ -51,9 +51,7 @@ export function noteNameToMidi(noteName: string): number {
   const midi = (octave + 1) * 12 + noteValue;
 
   if (midi < 0 || midi > 127) {
-    throw new Error(
-      `MIDI note number ${midi} is out of range (0-127) for note ${noteName}`
-    );
+    throw new Error(`MIDI note number ${midi} is out of range (0-127) for note ${noteName}`);
   }
 
   return midi;

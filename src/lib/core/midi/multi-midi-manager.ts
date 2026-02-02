@@ -20,14 +20,10 @@ export class MultiMidiManager {
   constructor() {
     // Attempt to restore palette preferences from localStorage so that
     // the UI remembers the user’s selection across sessions.
-    let stored: Partial<
-      Pick<MultiMidiState, "activePaletteId" | "customPalettes">
-    > | null = null;
+    let stored: Partial<Pick<MultiMidiState, "activePaletteId" | "customPalettes">> | null = null;
     if (typeof window !== "undefined" && "localStorage" in window) {
       try {
-        stored = JSON.parse(
-          window.localStorage.getItem(PALETTE_STORAGE_KEY) || "null"
-        );
+        stored = JSON.parse(window.localStorage.getItem(PALETTE_STORAGE_KEY) || "null");
       } catch {
         // Ignore malformed JSON - fall back to defaults.
       }
@@ -73,10 +69,7 @@ export class MultiMidiManager {
    */
   private getActivePalette(): ColorPalette {
     const allPalettes = [...DEFAULT_PALETTES, ...this.state.customPalettes];
-    return (
-      allPalettes.find((p) => p.id === this.state.activePaletteId) ||
-      DEFAULT_PALETTES[0]
-    );
+    return allPalettes.find((p) => p.id === this.state.activePaletteId) || DEFAULT_PALETTES[0];
   }
 
   /**
@@ -85,8 +78,7 @@ export class MultiMidiManager {
   private getNextColor(): number {
     const palette = this.getActivePalette();
     const colors = palette.colors;
-    const color =
-      colors.length > 0 ? colors[this.colorIndex % colors.length] : 0x666666;
+    const color = colors.length > 0 ? colors[this.colorIndex % colors.length] : 0x666666;
     this.colorIndex++;
     return color;
   }
@@ -105,7 +97,7 @@ export class MultiMidiManager {
     fileName: string,
     parsedData: ParsedMidi,
     displayName?: string,
-    originalInput?: File | string
+    originalInput?: File | string,
   ): string {
     const isFirstFile = this.state.files.length === 0;
     const entry: MidiFileEntry = createMidiFileEntry(
@@ -113,7 +105,7 @@ export class MultiMidiManager {
       parsedData,
       this.getNextColor(),
       displayName,
-      originalInput || fileName
+      originalInput || fileName,
     );
     // Default visibility: only the first two files are visible on initial load
     const shouldBeVisible = this.state.files.length < 2;
@@ -187,7 +179,7 @@ export class MultiMidiManager {
     const EPS = 1e-3;
     const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
     const first = (atZero.length > 0 ? atZero : tempos).sort(
-      (a, b) => (a.time || 0) - (b.time || 0)
+      (a, b) => (a.time || 0) - (b.time || 0),
     )[0];
     return Math.max(20, Math.min(300, first?.bpm || 120));
   }
@@ -196,8 +188,7 @@ export class MultiMidiManager {
    * Remove a MIDI file
    */
   public removeMidiFile(id: string): void {
-    const wasFirstFile =
-      this.state.files.length > 0 && this.state.files[0].id === id;
+    const wasFirstFile = this.state.files.length > 0 && this.state.files[0].id === id;
     this.state.files = this.state.files.filter((f) => f.id !== id);
     this.resetColorIndex();
 
@@ -251,11 +242,7 @@ export class MultiMidiManager {
    * @param trackId - The track ID (0-based index)
    * @param visible - Whether the track should be visible
    */
-  public setTrackVisibility(
-    fileId: string,
-    trackId: number,
-    visible: boolean
-  ): void {
+  public setTrackVisibility(fileId: string, trackId: number, visible: boolean): void {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return;
 
@@ -428,11 +415,7 @@ export class MultiMidiManager {
    * @param trackId - The track ID (0-based index)
    * @param useAuto - Whether to use auto instrument matching
    */
-  public setTrackAutoInstrument(
-    fileId: string,
-    trackId: number,
-    useAuto: boolean
-  ): void {
+  public setTrackAutoInstrument(fileId: string, trackId: number, useAuto: boolean): void {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return;
 
@@ -464,10 +447,7 @@ export class MultiMidiManager {
    * @param fileId - The ID of the MIDI file
    * @param trackId - The track ID (0-based index)
    */
-  public getTrackInstrumentFamily(
-    fileId: string,
-    trackId: number
-  ): InstrumentFamily {
+  public getTrackInstrumentFamily(fileId: string, trackId: number): InstrumentFamily {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file?.parsedData?.tracks) return "piano";
 
@@ -576,10 +556,7 @@ export class MultiMidiManager {
    * @param id     Palette identifier
    * @param patch  Partial properties to update (name and/or colors)
    */
-  public updateCustomPalette(
-    id: string,
-    patch: Partial<Omit<ColorPalette, "id">>
-  ): void {
+  public updateCustomPalette(id: string, patch: Partial<Omit<ColorPalette, "id">>): void {
     const idx = this.state.customPalettes.findIndex((p) => p.id === id);
     if (idx === -1) return;
 
@@ -614,8 +591,7 @@ export class MultiMidiManager {
 
     // If the removed palette was active, select a fallback palette
     if (this.state.activePaletteId === id) {
-      this.state.activePaletteId =
-        this.state.customPalettes[0]?.id ?? DEFAULT_PALETTES[0].id;
+      this.state.activePaletteId = this.state.customPalettes[0]?.id ?? DEFAULT_PALETTES[0].id;
       // Reset color assignment so existing files use the new palette
       this.colorIndex = 0;
       reassignEntryColors(this.state.files, this.getActivePalette());
@@ -633,8 +609,7 @@ export class MultiMidiManager {
     color: number;
     fileId: string;
   }> {
-    const allNotes: Array<{ note: NoteData; color: number; fileId: string }> =
-      [];
+    const allNotes: Array<{ note: NoteData; color: number; fileId: string }> = [];
 
     this.state.files.forEach((file) => {
       if (file.isPianoRollVisible && file.parsedData) {
@@ -642,8 +617,7 @@ export class MultiMidiManager {
           // Check track visibility: if trackId is set, respect trackVisibility
           // Default to visible if trackVisibility is not defined for this track
           const trackId = note.trackId;
-          const isTrackVisible =
-            trackId === undefined || file.trackVisibility?.[trackId] !== false;
+          const isTrackVisible = trackId === undefined || file.trackVisibility?.[trackId] !== false;
 
           if (isTrackVisible) {
             allNotes.push({
@@ -699,10 +673,7 @@ export class MultiMidiManager {
           activePaletteId: this.state.activePaletteId,
           customPalettes: this.state.customPalettes,
         };
-        window.localStorage.setItem(
-          PALETTE_STORAGE_KEY,
-          JSON.stringify(payload)
-        );
+        window.localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(payload));
       } catch {
         // Silently ignore storage quota / access errors.
       }
@@ -726,7 +697,7 @@ export class MultiMidiManager {
    */
   public async reparseAllFiles(
     options: { applyPedalElongate?: boolean; pedalThreshold?: number } = {},
-    onProgress?: (current: number, total: number) => void
+    onProgress?: (current: number, total: number) => void,
   ): Promise<void> {
     const total = this.state.files.length;
     let current = 0;

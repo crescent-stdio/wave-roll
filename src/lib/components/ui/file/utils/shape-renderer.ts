@@ -7,7 +7,7 @@ import type { OnsetMarkerShape, OnsetMarkerStyle } from "@/types";
 import { renderOnsetSVG } from "@/assets/onset-icons";
 import { StateManager } from "@/core/state";
 
-export type ShapeType = 'circle' | 'triangle' | 'diamond' | 'square' | OnsetMarkerShape;
+export type ShapeType = "circle" | "triangle" | "diamond" | "square" | OnsetMarkerShape;
 
 export class ShapeRenderer {
   /**
@@ -23,7 +23,7 @@ export class ShapeRenderer {
     for (let i = 0; i < fileId.length; i++) {
       hash = (hash * 31 + fileId.charCodeAt(i)) >>> 0;
     }
-    const shapes: ShapeType[] = ['circle', 'triangle', 'diamond', 'square'];
+    const shapes: ShapeType[] = ["circle", "triangle", "diamond", "square"];
     return shapes[hash % shapes.length];
   }
 
@@ -34,7 +34,7 @@ export class ShapeRenderer {
     shape: ShapeType,
     color: string,
     size: number = 12,
-    variant: OnsetMarkerStyle["variant"] = "filled"
+    variant: OnsetMarkerStyle["variant"] = "filled",
   ): SVGElement {
     const svgNS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(svgNS, "svg");
@@ -47,14 +47,14 @@ export class ShapeRenderer {
     const radius = size / 3;
 
     switch (shape) {
-      case 'circle':
+      case "circle":
         shapeElement = document.createElementNS(svgNS, "circle");
         shapeElement.setAttribute("cx", String(center));
         shapeElement.setAttribute("cy", String(center));
         shapeElement.setAttribute("r", String(radius));
         break;
 
-      case 'triangle':
+      case "triangle":
         shapeElement = document.createElementNS(svgNS, "polygon");
         const t1 = `${center},${size * 0.17}`;
         const t2 = `${size * 0.83},${size * 0.83}`;
@@ -62,7 +62,7 @@ export class ShapeRenderer {
         shapeElement.setAttribute("points", `${t1} ${t2} ${t3}`);
         break;
 
-      case 'diamond':
+      case "diamond":
         shapeElement = document.createElementNS(svgNS, "polygon");
         const d1 = `${center},${size * 0.08}`;
         const d2 = `${size * 0.92},${center}`;
@@ -71,7 +71,7 @@ export class ShapeRenderer {
         shapeElement.setAttribute("points", `${d1} ${d2} ${d3} ${d4}`);
         break;
 
-      case 'square':
+      case "square":
       default:
         shapeElement = document.createElementNS(svgNS, "rect");
         const squareSize = size * 0.67;
@@ -83,7 +83,7 @@ export class ShapeRenderer {
         break;
     }
 
-    shapeElement.setAttribute("fill", variant === 'filled' ? color : 'transparent');
+    shapeElement.setAttribute("fill", variant === "filled" ? color : "transparent");
     shapeElement.setAttribute("stroke", color);
     shapeElement.setAttribute("stroke-width", "2");
     svg.appendChild(shapeElement);
@@ -94,7 +94,11 @@ export class ShapeRenderer {
   /**
    * Create color indicator element with shape
    */
-  static createColorIndicator(fileId: string, colorHex: string, stateManager?: StateManager): HTMLElement {
+  static createColorIndicator(
+    fileId: string,
+    colorHex: string,
+    stateManager?: StateManager,
+  ): HTMLElement {
     const container = document.createElement("div");
     container.style.cssText = `
       width: 12px;
@@ -106,8 +110,12 @@ export class ShapeRenderer {
 
     const style = stateManager?.getOnsetMarkerForFile?.(fileId) as OnsetMarkerStyle | undefined;
     const shape = style?.shape ?? this.getShapeType(fileId, stateManager);
-    const variant = style?.variant ?? 'filled';
-    container.innerHTML = renderOnsetSVG({ shape, variant, size: 12, strokeWidth: 2 } as OnsetMarkerStyle, colorHex, 12);
+    const variant = style?.variant ?? "filled";
+    container.innerHTML = renderOnsetSVG(
+      { shape, variant, size: 12, strokeWidth: 2 } as OnsetMarkerStyle,
+      colorHex,
+      12,
+    );
 
     return container;
   }

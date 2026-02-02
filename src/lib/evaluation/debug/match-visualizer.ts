@@ -16,7 +16,7 @@ export interface MatchVisualization {
 export function buildMatchVisualization(
   reference: ParsedMidi,
   estimated: ParsedMidi,
-  match: NoteMatchResult
+  match: NoteMatchResult,
 ): MatchVisualization {
   const pairs = match.matches.map((m) => {
     const r = reference.notes[m.ref];
@@ -38,5 +38,3 @@ export function buildMatchVisualization(
     falsePositives: match.falsePositives.slice(),
   };
 }
-
-

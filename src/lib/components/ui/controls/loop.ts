@@ -6,9 +6,7 @@ import { createCoreLoopControls } from "@/core/controls";
  * Binds the core `updateSeekBar` helper back into the shared UI dependencies
  * object so that other components (e.g. time display, seek bar) can reuse it.
  */
-export function createLoopControlsUI(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createLoopControlsUI(deps: UIComponentDependencies): HTMLElement {
   if (!deps.audioPlayer || !deps.pianoRoll) {
     throw new Error("Audio player and piano roll are required");
   }

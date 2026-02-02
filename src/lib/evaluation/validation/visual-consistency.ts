@@ -40,5 +40,3 @@ export function checkVisualConsistency(segments: ColoredNote[]): VisualConsisten
     },
   };
 }
-
-

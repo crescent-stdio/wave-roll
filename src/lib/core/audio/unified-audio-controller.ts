@@ -32,8 +32,7 @@ export class UnifiedAudioController {
   private _lastRepeatWrapAtGen: number = -1;
   private lastJoinRequestTs = new Map<string, number>();
   private handleWavVisibilityChange = (e: Event) => {
-    const detail = (e as CustomEvent<{ id: string; isVisible: boolean }>)
-      .detail;
+    const detail = (e as CustomEvent<{ id: string; isVisible: boolean }>).detail;
     if (!detail) return;
     if (detail.isVisible) {
       this.alignWavJoin(detail.id);
@@ -72,12 +71,9 @@ export class UnifiedAudioController {
     if (typeof window !== "undefined") {
       window.addEventListener(
         "wr-wav-visibility-changed",
-        this.handleWavVisibilityChange as EventListener
+        this.handleWavVisibilityChange as EventListener,
       );
-      window.addEventListener(
-        "wr-wav-mute-changed",
-        this.handleWavMuteChange as EventListener
-      );
+      window.addEventListener("wr-wav-mute-changed", this.handleWavMuteChange as EventListener);
     }
   }
 
@@ -108,7 +104,7 @@ export class UnifiedAudioController {
               i &&
               i.isVisible !== false &&
               i.isMuted !== true &&
-              (i.volume === undefined || i.volume > 0)
+              (i.volume === undefined || i.volume > 0),
           )
           .map((i) => i?.audioBuffer?.duration ?? 0)
           .filter((d) => typeof d === "number" && d > 0);
@@ -147,7 +143,7 @@ export class UnifiedAudioController {
         // Additional verification that context is truly running
         if (Tone.context.state !== "running") {
           console.warn(
-            "[UnifiedAudioController] AudioContext still not running after Tone.start()"
+            "[UnifiedAudioController] AudioContext still not running after Tone.start()",
           );
           // Try direct resume as fallback
           if ((Tone.context as any).resume) {
@@ -158,9 +154,8 @@ export class UnifiedAudioController {
       }
 
       // Check WAV audio registry before initialization
-      const api = (
-        globalThis as unknown as { _waveRollAudio?: { getFiles?: () => any[] } }
-      )._waveRollAudio;
+      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => any[] } })
+        ._waveRollAudio;
       if (api?.getFiles) {
         const files = api.getFiles();
         // console.log('[UnifiedAudioController] WAV registry found:', files.length, 'files:', files.map(f => f.displayName || f.id));
@@ -214,10 +209,7 @@ export class UnifiedAudioController {
 
       // console.log('[UnifiedAudioController] Unified playback started successfully');
     } catch (error) {
-      console.error(
-        "[UnifiedAudioController] Failed to start playback:",
-        error
-      );
+      console.error("[UnifiedAudioController] Failed to start playback:", error);
       throw error;
     }
   }
@@ -240,20 +232,13 @@ export class UnifiedAudioController {
                 };
               }>;
             };
-            isTrackAutoInstrument?: (
-              fileId: string,
-              trackId: number
-            ) => boolean;
+            isTrackAutoInstrument?: (fileId: string, trackId: number) => boolean;
             getTrackProgram?: (fileId: string, trackId: number) => number;
           };
         }
       )._waveRollMidiManager;
 
-      if (
-        !midiMgr?.getState ||
-        !midiMgr?.isTrackAutoInstrument ||
-        !midiMgr?.getTrackProgram
-      ) {
+      if (!midiMgr?.getState || !midiMgr?.isTrackAutoInstrument || !midiMgr?.getTrackProgram) {
         return;
       }
 
@@ -263,10 +248,7 @@ export class UnifiedAudioController {
       for (const file of state.files) {
         if (file.parsedData?.tracks) {
           for (const track of file.parsedData.tracks) {
-            const isAutoInstrument = midiMgr.isTrackAutoInstrument(
-              file.id,
-              track.id
-            );
+            const isAutoInstrument = midiMgr.isTrackAutoInstrument(file.id, track.id);
             if (isAutoInstrument) {
               // Use getTrackProgram to get correct program (handles drum tracks → 114)
               const program = midiMgr.getTrackProgram(file.id, track.id);
@@ -278,17 +260,14 @@ export class UnifiedAudioController {
 
       const uniquePrograms = [...new Set(programs)];
       const unloadedPrograms = uniquePrograms.filter(
-        (p) => !this.midiPlayerGroup.isProgramLoadedOrLoading(p)
+        (p) => !this.midiPlayerGroup.isProgramLoadedOrLoading(p),
       );
 
       if (unloadedPrograms.length > 0) {
         await this.preloadProgramSamplers(unloadedPrograms);
       }
     } catch (err) {
-      console.warn(
-        "[UnifiedAudioController] Error during soundfont preload:",
-        err
-      );
+      console.warn("[UnifiedAudioController] Error during soundfont preload:", err);
     }
   }
 
@@ -424,7 +403,7 @@ export class UnifiedAudioController {
     this.masterClock.setLoopMode(
       mode,
       this.masterClock.state.markerA ?? undefined,
-      this.masterClock.state.markerB ?? undefined
+      this.masterClock.state.markerB ?? undefined,
     );
   }
 
@@ -451,7 +430,7 @@ export class UnifiedAudioController {
     this.masterClock.setLoopMode(
       this.masterClock.state.loopMode,
       time ?? undefined,
-      this.masterClock.state.markerB ?? undefined
+      this.masterClock.state.markerB ?? undefined,
     );
   }
 
@@ -467,7 +446,7 @@ export class UnifiedAudioController {
     this.masterClock.setLoopMode(
       this.masterClock.state.loopMode,
       this.masterClock.state.markerA ?? undefined,
-      time ?? undefined
+      time ?? undefined,
     );
   }
 
@@ -521,10 +500,7 @@ export class UnifiedAudioController {
   /**
    * Get all WAV player states
    */
-  getWavPlayerStates(): Record<
-    string,
-    { volume: number; pan: number; muted: boolean }
-  > {
+  getWavPlayerStates(): Record<string, { volume: number; pan: number; muted: boolean }> {
     return this.wavPlayerGroup.getPlayerStates();
   }
 
@@ -554,10 +530,7 @@ export class UnifiedAudioController {
   /**
    * Get all MIDI player states
    */
-  getMidiPlayerStates(): Record<
-    string,
-    { volume: number; pan: number; muted: boolean }
-  > {
+  getMidiPlayerStates(): Record<string, { volume: number; pan: number; muted: boolean }> {
     return this.midiPlayerGroup.getPlayerStates();
   }
 
@@ -610,14 +583,9 @@ export class UnifiedAudioController {
           const st = this.masterClock.state;
           const effectiveDuration = this.getEffectiveTotalTime();
           const globalRepeatOn =
-            (this.masterClock.state as any).globalRepeat === true ||
-            st.loopMode === "repeat";
+            (this.masterClock.state as any).globalRepeat === true || st.loopMode === "repeat";
           // End-of-track handling when no repeat is enabled: clamp to duration and auto-pause
-          if (
-            !globalRepeatOn &&
-            effectiveDuration > 0 &&
-            currentTime >= effectiveDuration
-          ) {
+          if (!globalRepeatOn && effectiveDuration > 0 && currentTime >= effectiveDuration) {
             const finalTime = effectiveDuration;
             // Clamp visual and notify once at exact end
             this.masterClock.state.nowTime = finalTime;
@@ -630,9 +598,7 @@ export class UnifiedAudioController {
             return; // Do not schedule further frames
           }
           // End-of-track handling when full repeat is ON (independent flag): wrap to start and continue
-          const crossedEnd =
-            this._prevTime < effectiveDuration &&
-            currentTime >= effectiveDuration;
+          const crossedEnd = this._prevTime < effectiveDuration && currentTime >= effectiveDuration;
           if (globalRepeatOn && effectiveDuration > 0 && crossedEnd) {
             if (this._lastRepeatWrapAtGen !== st.generation) {
               this._lastRepeatWrapAtGen = st.generation;
@@ -648,11 +614,7 @@ export class UnifiedAudioController {
           // AB-loop handling: jump back to A at (or just after) B using the
           // same robust atomic restart path as seek(). This prevents any
           // overlapping audio because groups are stopped before restart.
-          if (
-            st.loopMode === "ab" &&
-            st.markerA !== null &&
-            st.markerB !== null
-          ) {
+          if (st.loopMode === "ab" && st.markerA !== null && st.markerB !== null) {
             const a = Math.max(0, st.markerA);
             const b = Math.max(a, st.markerB);
             // Trigger only when we cross B (prev < B <= current)
@@ -675,9 +637,7 @@ export class UnifiedAudioController {
       // Opportunistically start any pending WAV tracks that became visible/unmuted
       try {
         if (this.masterClock.state.isPlaying) {
-          this.wavPlayerGroup.syncPendingPlayers(
-            this.masterClock.getCurrentTime()
-          );
+          this.wavPlayerGroup.syncPendingPlayers(this.masterClock.getCurrentTime());
         }
       } catch {}
 
@@ -687,10 +647,7 @@ export class UnifiedAudioController {
           typeof requestAnimationFrame !== "undefined"
             ? requestAnimationFrame
             : (cb: FrameRequestCallback) =>
-                setTimeout(
-                  () => cb(performance.now?.() ?? Date.now()),
-                  16
-                ) as unknown as number;
+                setTimeout(() => cb(performance.now?.() ?? Date.now()), 16) as unknown as number;
         this.visualUpdateLoop = raf(update);
       }
     };
@@ -699,10 +656,7 @@ export class UnifiedAudioController {
       typeof requestAnimationFrame !== "undefined"
         ? requestAnimationFrame
         : (cb: FrameRequestCallback) =>
-            setTimeout(
-              () => cb(performance.now?.() ?? Date.now()),
-              16
-            ) as unknown as number;
+            setTimeout(() => cb(performance.now?.() ?? Date.now()), 16) as unknown as number;
     this.visualUpdateLoop = raf(update);
   }
 
@@ -737,12 +691,9 @@ export class UnifiedAudioController {
     if (typeof window !== "undefined") {
       window.removeEventListener(
         "wr-wav-visibility-changed",
-        this.handleWavVisibilityChange as EventListener
+        this.handleWavVisibilityChange as EventListener,
       );
-      window.removeEventListener(
-        "wr-wav-mute-changed",
-        this.handleWavMuteChange as EventListener
-      );
+      window.removeEventListener("wr-wav-mute-changed", this.handleWavMuteChange as EventListener);
     }
 
     // Reset state

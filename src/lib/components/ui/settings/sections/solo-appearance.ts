@@ -12,9 +12,7 @@ import type { OnsetMarkerStyle, OnsetMarkerShape } from "@/types";
  * @param deps - The UI component dependencies.
  * @returns The root <div> for the solo appearance section.
  */
-export function createSoloAppearanceSection(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createSoloAppearanceSection(deps: UIComponentDependencies): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.style.cssText = "margin-top:16px;";
 
@@ -34,8 +32,7 @@ export function createSoloAppearanceSection(
   // Section title
   const title = document.createElement("h3");
   title.textContent = "Note Appearance";
-  title.style.cssText =
-    "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
+  title.style.cssText = "margin:0 0 12px;font-size:16px;font-weight:600;color:var(--text-primary);";
   wrapper.appendChild(title);
 
   // Current color and style (mutable)
@@ -54,8 +51,7 @@ export function createSoloAppearanceSection(
 
   const colorLabel = document.createElement("div");
   colorLabel.textContent = "Note Color";
-  colorLabel.style.cssText =
-    "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
+  colorLabel.style.cssText = "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
   colorSection.appendChild(colorLabel);
 
   const colorsRow = document.createElement("div");
@@ -65,8 +61,7 @@ export function createSoloAppearanceSection(
 
   const updateColorSelection = () => {
     colorButtons.forEach((btn) => {
-      const isSelected =
-        (btn.dataset.hex || "").toLowerCase() === currentColorHex.toLowerCase();
+      const isSelected = (btn.dataset.hex || "").toLowerCase() === currentColorHex.toLowerCase();
       btn.style.outline = isSelected ? "2px solid var(--focus-ring)" : "none";
       btn.style.outlineOffset = isSelected ? "2px" : "0";
     });
@@ -79,9 +74,7 @@ export function createSoloAppearanceSection(
   const rebuildColorButtons = () => {
     const state = deps.midiManager.getState();
     const allPalettes = [...DEFAULT_PALETTES, ...state.customPalettes];
-    const palette =
-      allPalettes.find((p) => p.id === state.activePaletteId) ||
-      DEFAULT_PALETTES[0];
+    const palette = allPalettes.find((p) => p.id === state.activePaletteId) || DEFAULT_PALETTES[0];
 
     // Sync current color from file state (palette switch may have changed it)
     const currentFile = state.files.find((f) => f.id === fileId);
@@ -134,8 +127,7 @@ export function createSoloAppearanceSection(
 
   const markerLabel = document.createElement("div");
   markerLabel.textContent = "Onset Marker";
-  markerLabel.style.cssText =
-    "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
+  markerLabel.style.cssText = "font-size:13px;color:var(--text-muted);margin-bottom:8px;";
   markerSection.appendChild(markerLabel);
 
   const markerWrapper = document.createElement("div");
@@ -183,14 +175,12 @@ export function createSoloAppearanceSection(
 
   // Single grid for active variant
   const grid = document.createElement("div");
-  grid.style.cssText =
-    "display:grid;grid-template-columns:repeat(7,32px);gap:6px;";
+  grid.style.cssText = "display:grid;grid-template-columns:repeat(7,32px);gap:6px;";
 
   const updateMarkerSelection = () => {
     markerButtons.forEach((btn) => {
       const isSelected =
-        btn.dataset.shape === currentStyle.shape &&
-        btn.dataset.variant === currentStyle.variant;
+        btn.dataset.shape === currentStyle.shape && btn.dataset.variant === currentStyle.variant;
       btn.style.outline = isSelected ? "2px solid var(--focus-ring)" : "none";
       btn.style.outlineOffset = isSelected ? "1px" : "0";
     });
@@ -293,10 +283,7 @@ export function createSoloAppearanceSection(
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.removedNodes) {
-        if (
-          node === wrapper ||
-          (node instanceof Element && node.contains(wrapper))
-        ) {
+        if (node === wrapper || (node instanceof Element && node.contains(wrapper))) {
           unsubscribe();
           observer.disconnect();
           return;

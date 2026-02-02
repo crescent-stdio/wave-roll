@@ -2,11 +2,11 @@ import * as PIXI from "pixi.js";
 import { PianoRoll } from "../piano-roll";
 import type { WaveRollAudioAPI } from "@/lib/core/waveform/types";
 import { COLOR_LOOP_SHADE, COLOR_LOOP_LINE_A, COLOR_LOOP_LINE_B } from "@/lib/core/constants";
-import { 
-  createCoordinateTransform, 
+import {
+  createCoordinateTransform,
   getVisibleTimeRange,
   DrawingPrimitives,
-  ColorCalculator
+  ColorCalculator,
 } from "../utils";
 import { midiToNoteName } from "@/lib/core/utils/midi/pitch";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
@@ -59,28 +59,20 @@ export function renderGrid(pianoRoll: PianoRoll): void {
   if (pianoRoll.options.showPianoKeys) {
     // const pianoKeysWidth = this.timeScale(1) * this.state.zoomX;
     const pianoKeysWidth = pianoRoll.playheadX;
-    
+
     // Draw piano key background (fixed, no panY)
-    pianoRoll.backgroundGrid.rect(
-      0,
-      0,
-      pianoKeysWidth,
-      pianoRoll.options.height
-    );
+    pianoRoll.backgroundGrid.rect(0, 0, pianoKeysWidth, pianoRoll.options.height);
     pianoRoll.backgroundGrid.fill({ color: 0xf0f0f0 });
 
     // Draw subtle vertical separator at the edge between keys and timeline
     pianoRoll.backgroundGrid.moveTo(pianoKeysWidth + 0.5, 0);
-    pianoRoll.backgroundGrid.lineTo(
-      pianoKeysWidth + 0.5,
-      pianoRoll.options.height
-    );
+    pianoRoll.backgroundGrid.lineTo(pianoKeysWidth + 0.5, pianoRoll.options.height);
     pianoRoll.backgroundGrid.stroke({ width: 1, color: 0x999999, alpha: 0.6 });
 
     // Draw octave labels for C notes (no horizontal lines - cleaner design)
     // NOTE: panY is NOT applied here - it will be applied via container.y in render()
     const canvasMid = pianoRoll.options.height / 2;
-    
+
     for (
       let midi = pianoRoll.options.noteRange.min;
       midi <= pianoRoll.options.noteRange.max;
@@ -136,12 +128,11 @@ export function renderGrid(pianoRoll: PianoRoll): void {
       return;
     }
 
-    DrawingPrimitives.drawVerticalLine(
-      pianoRoll.backgroundGrid,
-      x,
-      pianoRoll.options.height,
-      { width: 1, color: 0xe0e0e0, alpha }
-    );
+    DrawingPrimitives.drawVerticalLine(pianoRoll.backgroundGrid, x, pianoRoll.options.height, {
+      width: 1,
+      color: 0xe0e0e0,
+      alpha,
+    });
 
     if (showLabel) {
       const label = new PIXI.Text({
@@ -177,10 +168,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     const eps = minorStep / 1000; // tolerance for float comparisons
     for (let t = 0; t <= maxTime + eps; t += minorStep) {
       // skip if approximately a major line
-      if (
-        Math.abs(t % timeStep) < eps ||
-        Math.abs(timeStep - (t % timeStep)) < eps
-      ) {
+      if (Math.abs(t % timeStep) < eps || Math.abs(timeStep - (t % timeStep)) < eps) {
         continue;
       }
       drawGridLine(t, 0.25, false);
@@ -195,15 +183,9 @@ export function renderGrid(pianoRoll: PianoRoll): void {
 
   if (pianoRoll.loopLines) {
     const pianoKeysOffset = transform.getPianoKeysOffset();
-    let lineWidth = 3; // thicker for better visibility
+    const lineWidth = 3; // thicker for better visibility
 
-    const drawDashed = (
-      g: PIXI.Graphics,
-      x: number,
-      color: number,
-      segLen = 10,
-      gapLen = 6
-    ) => {
+    const drawDashed = (g: PIXI.Graphics, x: number, color: number, segLen = 10, gapLen = 6) => {
       // Draw alternating segments from top to bottom
       let y = 0;
       while (y < pianoRoll.options.height) {
@@ -221,12 +203,7 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     };
 
     // Helper to draw a single vertical line + label
-    const drawLine = (
-      g: PIXI.Graphics,
-      x: number,
-      color: number,
-      label: string
-    ) => {
+    const drawLine = (g: PIXI.Graphics, x: number, color: number, label: string) => {
       // Default: solid line with halo (not dashed)
       g.moveTo(x, 0);
       g.lineTo(x, pianoRoll.options.height);
@@ -278,9 +255,9 @@ export function renderGrid(pianoRoll: PianoRoll): void {
           x: startX,
           y: 0,
           width: Math.max(0, endX - startX),
-          height: pianoRoll.options.height
+          height: pianoRoll.options.height,
         },
-        { color: overlayColor, alpha: 0.22 }
+        { color: overlayColor, alpha: 0.22 },
       );
     }
   }
@@ -298,148 +275,134 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     // Clear any existing waveform graphics
     pianoRoll.waveformLayer?.clear();
     pr.waveformKeysLayer?.clear();
-  } else try {
-    const api = (globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI })._waveRollAudio;
-    if (api?.getVisiblePeaks) {
-      const peaksPayload = api.getVisiblePeaks();
-      if (peaksPayload && peaksPayload.length > 0) {
-        const pianoKeysOffset = transform.getPianoKeysOffset();
-        const height = pianoRoll.options.height;
+  } else
+    try {
+      const api = (globalThis as unknown as { _waveRollAudio?: WaveRollAudioAPI })._waveRollAudio;
+      if (api?.getVisiblePeaks) {
+        const peaksPayload = api.getVisiblePeaks();
+        if (peaksPayload && peaksPayload.length > 0) {
+          const pianoKeysOffset = transform.getPianoKeysOffset();
+          const height = pianoRoll.options.height;
 
-        // To avoid overdraw, sample at most one bar per pixel
-        const pixelsPerSecond = transform.getPixelsPerSecond();
-        const secondsPerPixel = 1 / pixelsPerSecond;
+          // To avoid overdraw, sample at most one bar per pixel
+          const pixelsPerSecond = transform.getPixelsPerSecond();
+          const secondsPerPixel = 1 / pixelsPerSecond;
 
-        // Clear previous waveform drawing
-        pianoRoll.waveformLayer.clear();
-        if (pr.waveformKeysLayer) {
-          pr.waveformKeysLayer.clear();
-        }
+          // Clear previous waveform drawing
+          pianoRoll.waveformLayer.clear();
+          if (pr.waveformKeysLayer) {
+            pr.waveformKeysLayer.clear();
+          }
 
-        // Compute visible time range based on current pan/zoom
-        const visibleRange = getVisibleTimeRange(pianoRoll);
-        const t0 = visibleRange.timeStart;
-        const t1 = visibleRange.timeEnd;
+          // Compute visible time range based on current pan/zoom
+          const visibleRange = getVisibleTimeRange(pianoRoll);
+          const t0 = visibleRange.timeStart;
+          const t1 = visibleRange.timeEnd;
 
-        // Choose step ~ 1px in time
-        const step = Math.max(secondsPerPixel, 0.005);
+          // Choose step ~ 1px in time
+          const step = Math.max(secondsPerPixel, 0.005);
 
-        // Bottom band placement
-        const bandPadding = 0; // px – fill to bottom edge as requested
-        const bandHeight = Math.max(
-          24,
-          Math.min(96, Math.floor(height * 0.22))
-        );
-        const bandTop = height - bandHeight - bandPadding;
-        const bandMidY = bandTop + bandHeight * 0.5;
+          // Bottom band placement
+          const bandPadding = 0; // px – fill to bottom edge as requested
+          const bandHeight = Math.max(24, Math.min(96, Math.floor(height * 0.22)));
+          const bandTop = height - bandHeight - bandPadding;
+          const bandMidY = bandTop + bandHeight * 0.5;
 
-        // Draw a subtle horizontal separator between piano-roll grid and waveform band
-        pianoRoll.backgroundGrid.moveTo(0, bandTop - 1);
-        pianoRoll.backgroundGrid.lineTo(pianoRoll.options.width, bandTop - 1);
-        pianoRoll.backgroundGrid.stroke({
-          width: 1,
-          color: 0x999999,
-          alpha: 0.5,
-        });
-
-        // Fill a faint background for the waveform band to visually separate it
-        pianoRoll.waveformLayer.rect(
-          pianoKeysOffset,
-          bandTop,
-          Math.max(0, pianoRoll.options.width - pianoKeysOffset),
-          bandHeight
-        );
-        pianoRoll.waveformLayer.fill({ color: 0x000000, alpha: 0.04 });
-
-        for (let t = t0; t <= t1; t += step) {
-          const x = transform.timeToPixel(t) + pianoRoll.state.panX;
-
-          const p = api.sampleAtTime ? api.sampleAtTime(t) : null; // returns { min: number, max: number, color: number }
-          if (!p) continue;
-          // Use symmetric amplitude around midline for a canonical waveform look
-          const amp = Math.max(
-            Math.max(0, Math.min(1, p.max)),
-            Math.max(0, Math.min(1, p.min))
-          );
-          const halfH = bandHeight * 0.5 * amp;
-
-          pianoRoll.waveformLayer.moveTo(x, bandMidY - halfH);
-          pianoRoll.waveformLayer.lineTo(x, bandMidY + halfH);
-          pianoRoll.waveformLayer.stroke({
+          // Draw a subtle horizontal separator between piano-roll grid and waveform band
+          pianoRoll.backgroundGrid.moveTo(0, bandTop - 1);
+          pianoRoll.backgroundGrid.lineTo(pianoRoll.options.width, bandTop - 1);
+          pianoRoll.backgroundGrid.stroke({
             width: 1,
-            color: p.color ?? 0x475569, /* slate-600 for neutral, accessible contrast */
-            alpha: 0.8,
+            color: 0x999999,
+            alpha: 0.5,
           });
-        }
 
-        // Also draw the same-scale waveform inside the piano-keys column (left of playhead)
-        if (
-          pianoRoll.options.showPianoKeys &&
-          pr.waveformKeysLayer
-        ) {
-          const keysLayer = pr.waveformKeysLayer as PIXI.Graphics;
-          // Use identical dimensions as the main bottom waveform band for seamless continuity
-          const keysBandHeight = bandHeight;
-          const keysBandTop = bandTop;
-          const keysBandMidY = bandMidY;
-
-          // Fill a subtle background behind keys waveform to improve contrast
-          keysLayer.rect(
-            0,
-            keysBandTop,
-            Math.max(0, pianoRoll.playheadX),
-            keysBandHeight
+          // Fill a faint background for the waveform band to visually separate it
+          pianoRoll.waveformLayer.rect(
+            pianoKeysOffset,
+            bandTop,
+            Math.max(0, pianoRoll.options.width - pianoKeysOffset),
+            bandHeight,
           );
-          // pianoRoll.waveformLayer.rect(
-          //   pianoKeysOffset,
-          //   bandTop,
-          //   Math.max(0, pianoRoll.options.width - pianoKeysOffset),
-          //   bandHeight
-          // );
-          keysLayer.fill({ color: 0x000000, alpha: 0.04 });
+          pianoRoll.waveformLayer.fill({ color: 0x000000, alpha: 0.04 });
 
-          // Compute time range that maps to the keys area [0, playheadX)
-          const tKeys0 = Math.max(
-            0,
-            pianoRoll.timeScale.invert(
-              (0 - pianoKeysOffset - pianoRoll.state.panX) /
-                pianoRoll.state.zoomX
-            )
-          );
-          const tKeys1 = Math.min(
-            pianoRoll.timeScale.domain()[1],
-            pianoRoll.timeScale.invert(
-              (pianoRoll.playheadX - pianoKeysOffset - pianoRoll.state.panX) /
-                pianoRoll.state.zoomX
-            )
-          );
+          for (let t = t0; t <= t1; t += step) {
+            const x = transform.timeToPixel(t) + pianoRoll.state.panX;
 
-          for (let t = tKeys0; t <= tKeys1; t += step) {
-            const xKeys = transform.timeToPixel(t) + pianoRoll.state.panX;
-
-            if (xKeys < 0 || xKeys >= pianoRoll.playheadX) continue;
-
-            const p = api.sampleAtTime ? api.sampleAtTime(t) : null;
+            const p = api.sampleAtTime ? api.sampleAtTime(t) : null; // returns { min: number, max: number, color: number }
             if (!p) continue;
-            // Symmetric amplitude for the compact keys waveform as well
-            const amp = Math.max(
-              Math.max(0, Math.min(1, p.max)),
-              Math.max(0, Math.min(1, p.min))
-            );
-            const halfH = keysBandHeight * 0.5 * amp;
+            // Use symmetric amplitude around midline for a canonical waveform look
+            const amp = Math.max(Math.max(0, Math.min(1, p.max)), Math.max(0, Math.min(1, p.min)));
+            const halfH = bandHeight * 0.5 * amp;
 
-            keysLayer.moveTo(xKeys, keysBandMidY - halfH);
-            keysLayer.lineTo(xKeys, keysBandMidY + halfH);
-            keysLayer.stroke({
+            pianoRoll.waveformLayer.moveTo(x, bandMidY - halfH);
+            pianoRoll.waveformLayer.lineTo(x, bandMidY + halfH);
+            pianoRoll.waveformLayer.stroke({
               width: 1,
-              color: p.color ?? 0x475569,
+              color: p.color ?? 0x475569 /* slate-600 for neutral, accessible contrast */,
               alpha: 0.8,
             });
           }
+
+          // Also draw the same-scale waveform inside the piano-keys column (left of playhead)
+          if (pianoRoll.options.showPianoKeys && pr.waveformKeysLayer) {
+            const keysLayer = pr.waveformKeysLayer as PIXI.Graphics;
+            // Use identical dimensions as the main bottom waveform band for seamless continuity
+            const keysBandHeight = bandHeight;
+            const keysBandTop = bandTop;
+            const keysBandMidY = bandMidY;
+
+            // Fill a subtle background behind keys waveform to improve contrast
+            keysLayer.rect(0, keysBandTop, Math.max(0, pianoRoll.playheadX), keysBandHeight);
+            // pianoRoll.waveformLayer.rect(
+            //   pianoKeysOffset,
+            //   bandTop,
+            //   Math.max(0, pianoRoll.options.width - pianoKeysOffset),
+            //   bandHeight
+            // );
+            keysLayer.fill({ color: 0x000000, alpha: 0.04 });
+
+            // Compute time range that maps to the keys area [0, playheadX)
+            const tKeys0 = Math.max(
+              0,
+              pianoRoll.timeScale.invert(
+                (0 - pianoKeysOffset - pianoRoll.state.panX) / pianoRoll.state.zoomX,
+              ),
+            );
+            const tKeys1 = Math.min(
+              pianoRoll.timeScale.domain()[1],
+              pianoRoll.timeScale.invert(
+                (pianoRoll.playheadX - pianoKeysOffset - pianoRoll.state.panX) /
+                  pianoRoll.state.zoomX,
+              ),
+            );
+
+            for (let t = tKeys0; t <= tKeys1; t += step) {
+              const xKeys = transform.timeToPixel(t) + pianoRoll.state.panX;
+
+              if (xKeys < 0 || xKeys >= pianoRoll.playheadX) continue;
+
+              const p = api.sampleAtTime ? api.sampleAtTime(t) : null;
+              if (!p) continue;
+              // Symmetric amplitude for the compact keys waveform as well
+              const amp = Math.max(
+                Math.max(0, Math.min(1, p.max)),
+                Math.max(0, Math.min(1, p.min)),
+              );
+              const halfH = keysBandHeight * 0.5 * amp;
+
+              keysLayer.moveTo(xKeys, keysBandMidY - halfH);
+              keysLayer.lineTo(xKeys, keysBandMidY + halfH);
+              keysLayer.stroke({
+                width: 1,
+                color: p.color ?? 0x475569,
+                alpha: 0.8,
+              });
+            }
+          }
         }
       }
+    } catch (_err) {
+      // Ignore waveform errors to keep grid robust
     }
-  } catch (_err) {
-    // Ignore waveform errors to keep grid robust
-  }
 }

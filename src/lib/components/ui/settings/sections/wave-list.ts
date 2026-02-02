@@ -5,9 +5,7 @@ import { PLAYER_ICONS } from "@/assets/player-icons";
 /** Supported audio file extensions */
 const AUDIO_EXTENSIONS = [".wav", ".mp3", ".m4a", ".ogg"];
 
-export function createWaveListSection(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createWaveListSection(deps: UIComponentDependencies): HTMLElement {
   const section = document.createElement("div");
   const header = document.createElement("h3");
   header.textContent = "WAV File";
@@ -52,8 +50,7 @@ export function createWaveListSection(
       const input = document.createElement("input");
       input.type = "color";
       input.value = hex;
-      input.style.cssText =
-        "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
+      input.style.cssText = "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
       input.addEventListener("change", () => {
         const newHex = input.value;
         const num = parseInt(newHex.replace("#", ""), 16);
@@ -105,15 +102,12 @@ export function createWaveListSection(
 
           // Update main screen file toggle section
           const fileToggleContainer = document.querySelector(
-            '[data-role="file-toggle"]'
+            '[data-role="file-toggle"]',
           ) as HTMLElement | null;
           if (fileToggleContainer) {
             const FileToggleManager = (window as any).FileToggleManager;
             if (FileToggleManager) {
-              FileToggleManager.updateFileToggleSection(
-                fileToggleContainer,
-                deps
-              );
+              FileToggleManager.updateFileToggleSection(fileToggleContainer, deps);
             }
           }
         });
@@ -147,8 +141,7 @@ export function createWaveListSection(
 
     const dropZoneTitle = document.createElement("div");
     // Change text based on whether an audio file already exists
-    dropZoneTitle.textContent =
-      files.length > 0 ? "Change Audio File" : "+ Add Audio File";
+    dropZoneTitle.textContent = files.length > 0 ? "Change Audio File" : "+ Add Audio File";
     dropZoneTitle.style.cssText =
       "font-size:14px;font-weight:500;color:var(--text-primary);margin-bottom:4px;";
 
@@ -156,13 +149,11 @@ export function createWaveListSection(
     dropZoneHint.textContent = allowFileDrop
       ? "Click or drag & drop audio file"
       : "Click to choose an audio file";
-    dropZoneHint.style.cssText =
-      "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
+    dropZoneHint.style.cssText = "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
 
     const dropZoneFormats = document.createElement("div");
     dropZoneFormats.textContent = ".wav, .mp3, .m4a, .ogg";
-    dropZoneFormats.style.cssText =
-      "font-size:10px;color:var(--text-muted);opacity:0.7;";
+    dropZoneFormats.style.cssText = "font-size:10px;color:var(--text-muted);opacity:0.7;";
 
     dropZoneContent.appendChild(dropZoneTitle);
     dropZoneContent.appendChild(dropZoneHint);
@@ -194,15 +185,12 @@ export function createWaveListSection(
 
         // Update main screen file toggle section
         const fileToggleContainer = document.querySelector(
-          '[data-role="file-toggle"]'
+          '[data-role="file-toggle"]',
         ) as HTMLElement | null;
         if (fileToggleContainer) {
           const FileToggleManager = (window as any).FileToggleManager;
           if (FileToggleManager) {
-            FileToggleManager.updateFileToggleSection(
-              fileToggleContainer,
-              deps
-            );
+            FileToggleManager.updateFileToggleSection(fileToggleContainer, deps);
           }
         }
       } catch (err) {
@@ -242,8 +230,7 @@ export function createWaveListSection(
         } else {
           dropZone.style.borderColor = "var(--ui-border)";
           dropZone.style.background = "var(--surface)";
-          dropZoneTitle.textContent =
-            files.length > 0 ? "Change Audio File" : "+ Add Audio File";
+          dropZoneTitle.textContent = files.length > 0 ? "Change Audio File" : "+ Add Audio File";
         }
       };
 

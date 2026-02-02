@@ -21,9 +21,7 @@ export interface PlaybackControlsHandles {
  * both the HTMLElement container and an updatePlayButton function that keeps
  * the play/pause button UI in sync with current playback state.
  */
-export function createPlaybackControls(
-  ctx: PlaybackControlsDeps
-): PlaybackControlsHandles {
+export function createPlaybackControls(ctx: PlaybackControlsDeps): PlaybackControlsHandles {
   const { audioPlayer } = ctx;
 
   /* ------------------------------------------------------------------
@@ -79,10 +77,7 @@ export function createPlaybackControls(
   /* ------------------------------------------------------------------
    * Helper to create secondary square icon buttons
    * ------------------------------------------------------------------ */
-  const createSecondaryButton = (
-    icon: string,
-    onClick: () => void
-  ): HTMLButtonElement => {
+  const createSecondaryButton = (icon: string, onClick: () => void): HTMLButtonElement => {
     const btn = document.createElement("button");
     btn.innerHTML = icon;
     btn.onclick = onClick;

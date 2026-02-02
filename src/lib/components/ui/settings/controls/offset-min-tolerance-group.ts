@@ -3,12 +3,9 @@ import { UIComponentDependencies } from "../../types";
 /**
  * Build the "Offset Min Tolerance" input group.
  */
-export function createOffsetMinToleranceGroup(
-  deps: UIComponentDependencies
-): HTMLDivElement {
+export function createOffsetMinToleranceGroup(deps: UIComponentDependencies): HTMLDivElement {
   const group = document.createElement("div");
-  group.style.cssText =
-    "display:flex;align-items:center;gap:6px;font-size:12px;";
+  group.style.cssText = "display:flex;align-items:center;gap:6px;font-size:12px;";
 
   const label = document.createElement("span");
   label.textContent = "Min Offset Tolerance (s):";

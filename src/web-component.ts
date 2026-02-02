@@ -18,7 +18,7 @@ class WaveRollElement extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
+    this.attachShadow({ mode: "open" });
   }
 
   connectedCallback() {
@@ -27,22 +27,25 @@ class WaveRollElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (this.player && typeof this.player.destroy === 'function') {
+    if (this.player && typeof this.player.destroy === "function") {
       this.player.destroy();
     }
   }
 
   static get observedAttributes() {
-    return ['files', 'readonly'];
+    return ["files", "readonly"];
   }
 
   attributeChangedCallback(name: string, oldValue: string, newValue: string) {
-    if (name === 'files' && oldValue !== newValue) {
+    if (name === "files" && oldValue !== newValue) {
       this.initializePlayer();
       return;
     }
-    if (name === 'readonly' && this.player && oldValue !== newValue) {
-      const ro = typeof (this as any).hasAttribute === 'function' ? this.hasAttribute('readonly') : !!newValue;
+    if (name === "readonly" && this.player && oldValue !== newValue) {
+      const ro =
+        typeof (this as any).hasAttribute === "function"
+          ? this.hasAttribute("readonly")
+          : !!newValue;
       try {
         this.player.setPermissions?.({ canAddFiles: !ro, canRemoveFiles: !ro });
       } catch {}
@@ -53,7 +56,7 @@ class WaveRollElement extends HTMLElement {
     if (!this.shadowRoot) return;
 
     // Create styles
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = `
       :host {
         display: block;
@@ -68,11 +71,11 @@ class WaveRollElement extends HTMLElement {
     `;
 
     // Create container
-    this.container = document.createElement('div');
-    this.container.className = 'wave-roll-container';
+    this.container = document.createElement("div");
+    this.container.className = "wave-roll-container";
 
     // Clear and append
-    this.shadowRoot.innerHTML = '';
+    this.shadowRoot.innerHTML = "";
     this.shadowRoot.appendChild(style);
     this.shadowRoot.appendChild(this.container);
   }
@@ -82,21 +85,21 @@ class WaveRollElement extends HTMLElement {
 
     // Clean up existing player
     if (this.player) {
-      if (typeof this.player.destroy === 'function') {
+      if (typeof this.player.destroy === "function") {
         this.player.destroy();
       }
       this.player = null;
     }
 
     // Parse files attribute
-    const filesAttr = this.getAttribute('files');
-    
+    const filesAttr = this.getAttribute("files");
+
     let files = [] as any[];
     if (filesAttr) {
       try {
         files = JSON.parse(filesAttr);
       } catch (e) {
-        console.error('Invalid files attribute:', e);
+        console.error("Invalid files attribute:", e);
         return;
       }
     }
@@ -106,27 +109,27 @@ class WaveRollElement extends HTMLElement {
       // Normalize incoming items: use `name` as the primary property
       const normalized = (Array.isArray(files) ? files : []).map((f: any) => {
         const mapped: any = { path: f.path };
-        if (typeof f?.name === 'string') {
+        if (typeof f?.name === "string") {
           mapped.name = f.name;
         }
-        if (f && typeof f.type === 'string') {
+        if (f && typeof f.type === "string") {
           mapped.type = f.type;
         }
-        if (f && typeof f.color !== 'undefined') {
+        if (f && typeof f.color !== "undefined") {
           mapped.color = f.color;
         }
         return mapped;
       });
       this.player = await createWaveRollPlayer(this.container, normalized);
       // Apply readonly after player creation if attribute present
-      if (typeof (this as any).hasAttribute === 'function' ? this.hasAttribute('readonly') : true) {
+      if (typeof (this as any).hasAttribute === "function" ? this.hasAttribute("readonly") : true) {
         // If hasAttribute is unavailable (test stubs), treat presence of attribute string as truthy
         this.player.setPermissions?.({ canAddFiles: false, canRemoveFiles: false });
       }
       // Notify listeners the component has finished initialization
-      this.dispatchEvent(new Event('load'));
+      this.dispatchEvent(new Event("load"));
     } catch (e) {
-      console.error('Failed to initialize WaveRoll player:', e);
+      console.error("Failed to initialize WaveRoll player:", e);
     }
   }
 
@@ -154,14 +157,14 @@ class WaveRollElement extends HTMLElement {
   public seek(time: number): void {
     try {
       // Prefer direct method on player if available
-      if (typeof this.player?.seek === 'function') {
+      if (typeof this.player?.seek === "function") {
         this.player.seek(time);
         return;
       }
       // Fallback: try visualization engine behind the player
       (this.player as any)?.visualizationEngine?.seek?.(time, true);
     } catch (e) {
-      console.error('WaveRollElement.seek failed:', e);
+      console.error("WaveRollElement.seek failed:", e);
     }
   }
 
@@ -170,20 +173,20 @@ class WaveRollElement extends HTMLElement {
    */
   public getState(): any {
     try {
-      if (typeof this.player?.getState === 'function') {
+      if (typeof this.player?.getState === "function") {
         return this.player.getState();
       }
       return (this.player as any)?.visualizationEngine?.getState?.();
     } catch (e) {
-      console.error('WaveRollElement.getState failed:', e);
+      console.error("WaveRollElement.getState failed:", e);
       return null;
     }
   }
 }
 
 // Register the custom element
-if (!customElements.get('wave-roll')) {
-  customElements.define('wave-roll', WaveRollElement);
+if (!customElements.get("wave-roll")) {
+  customElements.define("wave-roll", WaveRollElement);
 }
 
 export { WaveRollElement };

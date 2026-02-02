@@ -15,10 +15,10 @@ export interface AutoPauseControllerDeps {
 
 export class AutoPauseController {
   private deps: AutoPauseControllerDeps;
-  
+
   /** Whether we paused automatically because all sources became silent */
   private _autoPausedBySilence = false;
-  
+
   /** Until when we should ignore auto-pause checks after an auto-resume (ms timestamp) */
   private _silencePauseGuardUntilMs = 0;
 
@@ -32,7 +32,7 @@ export class AutoPauseController {
    */
   maybeAutoPause(): boolean {
     const { state, checkAllMuted, checkAllZeroVolume, onAutoPause } = this.deps;
-    
+
     // Don't auto-pause if not playing
     if (!state.isPlaying) {
       return false;
@@ -47,7 +47,7 @@ export class AutoPauseController {
     const globalVolumeZero = state.volume === 0;
     const allFilesMuted = checkAllMuted();
     const allFilesZeroVolume = checkAllZeroVolume();
-    
+
     const shouldAutoPause = globalVolumeZero || allFilesMuted || allFilesZeroVolume;
 
     if (shouldAutoPause && !this._autoPausedBySilence) {
@@ -56,13 +56,13 @@ export class AutoPauseController {
       //   allFilesMuted,
       //   allFilesZeroVolume,
       // });
-      
+
       this._autoPausedBySilence = true;
-      
+
       if (onAutoPause) {
         onAutoPause();
       }
-      
+
       return true;
     }
 
@@ -75,7 +75,7 @@ export class AutoPauseController {
    */
   maybeAutoResume(): boolean {
     const { state, checkAllMuted, checkAllZeroVolume, onAutoResume } = this.deps;
-    
+
     // Only auto-resume if we were auto-paused
     if (!this._autoPausedBySilence) {
       return false;
@@ -85,7 +85,7 @@ export class AutoPauseController {
     const globalVolumeAudible = state.volume > 0;
     const someFilesUnmuted = !checkAllMuted();
     const someFilesAudible = !checkAllZeroVolume();
-    
+
     const shouldAutoResume = globalVolumeAudible && (someFilesUnmuted || someFilesAudible);
 
     if (shouldAutoResume) {
@@ -94,16 +94,16 @@ export class AutoPauseController {
       //   someFilesUnmuted,
       //   someFilesAudible,
       // });
-      
+
       this._autoPausedBySilence = false;
-      
+
       // Set guard period to prevent immediate re-pause (500ms)
       this._silencePauseGuardUntilMs = Date.now() + 500;
-      
+
       if (onAutoResume) {
         onAutoResume();
       }
-      
+
       return true;
     }
 

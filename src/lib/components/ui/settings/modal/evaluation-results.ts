@@ -5,9 +5,7 @@ import { createEvaluationSection } from "../sections/evaluation";
  * Open the Evaluation Results modal.
  * Reuses a single overlay identified by id to avoid duplicates.
  */
-export function openEvaluationResultsModal(
-  deps: UIComponentDependencies
-): void {
+export function openEvaluationResultsModal(deps: UIComponentDependencies): void {
   const existing = document.getElementById("evaluation-results-overlay");
   if (existing) {
     if (!existing.parentElement) document.body.appendChild(existing);
@@ -44,8 +42,7 @@ export function openEvaluationResultsModal(
 
   // Header
   const header = document.createElement("div");
-  header.style.cssText =
-    "display:flex;justify-content:space-between;align-items:center;";
+  header.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h2");
   title.textContent = "Evaluation Results";
   title.style.cssText = "margin:0;font-size:20px;font-weight:700;color:var(--text-primary);";
@@ -71,4 +68,3 @@ export function openEvaluationResultsModal(
 
   document.body.appendChild(overlay);
 }
-

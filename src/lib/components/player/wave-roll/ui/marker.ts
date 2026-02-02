@@ -59,7 +59,7 @@ export function createMarker(
   label: string,
   color: string,
   id: string,
-  stemHeight = 30
+  stemHeight = 30,
 ): HTMLElement {
   ensureGlobalMarkerCss();
 
@@ -97,7 +97,7 @@ export function createMarker(
     const g = parseInt(hex.substring(2, 4), 16) / 255;
     const b = parseInt(hex.substring(4, 6), 16) / 255;
     const srgb = [r, g, b].map((v) =>
-      v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+      v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4),
     );
     const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
     // If background is bright, use black text; else white.

@@ -29,55 +29,63 @@ export interface AudioPlayerEntry {
 export class WavPlayerManager {
   /** Map of audioId -> { player, panner, url } for waveform playback */
   private audioPlayers: Map<string, AudioPlayerEntry> = new Map();
-  private transportSyncManager?: import('./transport-sync-manager').TransportSyncManager;
-	private bufferLoadPromise?: Promise<void[]>;
-	private notifyBufferReady?: (id: string) => void;
+  private transportSyncManager?: import("./transport-sync-manager").TransportSyncManager;
+  private bufferLoadPromise?: Promise<void[]>;
+  private notifyBufferReady?: (id: string) => void;
   /** Currently selected active audio id (from window._waveRollAudio) */
   private activeAudioId: string | null = null;
-  setTransportSyncManager(transportSyncManager: import('./transport-sync-manager').TransportSyncManager): void {
+  setTransportSyncManager(
+    transportSyncManager: import("./transport-sync-manager").TransportSyncManager,
+  ): void {
     this.transportSyncManager = transportSyncManager;
   }
 
-	/**
-	 * Set callback to notify when buffer status changes
-	 */
-	setBufferReadyCallback(callback: (id: string) => void): void {
-		this.notifyBufferReady = callback;
-	}
+  /**
+   * Set callback to notify when buffer status changes
+   */
+  setBufferReadyCallback(callback: (id: string) => void): void {
+    this.notifyBufferReady = callback;
+  }
 
-	/**
-	 * Start monitoring buffer status for UI updates
-	 */
-	startBufferMonitoring(intervalMs: number = 500): () => void {
-		let lastBufferState = this.areAllBuffersReady();
-		
-		const checkBuffers = () => {
-			const currentBufferState = this.areAllBuffersReady();
-			if (currentBufferState !== lastBufferState) {
-				lastBufferState = currentBufferState;
-				// Notify all files when buffer state changes
-				this.audioPlayers.forEach((_, id) => {
-					this.notifyBufferReady?.(id);
-				});
-			}
-		};
-		
-		const intervalId = setInterval(checkBuffers, intervalMs);
-		
-		// Return cleanup function
-		return () => {
-			clearInterval(intervalId);
-		};
-	}
+  /**
+   * Start monitoring buffer status for UI updates
+   */
+  startBufferMonitoring(intervalMs: number = 500): () => void {
+    let lastBufferState = this.areAllBuffersReady();
 
-  
+    const checkBuffers = () => {
+      const currentBufferState = this.areAllBuffersReady();
+      if (currentBufferState !== lastBufferState) {
+        lastBufferState = currentBufferState;
+        // Notify all files when buffer state changes
+        this.audioPlayers.forEach((_, id) => {
+          this.notifyBufferReady?.(id);
+        });
+      }
+    };
+
+    const intervalId = setInterval(checkBuffers, intervalMs);
+
+    // Return cleanup function
+    return () => {
+      clearInterval(intervalId);
+    };
+  }
+
   /**
    * Build/refresh Tone.Player instances from global audio registry (window._waveRollAudio)
    * and select the first visible & unmuted item as the active audio source.
    */
-  setupAudioPlayersFromRegistry(state: { volume?: number; playbackRate?: number; isPlaying?: boolean; currentTime?: number }): void {
+  setupAudioPlayersFromRegistry(state: {
+    volume?: number;
+    playbackRate?: number;
+    isPlaying?: boolean;
+    currentTime?: number;
+  }): void {
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } }
+      )._waveRollAudio;
       if (!api?.getFiles) return;
 
       const items = api.getFiles() as AudioFileInfo[];
@@ -121,7 +129,7 @@ export class WavPlayerManager {
               onerror: (error: Error) => {
                 console.warn(
                   `Audio file could not be loaded for ${it.id}:`,
-                  (error as Error).message
+                  (error as Error).message,
                 );
                 // Clean up on error
                 setTimeout(() => {
@@ -135,10 +143,18 @@ export class WavPlayerManager {
                           entry.scheduledTimer = null;
                         }
                       } catch {}
-                      try { entry.player.dispose(); } catch {}
-                      try { entry.pitch.dispose(); } catch {}
-                      try { (entry as any).gate?.dispose?.(); } catch {}
-                      try { entry.panner.dispose(); } catch {}
+                      try {
+                        entry.player.dispose();
+                      } catch {}
+                      try {
+                        entry.pitch.dispose();
+                      } catch {}
+                      try {
+                        (entry as any).gate?.dispose?.();
+                      } catch {}
+                      try {
+                        entry.panner.dispose();
+                      } catch {}
                       this.audioPlayers.delete(it.id);
                     }
                   }
@@ -150,7 +166,7 @@ export class WavPlayerManager {
             // Apply mute state to WAV player volume
             const volumeValue = effectiveVolume(
               state?.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME,
-              it.isMuted
+              it.isMuted,
             );
             player.volume.value = toDb(volumeValue);
             // Apply current playback rate + pitch compensation
@@ -162,8 +178,17 @@ export class WavPlayerManager {
               pitch.pitch = isFinite(semitones) ? semitones : 0;
               (pitch as any).windowSize = (pitch as any).windowSize ?? 0.06;
             } catch {}
-            
-            this.audioPlayers.set(it.id, { player, pitch, gate, panner, url: it.url, isStarted: false, startToken: 0, scheduledTimer: null });
+
+            this.audioPlayers.set(it.id, {
+              player,
+              pitch,
+              gate,
+              panner,
+              url: it.url,
+              isStarted: false,
+              startToken: 0,
+              scheduledTimer: null,
+            });
 
             // Create a promise to track this player's buffer loading
             const bufferPromise = new Promise<void>((resolve, reject) => {
@@ -177,16 +202,15 @@ export class WavPlayerManager {
                   setTimeout(checkBuffer, 50);
                 }
               };
-              
+
               // Start checking after a short delay to allow initial setup
               setTimeout(checkBuffer, 100);
-              
+
               // Timeout after 5 seconds
               setTimeout(() => reject(new Error(`Buffer load timeout for ${it.id}`)), 5000);
             });
-            
+
             bufferLoadPromises.push(bufferPromise.catch(() => {})); // Ignore individual failures
-            
           } catch (error) {
             console.error(`Failed to create audio player for ${it.id}:`, error);
           }
@@ -208,12 +232,14 @@ export class WavPlayerManager {
           // Update volume based on mute state
           const volumeValue = effectiveVolume(
             state?.volume ?? AUDIO_CONSTANTS.DEFAULT_VOLUME,
-            it.isMuted
+            it.isMuted,
           );
           entry.player.volume.value = toDb(volumeValue);
 
           if (entry.url !== it.url) {
-            try { entry.player.dispose(); } catch {}
+            try {
+              entry.player.dispose();
+            } catch {}
             entry.url = it.url;
             entry.player = new Tone.Player(it.url).connect(entry.pitch);
             entry.player.volume.value = toDb(volumeValue);
@@ -252,7 +278,9 @@ export class WavPlayerManager {
   isAudioActive(): boolean {
     // Prefer registry truth: any visible and unmuted item means audio should be active
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } }
+      )._waveRollAudio;
       const items = api?.getFiles?.() as AudioFileInfo[] | undefined;
       if (items && items.some((i) => i.isVisible && !i.isMuted)) {
         return true;
@@ -267,34 +295,38 @@ export class WavPlayerManager {
    */
   stopAllAudioPlayers(): void {
     const transport = Tone.getTransport();
-    
+
     this.audioPlayers.forEach((entry) => {
       const { player, gate } = entry;
       // Hard mute gate to kill any tails immediately
-      try { gate.gain.value = 0; } catch {}
-      
+      try {
+        gate.gain.value = 0;
+      } catch {}
+
       // 1. First invalidate all scheduled starts
       entry.startToken = (entry.startToken || 0) + 1;
-      
+
       // 2. Clear Transport schedules
       if (entry.transportEventId) {
         transport.clear(entry.transportEventId);
         entry.transportEventId = null;
       }
-      
+
       // 3. Clear legacy setTimeout timers
       if (entry.scheduledTimer) {
         clearTimeout(entry.scheduledTimer);
         entry.scheduledTimer = null;
       }
-      
+
       // 4. Stop player only if it has been started before
       if (entry.isStarted) {
-        try { player.stop(); } catch {}
+        try {
+          player.stop();
+        } catch {}
       }
       entry.isStarted = false;
     });
-    
+
     // console.log("[WavPlayerManager] All audio players stopped (Transport events cleared, timers canceled, gates muted)");
   }
 
@@ -303,9 +335,12 @@ export class WavPlayerManager {
    */
   startActiveAudioAt(offsetSeconds: number, startAt: string | number = "+0"): void {
     // Ensure players exist for registry items before attempting to start
-    try { this.setupAudioPlayersFromRegistry({}); } catch {}
+    try {
+      this.setupAudioPlayersFromRegistry({});
+    } catch {}
 
-    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })
+      ._waveRollAudio;
     if (!api?.getFiles) return;
     const items = api.getFiles() as AudioFileInfo[];
 
@@ -332,15 +367,24 @@ export class WavPlayerManager {
         const tokenAtSchedule = entry.startToken!;
         const exec = () => {
           if (tokenAtSchedule !== entry.startToken) return; // canceled/replaced
-          if (entry.isStarted) { try { entry.player.stop(); } catch {} }
+          if (entry.isStarted) {
+            try {
+              entry.player.stop();
+            } catch {}
+          }
           const now2 = Tone.now();
           const drift = now2 - targetStart;
-          const rate = (entry.player.playbackRate || 1);
+          const rate = entry.player.playbackRate || 1;
           const base = Math.max(0, offsetSeconds - this.getEstimatedLatencySec());
           const offsetComp = Math.max(0, base + Math.max(0, drift) * rate);
           // Unmute gate just-in-time
-          try { entry.gate.gain.value = 1; } catch {}
-          try { entry.player.start(now2, offsetComp); entry.isStarted = true; } catch {}
+          try {
+            entry.gate.gain.value = 1;
+          } catch {}
+          try {
+            entry.player.start(now2, offsetComp);
+            entry.isStarted = true;
+          } catch {}
           entry.scheduledTimer = null;
         };
 
@@ -403,7 +447,9 @@ export class WavPlayerManager {
   setPlaybackRate(rate: number): void {
     const speed = Math.max(0.1, rate / 100);
     this.audioPlayers.forEach(({ player, pitch }) => {
-      try { player.playbackRate = speed; } catch {}
+      try {
+        player.playbackRate = speed;
+      } catch {}
       try {
         const semitones = -12 * Math.log2(speed);
         pitch.pitch = isFinite(semitones) ? semitones : 0;
@@ -418,7 +464,7 @@ export class WavPlayerManager {
     fileId: string,
     volume: number,
     masterVolume: number,
-    opts?: { isPlaying?: boolean; currentTime?: number }
+    opts?: { isPlaying?: boolean; currentTime?: number },
   ): void {
     const entry = this.audioPlayers.get(fileId);
     if (!entry) {
@@ -478,22 +524,36 @@ export class WavPlayerManager {
             const now2 = Tone.now();
             const targetStart = startAtAbs;
             if (ready) {
-              try { entry.player.stop(); } catch {}
+              try {
+                entry.player.stop();
+              } catch {}
               const drift = now2 - targetStart;
-              const offsetComp = Math.max(0, offsetSeconds + Math.max(0, drift) * (entry.player.playbackRate || 1));
+              const offsetComp = Math.max(
+                0,
+                offsetSeconds + Math.max(0, drift) * (entry.player.playbackRate || 1),
+              );
               const safeStart = Math.max(now2 + 0.001, targetStart);
-              try { entry.player.start(safeStart, offsetComp); } catch {}
+              try {
+                entry.player.start(safeStart, offsetComp);
+              } catch {}
               entry.scheduledTimer = null;
               return;
             }
             entry.scheduledTimer = window.setTimeout(poll, 25);
           };
           if (entry.scheduledTimer) clearTimeout(entry.scheduledTimer);
-          entry.scheduledTimer = window.setTimeout(poll, Math.max(0, (startAtAbs - Tone.now()) * 1000));
+          entry.scheduledTimer = window.setTimeout(
+            poll,
+            Math.max(0, (startAtAbs - Tone.now()) * 1000),
+          );
         } else {
-          try { entry.player.stop(); } catch {}
+          try {
+            entry.player.stop();
+          } catch {}
           const safeStart = Math.max(startAtAbs, Tone.now() + 0.001);
-          try { entry.player.start(safeStart, offsetSeconds); } catch {}
+          try {
+            entry.player.start(safeStart, offsetSeconds);
+          } catch {}
           // console.log("[WM.unmute-started-unified]", { fileId, startAtAbs: safeStart, offsetSeconds });
         }
       } catch {
@@ -503,7 +563,11 @@ export class WavPlayerManager {
 
     // Update registry if available
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; volume?: number }> } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: { getFiles?: () => Array<{ id: string; volume?: number }> };
+        }
+      )._waveRollAudio;
       if (api?.getFiles) {
         const files = api.getFiles();
         const file = files.find((f) => f.id === fileId);
@@ -547,19 +611,19 @@ export class WavPlayerManager {
   setFileMute(fileId: string, mute: boolean): boolean {
     const entry = this.audioPlayers.get(fileId);
     if (!entry) return false;
-    
+
     // console.log("[WavPlayerManager] setFileMute", { fileId, mute });
-    
+
     // Store mute state in entry
     entry.muted = mute;
-    
+
     const { player, gate } = entry;
-    
+
     if (mute) {
       // Mute: Only use gain control to maintain sync
       // Player continues running but is silent
-      try { 
-        gate.gain.value = 0; 
+      try {
+        gate.gain.value = 0;
         // console.log("[WavPlayerManager] Muted WAV", fileId, "via gain control (maintaining sync)");
       } catch (e) {
         console.warn("[WavPlayerManager] Failed to mute gate for", fileId, ":", e);
@@ -575,7 +639,7 @@ export class WavPlayerManager {
         console.warn("[WavPlayerManager] Failed to unmute gate for", fileId, ":", e);
       }
     }
-    
+
     return true;
   }
 
@@ -585,11 +649,11 @@ export class WavPlayerManager {
   setFileVolume(fileId: string, volume: number): boolean {
     const entry = this.audioPlayers.get(fileId);
     if (!entry) return false;
-    
+
     const { player } = entry;
     const clamped = clamp01(volume);
     player.volume.value = toDb(clamped);
-    
+
     return true;
   }
 
@@ -599,9 +663,9 @@ export class WavPlayerManager {
   areAllPlayersZeroVolume(): boolean {
     const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
     if (this.audioPlayers.size === 0) return true;
-    
+
     return !Array.from(this.audioPlayers.values()).some(
-      ({ player }) => player.volume.value > SILENT_DB
+      ({ player }) => player.volume.value > SILENT_DB,
     );
   }
 
@@ -610,19 +674,19 @@ export class WavPlayerManager {
    */
   refreshFromMidiManager(midiManager: any): boolean {
     if (!midiManager) return false;
-    
+
     try {
       // Check if transport is currently playing to avoid unnecessary interruptions
       const transport = Tone.getTransport();
       const isPlaying = transport.state === "started";
-      
+
       if (isPlaying) {
         // console.log("[WavPlayerManager] Skipping refresh during playback to maintain sync");
         // During playback, avoid full refresh to maintain synchronization
         // Only update metadata without recreating players
         return true;
       }
-      
+
       // console.log("[WavPlayerManager] Refreshing audio players (not playing)");
       // Re-setup audio players from registry only when not playing
       this.setupAudioPlayersFromRegistry({});
@@ -638,13 +702,13 @@ export class WavPlayerManager {
    */
   areAllPlayersMuted(): boolean {
     const SILENT_DB = AUDIO_CONSTANTS.SILENT_DB;
-    
+
     if (this.audioPlayers.size === 0) {
       return true;
     }
-    
+
     return !Array.from(this.audioPlayers.values()).some(
-      ({ player }) => player.volume.value > SILENT_DB
+      ({ player }) => player.volume.value > SILENT_DB,
     );
   }
 
@@ -652,14 +716,15 @@ export class WavPlayerManager {
    * If all WAV players are muted and at least one is visible, unmute visible players,
    * raise their volume to masterVolume and start them at the given offset.
    */
-  unmuteAndStartVisibleIfAllMuted(
-    offsetSeconds: number,
-    masterVolume: number
-  ): void {
+  unmuteAndStartVisibleIfAllMuted(offsetSeconds: number, masterVolume: number): void {
     try {
-      const api = (globalThis as unknown as {
-        _waveRollAudio?: { getFiles?: () => Array<{ id: string; isVisible: boolean; isMuted: boolean }> };
-      })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: {
+            getFiles?: () => Array<{ id: string; isVisible: boolean; isMuted: boolean }>;
+          };
+        }
+      )._waveRollAudio;
       if (!api?.getFiles) return;
 
       const items = api.getFiles() as AudioFileInfo[];
@@ -698,14 +763,14 @@ export class WavPlayerManager {
    */
   getMaxAudioDuration(): number {
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } }
+      )._waveRollAudio;
       if (!api?.getFiles) return 0;
 
       const items = api.getFiles() as AudioFileInfo[];
-      const audioDurations = items
-        .map((i) => i.audioBuffer?.duration || 0)
-        .filter((d) => d > 0);
-      
+      const audioDurations = items.map((i) => i.audioBuffer?.duration || 0).filter((d) => d > 0);
+
       return audioDurations.length > 0 ? Math.max(...audioDurations) : 0;
     } catch {
       return 0;
@@ -734,7 +799,9 @@ export class WavPlayerManager {
       try {
         panner.dispose();
       } catch {}
-      try { gate.dispose(); } catch {}
+      try {
+        gate.dispose();
+      } catch {}
     });
     this.audioPlayers.clear();
   }
@@ -742,11 +809,11 @@ export class WavPlayerManager {
   /**
    * Refresh audio players and restart if playing
    */
-  refreshAudioPlayers(state: { 
-    isPlaying: boolean; 
-    currentTime: number; 
-    volume?: number; 
-    playbackRate?: number 
+  refreshAudioPlayers(state: {
+    isPlaying: boolean;
+    currentTime: number;
+    volume?: number;
+    playbackRate?: number;
   }): void {
     const wasPlaying = state.isPlaying;
     const currentTime = state.currentTime;
@@ -769,7 +836,9 @@ export class WavPlayerManager {
       // Ensure players reflect current registry
       this.setupAudioPlayersFromRegistry({});
 
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } }
+      )._waveRollAudio;
       const items = api?.getFiles?.() as AudioFileInfo[] | undefined;
       if (!items || items.length === 0) return false;
 
@@ -800,7 +869,6 @@ export class WavPlayerManager {
     return !this.hasActiveUnloadedPlayers();
   }
 
-
   /**
    * Synchronously check if all active audio buffers are ready
    * Returns immediately without waiting
@@ -812,26 +880,27 @@ export class WavPlayerManager {
   areAllBuffersReady(): boolean {
     // Trust Tone.js to handle buffer loading internally
     // Just check if players exist for visible/unmuted files
-    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })
+      ._waveRollAudio;
     if (!api?.getFiles) return true; // No audio files means all are "ready"
-    
+
     const items = api.getFiles() as AudioFileInfo[];
-    
+
     // Check that player entries exist for all visible and unmuted audio files
     for (const item of items) {
       const localEntry = this.audioPlayers.get(item.id);
       const isMuted = item.isMuted || localEntry?.muted;
-      
+
       if (!item.isVisible || isMuted) {
         continue; // Skip muted or invisible items
       }
-      
+
       const entry = this.audioPlayers.get(item.id);
       if (!entry) {
         return false; // Missing player entry
       }
     }
-    
+
     return true; // All required players exist
   }
 
@@ -840,8 +909,11 @@ export class WavPlayerManager {
    * All buffers must be loaded before calling this method
    */
   startActiveAudioAtSync(offsetSeconds: number, startAt: string | number = "+0"): void {
-    try { this.setupAudioPlayersFromRegistry({}); } catch {}
-    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })._waveRollAudio;
+    try {
+      this.setupAudioPlayersFromRegistry({});
+    } catch {}
+    const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => AudioFileInfo[] } })
+      ._waveRollAudio;
     if (!api?.getFiles) return;
     const items = api.getFiles() as AudioFileInfo[];
     const targetStart = this.resolveStartAt(startAt);
@@ -857,34 +929,34 @@ export class WavPlayerManager {
 
       // Invalidate and clear previous schedule
       entry.startToken = (entry.startToken || 0) + 1;
-      
+
       // Clear any existing Transport schedules for this entry
       const transport = Tone.getTransport();
       if (entry.transportEventId) {
         transport.clear(entry.transportEventId);
         entry.transportEventId = null;
       }
-      
+
       // Clear legacy setTimeout if any
-      if (entry.scheduledTimer) { 
-        clearTimeout(entry.scheduledTimer); 
-        entry.scheduledTimer = null; 
+      if (entry.scheduledTimer) {
+        clearTimeout(entry.scheduledTimer);
+        entry.scheduledTimer = null;
       }
 
       const token = entry.startToken;
-      
+
       // PHASE 1 FIX: Direct scheduling instead of Transport.scheduleOnce
       // Calculate precise delay to avoid Transport scheduling issues
       const currentTime = Tone.now();
       const delayMs = Math.max(0, (targetStart - currentTime) * 1000);
-      
+
       // console.log("[WavPlayerManager] Direct scheduling:", {
       //   currentTime,
-      //   targetStart, 
+      //   targetStart,
       //   delayMs,
       //   item: item.id
       // });
-      
+
       // Use setTimeout for precise timing instead of Transport.scheduleOnce
       const timerId = setTimeout(() => {
         // Verify token is still valid (prevents ghost audio)
@@ -892,33 +964,37 @@ export class WavPlayerManager {
           // console.log("[WavPlayerManager] Ignoring stale schedule for", item.id);
           return;
         }
-        
-        if (entry.isStarted) { 
-          try { entry.player.stop(); } catch {} 
+
+        if (entry.isStarted) {
+          try {
+            entry.player.stop();
+          } catch {}
         }
-        
+
         // Calculate precise offset with latency compensation
-        const rate = (entry.player.playbackRate || 1);
+        const rate = entry.player.playbackRate || 1;
         const base = Math.max(0, offsetSeconds - this.getEstimatedLatencySec());
         const offsetComp = Math.max(0, base);
-        
+
         // Get accurate audio context time for player.start()
         const audioContextTime = Tone.context.currentTime;
-        
-        try { entry.gate.gain.value = 1; } catch {}
-        try { 
+
+        try {
+          entry.gate.gain.value = 1;
+        } catch {}
+        try {
           // Start with accurate audio context time
-          entry.player.start(audioContextTime, offsetComp); 
+          entry.player.start(audioContextTime, offsetComp);
           entry.isStarted = true;
           // console.log("[WavPlayerManager] Started WAV", item.id, "at audio time", audioContextTime, "with offset", offsetComp);
         } catch (e) {
           console.warn("[WavPlayerManager] Failed to start WAV", item.id, ":", e);
         }
-        
+
         // Clear the timer reference
         entry.scheduledTimer = null;
       }, delayMs);
-      
+
       // Store the timer ID for cleanup
       entry.scheduledTimer = timerId;
     });
@@ -934,7 +1010,7 @@ export class WavPlayerManager {
       this.audioPlayers.forEach(({ pitch }) => {
         try {
           const ws = (pitch as unknown as { windowSize?: number }).windowSize;
-          if (typeof ws === 'number' && isFinite(ws)) {
+          if (typeof ws === "number" && isFinite(ws)) {
             maxWin = Math.max(maxWin, ws);
           }
         } catch {}

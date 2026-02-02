@@ -4,13 +4,9 @@
  * @param titleText - Text to display as the modal title
  * @param onClose   - Callback that removes the modal overlay
  */
-export function createModalHeader(
-  titleText: string,
-  onClose: () => void
-): HTMLElement {
+export function createModalHeader(titleText: string, onClose: () => void): HTMLElement {
   const header = document.createElement("div");
-  header.style.cssText =
-    "display:flex;justify-content:space-between;align-items:center;";
+  header.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
   const title = document.createElement("h2");
   title.textContent = titleText;
   title.style.cssText = "margin:0;font-size:20px;font-weight:700;color:var(--text-primary);";

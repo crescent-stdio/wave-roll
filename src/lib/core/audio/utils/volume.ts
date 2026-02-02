@@ -30,4 +30,3 @@ export function effectiveVolume(linear: number, muted?: boolean): number {
 export function mixLinear(master: number, channel: number): number {
   return clamp01(master) * clamp01(channel);
 }
-

@@ -18,7 +18,7 @@ export class EvaluationLogger {
     refId: string,
     estId: string,
     tolerances: Record<string, unknown>,
-    result: NoteMatchResult
+    result: NoteMatchResult,
   ): void {
     this.entries.push({
       timestamp: new Date().toISOString(),
@@ -41,5 +41,3 @@ export class EvaluationLogger {
 }
 
 export const evaluationLogger = new EvaluationLogger();
-
-

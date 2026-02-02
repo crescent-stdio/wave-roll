@@ -12,9 +12,12 @@
  * Reference: https://github.com/mir-evaluation/mir_eval
  */
 
-import { matchNotes, evaluateTranscription } from '@/lib/evaluation/transcription';
-import type { ParsedMidi } from '@/lib/midi/types';
-import type { TranscriptionToleranceOptions, VelocityToleranceOptions } from '@/lib/evaluation/transcription/constants';
+import { matchNotes, evaluateTranscription } from "@/lib/evaluation/transcription";
+import type { ParsedMidi } from "@/lib/midi/types";
+import type {
+  TranscriptionToleranceOptions,
+  VelocityToleranceOptions,
+} from "@/lib/evaluation/transcription/constants";
 
 export interface MirEvalExpectedResults {
   /** Expected number of true positives */
@@ -75,7 +78,7 @@ export interface MetricComparison {
   /** Whether the comparison passed within tolerance */
   passed: boolean;
   /** Severity of the difference */
-  severity: 'acceptable' | 'concerning' | 'critical';
+  severity: "acceptable" | "concerning" | "critical";
   /** Additional context */
   context?: string;
 }
@@ -102,7 +105,7 @@ export class MirEvalMetricsComparator {
     metricTolerance: 1e-6,
     strictCounts: true,
     validateMatches: true,
-    includeVelocityMetrics: false
+    includeVelocityMetrics: false,
   };
 
   /**
@@ -114,13 +117,18 @@ export class MirEvalMetricsComparator {
     expected: MirEvalExpectedResults,
     toleranceOptions: Partial<TranscriptionToleranceOptions> = {},
     velocityOptions: Partial<VelocityToleranceOptions> = {},
-    comparisonOptions: Partial<ComparisonOptions> = {}
+    comparisonOptions: Partial<ComparisonOptions> = {},
   ): ComparisonResult {
     const opts = { ...this.defaultOptions, ...comparisonOptions };
 
     // Run our evaluation
     const matchResult = matchNotes(reference, estimated, toleranceOptions);
-    const evalResult = evaluateTranscription(reference, estimated, toleranceOptions, velocityOptions);
+    const evalResult = evaluateTranscription(
+      reference,
+      estimated,
+      toleranceOptions,
+      velocityOptions,
+    );
 
     // Extract our metrics
     const ourMetrics = {
@@ -130,25 +138,50 @@ export class MirEvalMetricsComparator {
       precision: evalResult.precision,
       recall: evalResult.recall,
       f1Score: evalResult.f1,
-      averageOverlap: evalResult.avgOverlapRatio
+      averageOverlap: evalResult.avgOverlapRatio,
     };
 
     // Perform comparisons
     const comparisons: MetricComparison[] = [];
 
     // Core count comparisons
-    comparisons.push(this.compareMetric('True Positives', expected.truePositives, ourMetrics.truePositives, opts));
-    comparisons.push(this.compareMetric('False Positives', expected.falsePositives, ourMetrics.falsePositives, opts));
-    comparisons.push(this.compareMetric('False Negatives', expected.falseNegatives, ourMetrics.falseNegatives, opts));
+    comparisons.push(
+      this.compareMetric("True Positives", expected.truePositives, ourMetrics.truePositives, opts),
+    );
+    comparisons.push(
+      this.compareMetric(
+        "False Positives",
+        expected.falsePositives,
+        ourMetrics.falsePositives,
+        opts,
+      ),
+    );
+    comparisons.push(
+      this.compareMetric(
+        "False Negatives",
+        expected.falseNegatives,
+        ourMetrics.falseNegatives,
+        opts,
+      ),
+    );
 
     // PRF metrics
-    comparisons.push(this.compareMetric('Precision', expected.precision, ourMetrics.precision, opts));
-    comparisons.push(this.compareMetric('Recall', expected.recall, ourMetrics.recall, opts));
-    comparisons.push(this.compareMetric('F1 Score', expected.f1Score, ourMetrics.f1Score, opts));
+    comparisons.push(
+      this.compareMetric("Precision", expected.precision, ourMetrics.precision, opts),
+    );
+    comparisons.push(this.compareMetric("Recall", expected.recall, ourMetrics.recall, opts));
+    comparisons.push(this.compareMetric("F1 Score", expected.f1Score, ourMetrics.f1Score, opts));
 
     // Overlap metrics (if available)
     if (expected.averageOverlap !== undefined) {
-      comparisons.push(this.compareMetric('Average Overlap', expected.averageOverlap, ourMetrics.averageOverlap, opts));
+      comparisons.push(
+        this.compareMetric(
+          "Average Overlap",
+          expected.averageOverlap,
+          ourMetrics.averageOverlap,
+          opts,
+        ),
+      );
     }
 
     // Velocity metrics (if enabled)
@@ -168,7 +201,7 @@ export class MirEvalMetricsComparator {
       compatibilityScore,
       comparisons,
       summary,
-      recommendations
+      recommendations,
     };
   }
 
@@ -180,9 +213,9 @@ export class MirEvalMetricsComparator {
     estimated: ParsedMidi,
     toleranceOptions1: Partial<TranscriptionToleranceOptions>,
     toleranceOptions2: Partial<TranscriptionToleranceOptions>,
-    runName1: string = 'Run 1',
-    runName2: string = 'Run 2',
-    comparisonOptions: Partial<ComparisonOptions> = {}
+    runName1: string = "Run 1",
+    runName2: string = "Run 2",
+    comparisonOptions: Partial<ComparisonOptions> = {},
   ): ComparisonResult {
     const opts = { ...this.defaultOptions, ...comparisonOptions };
 
@@ -196,12 +229,54 @@ export class MirEvalMetricsComparator {
     // Compare results
     const comparisons: MetricComparison[] = [];
 
-    comparisons.push(this.compareMetric('True Positives', match1.matches.length, match2.matches.length, opts, `${runName1} vs ${runName2}`));
-    comparisons.push(this.compareMetric('False Positives', match1.falsePositives.length, match2.falsePositives.length, opts, `${runName1} vs ${runName2}`));
-    comparisons.push(this.compareMetric('False Negatives', match1.falseNegatives.length, match2.falseNegatives.length, opts, `${runName1} vs ${runName2}`));
-    comparisons.push(this.compareMetric('Precision', result1.precision, result2.precision, opts, `${runName1} vs ${runName2}`));
-    comparisons.push(this.compareMetric('Recall', result1.recall, result2.recall, opts, `${runName1} vs ${runName2}`));
-    comparisons.push(this.compareMetric('F1 Score', result1.f1, result2.f1, opts, `${runName1} vs ${runName2}`));
+    comparisons.push(
+      this.compareMetric(
+        "True Positives",
+        match1.matches.length,
+        match2.matches.length,
+        opts,
+        `${runName1} vs ${runName2}`,
+      ),
+    );
+    comparisons.push(
+      this.compareMetric(
+        "False Positives",
+        match1.falsePositives.length,
+        match2.falsePositives.length,
+        opts,
+        `${runName1} vs ${runName2}`,
+      ),
+    );
+    comparisons.push(
+      this.compareMetric(
+        "False Negatives",
+        match1.falseNegatives.length,
+        match2.falseNegatives.length,
+        opts,
+        `${runName1} vs ${runName2}`,
+      ),
+    );
+    comparisons.push(
+      this.compareMetric(
+        "Precision",
+        result1.precision,
+        result2.precision,
+        opts,
+        `${runName1} vs ${runName2}`,
+      ),
+    );
+    comparisons.push(
+      this.compareMetric(
+        "Recall",
+        result1.recall,
+        result2.recall,
+        opts,
+        `${runName1} vs ${runName2}`,
+      ),
+    );
+    comparisons.push(
+      this.compareMetric("F1 Score", result1.f1, result2.f1, opts, `${runName1} vs ${runName2}`),
+    );
 
     const summary = this.calculateSummary(comparisons);
     const isCompatible = summary.criticalMetrics === 0;
@@ -212,7 +287,7 @@ export class MirEvalMetricsComparator {
       compatibilityScore,
       comparisons,
       summary,
-      recommendations: [`Comparison between ${runName1} and ${runName2}`]
+      recommendations: [`Comparison between ${runName1} and ${runName2}`],
     };
   }
 
@@ -228,9 +303,9 @@ export class MirEvalMetricsComparator {
       toleranceOptions?: Partial<TranscriptionToleranceOptions>;
       velocityOptions?: Partial<VelocityToleranceOptions>;
     }>,
-    comparisonOptions: Partial<ComparisonOptions> = {}
+    comparisonOptions: Partial<ComparisonOptions> = {},
   ): ValidationReport {
-    const results = testCases.map(testCase => ({
+    const results = testCases.map((testCase) => ({
       testCaseName: testCase.name,
       result: this.compareWithExpected(
         testCase.reference,
@@ -238,14 +313,15 @@ export class MirEvalMetricsComparator {
         testCase.expected,
         testCase.toleranceOptions,
         testCase.velocityOptions,
-        comparisonOptions
-      )
+        comparisonOptions,
+      ),
     }));
 
-    const overallCompatible = results.every(r => r.result.isCompatible);
-    const averageCompatibilityScore = results.reduce((sum, r) => sum + r.result.compatibilityScore, 0) / results.length;
+    const overallCompatible = results.every((r) => r.result.isCompatible);
+    const averageCompatibilityScore =
+      results.reduce((sum, r) => sum + r.result.compatibilityScore, 0) / results.length;
 
-    const aggregatedSummary = this.aggregateSummaries(results.map(r => r.result.summary));
+    const aggregatedSummary = this.aggregateSummaries(results.map((r) => r.result.summary));
     const overallRecommendations = this.generateOverallRecommendations(results);
 
     return {
@@ -254,7 +330,7 @@ export class MirEvalMetricsComparator {
       testCaseResults: results,
       aggregatedSummary,
       overallRecommendations,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   }
 
@@ -263,14 +339,17 @@ export class MirEvalMetricsComparator {
     expected: number,
     actual: number,
     options: ComparisonOptions,
-    context?: string
+    context?: string,
   ): MetricComparison {
     const difference = Math.abs(actual - expected);
     const relativeDifference = expected !== 0 ? (difference / Math.abs(expected)) * 100 : 0;
 
     // Determine if the comparison passed
     let passed: boolean;
-    if (options.strictCounts && metricName.includes('Positives') || metricName.includes('Negatives')) {
+    if (
+      (options.strictCounts && metricName.includes("Positives")) ||
+      metricName.includes("Negatives")
+    ) {
       // For count metrics, require exact match
       passed = difference === 0;
     } else {
@@ -279,13 +358,14 @@ export class MirEvalMetricsComparator {
     }
 
     // Determine severity
-    let severity: 'acceptable' | 'concerning' | 'critical';
+    let severity: "acceptable" | "concerning" | "critical";
     if (passed) {
-      severity = 'acceptable';
-    } else if (relativeDifference <= 1.0) { // 1% difference
-      severity = 'concerning';
+      severity = "acceptable";
+    } else if (relativeDifference <= 1.0) {
+      // 1% difference
+      severity = "concerning";
     } else {
-      severity = 'critical';
+      severity = "critical";
     }
 
     return {
@@ -296,22 +376,23 @@ export class MirEvalMetricsComparator {
       relativeDifference,
       passed,
       severity,
-      context
+      context,
     };
   }
 
   private calculateSummary(comparisons: MetricComparison[]): ComparisonSummary {
     const totalMetrics = comparisons.length;
-    const passedMetrics = comparisons.filter(c => c.passed).length;
-    const concerningMetrics = comparisons.filter(c => c.severity === 'concerning').length;
-    const criticalMetrics = comparisons.filter(c => c.severity === 'critical').length;
+    const passedMetrics = comparisons.filter((c) => c.passed).length;
+    const concerningMetrics = comparisons.filter((c) => c.severity === "concerning").length;
+    const criticalMetrics = comparisons.filter((c) => c.severity === "critical").length;
 
-    const absoluteDifferences = comparisons.map(c => c.difference);
-    const relativeDifferences = comparisons.map(c => c.relativeDifference);
+    const absoluteDifferences = comparisons.map((c) => c.difference);
+    const relativeDifferences = comparisons.map((c) => c.relativeDifference);
 
     const maxAbsoluteDifference = Math.max(...absoluteDifferences);
     const maxRelativeDifference = Math.max(...relativeDifferences);
-    const averageAbsoluteDifference = absoluteDifferences.reduce((sum, diff) => sum + diff, 0) / totalMetrics;
+    const averageAbsoluteDifference =
+      absoluteDifferences.reduce((sum, diff) => sum + diff, 0) / totalMetrics;
 
     return {
       totalMetrics,
@@ -320,39 +401,54 @@ export class MirEvalMetricsComparator {
       criticalMetrics,
       maxAbsoluteDifference,
       maxRelativeDifference,
-      averageAbsoluteDifference
+      averageAbsoluteDifference,
     };
   }
 
-  private generateRecommendations(comparisons: MetricComparison[], expected: MirEvalExpectedResults): string[] {
+  private generateRecommendations(
+    comparisons: MetricComparison[],
+    expected: MirEvalExpectedResults,
+  ): string[] {
     const recommendations: string[] = [];
 
-    const criticalComparisons = comparisons.filter(c => c.severity === 'critical');
-    const concerningComparisons = comparisons.filter(c => c.severity === 'concerning');
+    const criticalComparisons = comparisons.filter((c) => c.severity === "critical");
+    const concerningComparisons = comparisons.filter((c) => c.severity === "concerning");
 
     if (criticalComparisons.length > 0) {
-      recommendations.push(`Critical differences found in: ${criticalComparisons.map(c => c.metricName).join(', ')}`);
-      recommendations.push('Review note matching algorithm and tolerance parameters');
+      recommendations.push(
+        `Critical differences found in: ${criticalComparisons.map((c) => c.metricName).join(", ")}`,
+      );
+      recommendations.push("Review note matching algorithm and tolerance parameters");
     }
 
     if (concerningComparisons.length > 0) {
-      recommendations.push(`Minor differences found in: ${concerningComparisons.map(c => c.metricName).join(', ')}`);
-      recommendations.push('Consider adjusting tolerance parameters or review edge cases');
+      recommendations.push(
+        `Minor differences found in: ${concerningComparisons.map((c) => c.metricName).join(", ")}`,
+      );
+      recommendations.push("Consider adjusting tolerance parameters or review edge cases");
     }
 
     // Specific recommendations based on which metrics failed
-    const failedCounts = criticalComparisons.filter(c => c.metricName.includes('Positives') || c.metricName.includes('Negatives'));
+    const failedCounts = criticalComparisons.filter(
+      (c) => c.metricName.includes("Positives") || c.metricName.includes("Negatives"),
+    );
     if (failedCounts.length > 0) {
-      recommendations.push('Count discrepancies suggest issues with the bipartite matching algorithm');
+      recommendations.push(
+        "Count discrepancies suggest issues with the bipartite matching algorithm",
+      );
     }
 
-    const failedRatios = criticalComparisons.filter(c => ['Precision', 'Recall', 'F1 Score'].includes(c.metricName));
+    const failedRatios = criticalComparisons.filter((c) =>
+      ["Precision", "Recall", "F1 Score"].includes(c.metricName),
+    );
     if (failedRatios.length > 0) {
-      recommendations.push('Ratio metric differences may indicate tolerance or calculation issues');
+      recommendations.push("Ratio metric differences may indicate tolerance or calculation issues");
     }
 
     if (recommendations.length === 0) {
-      recommendations.push('All metrics are within acceptable tolerance - good mir_eval compatibility!');
+      recommendations.push(
+        "All metrics are within acceptable tolerance - good mir_eval compatibility!",
+      );
     }
 
     return recommendations;
@@ -364,9 +460,10 @@ export class MirEvalMetricsComparator {
     const concerningMetrics = summaries.reduce((sum, s) => sum + s.concerningMetrics, 0);
     const criticalMetrics = summaries.reduce((sum, s) => sum + s.criticalMetrics, 0);
 
-    const maxAbsoluteDifference = Math.max(...summaries.map(s => s.maxAbsoluteDifference));
-    const maxRelativeDifference = Math.max(...summaries.map(s => s.maxRelativeDifference));
-    const averageAbsoluteDifference = summaries.reduce((sum, s) => sum + s.averageAbsoluteDifference, 0) / summaries.length;
+    const maxAbsoluteDifference = Math.max(...summaries.map((s) => s.maxAbsoluteDifference));
+    const maxRelativeDifference = Math.max(...summaries.map((s) => s.maxRelativeDifference));
+    const averageAbsoluteDifference =
+      summaries.reduce((sum, s) => sum + s.averageAbsoluteDifference, 0) / summaries.length;
 
     return {
       totalMetrics,
@@ -375,29 +472,34 @@ export class MirEvalMetricsComparator {
       criticalMetrics,
       maxAbsoluteDifference,
       maxRelativeDifference,
-      averageAbsoluteDifference
+      averageAbsoluteDifference,
     };
   }
 
-  private generateOverallRecommendations(results: Array<{ testCaseName: string; result: ComparisonResult }>): string[] {
+  private generateOverallRecommendations(
+    results: Array<{ testCaseName: string; result: ComparisonResult }>,
+  ): string[] {
     const recommendations: string[] = [];
 
-    const failedTests = results.filter(r => !r.result.isCompatible);
-    const averageScore = results.reduce((sum, r) => sum + r.result.compatibilityScore, 0) / results.length;
+    const failedTests = results.filter((r) => !r.result.isCompatible);
+    const averageScore =
+      results.reduce((sum, r) => sum + r.result.compatibilityScore, 0) / results.length;
 
     if (failedTests.length === 0) {
-      recommendations.push('✅ All test cases passed - excellent mir_eval compatibility!');
+      recommendations.push("✅ All test cases passed - excellent mir_eval compatibility!");
     } else {
-      recommendations.push(`❌ ${failedTests.length}/${results.length} test cases failed compatibility checks`);
-      recommendations.push(`Failed tests: ${failedTests.map(t => t.testCaseName).join(', ')}`);
+      recommendations.push(
+        `❌ ${failedTests.length}/${results.length} test cases failed compatibility checks`,
+      );
+      recommendations.push(`Failed tests: ${failedTests.map((t) => t.testCaseName).join(", ")}`);
     }
 
     recommendations.push(`Overall compatibility score: ${(averageScore * 100).toFixed(1)}%`);
 
     if (averageScore < 0.8) {
-      recommendations.push('🔧 Consider reviewing the core matching algorithm implementation');
+      recommendations.push("🔧 Consider reviewing the core matching algorithm implementation");
     } else if (averageScore < 0.95) {
-      recommendations.push('⚠️ Minor adjustments needed to improve compatibility');
+      recommendations.push("⚠️ Minor adjustments needed to improve compatibility");
     }
 
     return recommendations;
@@ -426,7 +528,7 @@ export const mirEvalComparator = new MirEvalMetricsComparator();
 export const KNOWN_TEST_CASES = {
   // Perfect match case
   PERFECT_MATCH: {
-    name: 'Perfect Match',
+    name: "Perfect Match",
     expected: {
       truePositives: 1,
       falsePositives: 0,
@@ -435,13 +537,13 @@ export const KNOWN_TEST_CASES = {
       recall: 1.0,
       f1Score: 1.0,
       averageOverlap: 1.0,
-      source: 'analytical'
-    }
+      source: "analytical",
+    },
   },
 
   // No match case
   NO_MATCH: {
-    name: 'No Match',
+    name: "No Match",
     expected: {
       truePositives: 0,
       falsePositives: 1,
@@ -450,21 +552,21 @@ export const KNOWN_TEST_CASES = {
       recall: 0.0,
       f1Score: 0.0,
       averageOverlap: 0.0,
-      source: 'analytical'
-    }
+      source: "analytical",
+    },
   },
 
   // Partial match case (common scenario)
   PARTIAL_MATCH: {
-    name: 'Partial Match',
+    name: "Partial Match",
     expected: {
       truePositives: 2,
       falsePositives: 1,
       falseNegatives: 1,
-      precision: 2/3, // 2/(2+1)
-      recall: 2/3,    // 2/(2+1)
-      f1Score: 2/3,   // 2*P*R/(P+R) = 2*(2/3)*(2/3)/((2/3)+(2/3)) = 2/3
-      source: 'analytical'
-    }
-  }
+      precision: 2 / 3, // 2/(2+1)
+      recall: 2 / 3, // 2/(2+1)
+      f1Score: 2 / 3, // 2*P*R/(P+R) = 2*(2/3)*(2/3)/((2/3)+(2/3)) = 2/3
+      source: "analytical",
+    },
+  },
 };

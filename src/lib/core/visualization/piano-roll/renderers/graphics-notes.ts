@@ -15,8 +15,7 @@ export function renderNotesGraphics(pianoRoll: PianoRoll): void {
   const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
 
   // Pre-compute shared constants
-  const noteRange =
-    pianoRoll.options.noteRange.max - pianoRoll.options.noteRange.min;
+  const noteRange = pianoRoll.options.noteRange.max - pianoRoll.options.noteRange.min;
   const baseRowHeight = (pianoRoll.options.height - 40) / noteRange; // per-semitone height
 
   // 1) Keep the Graphics pool size in sync with `notes.length`
@@ -35,8 +34,7 @@ export function renderNotesGraphics(pianoRoll: PianoRoll): void {
 
   // 2) Update position & style
   pianoRoll.notes.forEach((note: NoteData, idx: number) => {
-    const x =
-      pianoRoll.timeScale(note.time) * pianoRoll.state.zoomX + pianoKeysOffset;
+    const x = pianoRoll.timeScale(note.time) * pianoRoll.state.zoomX + pianoKeysOffset;
     const y = pianoRoll.pitchScale(note.midi);
     const width = pianoRoll.timeScale(note.duration) * pianoRoll.state.zoomX;
     const height = Math.max(1, baseRowHeight * 0.8);

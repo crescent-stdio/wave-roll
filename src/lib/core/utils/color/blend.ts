@@ -8,10 +8,7 @@ import { rgbToHsv, hsvToRgb } from "./format";
  * @param _weights Ignored - kept for backwards-compatibility
  * @returns Blended color as 0xRRGGBB number
  */
-export function blendColorsAverage(
-  colors: number[],
-  _weights: number[] = []
-): number {
+export function blendColorsAverage(colors: number[], _weights: number[] = []): number {
   if (colors.length === 0) {
     return 0xffffff;
   }
@@ -123,16 +120,16 @@ function rgbToOklab(r: number, g: number, b: number): { L: number; a: number; b:
   const s_ = Math.cbrt(s);
 
   return {
-    L: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-    a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+    L: 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_,
+    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_,
   };
 }
 
 function oklabToRgb(L: number, a: number, b: number): [number, number, number] {
   const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
   const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
-  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
 
   const l = l_ * l_ * l_;
   const m = m_ * m_ * m_;
@@ -160,6 +157,6 @@ function lchToOklab(L: number, C: number, h: number): { L: number; a: number; b:
 }
 
 function interpolateAngleShortest(a: number, b: number, t: number): number {
-  let delta = ((b - a + 540) % 360) - 180; // range [-180, 180)
+  const delta = ((b - a + 540) % 360) - 180; // range [-180, 180)
   return (a + delta * t + 360) % 360;
 }

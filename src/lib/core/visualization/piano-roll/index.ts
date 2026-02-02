@@ -14,7 +14,7 @@ export type { PianoRollConfig, PianoRollInstance };
 export async function createPianoRoll(
   container: HTMLElement,
   notes: NoteData[] = [],
-  options: PianoRollConfig = {}
+  options: PianoRollConfig = {},
 ): Promise<PianoRollInstance> {
   // Create canvas element
   const canvas = document.createElement("canvas");
@@ -69,8 +69,7 @@ export async function createPianoRoll(
     /**
      * Update control-change events (e.g., sustain pedal)
      */
-    setControlChanges: (cc: ControlChangeEvent[]) =>
-      pianoRoll.setControlChanges(cc),
+    setControlChanges: (cc: ControlChangeEvent[]) => pianoRoll.setControlChanges(cc),
 
     /**
      * Update current playback time
@@ -129,8 +128,7 @@ export async function createPianoRoll(
     /**
      * Register callback for time changes due to panning/zooming
      */
-    onTimeChange: (callback: (time: number) => void) =>
-      pianoRoll.onTimeChange(callback),
+    onTimeChange: (callback: (time: number) => void) => pianoRoll.onTimeChange(callback),
 
     /**
      * Update minor grid step and re-render
@@ -147,7 +145,7 @@ export async function createPianoRoll(
 
     /** Resize the PixiJS renderer */
     resize: (width: number, height?: number) => pianoRoll.resize(width, height),
-    
+
     /**
      * Get the underlying PianoRoll instance for direct access
      * This is needed for setting internal properties like fileInfoMap

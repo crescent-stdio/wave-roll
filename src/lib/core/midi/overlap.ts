@@ -32,16 +32,14 @@ export interface OverlapResult {
  */
 export function groupOverlappingNotes(
   notesByFile: NoteData[][],
-  tolerances: TranscriptionToleranceOptions = DEFAULT_TOLERANCES
+  tolerances: TranscriptionToleranceOptions = DEFAULT_TOLERANCES,
 ): OverlapResult[] {
   type Flat = { note: NoteData; fileIdx: number; flatIdx: number };
 
   // --- 1) Flatten into a single array ------------------------------------
   const flat: Flat[] = [];
   notesByFile.forEach((arr, fi) => {
-    arr.forEach((n) =>
-      flat.push({ note: n, fileIdx: fi, flatIdx: flat.length })
-    );
+    arr.forEach((n) => flat.push({ note: n, fileIdx: fi, flatIdx: flat.length }));
   });
   const n = flat.length;
   if (n === 0) return [];
@@ -91,11 +89,8 @@ export function groupOverlappingNotes(
     if (group.length < 2) return; // Need >=2 notes to qualify as overlap
 
     const onset = group.reduce((acc, g) => acc + g.note.time, 0) / group.length;
-    const duration =
-      group.reduce((acc, g) => acc + g.note.duration, 0) / group.length;
-    const pitch = Math.round(
-      group.reduce((acc, g) => acc + g.note.midi, 0) / group.length
-    );
+    const duration = group.reduce((acc, g) => acc + g.note.duration, 0) / group.length;
+    const pitch = Math.round(group.reduce((acc, g) => acc + g.note.midi, 0) / group.length);
     const fileIndices = [...new Set(group.map((g) => g.fileIdx))];
 
     results.push({ onset, duration, pitch, fileIndices });

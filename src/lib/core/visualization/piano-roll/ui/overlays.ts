@@ -17,7 +17,7 @@ function ensurePositioned(parent: HTMLElement): void {
  */
 export function initializeTooltipOverlay(
   canvas: HTMLCanvasElement,
-  container?: HTMLElement
+  container?: HTMLElement,
 ): HTMLDivElement {
   const parent = container || canvas.parentElement;
   if (!parent) {
@@ -52,7 +52,7 @@ export interface HelpOverlay {
 /** Create and attach a top-right help button with hover panel. */
 export function initializeHelpOverlay(
   canvas: HTMLCanvasElement,
-  container?: HTMLElement
+  container?: HTMLElement,
 ): HelpOverlay {
   const parent = container || canvas.parentElement;
   if (!parent) {
@@ -113,7 +113,10 @@ export function initializeHelpOverlay(
 
   let hideTimer: number | null = null;
   const show = () => {
-    if (hideTimer) { window.clearTimeout(hideTimer); hideTimer = null; }
+    if (hideTimer) {
+      window.clearTimeout(hideTimer);
+      hideTimer = null;
+    }
     panel.style.display = "block";
   };
   const scheduleHide = () => {
@@ -134,5 +137,3 @@ export function initializeHelpOverlay(
   parent.appendChild(panel);
   return { button: btn, panel };
 }
-
-

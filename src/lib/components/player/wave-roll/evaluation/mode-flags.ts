@@ -29,5 +29,3 @@ export function parseModeFlags(highlightMode: string, estCount: number): ModeFla
     aggregationMode,
   };
 }
-
-

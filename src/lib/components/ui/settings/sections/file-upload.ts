@@ -6,9 +6,7 @@ import { parseMidi } from "@/lib/core/parsers/midi-parser";
  *
  * @param deps - The UI component dependencies.
  */
-export function createFileUploadSection(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createFileUploadSection(deps: UIComponentDependencies): HTMLElement {
   const wrapper = document.createElement("div");
 
   // Section title
@@ -38,13 +36,12 @@ export function createFileUploadSection(
         const state = deps.stateManager?.getState();
         const pedalElongate = state?.visual.pedalElongate ?? true;
         const pedalThreshold = state?.visual.pedalThreshold ?? 64;
-        const parsed = await parseMidi(file, { 
+        const parsed = await parseMidi(file, {
           applyPedalElongate: pedalElongate,
-          pedalThreshold: pedalThreshold 
+          pedalThreshold: pedalThreshold,
         });
         deps.midiManager.addMidiFile(file.name, parsed, undefined, file);
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error("Failed to parse MIDI", err);
       }
     }

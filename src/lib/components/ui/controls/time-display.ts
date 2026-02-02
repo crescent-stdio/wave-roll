@@ -10,9 +10,7 @@ import { createMarker } from "../../player/wave-roll/ui/marker";
  * @param dependencies - The UI component dependencies.
  * @returns The time display element.
  */
-export function createTimeDisplayUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createTimeDisplayUI(dependencies: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
       display: flex;
@@ -105,11 +103,7 @@ export function createTimeDisplayUI(
     document.head.appendChild(style);
   }
 
-  const _deprecatedCreateMarker = (
-    label: string,
-    color: string,
-    id: string
-  ) => {
+  const _deprecatedCreateMarker = (label: string, color: string, id: string) => {
     const el = document.createElement("div");
     el.id = id;
     el.className = "wr-marker";
@@ -146,7 +140,7 @@ export function createTimeDisplayUI(
     })();
     const duration = Math.max(lastEffectiveDuration || 0, 0);
     const sec = duration > 0 ? (pct / 100) * duration : 0;
-    // eslint-disable-next-line no-console
+
     // console.log(`[Loop Marker] ${label} clicked`, { percent: pct, timeSec: sec.toFixed(3) });
   };
 
@@ -213,10 +207,7 @@ export function createTimeDisplayUI(
   // Cache for last known effective duration (tempo/WAV-aware)
   let lastEffectiveDuration = 0;
 
-  const localUpdateSeekBar = (override?: {
-    currentTime: number;
-    duration: number;
-  }): void => {
+  const localUpdateSeekBar = (override?: { currentTime: number; duration: number }): void => {
     const state = override ?? dependencies.audioPlayer?.getState();
 
     // Enhanced debugging to track the source of updates
@@ -225,8 +216,7 @@ export function createTimeDisplayUI(
 
     // Only log significant changes to reduce console noise
     const shouldLog =
-      Math.abs((state?.currentTime || 0) - lastValidCurrentTime) > 0.1 ||
-      state?.currentTime === 0;
+      Math.abs((state?.currentTime || 0) - lastValidCurrentTime) > 0.1 || state?.currentTime === 0;
 
     if (shouldLog) {
       // // console.log(
@@ -265,9 +255,7 @@ export function createTimeDisplayUI(
       // If we had a valid non-zero time and suddenly get 0, ignore it
       // unless it's a genuine seek to start
       // Check if we're playing (either from override or from audio player state)
-      const isPlaying = override
-        ? false
-        : dependencies.audioPlayer?.getState()?.isPlaying;
+      const isPlaying = override ? false : dependencies.audioPlayer?.getState()?.isPlaying;
       if (isPlaying) {
         // // console.log(
         //   "[SeekBar.updateSeekBar] Ignoring sudden drop to 0, keeping",
@@ -285,7 +273,7 @@ export function createTimeDisplayUI(
 
     // Update time labels even if duration is 0
     currentTimeLabel.textContent = dependencies.formatTime(state.currentTime);
-    
+
     // Use provided override duration (already tempo/WAV-aware) when available
     if (override) {
       lastEffectiveDuration = Math.max(0, override.duration || 0);
@@ -318,7 +306,9 @@ export function createTimeDisplayUI(
     //   dbgCounters.normal++;
     // }
 
-    const denom = override ? Math.max(override.duration, 0.000001) : Math.max(lastEffectiveDuration || state.duration, 0.000001);
+    const denom = override
+      ? Math.max(override.duration, 0.000001)
+      : Math.max(lastEffectiveDuration || state.duration, 0.000001);
     // Clamp current time to [0, denom] to prevent overflow beyond the end
     const clampedCurrent = Math.min(Math.max(state.currentTime, 0), denom);
     const percent = Math.min(Math.max((clampedCurrent / denom) * 100, 0), 100);
@@ -345,7 +335,9 @@ export function createTimeDisplayUI(
     // percentages [0-100] (this is what loop-controls dispatches). Therefore
     // we can forward directly.
     // Show loop markers when we have a positive effective duration (override wins)
-    const effectiveForOverlay = override ? override.duration : (lastEffectiveDuration || state.duration || 0);
+    const effectiveForOverlay = override
+      ? override.duration
+      : lastEffectiveDuration || state.duration || 0;
     const shouldShowLoopMarkers = effectiveForOverlay > 0;
     updateLoopDisplay({
       loopPoints: shouldShowLoopMarkers ? (dependencies.loopPoints ?? null) : null,

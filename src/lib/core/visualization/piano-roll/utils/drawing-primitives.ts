@@ -2,7 +2,7 @@
  * Drawing primitive utilities for consistent rendering
  */
 
-import * as PIXI from 'pixi.js';
+import * as PIXI from "pixi.js";
 
 export interface LineStyle {
   width: number;
@@ -36,7 +36,7 @@ export class DrawingPrimitives {
     x: number,
     height: number,
     style: LineStyle,
-    yOffset: number = 0
+    yOffset: number = 0,
   ): void {
     graphics.moveTo(x, yOffset);
     graphics.lineTo(x, yOffset + height);
@@ -51,7 +51,7 @@ export class DrawingPrimitives {
     y: number,
     width: number,
     style: LineStyle,
-    xOffset: number = 0
+    xOffset: number = 0,
   ): void {
     graphics.moveTo(xOffset, y);
     graphics.lineTo(xOffset + width, y);
@@ -65,13 +65,13 @@ export class DrawingPrimitives {
     graphics: PIXI.Graphics,
     bounds: Rectangle,
     fillStyle?: FillStyle,
-    strokeStyle?: LineStyle
+    strokeStyle?: LineStyle,
   ): void {
     if (fillStyle) {
       graphics.rect(bounds.x, bounds.y, bounds.width, bounds.height);
       graphics.fill(fillStyle);
     }
-    
+
     if (strokeStyle) {
       graphics.rect(bounds.x, bounds.y, bounds.width, bounds.height);
       graphics.stroke(strokeStyle);
@@ -86,13 +86,13 @@ export class DrawingPrimitives {
     bounds: Rectangle,
     radius: number,
     fillStyle?: FillStyle,
-    strokeStyle?: LineStyle
+    strokeStyle?: LineStyle,
   ): void {
     if (fillStyle) {
       graphics.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, radius);
       graphics.fill(fillStyle);
     }
-    
+
     if (strokeStyle) {
       graphics.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, radius);
       graphics.stroke(strokeStyle);
@@ -108,13 +108,13 @@ export class DrawingPrimitives {
     y: number,
     radius: number,
     fillStyle?: FillStyle,
-    strokeStyle?: LineStyle
+    strokeStyle?: LineStyle,
   ): void {
     if (fillStyle) {
       graphics.circle(x, y, radius);
       graphics.fill(fillStyle);
     }
-    
+
     if (strokeStyle) {
       graphics.circle(x, y, radius);
       graphics.stroke(strokeStyle);
@@ -131,11 +131,11 @@ export class DrawingPrimitives {
     dashLength: number,
     gapLength: number,
     style: LineStyle,
-    yOffset: number = 0
+    yOffset: number = 0,
   ): void {
     let currentY = yOffset;
     const endY = yOffset + height;
-    
+
     while (currentY < endY) {
       const dashEnd = Math.min(currentY + dashLength, endY);
       graphics.moveTo(x, currentY);
@@ -155,11 +155,11 @@ export class DrawingPrimitives {
     dashLength: number,
     gapLength: number,
     style: LineStyle,
-    xOffset: number = 0
+    xOffset: number = 0,
   ): void {
     let currentX = xOffset;
     const endX = xOffset + width;
-    
+
     while (currentX < endX) {
       const dashEnd = Math.min(currentX + dashLength, endX);
       graphics.moveTo(currentX, y);
@@ -184,13 +184,13 @@ export class DrawingPrimitives {
     bounds: Rectangle,
     cellWidth: number,
     cellHeight: number,
-    style: LineStyle
+    style: LineStyle,
   ): void {
     // Draw vertical lines
     for (let x = bounds.x; x <= bounds.x + bounds.width; x += cellWidth) {
       this.drawVerticalLine(graphics, x, bounds.height, style, bounds.y);
     }
-    
+
     // Draw horizontal lines
     for (let y = bounds.y; y <= bounds.y + bounds.height; y += cellHeight) {
       this.drawHorizontalLine(graphics, y, bounds.width, style, bounds.x);

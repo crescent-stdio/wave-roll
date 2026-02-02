@@ -15,9 +15,7 @@ const MAX_TEMPO = 300;
  * @param deps - UI component dependencies
  * @returns HTMLElement containing the export UI
  */
-export function createMidiExportGroup(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createMidiExportGroup(deps: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
     padding: 12px 0;
@@ -295,4 +293,3 @@ export function createMidiExportGroup(
 
   return container;
 }
-

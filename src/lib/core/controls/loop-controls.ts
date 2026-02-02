@@ -18,9 +18,7 @@ export interface LoopControlsHandles {
  * Build A-B loop control buttons (Loop-Restart, A, B, Clear) and
  * internally manage loop point state.
  */
-export function createCoreLoopControls(
-  ctx: LoopControlsDeps
-): LoopControlsHandles {
+export function createCoreLoopControls(ctx: LoopControlsDeps): LoopControlsHandles {
   const { audioPlayer, pianoRoll } = ctx;
 
   /* ------------------------------------------------------------------
@@ -58,7 +56,7 @@ export function createCoreLoopControls(
   const createLoopButton = (
     text: string,
     onClick: () => void,
-    isActive = false
+    isActive = false,
   ): HTMLButtonElement => {
     const btn = document.createElement("button");
     btn.textContent = text;
@@ -171,8 +169,7 @@ export function createCoreLoopControls(
     const state = audioPlayer?.getState();
     if (!state) return;
     pointA = state.currentTime;
-    if (pointB !== null && pointA !== null && pointA > pointB)
-      [pointA, pointB] = [pointB, pointA];
+    if (pointB !== null && pointA !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
     // Debug log commented out by request
     // try {
     //   const pr = state.playbackRate ?? 100;
@@ -213,8 +210,7 @@ export function createCoreLoopControls(
     const state = audioPlayer?.getState();
     if (!state) return;
     pointB = state.currentTime;
-    if (pointA !== null && pointB !== null && pointA > pointB)
-      [pointA, pointB] = [pointB, pointA];
+    if (pointA !== null && pointB !== null && pointA > pointB) [pointA, pointB] = [pointB, pointA];
     btnB.dataset.active = "true";
     btnB.setAttribute("aria-pressed", "true");
     btnB.style.background = COLOR_B;
@@ -295,14 +291,11 @@ export function createCoreLoopControls(
         }
       )._waveRollAudio;
       const files = api?.getFiles?.() || [];
-      const durations = files
-        .map((f) => f.audioBuffer?.duration || 0)
-        .filter((d) => d > 0);
+      const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
       wavMax = durations.length > 0 ? Math.max(...durations) : 0;
     } catch {}
     const rawMax = Math.max(midiDur, wavMax);
-    const effectiveDuration =
-      speed > 0 ? (rawMax > 0 ? rawMax / speed : 0) : rawMax;
+    const effectiveDuration = speed > 0 ? (rawMax > 0 ? rawMax / speed : 0) : rawMax;
     if (effectiveDuration <= 0) return;
 
     // percent positions or null
@@ -316,11 +309,9 @@ export function createCoreLoopControls(
       let end = pointB;
       if (end !== null && start > end) [start, end] = [end, start];
       const clampedStart = Math.min(Math.max(0, start), effectiveDuration);
-      const clampedEnd =
-        end !== null ? Math.min(Math.max(0, end), effectiveDuration) : null;
+      const clampedEnd = end !== null ? Math.min(Math.max(0, end), effectiveDuration) : null;
       loopInfo.a = (clampedStart / effectiveDuration) * 100;
-      loopInfo.b =
-        clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
+      loopInfo.b = clampedEnd !== null ? (clampedEnd / effectiveDuration) * 100 : null;
       pianoRoll?.setLoopWindow?.(clampedStart, clampedEnd);
     } else if (pointB !== null) {
       const clampedB = Math.min(Math.max(0, pointB), effectiveDuration);
@@ -345,7 +336,7 @@ export function createCoreLoopControls(
         detail: { loopWindow },
         bubbles: true,
         composed: true,
-      })
+      }),
     );
   };
 

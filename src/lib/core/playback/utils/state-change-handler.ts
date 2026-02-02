@@ -7,13 +7,13 @@
  */
 export function createStateChangeHandler<T>(
   getCurrentState: () => T,
-  onStateChange: (prevState: T, newState: T) => void
+  onStateChange: (prevState: T, newState: T) => void,
 ) {
   return (updateFn: () => void) => {
     const prevState = getCurrentState();
     updateFn();
     const newState = getCurrentState();
-    
+
     if (prevState !== newState) {
       onStateChange(prevState, newState);
     }
@@ -25,20 +25,20 @@ export function createStateChangeHandler<T>(
  */
 export function createBatchStateHandler<T>(
   getCurrentState: () => T,
-  onBatchComplete: (changes: T[]) => void
+  onBatchComplete: (changes: T[]) => void,
 ) {
   const changes: T[] = [];
   let batchTimeout: number | null = null;
-  
+
   return {
     addChange: (updateFn: () => void) => {
       updateFn();
       changes.push(getCurrentState());
-      
+
       if (batchTimeout) {
         clearTimeout(batchTimeout);
       }
-      
+
       batchTimeout = window.setTimeout(() => {
         if (changes.length > 0) {
           onBatchComplete([...changes]);
@@ -47,18 +47,18 @@ export function createBatchStateHandler<T>(
         batchTimeout = null;
       }, 16); // One frame delay
     },
-    
+
     flush: () => {
       if (batchTimeout) {
         clearTimeout(batchTimeout);
         batchTimeout = null;
       }
-      
+
       if (changes.length > 0) {
         onBatchComplete([...changes]);
         changes.length = 0;
       }
-    }
+    },
   };
 }
 
@@ -72,27 +72,24 @@ export const StateComparison = {
   areEqual<T extends Record<string, unknown>>(a: T, b: T): boolean {
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
-    
+
     if (keysA.length !== keysB.length) return false;
-    
-    return keysA.every(key => a[key] === b[key]);
+
+    return keysA.every((key) => a[key] === b[key]);
   },
 
   /**
    * Get changed properties between two states
    */
-  getChangedProperties<T extends Record<string, unknown>>(
-    prevState: T,
-    newState: T
-  ): Partial<T> {
+  getChangedProperties<T extends Record<string, unknown>>(prevState: T, newState: T): Partial<T> {
     const changes: Partial<T> = {};
-    
+
     for (const key in newState) {
       if (prevState[key] !== newState[key]) {
         changes[key] = newState[key];
       }
     }
-    
+
     return changes;
   },
 
@@ -102,8 +99,8 @@ export const StateComparison = {
   hasPropertiesChanged<T extends Record<string, unknown>>(
     prevState: T,
     newState: T,
-    properties: (keyof T)[]
+    properties: (keyof T)[],
   ): boolean {
-    return properties.some(prop => prevState[prop] !== newState[prop]);
-  }
+    return properties.some((prop) => prevState[prop] !== newState[prop]);
+  },
 };

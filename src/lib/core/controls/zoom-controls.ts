@@ -5,11 +5,7 @@ import type { PianoRollInstance } from "@/lib/core/visualization/piano-roll/type
 /**
  * Zoom controls - numeric input that updates piano roll zoomX.
  */
-export function createZoomControls({
-  pianoRoll,
-}: {
-  pianoRoll: PianoRollInstance;
-}): HTMLElement {
+export function createZoomControls({ pianoRoll }: { pianoRoll: PianoRollInstance }): HTMLElement {
   if (!pianoRoll) {
     throw new Error("Piano roll is required");
   }

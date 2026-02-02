@@ -169,8 +169,7 @@ export const GM_INSTRUMENT_NAMES: readonly string[] = [
 /**
  * SoundFont base URL for loading instrument samples
  */
-export const SOUNDFONT_BASE_URL =
-  "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
+export const SOUNDFONT_BASE_URL = "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
 
 /**
  * Get the GM instrument name for a given MIDI program number.
@@ -222,4 +221,3 @@ export const GM_SAMPLE_MAP: Record<string, string> = {
   "F#4": "Gb4.mp3",
   A4: "A4.mp3",
 };
-
