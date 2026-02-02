@@ -1,6 +1,7 @@
 import { NoteInterval } from "@/core/controls/utils/overlap";
 import type { PianoRoll } from "./piano-roll";
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
+import type { BeatGridConfig, MusicalTimingData } from "./utils/beat-map";
 export type { NoteData } from "@/lib/midi/types";
 
 /**
@@ -27,6 +28,10 @@ export interface PianoRollConfig {
   timeStep?: number;
   /** Minor grid step (seconds) for lighter subdivision lines */
   minorTimeStep?: number;
+  /** Grid display mode: seconds-based or beat/measure-based */
+  gridMode?: "seconds" | "beats";
+  /** Configuration for beat grid rendering */
+  beatGridConfig?: BeatGridConfig;
   /** Custom note renderer function to determine color per note */
   noteRenderer?: (note: NoteData, index: number) => number;
   /** Whether to show waveform band at the bottom (default: true) */
@@ -78,6 +83,13 @@ export type PianoRollInstance = {
 
   /** Resize the visualizer to a new width/height */
   resize: (width: number, height?: number) => void;
+
+  /** Set musical timing data (tempo/time-signature) for beat grid */
+  setMusicalTiming: (timing: MusicalTimingData | null) => void;
+  /** Switch grid display mode between seconds and beats */
+  setGridMode: (mode: "seconds" | "beats") => void;
+  /** Get current grid display mode */
+  getGridMode: () => "seconds" | "beats";
 
   /** Internal reference to the PianoRoll instance */
   _instance?: PianoRoll;

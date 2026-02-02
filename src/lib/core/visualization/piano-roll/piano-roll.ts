@@ -22,6 +22,13 @@ import {
   initializeHelpOverlay,
 } from "@/lib/core/visualization/piano-roll/ui/overlays";
 import { clampPanX, clampPanY } from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
+import {
+  buildBeatMap,
+  musicalTimingEqual,
+  DEFAULT_BEAT_GRID_CONFIG,
+  type GridMarker,
+  type MusicalTimingData,
+} from "@/lib/core/visualization/piano-roll/utils/beat-map";
 import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
@@ -131,6 +138,11 @@ export class PianoRoll {
   public onlyOriginalOnsets?: boolean;
   public fileInfoMap?: FileInfoMap;
 
+  /** Musical timing data from the loaded MIDI file (tempo + time signature) */
+  public musicalTiming: MusicalTimingData | null = null;
+  /** Pre-computed beat/measure grid markers (only populated in 'beats' mode) */
+  public beatGridMarkers: ReadonlyArray<Readonly<GridMarker>> = [];
+
   private constructor(
     canvas: HTMLCanvasElement,
     domContainer: HTMLElement,
@@ -152,6 +164,8 @@ export class PianoRoll {
       minorTimeStep: 0.1,
       noteRenderer: undefined,
       showWaveformBand: true,
+      gridMode: "seconds" as const,
+      beatGridConfig: undefined,
       ...options,
     } as Required<PianoRollConfig>;
 
@@ -198,6 +212,19 @@ export class PianoRoll {
     this.timeScale = timeScale;
     this.pitchScale = pitchScale;
     this.pxPerSecond = pxPerSecond;
+
+    this.recalculateBeatMap();
+  }
+
+  /** Recompute beat grid markers when timing data or grid mode changes */
+  private recalculateBeatMap(): void {
+    if (this.musicalTiming && this.options.gridMode === "beats") {
+      const maxTime = this.timeScale.domain()[1];
+      const config = this.options.beatGridConfig ?? DEFAULT_BEAT_GRID_CONFIG;
+      this.beatGridMarkers = buildBeatMap(this.musicalTiming, maxTime, config);
+    } else {
+      this.beatGridMarkers = [];
+    }
   }
 
   /**
@@ -1047,5 +1074,28 @@ export class PianoRoll {
     // Mark for full note-layer redraw so sustain overlay refreshes
     this.needsNotesRedraw = true;
     this.render();
+  }
+
+  /** Set musical timing data and recalculate beat grid if in beats mode */
+  public setMusicalTiming(timing: MusicalTimingData | null): void {
+    if (musicalTimingEqual(this.musicalTiming, timing)) return;
+    this.musicalTiming = timing;
+    this.recalculateBeatMap();
+    if (this.options.gridMode === "beats") {
+      this.requestRender();
+    }
+  }
+
+  /** Switch grid display mode and trigger re-render */
+  public setGridMode(mode: "seconds" | "beats"): void {
+    if (this.options.gridMode === mode) return;
+    this.options.gridMode = mode;
+    this.recalculateBeatMap();
+    this.requestRender();
+  }
+
+  /** Get current grid display mode */
+  public getGridMode(): "seconds" | "beats" {
+    return this.options.gridMode;
   }
 }

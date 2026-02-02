@@ -146,6 +146,15 @@ export async function createPianoRoll(
     /** Resize the PixiJS renderer */
     resize: (width: number, height?: number) => pianoRoll.resize(width, height),
 
+    /** Set musical timing data (tempo/time-signature) for beat grid */
+    setMusicalTiming: (timing) => pianoRoll.setMusicalTiming(timing),
+
+    /** Switch grid display mode between seconds and beats */
+    setGridMode: (mode) => pianoRoll.setGridMode(mode),
+
+    /** Get current grid display mode */
+    getGridMode: () => pianoRoll.getGridMode(),
+
     /**
      * Get the underlying PianoRoll instance for direct access
      * This is needed for setting internal properties like fileInfoMap

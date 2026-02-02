@@ -8,6 +8,8 @@ import {
   DrawingPrimitives,
   ColorCalculator,
 } from "../utils";
+import type { GridMarker } from "../utils/beat-map";
+import type { CoordinateTransform } from "../utils/coordinate-transforms";
 import { midiToNoteName } from "@/lib/core/utils/midi/pitch";
 // import { drawOverlapRegions } from "./overlaps"; // kept for future use
 
@@ -109,70 +111,14 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     }
   }
 
-  // Time grid lines (major & minor)
-  const timeStep = pianoRoll.options.timeStep;
-  const minorStep = pianoRoll.options.minorTimeStep;
-  const maxTime = pianoRoll.timeScale.domain()[1];
-
-  // Calculate minimum label spacing to prevent overlap
-  const minLabelSpacing = 50; // pixels
+  // Time grid lines — delegate to mode-specific renderer
   const transform = createCoordinateTransform(pianoRoll);
-  const pixelsPerSecond = transform.getPixelsPerSecond();
+  const minLabelSpacing = 50; // pixels
 
-  // Helper to draw vertical grid line
-  const drawGridLine = (tVal: number, alpha: number, showLabel: boolean) => {
-    const x = transform.timeToPixel(tVal) + pianoRoll.state.panX;
-
-    // Only draw if line is within viewport
-    if (x < -10 || x > pianoRoll.options.width + 10) {
-      return;
-    }
-
-    DrawingPrimitives.drawVerticalLine(pianoRoll.backgroundGrid, x, pianoRoll.options.height, {
-      width: 1,
-      color: 0xe0e0e0,
-      alpha,
-    });
-
-    if (showLabel) {
-      const label = new PIXI.Text({
-        text: tVal.toFixed(1) + "s",
-        style: {
-          fontSize: 10,
-          fill: 0x555555,
-          align: "center",
-        },
-      });
-      label.x = x + 2;
-      label.y = pianoRoll.options.height - 14;
-      pianoRoll.backgroundLabelContainer.addChild(label);
-    }
-  };
-
-  // Major lines - only show labels at appropriate intervals
-  let lastLabelX = -Infinity;
-  for (let t = 0; t <= maxTime; t += timeStep) {
-    const x = transform.timeToPixel(t) + pianoRoll.state.panX;
-
-    // Show label only if there's enough space from the previous label
-    const showLabel = x - lastLabelX >= minLabelSpacing;
-    if (showLabel) {
-      lastLabelX = x;
-    }
-
-    drawGridLine(t, 1.0, showLabel);
-  }
-
-  // Minor subdivision lines (draw after to appear underneath labels)
-  if (minorStep && minorStep < timeStep) {
-    const eps = minorStep / 1000; // tolerance for float comparisons
-    for (let t = 0; t <= maxTime + eps; t += minorStep) {
-      // skip if approximately a major line
-      if (Math.abs(t % timeStep) < eps || Math.abs(timeStep - (t % timeStep)) < eps) {
-        continue;
-      }
-      drawGridLine(t, 0.25, false);
-    }
+  if (pianoRoll.options.gridMode === "beats" && pianoRoll.beatGridMarkers.length > 0) {
+    renderBeatGrid(pianoRoll, transform, minLabelSpacing);
+  } else {
+    renderSecondsGrid(pianoRoll, transform, minLabelSpacing);
   }
 
   // -------------------------------------------------------------
@@ -405,4 +351,123 @@ export function renderGrid(pianoRoll: PianoRoll): void {
     } catch (_err) {
       // Ignore waveform errors to keep grid robust
     }
+}
+
+// ---------------------------------------------------------------------------
+// Seconds-based grid (original logic extracted into helper)
+// ---------------------------------------------------------------------------
+
+function renderSecondsGrid(
+  pianoRoll: PianoRoll,
+  transform: CoordinateTransform,
+  minLabelSpacing: number,
+): void {
+  const timeStep = pianoRoll.options.timeStep;
+  const minorStep = pianoRoll.options.minorTimeStep;
+  const maxTime = pianoRoll.timeScale.domain()[1];
+
+  const drawGridLine = (tVal: number, alpha: number, showLabel: boolean) => {
+    const x = transform.timeToPixel(tVal) + pianoRoll.state.panX;
+    if (x < -10 || x > pianoRoll.options.width + 10) return;
+
+    DrawingPrimitives.drawVerticalLine(pianoRoll.backgroundGrid, x, pianoRoll.options.height, {
+      width: 1,
+      color: 0xe0e0e0,
+      alpha,
+    });
+
+    if (showLabel) {
+      const label = new PIXI.Text({
+        text: tVal.toFixed(1) + "s",
+        style: { fontSize: 10, fill: 0x555555, align: "center" },
+      });
+      label.x = x + 2;
+      label.y = pianoRoll.options.height - 14;
+      pianoRoll.backgroundLabelContainer.addChild(label);
+    }
+  };
+
+  // Major lines
+  let lastLabelX = -Infinity;
+  for (let t = 0; t <= maxTime; t += timeStep) {
+    const x = transform.timeToPixel(t) + pianoRoll.state.panX;
+    const showLabel = x - lastLabelX >= minLabelSpacing;
+    if (showLabel) lastLabelX = x;
+    drawGridLine(t, 1.0, showLabel);
+  }
+
+  // Minor subdivision lines
+  if (minorStep && minorStep < timeStep) {
+    const eps = minorStep / 1000;
+    for (let t = 0; t <= maxTime + eps; t += minorStep) {
+      if (Math.abs(t % timeStep) < eps || Math.abs(timeStep - (t % timeStep)) < eps) continue;
+      drawGridLine(t, 0.25, false);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Beat/measure-based grid
+// ---------------------------------------------------------------------------
+
+/** Binary search for the first marker with time >= target */
+function lowerBound(markers: ReadonlyArray<Readonly<GridMarker>>, target: number): number {
+  let lo = 0;
+  let hi = markers.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (markers[mid].time < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+function renderBeatGrid(
+  pianoRoll: PianoRoll,
+  transform: CoordinateTransform,
+  minLabelSpacing: number,
+): void {
+  const markers = pianoRoll.beatGridMarkers;
+  const panX = pianoRoll.state.panX;
+  const width = pianoRoll.options.width;
+  const height = pianoRoll.options.height;
+
+  // Determine visible time range for pre-filtering
+  const visibleRange = getVisibleTimeRange(pianoRoll);
+  const startIdx = Math.max(0, lowerBound(markers, visibleRange.timeStart) - 1);
+  const endIdx = Math.min(markers.length, lowerBound(markers, visibleRange.timeEnd) + 1);
+
+  let lastLabelX = -Infinity;
+
+  for (let i = startIdx; i < endIdx; i++) {
+    const marker = markers[i];
+    const x = transform.timeToPixel(marker.time) + panX;
+
+    // Viewport clipping
+    if (x < -10 || x > width + 10) continue;
+
+    // Visual style: measure starts are prominent, beats are subtle
+    const isMeasure = marker.isMeasureStart;
+    const alpha = isMeasure ? 1.0 : 0.35;
+    const lineWidth = isMeasure ? 1.5 : 0.5;
+
+    DrawingPrimitives.drawVerticalLine(pianoRoll.backgroundGrid, x, height, {
+      width: lineWidth,
+      color: isMeasure ? 0xcccccc : 0xe0e0e0,
+      alpha,
+    });
+
+    // Labels: always show for measure starts (with spacing), optionally for beats
+    const showLabel = isMeasure && x - lastLabelX >= minLabelSpacing;
+    if (showLabel) {
+      lastLabelX = x;
+      const label = new PIXI.Text({
+        text: marker.label,
+        style: { fontSize: 10, fill: 0x555555, align: "center" },
+      });
+      label.x = x + 2;
+      label.y = height - 14;
+      pianoRoll.backgroundLabelContainer.addChild(label);
+    }
+  }
 }

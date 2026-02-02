@@ -188,6 +188,32 @@ export class VisualizationHandler {
       // Finally, push CC data to piano-roll which will trigger a re-render of
       // the sustain overlay using the freshly injected colour map.
       piano.setControlChanges?.(controlChanges);
+
+      // ------------------------------------------------------------------
+      // Push musical timing data (tempo + time signature) so the beat grid
+      // can render when the user switches to 'beats' mode.
+      // Prefer the Reference file; fall back to the first file with timing.
+      // ------------------------------------------------------------------
+      const evalState2 = this.stateManager.getState().evaluation;
+      const refFile = state.files.find(
+        (f: MidiFileEntry) =>
+          f.id === evalState2?.refId && (f.parsedData?.header as any)?.timeSignatures?.length,
+      );
+      const timingSource =
+        refFile ??
+        state.files.find(
+          (f: MidiFileEntry) => (f.parsedData?.header as any)?.timeSignatures?.length,
+        );
+      if (timingSource?.parsedData) {
+        const header = timingSource.parsedData.header as any;
+        piano.setMusicalTiming?.({
+          tempos: header.tempos ?? [],
+          timeSignatures: header.timeSignatures ?? [],
+          ppq: header.PPQ ?? header.ppq ?? 480,
+        });
+      } else {
+        piano.setMusicalTiming?.(null);
+      }
     }
   }
 
