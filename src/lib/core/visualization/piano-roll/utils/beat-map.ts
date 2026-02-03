@@ -44,6 +44,8 @@ export interface MusicalTimingData {
   readonly tempos: readonly TempoEvent[];
   readonly timeSignatures: readonly TimeSignatureEvent[];
   readonly ppq: number;
+  /** First note time in seconds; used to detect pickup beats */
+  readonly firstNoteTime?: number;
 }
 
 /** Sensible defaults for v1 (beats resolution, no subdivisions) */
@@ -138,8 +140,28 @@ export function buildBeatMap(
   const segments = buildSegments(timing);
   if (segments.length === 0) return [];
 
+  // Detect pickup beat: if first note doesn't land on beat 1 of a measure,
+  // start measure numbering from 0 so that beat 1 of measure 1 aligns properly
+  const firstSeg = segments[0];
+  const firstSegSecondsPerBeat = 60 / firstSeg.bpm / (firstSeg.denominator / 4);
+  const firstSegBeatsPerMeasure = firstSeg.numerator;
+
+  let startMeasure = 1;
+  if (timing.firstNoteTime !== undefined && timing.firstNoteTime > 0) {
+    // Snap first note to nearest beat
+    const snappedBeatIndex = Math.round(timing.firstNoteTime / firstSegSecondsPerBeat);
+    // Which beat of the measure does this land on? (1-based)
+    const beatInMeasure = (snappedBeatIndex % firstSegBeatsPerMeasure) + 1;
+
+    if (beatInMeasure !== 1) {
+      // First note is NOT on beat 1 → this is a pickup beat
+      // Start from measure 0 so that the next beat 1 becomes measure 1
+      startMeasure = 0;
+    }
+  }
+
   const markers: GridMarker[] = [];
-  let measure = 1;
+  let measure = startMeasure;
   let beat = 1;
 
   // Track the previous time signature so we can detect changes
@@ -244,6 +266,7 @@ export function musicalTimingEqual(
   if (a === b) return true;
   if (!a || !b) return false;
   if (a.ppq !== b.ppq) return false;
+  if (a.firstNoteTime !== b.firstNoteTime) return false;
   if (a.tempos.length !== b.tempos.length) return false;
   if (a.timeSignatures.length !== b.timeSignatures.length) return false;
 

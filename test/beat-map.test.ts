@@ -147,6 +147,73 @@ describe("buildBeatMap", () => {
       expect(m.beat).toBe(1);
     }
   });
+
+  describe("pickup beat detection", () => {
+    it("starts from measure 1 when firstNoteTime is 0 (no pickup)", () => {
+      const timing = makeTiming({ firstNoteTime: 0 });
+      const markers = buildBeatMap(timing, 4, DEFAULT_BEAT_GRID_CONFIG);
+
+      // First marker should be measure 1
+      expect(markers[0].measure).toBe(1);
+      expect(markers[0].beat).toBe(1);
+      expect(markers[0].label).toMatch(/^1/); // "1" or "1 (4/4)"
+    });
+
+    it("starts from measure 1 when firstNoteTime lands on beat 1 (no pickup)", () => {
+      // 120 BPM, 4/4 => beat 1 of measure 2 is at t=2.0
+      const timing = makeTiming({ firstNoteTime: 2.0 });
+      const markers = buildBeatMap(timing, 4, DEFAULT_BEAT_GRID_CONFIG);
+
+      // First marker should still be measure 1 (firstNoteTime rounds to beat 4 at t=2.0)
+      // Actually beat 4 at 2.0s (beat index = 4, 4 % 4 + 1 = 1) -> beat 1, so no pickup
+      expect(markers[0].measure).toBe(1);
+    });
+
+    it("starts from measure 0 when firstNoteTime lands on beat 2 (pickup)", () => {
+      // 120 BPM, 4/4 => beat 2 is at t=0.5
+      const timing = makeTiming({ firstNoteTime: 0.5 });
+      const markers = buildBeatMap(timing, 4, DEFAULT_BEAT_GRID_CONFIG);
+
+      // First marker should be measure 0 because first note is on beat 2
+      expect(markers[0].measure).toBe(0);
+      expect(markers[0].beat).toBe(1);
+      expect(markers[0].label).toMatch(/^0/);
+
+      // Measure 1 should start at beat 5 (t=2.0)
+      const m1Start = markers.find((m) => m.measure === 1 && m.beat === 1);
+      expect(m1Start).toBeDefined();
+      expect(m1Start!.time).toBeCloseTo(2.0, 6);
+    });
+
+    it("starts from measure 0 when firstNoteTime lands on beat 4 (pickup)", () => {
+      // 120 BPM, 4/4 => beat 4 is at t=1.5
+      const timing = makeTiming({ firstNoteTime: 1.5 });
+      const markers = buildBeatMap(timing, 4, DEFAULT_BEAT_GRID_CONFIG);
+
+      // First marker should be measure 0 because first note is on beat 4
+      expect(markers[0].measure).toBe(0);
+    });
+
+    it("handles 3/4 time signature with pickup on beat 3", () => {
+      // 120 BPM, 3/4 => beats at 0, 0.5, 1.0, 1.5, ...
+      // beat 3 of measure is at t=1.0 (beat index 2, 2 % 3 + 1 = 3)
+      const timing = makeTiming({
+        timeSignatures: [{ time: 0, ticks: 0, numerator: 3, denominator: 4 }],
+        firstNoteTime: 1.0,
+      });
+      const markers = buildBeatMap(timing, 4, DEFAULT_BEAT_GRID_CONFIG);
+
+      // First note on beat 3 → pickup → measure 0
+      expect(markers[0].measure).toBe(0);
+    });
+
+    it("no pickup when firstNoteTime is undefined", () => {
+      const timing = makeTiming(); // no firstNoteTime
+      const markers = buildBeatMap(timing, 4, DEFAULT_BEAT_GRID_CONFIG);
+
+      expect(markers[0].measure).toBe(1);
+    });
+  });
 });
 
 describe("musicalTimingEqual", () => {
@@ -179,5 +246,17 @@ describe("musicalTimingEqual", () => {
     expect(musicalTimingEqual(null, null)).toBe(true);
     expect(musicalTimingEqual(makeTiming(), null)).toBe(false);
     expect(musicalTimingEqual(null, makeTiming())).toBe(false);
+  });
+
+  it("returns false when firstNoteTime differs", () => {
+    const a = makeTiming({ firstNoteTime: 0.5 });
+    const b = makeTiming({ firstNoteTime: 1.0 });
+    expect(musicalTimingEqual(a, b)).toBe(false);
+  });
+
+  it("returns true when firstNoteTime is equal", () => {
+    const a = makeTiming({ firstNoteTime: 0.5 });
+    const b = makeTiming({ firstNoteTime: 0.5 });
+    expect(musicalTimingEqual(a, b)).toBe(true);
   });
 });

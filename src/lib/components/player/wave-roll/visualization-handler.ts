@@ -206,10 +206,20 @@ export class VisualizationHandler {
         );
       if (timingSource?.parsedData) {
         const header = timingSource.parsedData.header as any;
+
+        // Use timing source file's first note for pickup detection.
+        // This ensures the Reference file (ground truth) determines pickup,
+        // not comparison files which may have different timing.
+        let firstNoteTime = 0;
+        if (timingSource.parsedData.notes?.length) {
+          firstNoteTime = Math.min(...timingSource.parsedData.notes.map((n) => n.time));
+        }
+
         piano.setMusicalTiming?.({
           tempos: header.tempos ?? [],
           timeSignatures: header.timeSignatures ?? [],
           ppq: header.PPQ ?? header.ppq ?? 480,
+          firstNoteTime,
         });
       } else {
         piano.setMusicalTiming?.(null);
