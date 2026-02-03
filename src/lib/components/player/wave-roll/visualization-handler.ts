@@ -10,6 +10,7 @@ import { EvaluationHandler } from "./evaluation-handler";
 import type { PianoRoll } from "@/core/visualization/piano-roll";
 import type { PianoRollAugments } from "@/core/visualization/piano-roll/types-internal";
 import { ColorCalculator } from "@/core/visualization/piano-roll/utils/color-calculator";
+import type { MusicalTimingData } from "@/core/visualization/piano-roll/utils/beat-map";
 type AugPR = PianoRoll & PianoRollAugments;
 
 export class VisualizationHandler {
@@ -63,6 +64,44 @@ export class VisualizationHandler {
   }
 
   /**
+   * Extract musical timing from timing source file for snap calculation.
+   * Called before piano.setMusicalTiming() to enable snap in getColoredNotes().
+   */
+  private getTimingForSnap(files: MidiFileEntry[]): MusicalTimingData | null {
+    const evalState = this.stateManager.getState().evaluation;
+
+    const refFile = files.find(
+      (f) => f.id === evalState?.refId && (f.parsedData?.header as any)?.timeSignatures?.length,
+    );
+    const timingSource =
+      refFile ?? files.find((f) => (f.parsedData?.header as any)?.timeSignatures?.length);
+
+    if (!timingSource?.parsedData) return null;
+
+    const header = timingSource.parsedData.header as any;
+    return {
+      tempos: header.tempos ?? [],
+      timeSignatures: header.timeSignatures ?? [],
+      ppq: header.PPQ ?? header.ppq ?? 480,
+    };
+  }
+
+  /**
+   * Snap a time value to the nearest beat.
+   * Returns original time if timing is unavailable.
+   */
+  private snapTimeToGrid(time: number, timing: MusicalTimingData | null): number {
+    if (!timing || timing.tempos.length === 0) return time;
+
+    const bpm = timing.tempos[0].bpm;
+    const denominator = timing.timeSignatures[0]?.denominator ?? 4;
+    const secondsPerBeat = 60 / bpm / (denominator / 4);
+
+    const beatIndex = Math.round(time / secondsPerBeat);
+    return beatIndex * secondsPerBeat;
+  }
+
+  /**
    * Update visualization
    */
   updateVisualization(): void {
@@ -74,12 +113,20 @@ export class VisualizationHandler {
     }
 
     const state = this.midiManager.getState();
+    const visualState = this.stateManager.getState().visual;
 
     // Calculate stretch factors once for use in notes and CC events
     const stretchFactors = this.getStretchFactors(state.files);
 
+    // Get timing for snap BEFORE getColoredNotes (snap only in beats mode)
+    const snapEnabled = visualState.snapToGridEnabled ?? false;
+    const pianoForMode = this.visualizationEngine.getPianoRollInstance();
+    const gridMode = pianoForMode?.getGridMode?.() ?? "seconds";
+    const snapTiming =
+      snapEnabled && gridMode === "beats" ? this.getTimingForSnap(state.files) : null;
+
     // Build notes for piano-roll (visible) and audio (all but muted)
-    const coloredNotesVisible = this.getColoredNotes(state, stretchFactors);
+    const coloredNotesVisible = this.getColoredNotes(state, stretchFactors, snapTiming);
 
     // --- Audio mixing --------------------------------------------------
     // IMPORTANT: Include ALL files in audioNotes regardless of mute state
@@ -127,10 +174,14 @@ export class VisualizationHandler {
           const trackSustainVisible = file.trackSustainVisibility?.[cc.trackId] ?? true;
           if (!trackSustainVisible) return;
         }
-        // Apply tempo sync stretch factor to CC event time
+        // Apply tempo sync stretch factor, then snap to grid
+        let adjustedTime = cc.time * stretchFactor;
+        if (snapTiming) {
+          adjustedTime = this.snapTimeToGrid(adjustedTime, snapTiming);
+        }
         controlChanges.push({
           ...cc,
-          time: cc.time * stretchFactor,
+          time: adjustedTime,
           fileId: file.id,
         });
       });
@@ -225,13 +276,18 @@ export class VisualizationHandler {
         // Provide a mapping of original MIDI onsets so the renderer can
         // suppress markers on segmented fragments in eval/highlight modes.
         // When tempo sync is enabled, apply stretch factor to match note positions.
+        // When snap is enabled, also snap onsets to the grid.
         const origOnsetMap: Record<string, number> = {};
         state.files.forEach((f: MidiFileEntry) => {
           if (!f.isPianoRollVisible || !f.parsedData?.notes) return;
           const fid = f.id;
           const stretchFactor = stretchFactors[fid] ?? 1.0;
           f.parsedData.notes.forEach((n, i: number) => {
-            origOnsetMap[`${fid}#${i}`] = n.time * stretchFactor;
+            let adjustedTime = n.time * stretchFactor;
+            if (snapTiming) {
+              adjustedTime = this.snapTimeToGrid(adjustedTime, snapTiming);
+            }
+            origOnsetMap[`${fid}#${i}`] = adjustedTime;
           });
         });
         (pianoInstance as AugPR).originalOnsetMap = origOnsetMap;
@@ -284,10 +340,12 @@ export class VisualizationHandler {
    * Get colored notes from MIDI state
    * @param state MIDI state containing files
    * @param stretchFactors Pre-calculated tempo stretch factors per file (from getStretchFactors)
+   * @param snapTiming Timing data for snap to grid (null if disabled)
    */
   getColoredNotes(
     state: { files: MidiFileEntry[] },
     stretchFactors: Record<string, number> = {},
+    snapTiming: MusicalTimingData | null = null,
   ): ColoredNote[] {
     const fallbackColors = [COLOR_PRIMARY, COLOR_A, COLOR_B];
 
@@ -347,8 +405,13 @@ export class VisualizationHandler {
         }
 
         // Apply tempo sync stretch factor to time and duration
-        const adjustedTime = n.time * stretchFactor;
+        let adjustedTime = n.time * stretchFactor;
         const adjustedDuration = n.duration * stretchFactor;
+
+        // Apply snap to grid (after tempo sync, onset only - duration not snapped)
+        if (snapTiming) {
+          adjustedTime = this.snapTimeToGrid(adjustedTime, snapTiming);
+        }
 
         baseNotes.push({
           note: {

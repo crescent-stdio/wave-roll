@@ -111,6 +111,8 @@ export interface VisualState {
   uniformTrackColor: boolean;
   /** Whether to time-stretch non-reference files to align with reference tempo */
   tempoSyncEnabled: boolean;
+  /** Whether to snap note onsets to the nearest beat grid line (visual only) */
+  snapToGridEnabled: boolean;
 }
 
 /**

@@ -65,6 +65,7 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   fileOnsetMarkers: {},
   uniformTrackColor: false,
   tempoSyncEnabled: false,
+  snapToGridEnabled: false,
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {
