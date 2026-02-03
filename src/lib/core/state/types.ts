@@ -72,6 +72,11 @@ export interface PanVolumeState {
 /**
  * Visual state for piano roll and note rendering
  */
+/**
+ * Snap resolution for grid alignment
+ */
+export type SnapResolution = "beat" | "8th" | "16th" | "32nd" | "64th";
+
 export type HighlightMode =
   | "file"
   // Legacy non-evaluation highlight modes (kept for backward-compatibility)
@@ -113,6 +118,8 @@ export interface VisualState {
   tempoSyncEnabled: boolean;
   /** Whether to snap note onsets to the nearest beat grid line (visual only) */
   snapToGridEnabled: boolean;
+  /** Snap resolution for grid alignment (beat, 8th, 16th, etc.) */
+  snapResolution: SnapResolution;
 }
 
 /**
