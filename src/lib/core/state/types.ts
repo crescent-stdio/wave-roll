@@ -109,6 +109,8 @@ export interface VisualState {
   fileOnsetMarkers: Record<string, OnsetMarkerStyle>;
   /** Whether to use uniform color for all tracks (no lightness variation) */
   uniformTrackColor: boolean;
+  /** Whether to time-stretch non-reference files to align with reference tempo */
+  tempoSyncEnabled: boolean;
 }
 
 /**

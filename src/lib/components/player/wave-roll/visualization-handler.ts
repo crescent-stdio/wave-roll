@@ -24,6 +24,45 @@ export class VisualizationHandler {
   }
 
   /**
+   * Calculate tempo stretch factors for each file when tempo sync is enabled.
+   * Returns an empty record if tempo sync is disabled.
+   *
+   * stretchFactor = fileTempo / refTempo
+   * A file with 240 BPM compared to 120 BPM ref needs factor 2.0
+   * (its notes are squeezed in time, so we stretch them to align)
+   */
+  private getStretchFactors(files: MidiFileEntry[]): Record<string, number> {
+    const appState = this.stateManager.getState();
+    const visualState = appState.visual;
+    const evalState = appState.evaluation;
+
+    if (!visualState.tempoSyncEnabled || !evalState?.refId) {
+      return {};
+    }
+
+    const stretchFactors: Record<string, number> = {};
+    const refFile = files.find((f) => f.id === evalState.refId);
+    const refTempo = (refFile?.parsedData?.header as any)?.tempos?.[0]?.bpm ?? 120;
+
+    files.forEach((file) => {
+      if (file.id === evalState.refId) {
+        stretchFactors[file.id] = 1.0; // Reference file is never stretched
+      } else {
+        const fileTempo = (file.parsedData?.header as any)?.tempos?.[0]?.bpm ?? refTempo;
+        if (Math.abs(fileTempo - refTempo) < 0.01) {
+          stretchFactors[file.id] = 1.0;
+        } else {
+          // Clamp to reasonable range [0.25, 4.0]
+          const factor = fileTempo / refTempo;
+          stretchFactors[file.id] = Math.max(0.25, Math.min(4.0, factor));
+        }
+      }
+    });
+
+    return stretchFactors;
+  }
+
+  /**
    * Update visualization
    */
   updateVisualization(): void {
@@ -36,8 +75,11 @@ export class VisualizationHandler {
 
     const state = this.midiManager.getState();
 
+    // Calculate stretch factors once for use in notes and CC events
+    const stretchFactors = this.getStretchFactors(state.files);
+
     // Build notes for piano-roll (visible) and audio (all but muted)
-    const coloredNotesVisible = this.getColoredNotes(state);
+    const coloredNotesVisible = this.getColoredNotes(state, stretchFactors);
 
     // --- Audio mixing --------------------------------------------------
     // IMPORTANT: Include ALL files in audioNotes regardless of mute state
@@ -72,6 +114,10 @@ export class VisualizationHandler {
       const fileSustainVisible = file.isSustainVisible ?? true;
       if (!file.isPianoRollVisible || !fileSustainVisible || !file.parsedData?.controlChanges)
         return;
+
+      // Get stretch factor for this file (1.0 if tempo sync disabled or not applicable)
+      const stretchFactor = stretchFactors[file.id] ?? 1.0;
+
       // Stamp each CC event with the originating fileId so the renderer can
       // apply consistent per-track colouring.
       // Also filter by per-track sustain visibility if trackId is present.
@@ -81,7 +127,12 @@ export class VisualizationHandler {
           const trackSustainVisible = file.trackSustainVisibility?.[cc.trackId] ?? true;
           if (!trackSustainVisible) return;
         }
-        controlChanges.push({ ...cc, fileId: file.id });
+        // Apply tempo sync stretch factor to CC event time
+        controlChanges.push({
+          ...cc,
+          time: cc.time * stretchFactor,
+          fileId: file.id,
+        });
       });
     });
     // Chronological order helps renderer build segments quicker
@@ -173,12 +224,14 @@ export class VisualizationHandler {
         (pianoInstance as AugPR).onsetStyles = onsetStyles;
         // Provide a mapping of original MIDI onsets so the renderer can
         // suppress markers on segmented fragments in eval/highlight modes.
+        // When tempo sync is enabled, apply stretch factor to match note positions.
         const origOnsetMap: Record<string, number> = {};
         state.files.forEach((f: MidiFileEntry) => {
           if (!f.isPianoRollVisible || !f.parsedData?.notes) return;
           const fid = f.id;
+          const stretchFactor = stretchFactors[fid] ?? 1.0;
           f.parsedData.notes.forEach((n, i: number) => {
-            origOnsetMap[`${fid}#${i}`] = n.time;
+            origOnsetMap[`${fid}#${i}`] = n.time * stretchFactor;
           });
         });
         (pianoInstance as AugPR).originalOnsetMap = origOnsetMap;
@@ -229,8 +282,13 @@ export class VisualizationHandler {
 
   /**
    * Get colored notes from MIDI state
+   * @param state MIDI state containing files
+   * @param stretchFactors Pre-calculated tempo stretch factors per file (from getStretchFactors)
    */
-  getColoredNotes(state: { files: MidiFileEntry[] }): ColoredNote[] {
+  getColoredNotes(
+    state: { files: MidiFileEntry[] },
+    stretchFactors: Record<string, number> = {},
+  ): ColoredNote[] {
     const fallbackColors = [COLOR_PRIMARY, COLOR_A, COLOR_B];
 
     const toNumberColor = (c: string | number): number =>
@@ -255,6 +313,9 @@ export class VisualizationHandler {
 
       // Cache track variant colors to avoid repeated HSL conversion
       const trackColorCache: Record<number, number> = {};
+
+      // Get stretch factor for this file (1.0 if tempo sync disabled)
+      const stretchFactor = stretchFactors[file.id] ?? 1.0;
 
       file.parsedData.notes.forEach((n, noteIdx: number) => {
         // Check track visibility: if trackId is set, respect trackVisibility
@@ -285,9 +346,15 @@ export class VisualizationHandler {
           noteColor = trackColorCache[trackId];
         }
 
+        // Apply tempo sync stretch factor to time and duration
+        const adjustedTime = n.time * stretchFactor;
+        const adjustedDuration = n.duration * stretchFactor;
+
         baseNotes.push({
           note: {
             ...n,
+            time: adjustedTime,
+            duration: adjustedDuration,
             velocity: scaledVelocity,
             fileId: file.id,
             sourceIndex: noteIdx,

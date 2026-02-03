@@ -9,6 +9,7 @@ import { createTimeDisplayUI } from "./time-display";
 import { createSettingsControlUI } from "./settings";
 import { createHighlightModeGroup } from "../settings/controls/highlight-mode-group";
 import { createGridModeControl } from "./grid-mode";
+import { createTempoSyncControl } from "./tempo-sync";
 
 /**
  * Assemble all UI sub-controls and inject them into the given containers.
@@ -56,8 +57,9 @@ export function setupUI(
   row.appendChild(createTempoControlUI(deps));
   row.appendChild(createZoomControlsUI(deps));
   row.appendChild(createGridModeControl(deps));
-  // Hide highlight mode (Show notes) dropdown in solo mode
+  // Hide tempo sync and highlight mode in solo mode
   if (!deps.soloMode) {
+    row.appendChild(createTempoSyncControl(deps));
     row.appendChild(createHighlightModeGroup(deps, { withWrapper: true }));
   }
   row.appendChild(createSettingsControlUI(deps));
