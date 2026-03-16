@@ -37,8 +37,8 @@ import vocalRaw from "./icons/instrument/vocal.svg?raw";
 import organRaw from "./icons/instrument/organ.svg?raw";
 import malletRaw from "./icons/instrument/mallet.svg?raw";
 import othersRaw from "./icons/instrument/others.svg?raw";
-import chevronDownRaw from "./icons/instrument/chevron-down.svg?raw";
-import chevronRightRaw from "./icons/instrument/chevron-right.svg?raw";
+import chevronDownRaw from "./icons/player/chevron-down.svg?raw";
+import chevronRightRaw from "./icons/player/chevron-right.svg?raw";
 
 /**
  * SVG icons for each instrument family.
