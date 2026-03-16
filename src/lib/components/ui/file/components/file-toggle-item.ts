@@ -177,12 +177,16 @@ export class FileToggleItem {
       `;
       colorDot.title = `Track ${track.id + 1} color`;
 
-      // Instrument icon (second)
+      // Instrument icon (second) - reflects override if set
+      // Safe: getInstrumentIcon returns pre-defined SVG constants, not user input
+      const overrideFamily =
+        dependencies.midiManager.getTrackOverrideInstrumentFamily?.(file.id, track.id) ?? null;
+      const displayFamily = overrideFamily ?? track.instrumentFamily;
       const iconSpan = document.createElement("span");
-      iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
+      iconSpan.innerHTML = getInstrumentIcon(displayFamily);
       iconSpan.style.cssText =
         "display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--text-muted);";
-      iconSpan.title = track.instrumentFamily;
+      iconSpan.title = displayFamily;
 
       // Track name (second)
       const trackName = document.createElement("span");
@@ -238,9 +242,7 @@ export class FileToggleItem {
       };
 
       // Instrument picker button - after TrackName, before Eye
-      const overrideFamily =
-        dependencies.midiManager.getTrackOverrideInstrumentFamily?.(file.id, track.id) ?? null;
-      const displayFamily = overrideFamily ?? track.instrumentFamily;
+      // overrideFamily and displayFamily are already declared above for iconSpan
       const autoInstrumentBtn = document.createElement("button");
       // Safe: getInstrumentIcon returns pre-defined SVG constants, not user input
       autoInstrumentBtn.innerHTML = getInstrumentIcon(displayFamily);
