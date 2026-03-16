@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+  <path d="M26.5,10h-21C4.7,10,4,9.3,4,8.5v0C4,7.7,4.7,7,5.5,7h21C27.3,7,28,7.7,28,8.5v0C28,9.3,27.3,10,26.5,10z"/>
+  <polyline points="10,10 10,29 6,29 6,10.1"/>
+  <polyline points="6,7 6,3 10,3 10,7"/>
+  <polyline points="10,7 10,3 14,3 14,7"/>
+  <polyline points="14,10 14,26 10,26 10,10"/>
+  <polyline points="14,7 14,3 18,3 18,7"/>
+  <polyline points="18,10 18,23 14,23 14,10"/>
+  <polyline points="18,7 18,3 22,3 22,7"/>
+  <polyline points="22,10 22,20 18,20 18,10"/>
+  <polyline points="22,7 22,3 26,3 26,7"/>
+  <polyline points="26,10 26,17 22,17 22,10"/>
+</svg>
