@@ -1,4 +1,5 @@
 import { NoteData, ParsedMidi, InstrumentFamily } from "@/lib/midi/types";
+import { FAMILY_REPRESENTATIVE_PROGRAM } from "@/lib/core/audio/gm-instruments";
 import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
@@ -456,7 +457,52 @@ export class MultiMidiManager {
   }
 
   /**
+   * Set the instrument override for a specific track.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param family - InstrumentFamily to override with, or null to use original (auto)
+   */
+  public setTrackOverrideInstrument(
+    fileId: string,
+    trackId: number,
+    family: InstrumentFamily | null,
+  ): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    if (!file.trackOverrideInstrumentFamily) {
+      file.trackOverrideInstrumentFamily = {};
+    }
+    file.trackOverrideInstrumentFamily[trackId] = family;
+
+    // Sync legacy trackUseAutoInstrument for backward compatibility
+    if (!file.trackUseAutoInstrument) {
+      file.trackUseAutoInstrument = {};
+    }
+    file.trackUseAutoInstrument[trackId] = family === null;
+
+    this.notifyStateChange();
+  }
+
+  /**
+   * Get the instrument override family for a specific track.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @returns The override InstrumentFamily or null if using original
+   */
+  public getTrackOverrideInstrumentFamily(
+    fileId: string,
+    trackId: number,
+  ): InstrumentFamily | null {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return null;
+    return file.trackOverrideInstrumentFamily?.[trackId] ?? null;
+  }
+
+  /**
    * Get the MIDI Program Number for a specific track.
+   * If an instrument override is set, returns the representative program for that family.
+   * Otherwise returns the original program from the MIDI file.
    * Returns 118 (synth_drum) for drum tracks (channel 9/10).
    * Returns 0 (acoustic_grand_piano) as fallback if track info is not available.
    * @param fileId - The ID of the MIDI file
@@ -465,6 +511,12 @@ export class MultiMidiManager {
   public getTrackProgram(fileId: string, trackId: number): number {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file?.parsedData?.tracks) return 0;
+
+    // Check for instrument override
+    const overrideFamily = file.trackOverrideInstrumentFamily?.[trackId];
+    if (overrideFamily != null) {
+      return FAMILY_REPRESENTATIVE_PROGRAM[overrideFamily];
+    }
 
     const track = file.parsedData.tracks.find((t) => t.id === trackId);
     if (!track) return 0;

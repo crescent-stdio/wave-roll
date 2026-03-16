@@ -1,3 +1,4 @@
+import type { InstrumentFamily } from "@/lib/core/utils/midi/types";
 import { ParsedMidi } from "@/lib/midi/types";
 
 /**
@@ -54,8 +55,15 @@ export interface MidiFileEntry {
    * Per-track auto instrument state. Key is trackId, value is whether to use
    * the track's instrumentFamily soundfont (true) or default piano (false).
    * Default is false (piano) when not specified.
+   * @deprecated Use trackOverrideInstrumentFamily instead
    */
   trackUseAutoInstrument?: Record<number, boolean>;
+  /**
+   * Per-track instrument override. Key is trackId.
+   * null/undefined = auto (use original instrument from MIDI).
+   * InstrumentFamily value = override with that family's representative program.
+   */
+  trackOverrideInstrumentFamily?: Record<number, InstrumentFamily | null>;
   /**
    * Per-track sustain pedal visibility. Key is trackId, value is visibility.
    * All tracks show sustain by default (true) when not specified.

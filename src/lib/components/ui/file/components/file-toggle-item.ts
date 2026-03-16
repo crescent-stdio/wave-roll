@@ -12,6 +12,7 @@ import { FileVolumeControl } from "../../controls/file-volume";
 import { ShapeRenderer } from "../utils/shape-renderer";
 import { EvaluationControls } from "./evaluation-controls";
 import { ColorCalculator } from "@/core/visualization/piano-roll/utils/color-calculator";
+import { openInstrumentPicker } from "./instrument-picker";
 
 /**
  * Stores accordion expanded state per fileId.
@@ -236,14 +237,13 @@ export class FileToggleItem {
         dependencies.midiManager.toggleTrackSustainVisibility?.(file.id, track.id);
       };
 
-      // Auto-instrument toggle button - after TrackName, before Eye
-      const isAutoInstrument =
-        dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id) ?? true;
+      // Instrument picker button - after TrackName, before Eye
+      const overrideFamily =
+        dependencies.midiManager.getTrackOverrideInstrumentFamily?.(file.id, track.id) ?? null;
+      const displayFamily = overrideFamily ?? track.instrumentFamily;
       const autoInstrumentBtn = document.createElement("button");
-      // Show current playing instrument icon: auto-instrument ON → track instrument, OFF → piano
-      autoInstrumentBtn.innerHTML = isAutoInstrument
-        ? getInstrumentIcon(track.instrumentFamily)
-        : getInstrumentIcon("piano");
+      // Safe: getInstrumentIcon returns pre-defined SVG constants, not user input
+      autoInstrumentBtn.innerHTML = getInstrumentIcon(displayFamily);
       autoInstrumentBtn.style.cssText = `
         width: 20px;
         height: 20px;
@@ -254,17 +254,16 @@ export class FileToggleItem {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: ${isAutoInstrument ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
+        color: var(--accent-primary, #3b82f6);
         transition: color 0.15s ease;
         margin-right: 20px;
         `;
-      autoInstrumentBtn.title = isAutoInstrument
-        ? `Using ${track.instrumentFamily} sound (click for piano)`
-        : "Using piano sound (click for auto instrument)";
+      autoInstrumentBtn.title = overrideFamily
+        ? `Using ${overrideFamily} sound (click to change)`
+        : `Using original ${track.instrumentFamily} sound (click to change)`;
       autoInstrumentBtn.onclick = (e: MouseEvent) => {
         e.stopPropagation();
-        const newState = !dependencies.midiManager.isTrackAutoInstrument?.(file.id, track.id);
-        dependencies.midiManager.setTrackAutoInstrument?.(file.id, track.id, newState);
+        openInstrumentPicker(dependencies.midiManager, file.id, track.id, autoInstrumentBtn);
       };
 
       // Volume slider for track audio (fifth) - increased size

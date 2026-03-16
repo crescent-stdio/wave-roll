@@ -811,7 +811,6 @@ export class MidiPlayerGroup implements PlayerGroup {
           _waveRollMidiManager?: {
             isTrackMuted?: (fileId: string, trackId: number) => boolean;
             getTrackVolume?: (fileId: string, trackId: number) => number;
-            isTrackAutoInstrument?: (fileId: string, trackId: number) => boolean;
             getTrackProgram?: (fileId: string, trackId: number) => number;
           };
         }
@@ -850,13 +849,11 @@ export class MidiPlayerGroup implements PlayerGroup {
         // Apply volume: master * individual * track * velocity
         const finalVolume = this.masterVolume * playerInfo.volume * trackVolume * event.velocity;
 
-        // Determine which sampler to use: program-specific or default piano
+        // Determine which sampler to use: program-specific or default piano.
+        // getTrackProgram() handles both auto (original) and override instruments.
         let targetSampler: Tone.Sampler = playerInfo.sampler;
-        const useAutoInstrument =
-          trackId !== undefined && midiMgr?.isTrackAutoInstrument?.(fileId, trackId);
-
-        if (useAutoInstrument && midiMgr?.getTrackProgram) {
-          const program = midiMgr.getTrackProgram(fileId, trackId!);
+        if (trackId !== undefined && midiMgr?.getTrackProgram) {
+          const program = midiMgr.getTrackProgram(fileId, trackId);
           const programSampler = this.getProgramSamplerSync(program);
           if (programSampler?.loaded) {
             targetSampler = programSampler;
