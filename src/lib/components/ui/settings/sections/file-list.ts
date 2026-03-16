@@ -1,6 +1,7 @@
 import { UIComponentDependencies } from "../../types";
 import { renderOnsetSVG } from "@/assets/onset-icons";
 import { openOnsetPicker } from "../components/onset-picker";
+import { openInstrumentPicker } from "@/lib/components/ui/file/components/instrument-picker";
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
 import { toHexColor } from "@/lib/core/utils/color";
@@ -336,7 +337,7 @@ export function createFileList(dependencies: UIComponentDependencies): HTMLEleme
       if (hasMultipleTracks) {
         // Track list container - aligned with file row (handle + chevron + colorPicker width)
         trackListEl = document.createElement("div");
-        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:60px;margin-top:2px;`;
+        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:54px;margin-top:-12px;`;
 
         // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
         const sortedTracks = [...tracks].sort((a, b) => {
@@ -352,12 +353,36 @@ export function createFileList(dependencies: UIComponentDependencies): HTMLEleme
           const trackRow = document.createElement("div");
           trackRow.style.cssText = "display:flex;align-items:center;gap:16px;padding:2px 0;";
 
-          // Instrument icon (first)
-          const iconSpan = document.createElement("span");
-          iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
-          iconSpan.style.cssText =
-            "display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--text-muted);";
-          iconSpan.title = track.instrumentFamily;
+          // Instrument icon button (first) - clickable to open instrument picker
+          // Reflects override if set
+          // Safe: getInstrumentIcon returns pre-defined SVG constants from instrument-icons.ts, not user input
+          const overrideFamily =
+            dependencies.midiManager.getTrackOverrideInstrumentFamily?.(file.id, track.id) ?? null;
+          const displayFamily = overrideFamily ?? track.instrumentFamily;
+          const iconBtn = document.createElement("button");
+          iconBtn.type = "button";
+          iconBtn.innerHTML = getInstrumentIcon(displayFamily);
+          iconBtn.style.cssText = `
+            display:flex;align-items:center;justify-content:center;width:18px;height:18px;
+            color:${overrideFamily ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
+            border:none;background:transparent;cursor:pointer;padding:0;
+            transition:color 0.15s ease;
+          `;
+          iconBtn.title = overrideFamily
+            ? `Using ${overrideFamily} sound (click to change)`
+            : `Using original ${track.instrumentFamily} sound (click to change)`;
+          iconBtn.onmouseenter = () => {
+            iconBtn.style.color = "var(--accent-primary, #3b82f6)";
+          };
+          iconBtn.onmouseleave = () => {
+            iconBtn.style.color = overrideFamily
+              ? "var(--accent-primary, #3b82f6)"
+              : "var(--text-muted)";
+          };
+          iconBtn.onclick = (e: MouseEvent) => {
+            e.stopPropagation();
+            openInstrumentPicker(dependencies.midiManager, file.id, track.id, iconBtn);
+          };
 
           // Track name (second)
           const trackName = document.createElement("span");
@@ -371,8 +396,8 @@ export function createFileList(dependencies: UIComponentDependencies): HTMLEleme
           noteCount.style.cssText =
             "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;text-align:right;";
 
-          // Append in new order: InstrumentIcon | TrackName | NoteCount
-          trackRow.appendChild(iconSpan);
+          // Append in order: InstrumentIcon | TrackName | NoteCount
+          trackRow.appendChild(iconBtn);
           trackRow.appendChild(trackName);
           trackRow.appendChild(noteCount);
           trackListEl!.appendChild(trackRow);
