@@ -3,6 +3,7 @@ import { UIComponentDependencies } from "../types";
 import { createIconButton } from "../utils/icon-button";
 import { openZoomGridSettingsModal } from "../settings/modal/zoom-grid";
 import { openSettingsModal } from "../settings/modal";
+import { attachTooltip } from "../utils/tooltip";
 
 export function createSettingsControlUI(dependencies: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
@@ -18,19 +19,29 @@ export function createSettingsControlUI(dependencies: UIComponentDependencies): 
   `;
 
   // Settings button
-  const settingsBtn = createIconButton(PLAYER_ICONS.settings, () => {
-    openZoomGridSettingsModal(dependencies);
-  });
-  settingsBtn.title = "Settings";
+  const settingsBtn = createIconButton(
+    PLAYER_ICONS.settings,
+    () => {
+      openZoomGridSettingsModal(dependencies);
+    },
+    "",
+  ); // No native title - using DOM tooltip
+  settingsBtn.setAttribute("aria-label", "Settings");
+  attachTooltip(settingsBtn, "Settings");
   container.appendChild(settingsBtn);
 
   // Appearance button (Palette, Color, Onset Marker) - only in solo mode
   // In non-solo mode, use "Files & Appearance" button in Files section
   if (dependencies.soloMode) {
-    const appearanceBtn = createIconButton(PLAYER_ICONS.palette, () => {
-      openSettingsModal(dependencies);
-    });
-    appearanceBtn.title = "Appearance";
+    const appearanceBtn = createIconButton(
+      PLAYER_ICONS.palette,
+      () => {
+        openSettingsModal(dependencies);
+      },
+      "",
+    ); // No native title - using DOM tooltip
+    appearanceBtn.setAttribute("aria-label", "Appearance");
+    attachTooltip(appearanceBtn, "Appearance");
     container.appendChild(appearanceBtn);
   }
 

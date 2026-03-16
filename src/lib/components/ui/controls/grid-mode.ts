@@ -2,6 +2,7 @@ import { UIComponentDependencies } from "../types";
 import { createIconButton } from "../utils/icon-button";
 import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 import { COLOR_PRIMARY } from "@/lib/core/constants/index";
+import { attachTooltip } from "../utils/tooltip";
 
 /** SVG icon: a simplified grid/music-note icon for beat mode */
 const GRID_BEAT_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -19,6 +20,19 @@ const GRID_BEAT_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="no
  * Visual state follows the repeat-toggle pattern (active = blue tint).
  */
 export function createGridModeControl(deps: UIComponentDependencies): HTMLElement {
+  // Track current mode for tooltip
+  let currentMode: "seconds" | "beats" = deps.pianoRoll?.getGridMode() ?? "seconds";
+  let hasTimingData = true;
+
+  const getTooltipText = (): string => {
+    if (currentMode === "beats" && !hasTimingData) {
+      return "Grid: Beats (no timing data — showing seconds)";
+    }
+    return currentMode === "beats"
+      ? "Grid: Beats (click for Seconds)"
+      : "Grid: Seconds (click for Beats)";
+  };
+
   const updateVisual = (active: boolean) => {
     if (active) {
       btn.dataset.active = "true";
@@ -40,26 +54,22 @@ export function createGridModeControl(deps: UIComponentDependencies): HTMLElemen
       const current = piano.getGridMode();
       const next = current === "seconds" ? "beats" : "seconds";
       piano.setGridMode(next);
+      currentMode = next;
       updateVisual(next === "beats");
 
-      // Update tooltip based on timing data availability
+      // Check timing data availability
       const instance = piano._instance;
-      if (next === "beats" && instance && !instance.musicalTiming) {
-        btn.title = "Beat grid (no timing data available — showing seconds)";
-      } else {
-        btn.title =
-          next === "beats" ? "Grid: Beats (click for Seconds)" : "Grid: Seconds (click for Beats)";
-      }
+      hasTimingData = !!(instance && instance.musicalTiming);
     },
-    "Grid: Seconds (click for Beats)",
+    "", // No native title - using DOM tooltip
   );
 
   btn.setAttribute("aria-label", "Toggle grid mode (seconds / beats)");
   attachHoverBackground(btn);
+  attachTooltip(btn, { getText: getTooltipText });
 
   // Initial sync
-  const initialMode = deps.pianoRoll?.getGridMode() ?? "seconds";
-  updateVisual(initialMode === "beats");
+  updateVisual(currentMode === "beats");
 
   return btn;
 }

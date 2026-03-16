@@ -2,6 +2,7 @@ import { UIComponentDependencies } from "../types";
 import { createIconButton } from "../utils/icon-button";
 import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 import { COLOR_PRIMARY } from "@/lib/core/constants/index";
+import { attachTooltip } from "../utils/tooltip";
 
 /**
  * SVG icon: two horizontal lines with arrows indicating tempo alignment
@@ -50,8 +51,11 @@ export function createTempoSyncControl(deps: UIComponentDependencies): HTMLEleme
     return "Tempo Sync: Off - Original tempo";
   };
 
+  // Track current state for tooltip
+  let currentEnabled = stateManager.getState().visual.tempoSyncEnabled;
+
   const updateVisual = (active: boolean) => {
-    btn.title = getTooltip(active);
+    currentEnabled = active;
     if (active) {
       btn.dataset.active = "true";
       btn.style.background = "rgba(0, 123, 255, 0.1)";
@@ -63,8 +67,6 @@ export function createTempoSyncControl(deps: UIComponentDependencies): HTMLEleme
     }
   };
 
-  const initialEnabled = stateManager.getState().visual.tempoSyncEnabled;
-
   const btn = createIconButton(
     TEMPO_SYNC_ICON,
     () => {
@@ -72,12 +74,13 @@ export function createTempoSyncControl(deps: UIComponentDependencies): HTMLEleme
       stateManager.updateVisualState({ tempoSyncEnabled: !current });
       updateVisual(!current);
     },
-    getTooltip(initialEnabled),
+    "", // No native title - using DOM tooltip
   );
 
   btn.setAttribute("aria-label", "Toggle tempo sync");
   attachHoverBackground(btn);
-  updateVisual(initialEnabled);
+  attachTooltip(btn, { getText: () => getTooltip(currentEnabled) });
+  updateVisual(currentEnabled);
 
   return btn;
 }

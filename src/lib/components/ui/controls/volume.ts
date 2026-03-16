@@ -1,5 +1,6 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { UIComponentDependencies } from "../types";
+import { attachTooltip } from "../utils/tooltip";
 
 /**
  * Create a volume control element with vertical popup slider.
@@ -41,7 +42,8 @@ export function createVolumeControlUI(dependencies: UIComponentDependencies): HT
   `;
   iconBtn.classList.add("wr-focusable");
   iconBtn.setAttribute("aria-label", "Master volume: 100%");
-  iconBtn.title = "Master Volume";
+  // DOM tooltip instead of native title for Shadow DOM compatibility
+  attachTooltip(iconBtn, "Volume");
 
   // Hover effect for button (consistent with other icon buttons)
   iconBtn.addEventListener("mouseenter", () => {

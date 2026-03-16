@@ -2,6 +2,7 @@ import { PLAYER_ICONS } from "@/assets/player-icons";
 import { UIComponentDependencies } from "../types";
 import { clamp } from "@/lib/core/utils/clamp";
 import { createIconButton } from "../utils/icon-button";
+import { attachTooltip } from "../utils/tooltip";
 
 /**
  * Create a zoom control element.
@@ -85,11 +86,16 @@ export function createZoomControlsUI(dependencies: UIComponentDependencies): HTM
     `;
 
   // Reset button
-  const resetBtn = createIconButton(PLAYER_ICONS.zoom_reset, () => {
-    dependencies.pianoRoll?.resetView?.();
-    zoomInput.value = "1.0";
-  });
-  resetBtn.title = "Reset Zoom";
+  const resetBtn = createIconButton(
+    PLAYER_ICONS.zoom_reset,
+    () => {
+      dependencies.pianoRoll?.resetView?.();
+      zoomInput.value = "1.0";
+    },
+    "",
+  ); // No native title - using DOM tooltip
+  resetBtn.setAttribute("aria-label", "Reset Zoom");
+  attachTooltip(resetBtn, "Reset Zoom");
   // Styling and click behavior handled by createIconButton
 
   container.appendChild(zoomInput);

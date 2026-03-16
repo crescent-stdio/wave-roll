@@ -7,6 +7,7 @@ import { attachRepeatToggle } from "@/core/controls/utils/repeat-toggle";
 import { createIconButton } from "../utils/icon-button";
 import { UIComponentDependencies } from "../types";
 import { ensureAudioContextReady } from "@/lib/core/audio/utils/audio-context";
+import { attachTooltip } from "../utils/tooltip";
 // Removed MasterVolumeControl - global volume is managed by createVolumeControlUI
 
 /**
@@ -50,6 +51,13 @@ export function createPlaybackControlsUI(dependencies: UIComponentDependencies):
     position: relative;
   `;
   playBtn.classList.add("wr-focusable");
+  playBtn.setAttribute("aria-label", "Play (Space)");
+
+  // Track play state for tooltip
+  let isPlaying = false;
+  attachTooltip(playBtn, {
+    getText: () => (isPlaying ? "Pause (Space)" : "Play (Space)"),
+  });
 
   const waitUntil = async (predicate: () => boolean, timeoutMs = 2000, intervalMs = 50) => {
     const start = Date.now();
@@ -70,7 +78,12 @@ export function createPlaybackControlsUI(dependencies: UIComponentDependencies):
       // 2) Ensure underlying audio player exists before calling play()
       await waitUntil(() => !!dependencies.audioPlayer?.isInitialized?.());
     },
-    postPlay: () => dependencies.updateSeekBar?.(),
+    postPlay: () => {
+      dependencies.updateSeekBar?.();
+      // Update play state for tooltip
+      isPlaying = dependencies.audioPlayer?.getState().isPlaying ?? false;
+      playBtn.setAttribute("aria-label", isPlaying ? "Pause (Space)" : "Play (Space)");
+    },
   });
 
   // Apply scale effects and initial sync
@@ -117,13 +130,31 @@ export function createPlaybackControlsUI(dependencies: UIComponentDependencies):
       dependencies.audioPlayer?.play();
     }
     updatePlayButton();
+    isPlaying = dependencies.audioPlayer?.getState().isPlaying ?? false;
   });
+  restartBtn.setAttribute("aria-label", "Restart");
   attachHoverBackground(restartBtn);
+  attachTooltip(restartBtn, "Restart");
 
   /* repeat toggle */
+  let isRepeating = dependencies.audioPlayer?.getState()?.isRepeating ?? false;
   const repeatBtn = createIconButton(PLAYER_ICONS.repeat, () => {});
   attachRepeatToggle(repeatBtn, dependencies.audioPlayer);
   attachHoverBackground(repeatBtn);
+  repeatBtn.setAttribute("aria-label", "Loop");
+  attachTooltip(repeatBtn, {
+    getText: () => (isRepeating ? "Loop: On" : "Loop: Off"),
+  });
+
+  // Track repeat state changes
+  const originalOnClick = repeatBtn.onclick;
+  repeatBtn.onclick = (e) => {
+    if (originalOnClick) {
+      originalOnClick.call(repeatBtn, e);
+    }
+    isRepeating = dependencies.audioPlayer?.getState()?.isRepeating ?? false;
+    repeatBtn.setAttribute("aria-label", isRepeating ? "Loop: On" : "Loop: Off");
+  };
 
   container.appendChild(restartBtn);
   container.appendChild(playBtn);
