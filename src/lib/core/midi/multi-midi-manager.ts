@@ -7,6 +7,7 @@ import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { tempoEventBus } from "./tempo-event-bus";
 
 const PALETTE_STORAGE_KEY = "waveRoll.paletteState";
+const INSTRUMENT_STORAGE_KEY = "waveRoll.instrumentOverrides";
 
 /**
  * Manages multiple MIDI files with visualization
@@ -132,6 +133,9 @@ export class MultiMidiManager {
         entry.trackSustainVisibility[track.id] = true;
       }
     }
+
+    // Restore instrument overrides from localStorage
+    this.restoreInstrumentOverrides(entry);
 
     this.state.files.push(entry);
     try {
@@ -710,6 +714,30 @@ export class MultiMidiManager {
   }
 
   /**
+   * Restore instrument overrides from localStorage for a newly added file.
+   */
+  private restoreInstrumentOverrides(entry: MidiFileEntry): void {
+    if (typeof window === "undefined" || !("localStorage" in window)) return;
+    try {
+      const stored: Record<string, Record<number, InstrumentFamily | null>> | null = JSON.parse(
+        window.localStorage.getItem(INSTRUMENT_STORAGE_KEY) || "null",
+      );
+      if (!stored) return;
+      const overrides = stored[entry.fileName];
+      if (overrides && Object.keys(overrides).length > 0) {
+        entry.trackOverrideInstrumentFamily = overrides;
+        // Sync legacy trackUseAutoInstrument for backward compatibility
+        entry.trackUseAutoInstrument = entry.trackUseAutoInstrument ?? {};
+        for (const [trackIdStr, family] of Object.entries(overrides)) {
+          entry.trackUseAutoInstrument[Number(trackIdStr)] = family === null;
+        }
+      }
+    } catch {
+      // Ignore malformed JSON.
+    }
+  }
+
+  /**
    * Notify state change
    */
   private notifyStateChange(): void {
@@ -726,6 +754,31 @@ export class MultiMidiManager {
           customPalettes: this.state.customPalettes,
         };
         window.localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        // Silently ignore storage quota / access errors.
+      }
+
+      // Persist instrument overrides keyed by fileName.
+      // Merge with existing localStorage data to avoid overwriting overrides
+      // for files that haven't been loaded yet (sequential file loading).
+      try {
+        let existing: Record<string, Record<number, InstrumentFamily | null>> = {};
+        try {
+          existing = JSON.parse(window.localStorage.getItem(INSTRUMENT_STORAGE_KEY) || "{}");
+        } catch {
+          // Ignore malformed JSON — start fresh.
+        }
+        for (const file of this.state.files) {
+          if (
+            file.trackOverrideInstrumentFamily &&
+            Object.values(file.trackOverrideInstrumentFamily).some((v) => v != null)
+          ) {
+            existing[file.fileName] = file.trackOverrideInstrumentFamily;
+          } else {
+            delete existing[file.fileName];
+          }
+        }
+        window.localStorage.setItem(INSTRUMENT_STORAGE_KEY, JSON.stringify(existing));
       } catch {
         // Silently ignore storage quota / access errors.
       }
