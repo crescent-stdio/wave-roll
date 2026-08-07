@@ -52,5 +52,3 @@ temp/
 
 # Sample MIDI files
 src/sample_midi/
-
-.pnpm-store/

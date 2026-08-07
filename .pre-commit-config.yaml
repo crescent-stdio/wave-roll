@@ -18,14 +18,14 @@ repos:
     hooks:
       - id: eslint
         name: eslint
-        entry: pnpm eslint --fix
+        entry: bunx eslint --fix
         language: system
         types_or: [javascript, ts, tsx]
         pass_filenames: true
 
       - id: tsc
         name: tsc
-        entry: pnpm tsc --noEmit
+        entry: bunx tsc --noEmit
         language: system
         types_or: [ts, tsx]
         pass_filenames: false

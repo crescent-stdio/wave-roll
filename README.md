@@ -264,16 +264,16 @@ const blob = await exportMidiWithTempoAsBlob(midiFile, 144);
 
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Run development server
-pnpm dev
+bun run dev
 
 # Build for production
-pnpm build
+bun run build
 
 # Run tests
-pnpm test
+bun run test
 ```
 
 ## Acknowledgments
