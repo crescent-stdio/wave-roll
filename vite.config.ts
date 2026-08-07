@@ -5,13 +5,7 @@ export default defineConfig({
   test: {
     environment: "node",
     pool: "threads",
-    poolOptions: {
-      threads: {
-        singleThread: true,
-        minThreads: 1,
-        maxThreads: 1,
-      },
-    },
+    fileParallelism: false,
     globals: true,
     setupFiles: ["./test/setup.ts"],
     reporters: ["default"],
@@ -29,12 +23,12 @@ export default defineConfig({
   // Build configuration for library
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: resolve(import.meta.dirname, "src/index.ts"),
       name: "WaveRoll",
       fileName: (format) => `wave-roll.${format}.js`,
       formats: ["es", "umd"],
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [],
       output: {
         globals: {},
@@ -45,23 +39,23 @@ export default defineConfig({
   },
 
   // Ensure TypeScript files are served in development
+  oxc: {
+    target: "es2020",
+  },
   optimizeDeps: {
     include: ["@tonejs/midi"],
-    esbuildOptions: {
-      target: "es2020",
-    },
   },
 
   // Ensure proper module resolution
   resolve: {
     alias: {
-      "@/core": resolve(__dirname, "src/lib/core"),
-      "@/demos": resolve(__dirname, "src/demos"),
-      "@/components": resolve(__dirname, "src/lib/components"),
-      "@/lib": resolve(__dirname, "src/lib"),
-      "@/assets": resolve(__dirname, "src/assets"),
-      "@/types": resolve(__dirname, "src/lib/types/index.ts"),
-      "@/web-component": resolve(__dirname, "src/web-component.ts"),
+      "@/core": resolve(import.meta.dirname, "src/lib/core"),
+      "@/demos": resolve(import.meta.dirname, "src/demos"),
+      "@/components": resolve(import.meta.dirname, "src/lib/components"),
+      "@/lib": resolve(import.meta.dirname, "src/lib"),
+      "@/assets": resolve(import.meta.dirname, "src/assets"),
+      "@/types": resolve(import.meta.dirname, "src/lib/types/index.ts"),
+      "@/web-component": resolve(import.meta.dirname, "src/web-component.ts"),
     },
     conditions: ["module", "browser", "import", "default"],
   },

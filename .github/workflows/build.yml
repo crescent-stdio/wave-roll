@@ -16,10 +16,10 @@ jobs:
         uses: actions/checkout@v4
 
       # Step 2: Setup Node.js with specific version
-      - name: Setup Node.js 24.1.0
+      - name: Setup Node.js 24.19.0
         uses: actions/setup-node@v4
         with:
-          node-version: "24.1.0"
+          node-version: "24.19.0"
 
       # Step 3: Setup Bun package manager
       - name: Setup Bun

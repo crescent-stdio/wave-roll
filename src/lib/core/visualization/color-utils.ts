@@ -90,9 +90,6 @@ export function getContrastingGray(
 
   if (useDark) {
     // For light reference colors, use darker gray
-    // Start from a moderately dark value
-    bestGray = 96; // #606060
-
     // Adjust based on luminance
     if (refLum > 0.7) {
       // Very light reference - use darker gray
@@ -106,9 +103,6 @@ export function getContrastingGray(
     }
   } else {
     // For dark reference colors, use lighter gray
-    // But not too light to avoid blending with white background
-    bestGray = 144; // #909090
-
     // Adjust based on luminance
     if (refLum < 0.1) {
       // Very dark reference - use lighter gray

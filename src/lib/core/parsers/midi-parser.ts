@@ -605,8 +605,8 @@ export async function parseMidi(
     };
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to parse MIDI file: ${error.message}`);
+      throw new Error(`Failed to parse MIDI file: ${error.message}`, { cause: error });
     }
-    throw new Error("Failed to parse MIDI file: Unknown error");
+    throw new Error("Failed to parse MIDI file: Unknown error", { cause: error });
   }
 }

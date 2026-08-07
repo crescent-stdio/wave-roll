@@ -477,7 +477,7 @@ export class SamplerManager {
         }
 
         // Determine which sampler to use: program-specific or default piano
-        let targetSampler: Tone.Sampler | null = null;
+        let targetSampler: Tone.Sampler | null;
         const useAutoInstrument =
           event.trackId !== undefined && midiMgr?.isTrackAutoInstrument?.(fid, event.trackId);
 
