@@ -34,7 +34,16 @@ export function normalizeStroke(svg: string): string {
   return svg.replace(/stroke-width="[^"]*"/g, `stroke-width="${strokeWidth}"`);
 }
 
-/** Prepare raw SVG for runtime: normalize size, stroke + apply currentColor */
+/**
+ * Mark the icon as decorative so assistive tech announces the host control
+ * instead of the glyph. Every createIconButton call site supplies its own
+ * accessible name via aria-label or the title argument.
+ */
+export function markDecorative(svg: string): string {
+  return svg.replace(/^<svg/, '<svg aria-hidden="true" focusable="false"');
+}
+
+/** Prepare raw SVG for runtime: normalize size, stroke, color + hide from AT */
 export function prepareSvg(svg: string): string {
-  return toCurrentColor(normalizeStroke(normalizeSize(svg)));
+  return markDecorative(toCurrentColor(normalizeStroke(normalizeSize(svg))));
 }
