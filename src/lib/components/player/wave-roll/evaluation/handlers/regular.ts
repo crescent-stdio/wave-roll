@@ -143,7 +143,7 @@ export function handleRegular(params: RegularParams): boolean {
     const intersectStart = Math.max(refOn, noteStart);
     const intersectEnd = Math.min(refOff, noteEnd);
 
-    let pairIntersectColor = nonIntersectColor;
+    let pairIntersectColor: number;
     if (useGrayGlobal) {
       pairIntersectColor = parseInt(GRAY_EVAL_INTERSECTION.replace("#", ""), 16);
     } else if (isExclusiveGlobal && isIntersectionOwn) {

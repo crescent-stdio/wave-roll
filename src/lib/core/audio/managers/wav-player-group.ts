@@ -27,7 +27,7 @@ interface AudioPlayerEntry {
   isStarted: boolean;
   muted: boolean;
   startToken: number;
-  scheduledTimer?: NodeJS.Timeout | null;
+  scheduledTimer?: ReturnType<typeof setTimeout> | null;
   transportEventId?: string | number | null;
 
   // Individual player control state
