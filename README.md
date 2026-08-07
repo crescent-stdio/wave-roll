@@ -4,7 +4,7 @@
   <img src="./wave-roll-logo.png" alt="WaveRoll" width="40%"/>
 </div>
 
-> **WaveRoll** is an interactive [JavaScript library](https://www.npmjs.com/package/wave-roll) that enables comparative visualization and synchronized playback of multiple MIDI piano rolls on a browser. 
+> **WaveRoll** is an interactive [JavaScript library](https://www.npmjs.com/package/wave-roll) that enables comparative visualization and synchronized playback of multiple MIDI piano rolls on a browser.
 
 ![NPM Version](https://img.shields.io/npm/v/wave-roll)
 ![NPM License](https://img.shields.io/npm/l/wave-roll)
@@ -16,7 +16,6 @@
 - NPM package: [https://www.npmjs.com/package/wave-roll](https://www.npmjs.com/package/wave-roll)
 - VS Code Extension: [WaveRoll Studio](https://github.com/crescent-stdio/wave-roll-studio) (also available on Open VSX)
 - Multi-instrument MIDI files are supported with automatic GM instrument mapping and per-track mute/volume/visibility controls.
-
 
 ## Installation
 
@@ -31,68 +30,72 @@ npm install wave-roll
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <script type="module">
-    import 'wave-roll';
-  </script>
-</head>
-<body>
-  <wave-roll
-    style="width: 100%;"
-    files='[
+  <head>
+    <script type="module">
+      import "wave-roll";
+    </script>
+  </head>
+  <body>
+    <wave-roll
+      style="width: 100%;"
+      files='[
       {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
       {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
-    ]'>
-  </wave-roll>
-</body>
+    ]'
+    >
+    </wave-roll>
+  </body>
 </html>
 ```
 
 ### Using CDN (ES Module)
-You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/examples/es-module/) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/es-module/index.html).
 
+You can try the ES Module demo [here](https://crescent-stdio.github.io/wave-roll/examples/es-module/) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/es-module/index.html).
 
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <script type="module">
-    import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
-  </script>
-</head>
-<body>
-  <wave-roll
-    style="width: 100%;"
-    files='[
+  <head>
+    <script type="module">
+      import "https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js";
+    </script>
+  </head>
+  <body>
+    <wave-roll
+      style="width: 100%;"
+      files='[
       {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
       {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
-    ]'>
-  </wave-roll>
-</body>
+    ]'
+    >
+    </wave-roll>
+  </body>
 </html>
 ```
 
 ### Using UMD CDN (Traditional Script)
+
 You can try the UMD demo [here](https://crescent-stdio.github.io/wave-roll/examples/umd/) and [sample codes](https://github.com/crescent-stdio/wave-roll/blob/main/docs/examples/umd/index.html).
 
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <script src="https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.umd.js"></script>
-</head>
-<body>
-  <wave-roll
-    style="width: 100%;"
-    files='[
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.umd.js"></script>
+  </head>
+  <body>
+    <wave-roll
+      style="width: 100%;"
+      files='[
       {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
       {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
-    ]'>
-  </wave-roll>
-</body>
+    ]'
+    >
+    </wave-roll>
+  </body>
 </html>
 ```
 
@@ -103,45 +106,41 @@ For GitHub Pages deployment, you can use the CDN directly:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WaveRoll Demo</title>
-  <script type="module">
-    import 'https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js';
-  </script>
-</head>
-<body>
-  <wave-roll
-    style="width: 100%"
-    files='[
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WaveRoll Demo</title>
+    <script type="module">
+      import "https://cdn.jsdelivr.net/npm/wave-roll@latest/dist/wave-roll.es.js";
+    </script>
+  </head>
+  <body>
+    <wave-roll
+      style="width: 100%"
+      files='[
       {"path": "./audio/track.wav", "name": "Track Audio", "type": "audio"},
       {"path": "./midi/ground_truth.mid", "name": "Ground Truth", "type": "midi"},
       {"path": "./midi/modelA.mid", "name": "Model A", "type": "midi"}
-    ]'>
-  </wave-roll>
-</body>
+    ]'
+    >
+    </wave-roll>
+  </body>
 </html>
 ```
 
 ### In React
 
 ```jsx
-import 'wave-roll';
+import "wave-roll";
 
 function MidiComparison() {
   const files = [
     { path: "./audio/track.wav", name: "Track Audio", type: "audio" },
     { path: "./midi/ground_truth.mid", name: "Ground Truth", type: "midi" },
-    { path: "./midi/modelA.mid", name: "Model A", type: "midi" }
+    { path: "./midi/modelA.mid", name: "Model A", type: "midi" },
   ];
 
-  return (
-    <wave-roll 
-      style={{ width: '100%' }}
-      files={JSON.stringify(files)}
-    />
-  );
+  return <wave-roll style={{ width: "100%" }} files={JSON.stringify(files)} />;
 }
 ```
 
@@ -172,10 +171,10 @@ This is particularly useful for music information retrieval (MIR) research, allo
 
 ### Attributes
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `files` | `string` | JSON string array of file objects with `path` and `name` properties |
-| `style` | `string` | CSS styles for the component container |
+| Attribute  | Type                | Description                                                                |
+| ---------- | ------------------- | -------------------------------------------------------------------------- |
+| `files`    | `string`            | JSON string array of file objects with `path` and `name` properties        |
+| `style`    | `string`            | CSS styles for the component container                                     |
 | `readonly` | `boolean attribute` | When present, hides UI controls for adding/removing files (read‑only mode) |
 
 #### Read‑only Mode
@@ -197,17 +196,17 @@ Add the `readonly` attribute to disable file addition and deletion in the Settin
 You can toggle this at runtime too:
 
 ```js
-const el = document.querySelector('wave-roll');
-el.setAttribute('readonly', '');      // enable read-only
-el.removeAttribute('readonly');       // disable read-only
+const el = document.querySelector("wave-roll");
+el.setAttribute("readonly", ""); // enable read-only
+el.removeAttribute("readonly"); // disable read-only
 ```
 
 ### File Object Structure
 
 ```typescript
 interface FileItem {
-  path: string;   // URL or relative path to the file
-  name: string;   // Display name shown in UI
+  path: string; // URL or relative path to the file
+  name: string; // Display name shown in UI
   type?: "midi" | "audio"; // Defaults to "midi" when omitted
   color?: string; // Custom color for track visualization (hex or CSS color)
 }
@@ -218,15 +217,15 @@ interface FileItem {
 Control the player programmatically:
 
 ```javascript
-const waveRoll = document.querySelector('wave-roll');
+const waveRoll = document.querySelector("wave-roll");
 
 // Playback controls
 await waveRoll.play();
 waveRoll.pause();
-waveRoll.seek(30);  // Seek to 30 seconds
+waveRoll.seek(30); // Seek to 30 seconds
 
 // State
-console.log(waveRoll.isPlaying);  // boolean
+console.log(waveRoll.isPlaying); // boolean
 console.log(waveRoll.getState()); // { currentTime, duration, tempo, ... }
 ```
 
@@ -251,13 +250,13 @@ The exported file preserves all note data with updated tempo metadata.
 **Programmatic usage:**
 
 ```javascript
-import { exportMidiWithTempo } from 'wave-roll';
+import { exportMidiWithTempo } from "wave-roll";
 
 // Export MIDI with new tempo (triggers download)
 await exportMidiWithTempo(midiFile, 144);
 
 // Export as Blob for custom handling
-import { exportMidiWithTempoAsBlob } from 'wave-roll';
+import { exportMidiWithTempoAsBlob } from "wave-roll";
 const blob = await exportMidiWithTempoAsBlob(midiFile, 144);
 ```
 
@@ -278,6 +277,7 @@ pnpm test
 ```
 
 ## Acknowledgments
+
 This library includes functionality ported from [mir_eval](https://github.com/mir-evaluation/mir_eval), Music Information Retrieval evaluation library.
 
 ## License
