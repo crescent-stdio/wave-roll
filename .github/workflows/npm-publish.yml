@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 24.1.0
+      - name: Setup Node.js 24.19.0
         uses: actions/setup-node@v4
         with:
-          node-version: "24.1.0"
+          node-version: "24.19.0"
           registry-url: "https://registry.npmjs.org"
 
       - name: Setup Bun
