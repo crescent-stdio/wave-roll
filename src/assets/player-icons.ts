@@ -8,7 +8,7 @@
  * - Attributes: stroke="currentColor", stroke-width="2", fill="none"
  */
 
-import { toCurrentColor } from "./icon-utils";
+import { prepareSvg } from "./icon-utils";
 
 import playRaw from "./icons/player/play.svg?raw";
 import pauseRaw from "./icons/player/pause.svg?raw";
@@ -37,33 +37,39 @@ import sustainRaw from "./icons/player/sustain.svg?raw";
 import estRaw from "./icons/player/est.svg?raw";
 import fileRaw from "./icons/player/file.svg?raw";
 import resultsRaw from "./icons/player/results.svg?raw";
+import gridBeatRaw from "./icons/player/grid-beat.svg?raw";
+import tempoSyncRaw from "./icons/player/tempo-sync.svg?raw";
+import snapToGridRaw from "./icons/player/snap-to-grid.svg?raw";
 
 export const PLAYER_ICONS = {
-  play: toCurrentColor(playRaw),
-  pause: toCurrentColor(pauseRaw),
-  restart: toCurrentColor(restartRaw),
-  repeat: toCurrentColor(repeatRaw),
-  volume: toCurrentColor(volumeRaw),
-  mute: toCurrentColor(muteRaw),
-  tempo: toCurrentColor(tempoRaw),
-  skip_forward: toCurrentColor(skipForwardRaw),
-  skip_backward: toCurrentColor(skipBackwardRaw),
-  shuffle: toCurrentColor(shuffleRaw),
-  list: toCurrentColor(listRaw),
-  menu: toCurrentColor(menuRaw),
-  midi: toCurrentColor(midiRaw),
-  zoom_reset: toCurrentColor(zoomResetRaw),
-  settings: toCurrentColor(settingsRaw),
-  loop_start: toCurrentColor(loopStartRaw),
-  eye_open: toCurrentColor(eyeOpenRaw),
-  eye_closed: toCurrentColor(eyeClosedRaw),
-  pin: toCurrentColor(pinRaw),
-  edit: toCurrentColor(editRaw),
-  duplicate: toCurrentColor(duplicateRaw),
-  trash: toCurrentColor(trashRaw),
-  palette: toCurrentColor(paletteRaw),
-  sustain: toCurrentColor(sustainRaw),
-  est: toCurrentColor(estRaw),
-  file: toCurrentColor(fileRaw),
-  results: toCurrentColor(resultsRaw),
+  play: prepareSvg(playRaw),
+  pause: prepareSvg(pauseRaw),
+  restart: prepareSvg(restartRaw),
+  repeat: prepareSvg(repeatRaw),
+  volume: prepareSvg(volumeRaw),
+  mute: prepareSvg(muteRaw),
+  tempo: prepareSvg(tempoRaw),
+  skip_forward: prepareSvg(skipForwardRaw),
+  skip_backward: prepareSvg(skipBackwardRaw),
+  shuffle: prepareSvg(shuffleRaw),
+  list: prepareSvg(listRaw),
+  menu: prepareSvg(menuRaw),
+  midi: prepareSvg(midiRaw),
+  zoom_reset: prepareSvg(zoomResetRaw),
+  settings: prepareSvg(settingsRaw),
+  loop_start: prepareSvg(loopStartRaw),
+  eye_open: prepareSvg(eyeOpenRaw),
+  eye_closed: prepareSvg(eyeClosedRaw),
+  pin: prepareSvg(pinRaw),
+  edit: prepareSvg(editRaw),
+  duplicate: prepareSvg(duplicateRaw),
+  trash: prepareSvg(trashRaw),
+  palette: prepareSvg(paletteRaw),
+  sustain: prepareSvg(sustainRaw),
+  est: prepareSvg(estRaw),
+  file: prepareSvg(fileRaw),
+  results: prepareSvg(resultsRaw),
+  grid_beat: prepareSvg(gridBeatRaw),
+  tempo_sync: prepareSvg(tempoSyncRaw),
+  snap_to_grid: prepareSvg(snapToGridRaw),
 };

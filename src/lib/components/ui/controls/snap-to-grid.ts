@@ -4,17 +4,7 @@ import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 import { COLOR_PRIMARY } from "@/lib/core/constants/index";
 import { createTooltipManager, TooltipManager } from "../utils/tooltip";
 import type { SnapResolution } from "@/core/state/types";
-
-/**
- * SVG icon: vertical grid lines with a dot snapping to center
- * Represents aligning notes to the beat grid.
- */
-const SNAP_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-  <line x1="4" y1="2" x2="4" y2="14"/>
-  <line x1="12" y1="2" x2="12" y2="14"/>
-  <circle cx="8" cy="8" r="2" fill="currentColor"/>
-  <path d="M6 8h-2M10 8h2"/>
-</svg>`;
+import { PLAYER_ICONS } from "@/assets/player-icons";
 
 /** Resolution options with display labels */
 const RESOLUTION_OPTIONS: Array<{ value: SnapResolution; label: string }> = [
@@ -97,7 +87,7 @@ export function createSnapToGridControl(deps: UIComponentDependencies): HTMLElem
 
   // Toggle button
   const btn = createIconButton(
-    SNAP_ICON,
+    PLAYER_ICONS.snap_to_grid,
     () => {
       if (!isBeatsMode()) return;
 

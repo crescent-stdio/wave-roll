@@ -3,16 +3,7 @@ import { createIconButton } from "../utils/icon-button";
 import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 import { COLOR_PRIMARY } from "@/lib/core/constants/index";
 import { attachTooltip } from "../utils/tooltip";
-
-/**
- * SVG icon: two horizontal lines with arrows indicating tempo alignment
- * Represents synchronizing different tempos to a common reference.
- */
-const TEMPO_SYNC_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M2 5h12M2 11h12"/>
-  <path d="M5 2l-3 3 3 3"/>
-  <path d="M11 8l3 3-3 3"/>
-</svg>`;
+import { PLAYER_ICONS } from "@/assets/player-icons";
 
 /**
  * Create a tempo sync toggle button for the main control bar.
@@ -68,7 +59,7 @@ export function createTempoSyncControl(deps: UIComponentDependencies): HTMLEleme
   };
 
   const btn = createIconButton(
-    TEMPO_SYNC_ICON,
+    PLAYER_ICONS.tempo_sync,
     () => {
       const current = stateManager.getState().visual.tempoSyncEnabled;
       stateManager.updateVisualState({ tempoSyncEnabled: !current });

@@ -3,15 +3,7 @@ import { createIconButton } from "../utils/icon-button";
 import { attachHoverBackground } from "@/core/controls/utils/hover-background";
 import { COLOR_PRIMARY } from "@/lib/core/constants/index";
 import { attachTooltip } from "../utils/tooltip";
-
-/** SVG icon: a simplified grid/music-note icon for beat mode */
-const GRID_BEAT_ICON = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-  <line x1="3" y1="2" x2="3" y2="14"/>
-  <line x1="8" y1="2" x2="8" y2="14"/>
-  <line x1="13" y1="2" x2="13" y2="14"/>
-  <line x1="5.5" y1="6" x2="5.5" y2="14" opacity="0.4"/>
-  <line x1="10.5" y1="6" x2="10.5" y2="14" opacity="0.4"/>
-</svg>`;
+import { PLAYER_ICONS } from "@/assets/player-icons";
 
 /**
  * Create a grid mode toggle button for the main control bar.
@@ -46,7 +38,7 @@ export function createGridModeControl(deps: UIComponentDependencies): HTMLElemen
   };
 
   const btn = createIconButton(
-    GRID_BEAT_ICON,
+    PLAYER_ICONS.grid_beat,
     () => {
       const piano = deps.pianoRoll;
       if (!piano) return;

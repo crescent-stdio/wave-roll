@@ -23,7 +23,7 @@
  */
 
 import { InstrumentFamily } from "@/lib/midi/types";
-import { toCurrentColor } from "./icon-utils";
+import { prepareSvg } from "./icon-utils";
 
 import pianoRaw from "./icons/instrument/piano.svg?raw";
 import stringsRaw from "./icons/instrument/strings.svg?raw";
@@ -45,18 +45,18 @@ import chevronRightRaw from "./icons/player/chevron-right.svg?raw";
  * All icons use 24x24 viewBox with Lucide/Feather styling.
  */
 export const INSTRUMENT_ICONS: Record<InstrumentFamily, string> = {
-  piano: toCurrentColor(pianoRaw),
-  strings: toCurrentColor(stringsRaw),
-  drums: toCurrentColor(drumsRaw),
-  guitar: toCurrentColor(guitarRaw),
-  bass: toCurrentColor(bassRaw),
-  synth: toCurrentColor(synthRaw),
-  winds: toCurrentColor(windsRaw),
-  brass: toCurrentColor(brassRaw),
-  vocal: toCurrentColor(vocalRaw),
-  organ: toCurrentColor(organRaw),
-  mallet: toCurrentColor(malletRaw),
-  others: toCurrentColor(othersRaw),
+  piano: prepareSvg(pianoRaw),
+  strings: prepareSvg(stringsRaw),
+  drums: prepareSvg(drumsRaw),
+  guitar: prepareSvg(guitarRaw),
+  bass: prepareSvg(bassRaw),
+  synth: prepareSvg(synthRaw),
+  winds: prepareSvg(windsRaw),
+  brass: prepareSvg(brassRaw),
+  vocal: prepareSvg(vocalRaw),
+  organ: prepareSvg(organRaw),
+  mallet: prepareSvg(malletRaw),
+  others: prepareSvg(othersRaw),
 };
 
 /**
@@ -71,6 +71,6 @@ export function getInstrumentIcon(family: InstrumentFamily): string {
 /**
  * Chevron icon for accordion expand/collapse
  */
-export const CHEVRON_DOWN = toCurrentColor(chevronDownRaw);
+export const CHEVRON_DOWN = prepareSvg(chevronDownRaw);
 
-export const CHEVRON_RIGHT = toCurrentColor(chevronRightRaw);
+export const CHEVRON_RIGHT = prepareSvg(chevronRightRaw);
