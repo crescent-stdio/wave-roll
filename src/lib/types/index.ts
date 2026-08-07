@@ -29,5 +29,3 @@ export interface OnsetMarkerStyle {
   /** Outline stroke width in pixels. */
   strokeWidth: number;
 }
-
-

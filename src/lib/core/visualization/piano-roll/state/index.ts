@@ -46,7 +46,7 @@ export const selectCurrentTime = (s: PianoRollViewState) => s.currentTime;
 export function selectTimeAtPlayhead(
   s: PianoRollViewState,
   pxPerSecond: number,
-  pianoKeysOffset = 60
+  pianoKeysOffset = 60,
 ) {
   return Math.max(0, (-s.panX + pianoKeysOffset) / (pxPerSecond * s.zoomX));
 }

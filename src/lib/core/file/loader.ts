@@ -13,7 +13,7 @@ import { addAudioFileFromUrl } from "@/lib/core/waveform/register";
  */
 export async function loadSampleFiles(
   fileManager: FileManager,
-  files: SampleFileConfig[] = []
+  files: SampleFileConfig[] = [],
 ): Promise<void> {
   fileManager.isBatchLoading = true;
 
@@ -24,17 +24,14 @@ export async function loadSampleFiles(
 
   for (const file of fileList) {
     try {
-      const parsedData = await parseMidi(file.path, { 
+      const parsedData = await parseMidi(file.path, {
         applyPedalElongate: pedalElongate,
-        pedalThreshold: pedalThreshold 
+        pedalThreshold: pedalThreshold,
       });
-      const id = fileManager.midiManager.addMidiFile(
-        file.path,
-        parsedData,
-        file.name,
-        file.path
-      );
-      try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(id); } catch {}
+      const id = fileManager.midiManager.addMidiFile(file.path, parsedData, file.name, file.path);
+      try {
+        fileManager.stateManager?.ensureOnsetMarkerForFile?.(id);
+      } catch {}
     } catch (error) {
       console.error(`Failed to load ${file.path}:`, error);
     }
@@ -53,26 +50,23 @@ export async function loadSampleFiles(
 export async function loadFile(
   fileManager: FileManager,
   input: MidiInput,
-  options: FileLoadOptions = {}
+  options: FileLoadOptions = {},
 ): Promise<string | null> {
   try {
     const state = fileManager.stateManager?.getState();
     const pedalElongate = state?.visual.pedalElongate ?? true;
     const pedalThreshold = state?.visual.pedalThreshold ?? 64;
-    const parsedData = await parseMidi(input, { 
+    const parsedData = await parseMidi(input, {
       applyPedalElongate: pedalElongate,
-      pedalThreshold: pedalThreshold 
+      pedalThreshold: pedalThreshold,
     });
     const fileName = typeof input === "string" ? input : input.name;
     const name = options.name ?? fileName;
 
-    const fileId = fileManager.midiManager.addMidiFile(
-      fileName,
-      parsedData,
-      name,
-      input
-    );
-    try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId); } catch {}
+    const fileId = fileManager.midiManager.addMidiFile(fileName, parsedData, name, input);
+    try {
+      fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId);
+    } catch {}
     return fileId;
   } catch (error) {
     console.error(`Failed to load file:`, error);
@@ -88,7 +82,7 @@ export async function loadFile(
 export async function loadMultipleFiles(
   fileManager: FileManager,
   files: File[],
-  options: FileLoadOptions = {}
+  options: FileLoadOptions = {},
 ): Promise<string[]> {
   const wasAlreadyBatching = fileManager.isBatchLoading;
   if (!wasAlreadyBatching && !options.suppressBatchLoading) {
@@ -102,19 +96,16 @@ export async function loadMultipleFiles(
 
   for (const file of files) {
     try {
-      const parsedData = await parseMidi(file, { 
+      const parsedData = await parseMidi(file, {
         applyPedalElongate: pedalElongate,
-        pedalThreshold: pedalThreshold 
+        pedalThreshold: pedalThreshold,
       });
       const name = options.name ?? file.name;
-      const fileId = fileManager.midiManager.addMidiFile(
-        file.name,
-        parsedData,
-        name,
-        file
-      );
+      const fileId = fileManager.midiManager.addMidiFile(file.name, parsedData, name, file);
       loadedFileIds.push(fileId);
-      try { fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId); } catch {}
+      try {
+        fileManager.stateManager?.ensureOnsetMarkerForFile?.(fileId);
+      } catch {}
     } catch (error) {
       console.error(`Failed to load ${file.name}:`, error);
     }
@@ -133,7 +124,7 @@ export async function loadMultipleFiles(
 export async function loadAudioFile(
   fileManager: FileManager,
   input: string | File,
-  options: FileLoadOptions & { color?: number } = {}
+  options: FileLoadOptions & { color?: number } = {},
 ): Promise<string | null> {
   try {
     const url = typeof input === "string" ? input : URL.createObjectURL(input);
@@ -153,7 +144,7 @@ export async function loadAudioFile(
  */
 export async function loadSampleAudioFiles(
   fileManager: FileManager,
-  files: SampleAudioFileConfig[] = []
+  files: SampleAudioFileConfig[] = [],
 ): Promise<void> {
   fileManager.isBatchLoading = true;
   const list = files.length > 0 ? files : [];

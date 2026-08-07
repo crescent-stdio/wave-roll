@@ -11,7 +11,7 @@ export class RecordManager<T> {
 
   constructor(
     initialRecord: Record<string, T> = {},
-    onUpdate?: (record: Record<string, T>) => void
+    onUpdate?: (record: Record<string, T>) => void,
   ) {
     this.record = { ...initialRecord };
     this.onUpdate = onUpdate;
@@ -133,9 +133,7 @@ export class RecordManager<T> {
 /**
  * Helper to merge multiple records
  */
-export function mergeRecords<T>(
-  ...records: Record<string, T>[]
-): Record<string, T> {
+export function mergeRecords<T>(...records: Record<string, T>[]): Record<string, T> {
   return Object.assign({}, ...records);
 }
 
@@ -144,7 +142,7 @@ export function mergeRecords<T>(
  */
 export function filterRecord<T>(
   record: Record<string, T>,
-  predicate: (value: T, key: string) => boolean
+  predicate: (value: T, key: string) => boolean,
 ): Record<string, T> {
   const result: Record<string, T> = {};
   Object.entries(record).forEach(([key, value]) => {
@@ -160,7 +158,7 @@ export function filterRecord<T>(
  */
 export function mapRecordValues<T, U>(
   record: Record<string, T>,
-  mapper: (value: T, key: string) => U
+  mapper: (value: T, key: string) => U,
 ): Record<string, U> {
   const result: Record<string, U> = {};
   Object.entries(record).forEach(([key, value]) => {

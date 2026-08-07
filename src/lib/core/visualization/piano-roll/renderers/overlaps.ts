@@ -13,7 +13,7 @@ export function drawOverlapRegions(
   pianoRoll: PianoRoll,
   overlaps: NoteInterval[],
   color: number = OVERLAP_COLOR,
-  alpha: number = OVERLAP_ALPHA
+  alpha: number = OVERLAP_ALPHA,
 ): void {
   if (!pianoRoll.overlapOverlay) return;
 

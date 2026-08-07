@@ -169,8 +169,7 @@ export const GM_INSTRUMENT_NAMES: readonly string[] = [
 /**
  * SoundFont base URL for loading instrument samples
  */
-export const SOUNDFONT_BASE_URL =
-  "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
+export const SOUNDFONT_BASE_URL = "https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
 
 /**
  * Get the GM instrument name for a given MIDI program number.
@@ -208,6 +207,28 @@ export function getGMInstrumentUrl(program: number): string {
 }
 
 /**
+ * Representative GM Program Number for each InstrumentFamily.
+ * Used when the user overrides a track's instrument to a specific family.
+ */
+export const FAMILY_REPRESENTATIVE_PROGRAM: Record<
+  import("@/lib/core/utils/midi/types").InstrumentFamily,
+  number
+> = {
+  piano: 0, // Acoustic Grand Piano
+  mallet: 11, // Vibraphone
+  organ: 16, // Drawbar Organ
+  guitar: 24, // Acoustic Guitar (Nylon)
+  bass: 32, // Acoustic Bass
+  strings: 48, // String Ensemble 1
+  vocal: 52, // Choir Aahs
+  brass: 56, // Trumpet
+  winds: 73, // Flute
+  synth: 80, // Synth Lead 1
+  drums: 118, // Synth Drum
+  others: 104, // Sitar
+};
+
+/**
  * Sample map for paulrosen's FluidR3_GM soundfonts.
  * Uses flat notation (Eb, Gb) instead of sharp notation (Ds, Fs).
  * This is different from Tone.js salamander which uses sharp notation.
@@ -222,4 +243,3 @@ export const GM_SAMPLE_MAP: Record<string, string> = {
   "F#4": "Gb4.mp3",
   A4: "A4.mp3",
 };
-

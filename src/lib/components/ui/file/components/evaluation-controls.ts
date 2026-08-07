@@ -90,7 +90,7 @@ export class EvaluationControls {
   private static handleReferenceToggle(
     fileId: string,
     dependencies: UIComponentDependencies,
-    container: HTMLElement
+    container: HTMLElement,
   ): void {
     const evalState = dependencies.stateManager.getState().evaluation;
     const nextRef = evalState.refId === fileId ? null : fileId;
@@ -114,10 +114,10 @@ export class EvaluationControls {
   private static handleEstimationToggle(
     fileId: string,
     dependencies: UIComponentDependencies,
-    container: HTMLElement
+    container: HTMLElement,
   ): void {
     const evalState = dependencies.stateManager.getState().evaluation;
-    
+
     // If this file is currently the reference, switch: unset ref and set as [EST]
     if (evalState.refId === fileId) {
       const newEstIds = [fileId];
@@ -147,10 +147,10 @@ export class EvaluationControls {
   private static updateReferenceButtons(
     container: HTMLElement,
     nextRef: string | null,
-    estIds: string[]
+    estIds: string[],
   ): void {
     const buttons = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("button[data-role=ref-pin]")
+      container.querySelectorAll<HTMLButtonElement>("button[data-role=ref-pin]"),
     );
 
     buttons.forEach((btn) => {
@@ -170,19 +170,19 @@ export class EvaluationControls {
   private static updateEstimationButtons(
     container: HTMLElement,
     refId: string | null,
-    estIds: string[]
+    estIds: string[],
   ): void {
     const buttons = Array.from(
-      container.querySelectorAll<HTMLButtonElement>("button[data-role=est-toggle]")
+      container.querySelectorAll<HTMLButtonElement>("button[data-role=est-toggle]"),
     );
 
     buttons.forEach((btn) => {
       const fid = btn.getAttribute("data-file-id") || "";
       const active = estIds.includes(fid);
-      
+
       btn.style.color = active ? "#198754" : "#adb5bd";
       btn.title = active ? "Unset as comparison" : "Set as comparison";
-      
+
       // Keep buttons interactive for swap behavior
       btn.style.opacity = "1";
       btn.style.pointerEvents = "auto";
@@ -196,9 +196,7 @@ export class EvaluationControls {
     const evalState = dependencies.stateManager.getState().evaluation;
     const files = dependencies.midiManager.getState().files;
     const currentRef = evalState.refId;
-    const refStillExists = currentRef
-      ? files.some((f) => f.id === currentRef)
-      : false;
+    const refStillExists = currentRef ? files.some((f) => f.id === currentRef) : false;
 
     // Set default reference if needed
     if (!currentRef && files.length > 0) {

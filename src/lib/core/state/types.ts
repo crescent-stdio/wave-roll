@@ -20,22 +20,22 @@ export interface PlaybackState {
   duration: number;
   isPlaying: boolean;
   volume: number;
-  
+
   /** Generation token to prevent ghost audio - increments on play/seek/tempo changes */
   playbackGeneration: number;
-  
+
   /** Unified time reference - single source of truth for current playback position */
   nowTime: number;
-  
+
   /** Master volume that affects all audio output */
   masterVolume: number;
-  
+
   /** Current tempo in BPM */
   tempo: number;
-  
+
   /** Loop mode state */
-  loopMode: 'off' | 'repeat' | 'ab';
-  
+  loopMode: "off" | "repeat" | "ab";
+
   /** A/B loop markers */
   markerA: number | null;
   markerB: number | null;
@@ -72,6 +72,11 @@ export interface PanVolumeState {
 /**
  * Visual state for piano roll and note rendering
  */
+/**
+ * Snap resolution for grid alignment
+ */
+export type SnapResolution = "beat" | "8th" | "16th" | "32nd" | "64th";
+
 export type HighlightMode =
   | "file"
   // Legacy non-evaluation highlight modes (kept for backward-compatibility)
@@ -109,6 +114,12 @@ export interface VisualState {
   fileOnsetMarkers: Record<string, OnsetMarkerStyle>;
   /** Whether to use uniform color for all tracks (no lightness variation) */
   uniformTrackColor: boolean;
+  /** Whether to time-stretch non-reference files to align with reference tempo */
+  tempoSyncEnabled: boolean;
+  /** Whether to snap note onsets to the nearest beat grid line (visual only) */
+  snapToGridEnabled: boolean;
+  /** Snap resolution for grid alignment (beat, 8th, 16th, etc.) */
+  snapResolution: SnapResolution;
 }
 
 /**

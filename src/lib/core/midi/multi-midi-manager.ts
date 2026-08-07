@@ -1,4 +1,5 @@
 import { NoteData, ParsedMidi, InstrumentFamily } from "@/lib/midi/types";
+import { FAMILY_REPRESENTATIVE_PROGRAM } from "@/lib/core/audio/gm-instruments";
 import { ColorPalette, MidiFileEntry, MultiMidiState } from "./types";
 import { DEFAULT_PALETTES } from "./palette";
 import { createMidiFileEntry, reassignEntryColors } from "./file-entry";
@@ -6,6 +7,7 @@ import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { tempoEventBus } from "./tempo-event-bus";
 
 const PALETTE_STORAGE_KEY = "waveRoll.paletteState";
+const INSTRUMENT_STORAGE_KEY = "waveRoll.instrumentOverrides";
 
 /**
  * Manages multiple MIDI files with visualization
@@ -20,14 +22,10 @@ export class MultiMidiManager {
   constructor() {
     // Attempt to restore palette preferences from localStorage so that
     // the UI remembers the user’s selection across sessions.
-    let stored: Partial<
-      Pick<MultiMidiState, "activePaletteId" | "customPalettes">
-    > | null = null;
+    let stored: Partial<Pick<MultiMidiState, "activePaletteId" | "customPalettes">> | null = null;
     if (typeof window !== "undefined" && "localStorage" in window) {
       try {
-        stored = JSON.parse(
-          window.localStorage.getItem(PALETTE_STORAGE_KEY) || "null"
-        );
+        stored = JSON.parse(window.localStorage.getItem(PALETTE_STORAGE_KEY) || "null");
       } catch {
         // Ignore malformed JSON - fall back to defaults.
       }
@@ -73,10 +71,7 @@ export class MultiMidiManager {
    */
   private getActivePalette(): ColorPalette {
     const allPalettes = [...DEFAULT_PALETTES, ...this.state.customPalettes];
-    return (
-      allPalettes.find((p) => p.id === this.state.activePaletteId) ||
-      DEFAULT_PALETTES[0]
-    );
+    return allPalettes.find((p) => p.id === this.state.activePaletteId) || DEFAULT_PALETTES[0];
   }
 
   /**
@@ -85,8 +80,7 @@ export class MultiMidiManager {
   private getNextColor(): number {
     const palette = this.getActivePalette();
     const colors = palette.colors;
-    const color =
-      colors.length > 0 ? colors[this.colorIndex % colors.length] : 0x666666;
+    const color = colors.length > 0 ? colors[this.colorIndex % colors.length] : 0x666666;
     this.colorIndex++;
     return color;
   }
@@ -105,7 +99,7 @@ export class MultiMidiManager {
     fileName: string,
     parsedData: ParsedMidi,
     displayName?: string,
-    originalInput?: File | string
+    originalInput?: File | string,
   ): string {
     const isFirstFile = this.state.files.length === 0;
     const entry: MidiFileEntry = createMidiFileEntry(
@@ -113,7 +107,7 @@ export class MultiMidiManager {
       parsedData,
       this.getNextColor(),
       displayName,
-      originalInput || fileName
+      originalInput || fileName,
     );
     // Default visibility: only the first two files are visible on initial load
     const shouldBeVisible = this.state.files.length < 2;
@@ -139,6 +133,9 @@ export class MultiMidiManager {
         entry.trackSustainVisibility[track.id] = true;
       }
     }
+
+    // Restore instrument overrides from localStorage
+    this.restoreInstrumentOverrides(entry);
 
     this.state.files.push(entry);
     try {
@@ -187,7 +184,7 @@ export class MultiMidiManager {
     const EPS = 1e-3;
     const atZero = tempos.filter((t) => Math.abs(t.time || 0) <= EPS);
     const first = (atZero.length > 0 ? atZero : tempos).sort(
-      (a, b) => (a.time || 0) - (b.time || 0)
+      (a, b) => (a.time || 0) - (b.time || 0),
     )[0];
     return Math.max(20, Math.min(300, first?.bpm || 120));
   }
@@ -196,8 +193,7 @@ export class MultiMidiManager {
    * Remove a MIDI file
    */
   public removeMidiFile(id: string): void {
-    const wasFirstFile =
-      this.state.files.length > 0 && this.state.files[0].id === id;
+    const wasFirstFile = this.state.files.length > 0 && this.state.files[0].id === id;
     this.state.files = this.state.files.filter((f) => f.id !== id);
     this.resetColorIndex();
 
@@ -251,11 +247,7 @@ export class MultiMidiManager {
    * @param trackId - The track ID (0-based index)
    * @param visible - Whether the track should be visible
    */
-  public setTrackVisibility(
-    fileId: string,
-    trackId: number,
-    visible: boolean
-  ): void {
+  public setTrackVisibility(fileId: string, trackId: number, visible: boolean): void {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return;
 
@@ -428,11 +420,7 @@ export class MultiMidiManager {
    * @param trackId - The track ID (0-based index)
    * @param useAuto - Whether to use auto instrument matching
    */
-  public setTrackAutoInstrument(
-    fileId: string,
-    trackId: number,
-    useAuto: boolean
-  ): void {
+  public setTrackAutoInstrument(fileId: string, trackId: number, useAuto: boolean): void {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file) return;
 
@@ -464,10 +452,7 @@ export class MultiMidiManager {
    * @param fileId - The ID of the MIDI file
    * @param trackId - The track ID (0-based index)
    */
-  public getTrackInstrumentFamily(
-    fileId: string,
-    trackId: number
-  ): InstrumentFamily {
+  public getTrackInstrumentFamily(fileId: string, trackId: number): InstrumentFamily {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file?.parsedData?.tracks) return "piano";
 
@@ -476,7 +461,52 @@ export class MultiMidiManager {
   }
 
   /**
+   * Set the instrument override for a specific track.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @param family - InstrumentFamily to override with, or null to use original (auto)
+   */
+  public setTrackOverrideInstrument(
+    fileId: string,
+    trackId: number,
+    family: InstrumentFamily | null,
+  ): void {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return;
+
+    if (!file.trackOverrideInstrumentFamily) {
+      file.trackOverrideInstrumentFamily = {};
+    }
+    file.trackOverrideInstrumentFamily[trackId] = family;
+
+    // Sync legacy trackUseAutoInstrument for backward compatibility
+    if (!file.trackUseAutoInstrument) {
+      file.trackUseAutoInstrument = {};
+    }
+    file.trackUseAutoInstrument[trackId] = family === null;
+
+    this.notifyStateChange();
+  }
+
+  /**
+   * Get the instrument override family for a specific track.
+   * @param fileId - The ID of the MIDI file
+   * @param trackId - The track ID (0-based index)
+   * @returns The override InstrumentFamily or null if using original
+   */
+  public getTrackOverrideInstrumentFamily(
+    fileId: string,
+    trackId: number,
+  ): InstrumentFamily | null {
+    const file = this.state.files.find((f) => f.id === fileId);
+    if (!file) return null;
+    return file.trackOverrideInstrumentFamily?.[trackId] ?? null;
+  }
+
+  /**
    * Get the MIDI Program Number for a specific track.
+   * If an instrument override is set, returns the representative program for that family.
+   * Otherwise returns the original program from the MIDI file.
    * Returns 118 (synth_drum) for drum tracks (channel 9/10).
    * Returns 0 (acoustic_grand_piano) as fallback if track info is not available.
    * @param fileId - The ID of the MIDI file
@@ -485,6 +515,12 @@ export class MultiMidiManager {
   public getTrackProgram(fileId: string, trackId: number): number {
     const file = this.state.files.find((f) => f.id === fileId);
     if (!file?.parsedData?.tracks) return 0;
+
+    // Check for instrument override
+    const overrideFamily = file.trackOverrideInstrumentFamily?.[trackId];
+    if (overrideFamily != null) {
+      return FAMILY_REPRESENTATIVE_PROGRAM[overrideFamily];
+    }
 
     const track = file.parsedData.tracks.find((t) => t.id === trackId);
     if (!track) return 0;
@@ -576,10 +612,7 @@ export class MultiMidiManager {
    * @param id     Palette identifier
    * @param patch  Partial properties to update (name and/or colors)
    */
-  public updateCustomPalette(
-    id: string,
-    patch: Partial<Omit<ColorPalette, "id">>
-  ): void {
+  public updateCustomPalette(id: string, patch: Partial<Omit<ColorPalette, "id">>): void {
     const idx = this.state.customPalettes.findIndex((p) => p.id === id);
     if (idx === -1) return;
 
@@ -614,8 +647,7 @@ export class MultiMidiManager {
 
     // If the removed palette was active, select a fallback palette
     if (this.state.activePaletteId === id) {
-      this.state.activePaletteId =
-        this.state.customPalettes[0]?.id ?? DEFAULT_PALETTES[0].id;
+      this.state.activePaletteId = this.state.customPalettes[0]?.id ?? DEFAULT_PALETTES[0].id;
       // Reset color assignment so existing files use the new palette
       this.colorIndex = 0;
       reassignEntryColors(this.state.files, this.getActivePalette());
@@ -633,8 +665,7 @@ export class MultiMidiManager {
     color: number;
     fileId: string;
   }> {
-    const allNotes: Array<{ note: NoteData; color: number; fileId: string }> =
-      [];
+    const allNotes: Array<{ note: NoteData; color: number; fileId: string }> = [];
 
     this.state.files.forEach((file) => {
       if (file.isPianoRollVisible && file.parsedData) {
@@ -642,8 +673,7 @@ export class MultiMidiManager {
           // Check track visibility: if trackId is set, respect trackVisibility
           // Default to visible if trackVisibility is not defined for this track
           const trackId = note.trackId;
-          const isTrackVisible =
-            trackId === undefined || file.trackVisibility?.[trackId] !== false;
+          const isTrackVisible = trackId === undefined || file.trackVisibility?.[trackId] !== false;
 
           if (isTrackVisible) {
             allNotes.push({
@@ -684,6 +714,30 @@ export class MultiMidiManager {
   }
 
   /**
+   * Restore instrument overrides from localStorage for a newly added file.
+   */
+  private restoreInstrumentOverrides(entry: MidiFileEntry): void {
+    if (typeof window === "undefined" || !("localStorage" in window)) return;
+    try {
+      const stored: Record<string, Record<number, InstrumentFamily | null>> | null = JSON.parse(
+        window.localStorage.getItem(INSTRUMENT_STORAGE_KEY) || "null",
+      );
+      if (!stored) return;
+      const overrides = stored[entry.fileName];
+      if (overrides && Object.keys(overrides).length > 0) {
+        entry.trackOverrideInstrumentFamily = overrides;
+        // Sync legacy trackUseAutoInstrument for backward compatibility
+        entry.trackUseAutoInstrument = entry.trackUseAutoInstrument ?? {};
+        for (const [trackIdStr, family] of Object.entries(overrides)) {
+          entry.trackUseAutoInstrument[Number(trackIdStr)] = family === null;
+        }
+      }
+    } catch {
+      // Ignore malformed JSON.
+    }
+  }
+
+  /**
    * Notify state change
    */
   private notifyStateChange(): void {
@@ -699,10 +753,32 @@ export class MultiMidiManager {
           activePaletteId: this.state.activePaletteId,
           customPalettes: this.state.customPalettes,
         };
-        window.localStorage.setItem(
-          PALETTE_STORAGE_KEY,
-          JSON.stringify(payload)
-        );
+        window.localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(payload));
+      } catch {
+        // Silently ignore storage quota / access errors.
+      }
+
+      // Persist instrument overrides keyed by fileName.
+      // Merge with existing localStorage data to avoid overwriting overrides
+      // for files that haven't been loaded yet (sequential file loading).
+      try {
+        let existing: Record<string, Record<number, InstrumentFamily | null>> = {};
+        try {
+          existing = JSON.parse(window.localStorage.getItem(INSTRUMENT_STORAGE_KEY) || "{}");
+        } catch {
+          // Ignore malformed JSON — start fresh.
+        }
+        for (const file of this.state.files) {
+          if (
+            file.trackOverrideInstrumentFamily &&
+            Object.values(file.trackOverrideInstrumentFamily).some((v) => v != null)
+          ) {
+            existing[file.fileName] = file.trackOverrideInstrumentFamily;
+          } else {
+            delete existing[file.fileName];
+          }
+        }
+        window.localStorage.setItem(INSTRUMENT_STORAGE_KEY, JSON.stringify(existing));
       } catch {
         // Silently ignore storage quota / access errors.
       }
@@ -726,7 +802,7 @@ export class MultiMidiManager {
    */
   public async reparseAllFiles(
     options: { applyPedalElongate?: boolean; pedalThreshold?: number } = {},
-    onProgress?: (current: number, total: number) => void
+    onProgress?: (current: number, total: number) => void,
   ): Promise<void> {
     const total = this.state.files.length;
     let current = 0;

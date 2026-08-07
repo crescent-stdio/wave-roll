@@ -35,12 +35,7 @@ export class FileAudioController {
    * Set per-file mute
    */
   setFileMute(fileId: string, mute: boolean): void {
-    const {
-      samplerManager,
-      wavPlayerManager,
-      midiManager,
-      onFileSettingsChange,
-    } = this.deps;
+    const { samplerManager, wavPlayerManager, midiManager, onFileSettingsChange } = this.deps;
 
     // console.log("[FileAudioController.setFileMute]", { fileId, mute });
 
@@ -84,7 +79,7 @@ export class FileAudioController {
     fileId: string,
     volume: number,
     masterVolume: number,
-    state: { isPlaying: boolean; currentTime: number }
+    state: { isPlaying: boolean; currentTime: number },
   ): void {
     const { wavPlayerManager, midiManager } = this.deps;
 

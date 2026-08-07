@@ -10,17 +10,15 @@ export class KeyboardHandler {
    */
   setupKeyboardListener(
     getDependencies: () => UIComponentDependencies,
-    startUpdateLoop: () => void
+    startUpdateLoop: () => void,
   ): void {
     // Register global keyboard listener (Space -> Play/Pause) only once
     const GLOBAL_KEY = "_waveRollSpaceHandler" as const;
-    
-    this.boundHandleKeyDown = (event: KeyboardEvent) => 
+
+    this.boundHandleKeyDown = (event: KeyboardEvent) =>
       this.handleKeyDown(event, getDependencies, startUpdateLoop);
-    
-    const existing = Reflect.get(window, GLOBAL_KEY) as
-      | ((e: KeyboardEvent) => void)
-      | undefined;
+
+    const existing = Reflect.get(window, GLOBAL_KEY) as ((e: KeyboardEvent) => void) | undefined;
     if (!existing && this.boundHandleKeyDown) {
       Reflect.set(window, GLOBAL_KEY, this.boundHandleKeyDown);
       document.addEventListener("keydown", this.boundHandleKeyDown);
@@ -33,7 +31,7 @@ export class KeyboardHandler {
   private handleKeyDown = (
     event: KeyboardEvent,
     getDependencies: () => UIComponentDependencies,
-    startUpdateLoop: () => void
+    startUpdateLoop: () => void,
   ): void => {
     if (event.repeat) return; // Ignore auto-repeat
 
@@ -82,7 +80,7 @@ export class KeyboardHandler {
     } else {
       // Check buffer status before attempting to play
       const wavPlayerManager = (audioPlayer as any).wavPlayerManager;
-      if (wavPlayerManager && typeof wavPlayerManager.areAllBuffersReady === 'function') {
+      if (wavPlayerManager && typeof wavPlayerManager.areAllBuffersReady === "function") {
         const buffersReady = wavPlayerManager.areAllBuffersReady();
         if (!buffersReady) {
           // console.log("[KeyboardHandler] Audio buffers are not ready yet. Please wait...");
@@ -104,7 +102,9 @@ export class KeyboardHandler {
       (async () => {
         try {
           // 1) Ensure AudioContext is started within this user gesture
-          try { await ensureAudioContextReady(); } catch {}
+          try {
+            await ensureAudioContextReady();
+          } catch {}
           // 2) Wait until engine is initialized (piano-roll + audio player ready)
           await waitUntil(() => !!deps.audioPlayer?.isInitialized?.());
           // 3) Play
@@ -129,9 +129,7 @@ export class KeyboardHandler {
    */
   cleanup(): void {
     const GLOBAL_KEY = "_waveRollSpaceHandler" as const;
-    const handler = Reflect.get(window, GLOBAL_KEY) as
-      | ((e: KeyboardEvent) => void)
-      | undefined;
+    const handler = Reflect.get(window, GLOBAL_KEY) as ((e: KeyboardEvent) => void) | undefined;
     if (handler && handler === this.boundHandleKeyDown) {
       document.removeEventListener("keydown", handler);
       Reflect.deleteProperty(window, GLOBAL_KEY);

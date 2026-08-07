@@ -7,9 +7,7 @@ import { toHexColor } from "@/lib/core/utils/color";
 /**
  * Build an interactive palette selector with color previews.
  */
-export function createPaletteSelectorSection(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createPaletteSelectorSection(deps: UIComponentDependencies): HTMLElement {
   const wrapper = document.createElement("div");
   // Mark wrapper for easy replacement after palette updates
   wrapper.setAttribute("data-palette-selector", "true");
@@ -53,9 +51,7 @@ export function createPaletteSelectorSection(
     preview.style.cssText = "display:flex;gap:4px;flex-wrap:wrap;";
     palette.colors.forEach((col) => {
       const sw = document.createElement("div");
-      sw.style.cssText = `width:20px;height:20px;border-radius:3px;background:${toHexColor(
-        col
-      )}`;
+      sw.style.cssText = `width:20px;height:20px;border-radius:3px;background:${toHexColor(col)}`;
       preview.appendChild(sw);
     });
 
@@ -92,9 +88,9 @@ export function createPaletteSelectorSection(
             const newSection = createPaletteSelectorSection(deps);
             wrapper.replaceWith(newSection);
           },
-          "clone"
+          "clone",
         );
-      })
+      }),
     );
 
     const isCustom = customPalettes.some((p) => p.id === palette.id);
@@ -109,24 +105,20 @@ export function createPaletteSelectorSection(
               const newSection = createPaletteSelectorSection(deps);
               wrapper.replaceWith(newSection);
             },
-            "edit"
+            "edit",
           );
-        })
+        }),
       );
 
       // Delete
       btnBar.appendChild(
         createIconBtn(PLAYER_ICONS.trash, "Delete", () => {
-          if (
-            confirm(
-              `Delete palette \"${palette.name}\"? This action cannot be undone.`
-            )
-          ) {
+          if (confirm(`Delete palette "${palette.name}"? This action cannot be undone.`)) {
             deps.midiManager.removeCustomPalette(palette.id);
             const newSection = createPaletteSelectorSection(deps);
             wrapper.replaceWith(newSection);
           }
-        })
+        }),
       );
     }
 
@@ -146,9 +138,7 @@ export function createPaletteSelectorSection(
     swatchRow.style.cssText = "display:flex;gap:2px;margin-bottom:4px;";
     palette.colors.slice(0, 8).forEach((col) => {
       const sw = document.createElement("div");
-      sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:${toHexColor(
-        col
-      )}`;
+      sw.style.cssText = `width:12px;height:12px;border-radius:2px;background:${toHexColor(col)}`;
       swatchRow.appendChild(sw);
     });
 
@@ -178,7 +168,7 @@ export function createPaletteSelectorSection(
       }
       // Highlight selection visually
       [...paletteGrid.children].forEach(
-        (c) => c instanceof HTMLElement && (c.style.background = "var(--surface)")
+        (c) => c instanceof HTMLElement && (c.style.background = "var(--surface)"),
       );
       btn.style.background = "var(--surface-alt)";
       renderDetails(palette); // Show details for the clicked palette
@@ -218,8 +208,7 @@ export function createPaletteSelectorSection(
   paletteGrid.appendChild(addBtn);
 
   // Auto-expand the details view for the initial palette so that users immediately see palette information.
-  const initialPalette =
-    palettes.find((p) => p.id === activePaletteId) ?? palettes[0];
+  const initialPalette = palettes.find((p) => p.id === activePaletteId) ?? palettes[0];
   renderDetails(initialPalette);
 
   wrapper.append(title, paletteGrid, detailsRow);

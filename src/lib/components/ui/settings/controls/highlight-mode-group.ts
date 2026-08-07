@@ -11,7 +11,7 @@ export interface HighlightModeGroupOptions {
  */
 export function createHighlightModeGroup(
   deps: UIComponentDependencies,
-  options?: HighlightModeGroupOptions
+  options?: HighlightModeGroupOptions,
 ): HTMLDivElement {
   const withWrapper = options?.withWrapper ?? false;
 
@@ -63,8 +63,7 @@ export function createHighlightModeGroup(
   const descriptions: Record<HighlightMode, string> = {
     file: "Show each file in its own color (no evaluation highlight).",
     // Legacy non-evaluation highlight modes (hidden in UI)
-    "highlight-simple":
-      "Basic overlap highlight: overlapping segments are slightly brightened.",
+    "highlight-simple": "Basic overlap highlight: overlapping segments are slightly brightened.",
     "highlight-blend":
       "Additive blend: overlapping segments keep file colors and use additive blending.",
     "highlight-exclusive":
@@ -86,11 +85,9 @@ export function createHighlightModeGroup(
     "eval-tp-only-own": "Highlight True Positive (TP) segments, mute others",
     "eval-tp-only-gray": "Mute True Positive (TP) segments, keep others normal",
     "eval-fp-only-own": "Highlight False Positive (FP) segments, mute others",
-    "eval-fp-only-gray":
-      "Mute False Positive (FP) segments, keep others normal",
+    "eval-fp-only-gray": "Mute False Positive (FP) segments, keep others normal",
     "eval-fn-only-own": "Highlight False Negative (FN) segments, mute others",
-    "eval-fn-only-gray":
-      "Mute False Negative (FN) segments, keep others normal",
+    "eval-fn-only-gray": "Mute False Negative (FN) segments, keep others normal",
   };
 
   // Short labels for compact select text; hover/tap shows detailed descriptions above
@@ -180,9 +177,7 @@ export function createHighlightModeGroup(
   });
 
   // Set initial value (fallback to visible mode if current is hidden)
-  select.value = visibleModeOf(
-    deps.stateManager.getState().visual.highlightMode
-  );
+  select.value = visibleModeOf(deps.stateManager.getState().visual.highlightMode);
   // Also expose description on hover over the select itself
   select.title = descriptions[select.value as HighlightMode] ?? "";
 
@@ -229,14 +224,10 @@ export function createHighlightModeGroup(
     if (mode.startsWith("eval-")) {
       const evalState = deps.stateManager.getState().evaluation;
       const files = deps.midiManager.getState().files;
-      if (
-        (!evalState.refId || evalState.estIds.length === 0) &&
-        files.length >= 2
-      ) {
+      if ((!evalState.refId || evalState.estIds.length === 0) && files.length >= 2) {
         deps.stateManager.updateEvaluationState({
           refId: evalState.refId ?? files[0].id,
-          estIds:
-            evalState.estIds.length > 0 ? evalState.estIds : [files[1].id],
+          estIds: evalState.estIds.length > 0 ? evalState.estIds : [files[1].id],
         });
       }
     }

@@ -35,12 +35,9 @@ export function getLuminance(r: number, g: number, b: number): number {
   const gsRGB = g / 255;
   const bsRGB = b / 255;
 
-  const rLinear =
-    rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
-  const gLinear =
-    gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
-  const bLinear =
-    bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
+  const rLinear = rsRGB <= 0.03928 ? rsRGB / 12.92 : Math.pow((rsRGB + 0.055) / 1.055, 2.4);
+  const gLinear = gsRGB <= 0.03928 ? gsRGB / 12.92 : Math.pow((gsRGB + 0.055) / 1.055, 2.4);
+  const bLinear = bsRGB <= 0.03928 ? bsRGB / 12.92 : Math.pow((bsRGB + 0.055) / 1.055, 2.4);
 
   return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
 }
@@ -74,7 +71,7 @@ export function getContrastRatio(color1: string, color2: string): number {
 export function getContrastingGray(
   refColor: string,
   minContrast: number = 3.0,
-  preferDark?: boolean
+  preferDark?: boolean,
 ): string {
   const refRgb = hexToRgb(refColor);
   const refLum = getLuminance(refRgb.r, refRgb.g, refRgb.b);
@@ -128,9 +125,7 @@ export function getContrastingGray(
   // Ensure minimum contrast
   const grayLum = getLuminance(bestGray, bestGray, bestGray);
   const contrast =
-    refLum > grayLum
-      ? (refLum + 0.05) / (grayLum + 0.05)
-      : (grayLum + 0.05) / (refLum + 0.05);
+    refLum > grayLum ? (refLum + 0.05) / (grayLum + 0.05) : (grayLum + 0.05) / (refLum + 0.05);
 
   // If contrast is insufficient, adjust
   if (contrast < minContrast) {
@@ -199,11 +194,7 @@ export function adjustBrightness(color: string, factor: number): string {
  * @param color2 Second hex color
  * @param ratio Mix ratio (0 = color1, 1 = color2)
  */
-export function mixColors(
-  color1: string,
-  color2: string,
-  ratio: number = 0.5
-): string {
+export function mixColors(color1: string, color2: string, ratio: number = 0.5): string {
   const rgb1 = hexToRgb(color1);
   const rgb2 = hexToRgb(color2);
 
@@ -221,7 +212,7 @@ export function mixColors(
 export function getAmbiguousColor(
   refColor: string,
   compColor: string,
-  mode: "color" | "gray" = "color"
+  mode: "color" | "gray" = "color",
 ): string {
   if (mode === "gray") {
     // In gray mode, use a distinct medium gray with slight warm tint
@@ -239,7 +230,7 @@ export function getAmbiguousColor(
   const toHsv = (hex: string): [number, number, number] => {
     const { r, g, b } = hexToRgb(hex);
     // Inline rgbToHsv to avoid extra dependency and retain determinism
-    let rr = r / 255,
+    const rr = r / 255,
       gg = g / 255,
       bb = b / 255;
     const max = Math.max(rr, gg, bb);
@@ -314,15 +305,15 @@ export function getAmbiguousColor(
   if (hueDist(ambHue, h2) < 30) ambHue = (ambHue + 60) % 360;
 
   // Choose moderately vivid S and mid-high V for visibility
-  let ambS = Math.min(0.85, Math.max(0.55, Math.max(s1, s2) * 0.85));
-  let ambV = Math.min(0.8, Math.max(0.6, (v1 + v2) / 2 * 0.9));
+  const ambS = Math.min(0.85, Math.max(0.55, Math.max(s1, s2) * 0.85));
+  let ambV = Math.min(0.8, Math.max(0.6, ((v1 + v2) / 2) * 0.9));
 
   let candidate = fromHsv(ambHue, ambS, ambV);
   const minContrast = (hex: string) =>
     Math.min(getContrastRatio(hex, refColor), getContrastRatio(hex, compColor));
 
   // Enforce minimum contrast 3.0:1 against both REF and COMP
-  let best = candidate;
+  const best = candidate;
   let bestScore = minContrast(candidate);
   const TARGET = 3.0;
   let tries = 0;

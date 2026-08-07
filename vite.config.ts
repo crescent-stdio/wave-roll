@@ -4,7 +4,7 @@ import { resolve } from "path";
 export default defineConfig({
   test: {
     environment: "node",
-    pool: 'threads',
+    pool: "threads",
     poolOptions: {
       threads: {
         singleThread: true,
@@ -32,14 +32,14 @@ export default defineConfig({
       entry: resolve(__dirname, "src/index.ts"),
       name: "WaveRoll",
       fileName: (format) => `wave-roll.${format}.js`,
-      formats: ['es', 'umd']
+      formats: ["es", "umd"],
     },
     rollupOptions: {
       external: [],
       output: {
         globals: {},
         // Ensure UMD build works in browsers
-        assetFileNames: 'wave-roll.[ext]',
+        assetFileNames: "wave-roll.[ext]",
       },
     },
   },

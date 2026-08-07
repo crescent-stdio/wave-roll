@@ -19,11 +19,7 @@ export interface SustainRegion {
   end: number;
   duration: number;
 }
-import {
-  midiToNoteName,
-  midiToPitchClass,
-  midiToOctave,
-} from "@/lib/core/utils/midi";
+import { midiToNoteName, midiToPitchClass, midiToOctave } from "@/lib/core/utils/midi";
 import { getGMInstrumentDisplayName } from "@/lib/core/audio/gm-instruments";
 
 /**
@@ -31,10 +27,7 @@ import { getGMInstrumentDisplayName } from "@/lib/core/audio/gm-instruments";
  * Based on General MIDI Level 1 specification.
  * Reference: https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/names.json
  */
-export function getInstrumentFamily(
-  program: number,
-  channel: number
-): InstrumentFamily {
+export function getInstrumentFamily(program: number, channel: number): InstrumentFamily {
   // Channel 9 (0-indexed) or Channel 10 (1-indexed) is always drums in GM
   if (channel === 9 || channel === 10) {
     return "drums";
@@ -90,7 +83,7 @@ async function loadMidiFromUrl(url: string): Promise<ArrayBuffer> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(
-      `Failed to fetch MIDI file from URL: ${response.status} ${response.statusText}`
+      `Failed to fetch MIDI file from URL: ${response.status} ${response.statusText}`,
     );
   }
   return response.arrayBuffer();
@@ -153,14 +146,12 @@ function extractMidiHeader(midi: any): MidiHeader {
   }));
 
   // Extract time signature events
-  const timeSignatures: TimeSignatureEvent[] = midi.header.timeSignatures.map(
-    (ts: any) => ({
-      time: ts.time,
-      ticks: ts.ticks,
-      numerator: ts.numerator,
-      denominator: ts.denominator,
-    })
-  );
+  const timeSignatures: TimeSignatureEvent[] = midi.header.timeSignatures.map((ts: any) => ({
+    time: ts.time,
+    ticks: ts.ticks,
+    numerator: ts.numerator,
+    denominator: ts.denominator,
+  }));
 
   return {
     name,
@@ -233,7 +224,7 @@ export function applySustainPedalElongation(
   notes: NoteData[],
   controlChanges: ControlChangeEvent[],
   threshold: number = 64,
-  channel: number = 0
+  channel: number = 0,
 ): NoteData[] {
   if (notes.length === 0) return [];
 
@@ -298,10 +289,7 @@ export function applySustainPedalElongation(
 
   // State
   let sustainOn = false;
-  const activeNotes = new Map<
-    number,
-    { startTime: number; midi: number; velocity: number }
-  >();
+  const activeNotes = new Map<number, { startTime: number; midi: number; velocity: number }>();
   interface SustainedNoteEntry {
     index: number;
     startTime: number;
@@ -365,8 +353,7 @@ export function applySustainPedalElongation(
           });
           sustainedNotes.set(ev.midi, stack);
         } else {
-          if (!finalNotes.has(ev.index))
-            finalNotes.set(ev.index, notes[ev.index]);
+          if (!finalNotes.has(ev.index)) finalNotes.set(ev.index, notes[ev.index]);
         }
         break;
     }
@@ -383,11 +370,8 @@ export function applySustainPedalElongation(
 
   // Build final array preserving index order, then sort by time, pitch
   const out: NoteData[] = [];
-  for (let i = 0; i < notes.length; i++)
-    out.push(finalNotes.get(i) ?? notes[i]);
-  out.sort((a, b) =>
-    Math.abs(a.time - b.time) > EPS ? a.time - b.time : a.midi - b.midi
-  );
+  for (let i = 0; i < notes.length; i++) out.push(finalNotes.get(i) ?? notes[i]);
+  out.sort((a, b) => (Math.abs(a.time - b.time) > EPS ? a.time - b.time : a.midi - b.midi));
   return out;
 }
 
@@ -402,41 +386,24 @@ export function applySustainPedalElongationSafe(
     channel?: number;
     maxElongation?: number;
     verbose?: boolean;
-  } = {}
+  } = {},
 ): NoteData[] {
-  const {
-    threshold = 64,
-    channel = 0,
-    maxElongation = 30,
-    verbose = false,
-  } = options;
+  const { threshold = 64, channel = 0, maxElongation = 30, verbose = false } = options;
   try {
     if (!Array.isArray(notes) || !Array.isArray(controlChanges)) {
       if (verbose) console.warn("Invalid input to sustain pedal elongation");
       return notes;
     }
-    let res = applySustainPedalElongation(
-      notes,
-      controlChanges,
-      threshold,
-      channel
-    );
+    let res = applySustainPedalElongation(notes, controlChanges, threshold, channel);
     if (maxElongation > 0) {
-      res = res.map((n) =>
-        n.duration > maxElongation ? { ...n, duration: maxElongation } : n
-      );
+      res = res.map((n) => (n.duration > maxElongation ? { ...n, duration: maxElongation } : n));
     }
     const invalid = res.filter(
-      (n) => n.duration <= 0 || !isFinite(n.duration) || !isFinite(n.time)
+      (n) => n.duration <= 0 || !isFinite(n.duration) || !isFinite(n.time),
     );
     if (invalid.length > 0) {
-      if (verbose)
-        console.warn(
-          `Found ${invalid.length} invalid notes after sustain processing`
-        );
-      res = res.filter(
-        (n) => n.duration > 0 && isFinite(n.duration) && isFinite(n.time)
-      );
+      if (verbose) console.warn(`Found ${invalid.length} invalid notes after sustain processing`);
+      res = res.filter((n) => n.duration > 0 && isFinite(n.duration) && isFinite(n.time));
     }
     return res;
   } catch (err) {
@@ -450,7 +417,7 @@ export function applySustainPedalElongationSafe(
  */
 export function analyzeSustainPedalUsage(
   controlChanges: ControlChangeEvent[],
-  threshold: number = 64
+  threshold: number = 64,
 ): {
   hasSustain: boolean;
   sustainCount: number;
@@ -529,7 +496,7 @@ export function analyzeSustainPedalUsage(
  */
 export async function parseMidi(
   input: MidiInput,
-  options: { applyPedalElongate?: boolean; pedalThreshold?: number } = {}
+  options: { applyPedalElongate?: boolean; pedalThreshold?: number } = {},
 ): Promise<ParsedMidi> {
   try {
     // Step 1: Load MIDI data based on input type
@@ -547,9 +514,7 @@ export async function parseMidi(
     const header = extractMidiHeader(midi);
 
     // Step 4: Collect ALL tracks that contain notes and merge them for evaluation.
-    const noteTracks = midi.tracks.filter(
-      (t: any) => t.notes && t.notes.length > 0
-    );
+    const noteTracks = midi.tracks.filter((t: any) => t.notes && t.notes.length > 0);
     if (noteTracks.length === 0) {
       throw new Error("No tracks with notes found in MIDI file");
     }
@@ -576,9 +541,7 @@ export async function parseMidi(
       let trackName: string;
       if (isDrum) {
         // Drum tracks: "Drums (ch.9)" or "Drums (ch.10)"
-        trackName = t.name
-          ? `${t.name} (ch.${channel})`
-          : `Drums (ch.${channel})`;
+        trackName = t.name ? `${t.name} (ch.${channel})` : `Drums (ch.${channel})`;
       } else if (t.name) {
         // Named tracks: "Track Name (program)"
         trackName = `${t.name} (${program})`;
@@ -599,9 +562,7 @@ export async function parseMidi(
       tracks.push(trackInfo);
 
       // Convert notes with trackId
-      let trackNotes: NoteData[] = t.notes.map((n: any) =>
-        convertNote(n, trackIndex)
-      );
+      let trackNotes: NoteData[] = t.notes.map((n: any) => convertNote(n, trackIndex));
 
       if (applyPedal) {
         // Extract CC exclusively from this track (channel) with trackId
@@ -609,20 +570,15 @@ export async function parseMidi(
         if (cc.some((e) => e.controller === 64)) {
           // Use the enhanced sustain-pedal elongation which follows
           // onsets-and-frames ordering (sustain_off > note_off > sustain_on > note_on)
-          trackNotes = applySustainPedalElongation(
-            trackNotes,
-            cc,
-            threshold,
-            channel
-          );
+          trackNotes = applySustainPedalElongation(trackNotes, cc, threshold, channel);
         }
       }
       mergedNotes.push(...trackNotes);
     }
 
     // Merge and sort
-    let notes: NoteData[] = mergedNotes.sort((a, b) =>
-      a.time !== b.time ? a.time - b.time : a.midi - b.midi
+    const notes: NoteData[] = mergedNotes.sort((a, b) =>
+      a.time !== b.time ? a.time - b.time : a.midi - b.midi,
     );
 
     // Collect merged control changes across all note tracks for UI/diagnostics

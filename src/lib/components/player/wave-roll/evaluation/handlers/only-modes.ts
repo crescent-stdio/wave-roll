@@ -1,6 +1,11 @@
 import { mixColorsOklch, blendColorsAverage } from "@/lib/core/utils/color/blend";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
-import { toNumberColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO } from "../colors";
+import {
+  toNumberColor,
+  HIGHLIGHT_ANCHOR_REF,
+  HIGHLIGHT_ANCHOR_EST,
+  HIGHLIGHT_BLEND_RATIO,
+} from "../colors";
 
 export interface OnlyModesParams {
   isOnlyMode: boolean;
@@ -63,18 +68,24 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
     const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
     const blended = blendColorsAverage([refOwn, estOwn]);
-    return mixColorsOklch(blended, 0xffffff, 0.20);
+    return mixColorsOklch(blended, 0xffffff, 0.2);
   };
 
   const getNonSelectedColor = (forRef: boolean, forIntersection: boolean = false): number => {
     if (useGrayGlobal) {
       if (forIntersection) {
-        const refBase = toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
-        const estBase = forRef ? fileColor : toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
+        const refBase = toNumberColor(
+          state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY,
+        );
+        const estBase = forRef
+          ? fileColor
+          : toNumberColor(
+              state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY,
+            );
         const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
         const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
         const blended = blendColorsAverage([refOwn, estOwn]);
-        return mixColorsOklch(blended, 0xffffff, 0.20);
+        return mixColorsOklch(blended, 0xffffff, 0.2);
       }
       return fileColor;
     }
@@ -121,7 +132,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         }
         if (s + EPS < e) {
           result.push({
-            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            note: {
+              ...note,
+              time: s,
+              duration: e - s,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "intersection",
+            },
             color: pairColor,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -135,7 +152,12 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
       if (cursor + EPS < noteEnd) {
         // Trailing non-TP
         result.push({
-          note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+          note: {
+            ...note,
+            time: cursor,
+            duration: noteEnd - cursor,
+            isEvalHighlightSegment: false,
+          },
           color: getNonSelectedColor(true),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -166,7 +188,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         const e = clampEdge(Math.min(noteEnd, r.end), noteStart, noteEnd);
         if (cursor + EPS < s) {
           result.push({
-            note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+            note: {
+              ...note,
+              time: cursor,
+              duration: s - cursor,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "exclusive",
+            },
             color: exclusiveColor,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -174,7 +202,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         }
         if (s + EPS < e) {
           result.push({
-            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            note: {
+              ...note,
+              time: s,
+              duration: e - s,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "intersection",
+            },
             color: useGrayGlobal ? getNonSelectedColor(true, true) : interNonSelectedColor,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -186,7 +220,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
       }
       if (cursor + EPS < noteEnd) {
         result.push({
-          note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+          note: {
+            ...note,
+            time: cursor,
+            duration: noteEnd - cursor,
+            isEvalHighlightSegment: true,
+            evalSegmentKind: "exclusive",
+          },
           color: exclusiveColor,
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -196,7 +236,9 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
     }
 
     if (isFpOnly) {
-      const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice().sort((a, b) => a.start - b.start);
+      const unionRanges = (unionRangesByRef.get(sourceIdx) || [])
+        .slice()
+        .sort((a, b) => a.start - b.start);
       const noteStart = note.time;
       const noteEnd = note.time + note.duration;
       if (unionRanges.length === 0) {
@@ -237,7 +279,12 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
       }
       if (cursor + EPS < noteEnd) {
         result.push({
-          note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+          note: {
+            ...note,
+            time: cursor,
+            duration: noteEnd - cursor,
+            isEvalHighlightSegment: false,
+          },
           color: getNonSelectedColor(true),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -293,7 +340,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
             });
           }
           result.push({
-            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            note: {
+              ...note,
+              time: s,
+              duration: e - s,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "intersection",
+            },
             color: pairColor,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -302,7 +355,12 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         }
         if (cursor + EPS < noteEnd) {
           result.push({
-            note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+            note: {
+              ...note,
+              time: cursor,
+              duration: noteEnd - cursor,
+              isEvalHighlightSegment: false,
+            },
             color: getNonSelectedColor(false),
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -310,8 +368,9 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         }
         return true;
       }
-      const refNote = state.files.find((f: any) => f.id === evalState.refId) ?
-        state.files.find((f: any) => f.id === evalState.refId).parsedData.notes[refIdx] : null;
+      const refNote = state.files.find((f: any) => f.id === evalState.refId)
+        ? state.files.find((f: any) => f.id === evalState.refId).parsedData.notes[refIdx]
+        : null;
       const noteStart = note.time;
       const noteEnd = note.time + note.duration;
       const s = clampEdge(Math.max(refNote.time, noteStart), noteStart, noteEnd);
@@ -319,17 +378,30 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
 
       if (noteStart + EPS < s) {
         result.push({
-          note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: false },
+          note: {
+            ...note,
+            time: noteStart,
+            duration: s - noteStart,
+            isEvalHighlightSegment: false,
+          },
           color: getNonSelectedColor(false),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
         });
       }
       if (s + EPS < e) {
-        const refBase = toNumberColor(state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY);
+        const refBase = toNumberColor(
+          state.files.find((f: any) => f.id === evalState.refId)?.color ?? COLOR_PRIMARY,
+        );
         const pairColor = computePairIntersectColor(refBase, estBase);
         result.push({
-          note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+          note: {
+            ...note,
+            time: s,
+            duration: e - s,
+            isEvalHighlightSegment: true,
+            evalSegmentKind: "intersection",
+          },
           color: pairColor,
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -379,7 +451,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
           const e = r.end;
           if (cursor + EPS < s) {
             result.push({
-              note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+              note: {
+                ...note,
+                time: cursor,
+                duration: s - cursor,
+                isEvalHighlightSegment: true,
+                evalSegmentKind: "exclusive",
+              },
               color: exclusiveColor,
               fileId: coloredNote.fileId,
               isMuted: coloredNote.isMuted,
@@ -387,7 +465,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
           }
           // Intersection segment
           result.push({
-            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            note: {
+              ...note,
+              time: s,
+              duration: e - s,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "intersection",
+            },
             color: getNonSelectedColor(false, true),
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -396,7 +480,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         }
         if (cursor + EPS < noteEnd) {
           result.push({
-            note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+            note: {
+              ...note,
+              time: cursor,
+              duration: noteEnd - cursor,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "exclusive",
+            },
             color: exclusiveColor,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -405,7 +495,9 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         return true;
       }
       // Matched EST note is non-FP: color by mapping with intersection highlight
-      const refNote = state.files.find((f: any) => f.id === evalState.refId).parsedData.notes[refIdx];
+      const refNote = state.files.find((f: any) => f.id === evalState.refId).parsedData.notes[
+        refIdx
+      ];
       const noteStart = note.time;
       const noteEnd = note.time + note.duration;
       const s = clampEdge(Math.max(refNote.time, noteStart), noteStart, noteEnd);
@@ -413,7 +505,12 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
 
       if (noteStart + EPS < s) {
         result.push({
-          note: { ...note, time: noteStart, duration: s - noteStart, isEvalHighlightSegment: false },
+          note: {
+            ...note,
+            time: noteStart,
+            duration: s - noteStart,
+            isEvalHighlightSegment: false,
+          },
           color: getNonSelectedColor(false),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -421,7 +518,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
       }
       if (s + EPS < e) {
         result.push({
-          note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+          note: {
+            ...note,
+            time: s,
+            duration: e - s,
+            isEvalHighlightSegment: true,
+            evalSegmentKind: "intersection",
+          },
           color: getNonSelectedColor(false, true),
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -476,7 +579,13 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
             });
           }
           result.push({
-            note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+            note: {
+              ...note,
+              time: s,
+              duration: e - s,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "intersection",
+            },
             color: getNonSelectedColor(false, true),
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -485,7 +594,12 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
         }
         if (cursor + EPS < noteEnd) {
           result.push({
-            note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: false },
+            note: {
+              ...note,
+              time: cursor,
+              duration: noteEnd - cursor,
+              isEvalHighlightSegment: false,
+            },
             color: estBase,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -500,5 +614,3 @@ export function handleOnlyModes(params: OnlyModesParams): boolean {
 
   return false;
 }
-
-

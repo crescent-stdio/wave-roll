@@ -2,7 +2,7 @@
  * Coordinate transformation utilities for piano roll visualization
  */
 
-import type { PianoRoll } from '../piano-roll';
+import type { PianoRoll } from "../piano-roll";
 
 export interface CoordinateTransform {
   timeToPixel(time: number): number;
@@ -60,7 +60,7 @@ export function createCoordinateTransform(pianoRoll: PianoRoll): CoordinateTrans
      */
     getPixelsPerSecond(): number {
       return pianoRoll.timeScale(1) * pianoRoll.state.zoomX;
-    }
+    },
   };
 }
 
@@ -80,26 +80,24 @@ export interface ViewportBounds {
 export function getVisibleTimeRange(pianoRoll: PianoRoll): ViewportBounds {
   const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
   const transform = createCoordinateTransform(pianoRoll);
-  
+
   const timeStart = Math.max(
     0,
-    pianoRoll.timeScale.invert(
-      (-pianoRoll.state.panX - pianoKeysOffset) / pianoRoll.state.zoomX
-    )
+    pianoRoll.timeScale.invert((-pianoRoll.state.panX - pianoKeysOffset) / pianoRoll.state.zoomX),
   );
-  
+
   const timeEnd = Math.min(
     pianoRoll.timeScale.domain()[1],
     pianoRoll.timeScale.invert(
-      (pianoRoll.options.width - pianoKeysOffset - pianoRoll.state.panX) / pianoRoll.state.zoomX
-    )
+      (pianoRoll.options.width - pianoKeysOffset - pianoRoll.state.panX) / pianoRoll.state.zoomX,
+    ),
   );
-  
+
   return {
     timeStart,
     timeEnd,
     pixelStart: transform.timeToPixel(timeStart),
-    pixelEnd: transform.timeToPixel(timeEnd)
+    pixelEnd: transform.timeToPixel(timeEnd),
   };
 }
 

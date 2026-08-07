@@ -5,9 +5,7 @@ import { FileManager } from "./file-manager";
  * @param options - Configuration options for the file input
  * @returns HTMLInputElement configured for MIDI file selection
  */
-export function createFileInput(
-  options: FileInputOptions = {}
-): HTMLInputElement {
+export function createFileInput(options: FileInputOptions = {}): HTMLInputElement {
   const fileInput = document.createElement("input");
   fileInput.type = "file";
   fileInput.accept = options.accept || ".mid,.midi";
@@ -34,14 +32,12 @@ export function createFileInput(
 export async function handleFileDrop(
   fileManager: FileManager,
   event: DragEvent,
-  options: FileLoadOptions = {}
+  options: FileLoadOptions = {},
 ): Promise<string[]> {
   event.preventDefault();
 
   const files = Array.from(event.dataTransfer?.files || []).filter(
-    (file) =>
-      file.name.toLowerCase().endsWith(".mid") ||
-      file.name.toLowerCase().endsWith(".midi")
+    (file) => file.name.toLowerCase().endsWith(".mid") || file.name.toLowerCase().endsWith(".midi"),
   );
 
   if (files.length === 0) {

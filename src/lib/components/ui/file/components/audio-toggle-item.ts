@@ -22,10 +22,7 @@ export class AudioToggleItem {
   /**
    * Create an audio file toggle item
    */
-  static create(
-    audio: AudioFileInfo,
-    dependencies: UIComponentDependencies
-  ): HTMLElement {
+  static create(audio: AudioFileInfo, dependencies: UIComponentDependencies): HTMLElement {
     const item = document.createElement("div");
     item.style.cssText = `
       display: flex;
@@ -43,7 +40,7 @@ export class AudioToggleItem {
     item.appendChild(this.createFileName(audio));
     item.appendChild(this.createVisibilityButton(audio, dependencies, item));
     item.appendChild(this.createVolumeControl(audio, dependencies));
-    
+
     const { labelL, slider, labelR } = this.createPanControls(audio, dependencies);
     item.appendChild(labelL);
     item.appendChild(slider);
@@ -51,18 +48,21 @@ export class AudioToggleItem {
 
     // Dim/tooltip when master muted
     const handleMasterMirror = (e: Event) => {
-      const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+      const detail = (
+        e as CustomEvent<{ mode: "mirror-mute" | "mirror-restore" | "mirror-set"; volume?: number }>
+      ).detail;
       if (!detail || !detail.mode) return;
-      if (detail.mode === 'mirror-mute') {
-        item.style.opacity = '0.6';
-        item.title = 'Master muted — changes apply after unmute';
-      } else if (detail.mode === 'mirror-restore') {
-        item.style.opacity = '';
-        item.removeAttribute('title');
+      if (detail.mode === "mirror-mute") {
+        item.style.opacity = "0.6";
+        item.title = "Master muted — changes apply after unmute";
+      } else if (detail.mode === "mirror-restore") {
+        item.style.opacity = "";
+        item.removeAttribute("title");
       }
     };
-    window.addEventListener('wr-master-mirror', handleMasterMirror);
-    (item as any).__cleanupMasterMirror = () => window.removeEventListener('wr-master-mirror', handleMasterMirror);
+    window.addEventListener("wr-master-mirror", handleMasterMirror);
+    (item as any).__cleanupMasterMirror = () =>
+      window.removeEventListener("wr-master-mirror", handleMasterMirror);
 
     return item;
   }
@@ -86,7 +86,7 @@ export class AudioToggleItem {
   private static createVisibilityButton(
     audio: AudioFileInfo,
     dependencies: UIComponentDependencies,
-    item: HTMLElement
+    item: HTMLElement,
   ): HTMLButtonElement {
     const visBtn = createIconButton(
       audio.isVisible ? PLAYER_ICONS.eye_open : PLAYER_ICONS.eye_closed,
@@ -94,7 +94,7 @@ export class AudioToggleItem {
         // Toggle visibility through global API
         const api = this.getAudioAPI();
         api?.toggleVisibility?.(audio.id);
-        
+
         // Refresh the container
         const container = item.closest('[data-role="file-toggle"]') as HTMLElement | null;
         if (container && dependencies) {
@@ -111,28 +111,26 @@ export class AudioToggleItem {
           const f = files.find((x: any) => x.id === audio.id);
           const isVisible = !!f?.isVisible;
           window.dispatchEvent(
-            new CustomEvent('wr-wav-visibility-changed', {
+            new CustomEvent("wr-wav-visibility-changed", {
               detail: { id: audio.id, isVisible },
-            })
+            }),
           );
         } catch {}
       },
       "Toggle waveform visibility",
-      { size: 24 }
+      { size: 24 },
     );
-    
-    visBtn.style.color = audio.isVisible
-      ? "var(--text-muted)"
-      : "rgba(71,85,105,0.5)";
+
+    visBtn.style.color = audio.isVisible ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     visBtn.style.border = "none";
     visBtn.style.boxShadow = "none";
-    
+
     return visBtn;
   }
 
   private static createVolumeControl(
     audio: AudioFileInfo,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): HTMLElement {
     const volumeControl = new FileVolumeControl({
       initialVolume: audio.isMuted ? 0 : (audio.volume ?? 1.0),
@@ -142,7 +140,7 @@ export class AudioToggleItem {
         // Update mute state based on volume
         const shouldMute = volume === 0;
         const api = this.getAudioAPI();
-        
+
         if (api?.getFiles) {
           const files = api.getFiles() || [];
           const f = files.find((x: any) => x.id === audio.id);
@@ -151,9 +149,9 @@ export class AudioToggleItem {
             // Emit mute-changed so controller can align WAV join on unmute
             try {
               window.dispatchEvent(
-                new CustomEvent('wr-wav-mute-changed', {
+                new CustomEvent("wr-wav-mute-changed", {
                   detail: { id: audio.id, isMuted: shouldMute },
-                })
+                }),
               );
             } catch {}
           }
@@ -172,14 +170,14 @@ export class AudioToggleItem {
     });
 
     const el = volumeControl.getElement();
-    el.setAttribute('data-role', 'wav-volume');
-    el.setAttribute('data-file-id', audio.id);
+    el.setAttribute("data-role", "wav-volume");
+    el.setAttribute("data-file-id", audio.id);
     return el;
   }
 
   private static createPanControls(
     audio: AudioFileInfo,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): { labelL: HTMLElement; slider: HTMLInputElement; labelR: HTMLElement } {
     // Left label
     const labelL = document.createElement("span");

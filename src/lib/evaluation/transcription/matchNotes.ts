@@ -48,7 +48,7 @@ function buildAdjacency(
   onsetTolerance: number,
   pitchTolerance: number,
   offsetRatioTolerance: number,
-  offsetMinTolerance: number
+  offsetMinTolerance: number,
 ): number[][] {
   const adj: number[][] = Array.from({ length: refIntervals.length }, () => []);
   for (let i = 0; i < refIntervals.length; i++) {
@@ -57,7 +57,7 @@ function buildAdjacency(
     const refDur = refOff - refOn;
     const effectiveOffsetTol = Math.max(
       offsetMinTolerance,
-      offsetRatioTolerance * Math.max(0, refDur)
+      offsetRatioTolerance * Math.max(0, refDur),
     );
 
     for (let j = 0; j < estIntervals.length; j++) {
@@ -89,7 +89,7 @@ function buildAdjacencyOnsetPitch(
   estIntervals: [number, number][],
   estPitches: number[],
   onsetTolerance: number,
-  pitchTolerance: number
+  pitchTolerance: number,
 ): number[][] {
   const adj: number[][] = Array.from({ length: refIntervals.length }, () => []);
   for (let i = 0; i < refIntervals.length; i++) {
@@ -120,7 +120,7 @@ function buildAdjacencyChroma(
   onsetTolerance: number,
   pitchTolerance: number,
   offsetRatioTolerance: number,
-  offsetMinTolerance: number
+  offsetMinTolerance: number,
 ): number[][] {
   const adj: number[][] = Array.from({ length: refIntervals.length }, () => []);
   for (let i = 0; i < refIntervals.length; i++) {
@@ -129,7 +129,7 @@ function buildAdjacencyChroma(
     const refDur = refOff - refOn;
     const effectiveOffsetTol = Math.max(
       offsetMinTolerance,
-      offsetRatioTolerance * Math.max(0, refDur)
+      offsetRatioTolerance * Math.max(0, refDur),
     );
 
     for (let j = 0; j < estIntervals.length; j++) {
@@ -163,7 +163,7 @@ function buildAdjacencyChromaOnsetOnly(
   estIntervals: [number, number][],
   estPitches: number[],
   onsetTolerance: number,
-  pitchTolerance: number
+  pitchTolerance: number,
 ): number[][] {
   const adj: number[][] = Array.from({ length: refIntervals.length }, () => []);
   for (let i = 0; i < refIntervals.length; i++) {
@@ -192,7 +192,7 @@ function buildAdjacencyChromaOnsetOnly(
 function hopcroftKarp(
   adj: number[][],
   numLeft: number,
-  numRight: number
+  numRight: number,
 ): { pairU: number[]; pairV: number[]; matchingSize: number } {
   const INF = Number.POSITIVE_INFINITY;
   const pairU: number[] = Array(numLeft).fill(-1);
@@ -293,14 +293,9 @@ export function matchNotes(
   reference: ParsedMidi,
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {},
-  bpmOptions: BpmScalingOptions = {}
+  bpmOptions: BpmScalingOptions = {},
 ): NoteMatchResult {
-  const {
-    onsetTolerance,
-    pitchTolerance,
-    offsetRatioTolerance,
-    offsetMinTolerance,
-  } = {
+  const { onsetTolerance, pitchTolerance, offsetRatioTolerance, offsetMinTolerance } = {
     ...DEFAULT_TOLERANCES,
     ...options,
   };
@@ -314,11 +309,7 @@ export function matchNotes(
   // Optionally scale estimated intervals to match reference BPM
   let estIntervals = estData.intervals;
   if (scaleBpmToReference && estData.bpm !== refData.bpm) {
-    estIntervals = scaleIntervalsForBpm(
-      estData.intervals,
-      estData.bpm,
-      refData.bpm
-    );
+    estIntervals = scaleIntervalsForBpm(estData.intervals, estData.bpm, refData.bpm);
   }
 
   const adj = buildAdjacency(
@@ -329,14 +320,10 @@ export function matchNotes(
     onsetTolerance,
     pitchTolerance,
     offsetRatioTolerance,
-    offsetMinTolerance
+    offsetMinTolerance,
   );
 
-  const { pairU, pairV } = hopcroftKarp(
-    adj,
-    refData.intervals.length,
-    estIntervals.length
-  );
+  const { pairU, pairV } = hopcroftKarp(adj, refData.intervals.length, estIntervals.length);
 
   const matches: NoteMatchResult["matches"] = [];
   for (let refIdx = 0; refIdx < pairU.length; refIdx++) {
@@ -348,12 +335,8 @@ export function matchNotes(
       const [origEstOn] = estData.intervals[estIdx];
       const refVel = reference.notes[refIdx]?.velocity;
       const estVel = estimated.notes[estIdx]?.velocity;
-      const inter = Math.max(
-        0,
-        Math.min(refOff, scaledEstOff) - Math.max(refOn, scaledEstOn)
-      );
-      const union =
-        Math.max(refOff, scaledEstOff) - Math.min(refOn, scaledEstOn);
+      const inter = Math.max(0, Math.min(refOff, scaledEstOff) - Math.max(refOn, scaledEstOn));
+      const union = Math.max(refOff, scaledEstOff) - Math.min(refOn, scaledEstOn);
       matches.push({
         ref: refIdx,
         est: estIdx,
@@ -406,7 +389,7 @@ export function matchNotesWithVelocity(
   estimated: ParsedMidi,
   options: Partial<TranscriptionToleranceOptions> = {},
   velocity: Partial<VelocityToleranceOptions> = {},
-  bpmOptions: BpmScalingOptions = {}
+  bpmOptions: BpmScalingOptions = {},
 ): NoteMatchResult {
   const toler = { ...DEFAULT_TOLERANCES, ...options };
   const vopts = { ...DEFAULT_VELOCITY_OPTIONS, ...velocity };
@@ -419,11 +402,7 @@ export function matchNotesWithVelocity(
   // Optionally scale estimated intervals to match reference BPM
   let estIntervals = estData.intervals;
   if (scaleBpmToReference && estData.bpm !== refData.bpm) {
-    estIntervals = scaleIntervalsForBpm(
-      estData.intervals,
-      estData.bpm,
-      refData.bpm
-    );
+    estIntervals = scaleIntervalsForBpm(estData.intervals, estData.bpm, refData.bpm);
   }
 
   // Build base adjacency first (onset/pitch/offset)
@@ -435,16 +414,12 @@ export function matchNotesWithVelocity(
     toler.onsetTolerance,
     toler.pitchTolerance,
     toler.offsetRatioTolerance,
-    toler.offsetMinTolerance
+    toler.offsetMinTolerance,
   );
 
   // Optionally filter edges by velocity tolerance
-  const toNorm = (dv: number): number =>
-    vopts.unit === "midi" ? dv / 127 : dv;
-  const tolNorm =
-    vopts.unit === "midi"
-      ? vopts.velocityTolerance / 127
-      : vopts.velocityTolerance;
+  const toNorm = (dv: number): number => (vopts.unit === "midi" ? dv / 127 : dv);
+  const tolNorm = vopts.unit === "midi" ? vopts.velocityTolerance / 127 : vopts.velocityTolerance;
 
   const adj = vopts.includeInMatching
     ? baseAdj.map((neighbors, i) =>
@@ -456,15 +431,11 @@ export function matchNotesWithVelocity(
           }
           const dv = Math.abs(ev - rv);
           return toNorm(dv) <= tolNorm;
-        })
+        }),
       )
     : baseAdj;
 
-  const { pairU, pairV } = hopcroftKarp(
-    adj,
-    refData.intervals.length,
-    estIntervals.length
-  );
+  const { pairU, pairV } = hopcroftKarp(adj, refData.intervals.length, estIntervals.length);
 
   const matches: NoteMatchResult["matches"] = [];
   for (let refIdx = 0; refIdx < pairU.length; refIdx++) {
@@ -476,12 +447,8 @@ export function matchNotesWithVelocity(
       const [origEstOn] = estData.intervals[estIdx];
       const rv = reference.notes[refIdx]?.velocity;
       const ev = estimated.notes[estIdx]?.velocity;
-      const inter = Math.max(
-        0,
-        Math.min(refOff, scaledEstOff) - Math.max(refOn, scaledEstOn)
-      );
-      const union =
-        Math.max(refOff, scaledEstOff) - Math.min(refOn, scaledEstOn);
+      const inter = Math.max(0, Math.min(refOff, scaledEstOff) - Math.max(refOn, scaledEstOn));
+      const union = Math.max(refOff, scaledEstOff) - Math.min(refOn, scaledEstOn);
       matches.push({
         ref: refIdx,
         est: estIdx,
@@ -496,9 +463,7 @@ export function matchNotesWithVelocity(
         refVelocity: typeof rv === "number" ? rv : undefined,
         estVelocity: typeof ev === "number" ? ev : undefined,
         velocityDiff:
-          typeof rv === "number" && typeof ev === "number"
-            ? Math.abs(ev - rv)
-            : undefined,
+          typeof rv === "number" && typeof ev === "number" ? Math.abs(ev - rv) : undefined,
       });
     }
   }
@@ -525,13 +490,13 @@ export function match_notes(
   estimated_intervals: [number, number][],
   estimated_pitches: number[],
   onset_tolerance: number = DEFAULT_TOLERANCES.onsetTolerance,
-  pitch_tolerance: number = 50.0
+  pitch_tolerance: number = 50.0,
 ): NoteMatchResult {
   validateTranscriptionInputs(
     reference_intervals,
     reference_pitches,
     estimated_intervals,
-    estimated_pitches
+    estimated_pitches,
   );
 
   const pitchTolSemitones = pitch_tolerance / 100; // cents -> semitones
@@ -542,13 +507,13 @@ export function match_notes(
     estimated_intervals,
     estimated_pitches,
     onset_tolerance,
-    pitchTolSemitones
+    pitchTolSemitones,
   );
 
   const { pairU, pairV } = hopcroftKarp(
     adj,
     reference_intervals.length,
-    estimated_intervals.length
+    estimated_intervals.length,
   );
 
   const matches: NoteMatchResult["matches"] = [];
@@ -589,13 +554,13 @@ export function match_notes_with_offset(
   onset_tolerance: number = DEFAULT_TOLERANCES.onsetTolerance,
   pitch_tolerance: number = 50.0,
   offset_ratio_tolerance: number = DEFAULT_TOLERANCES.offsetRatioTolerance,
-  offset_min_tolerance: number = DEFAULT_TOLERANCES.offsetMinTolerance
+  offset_min_tolerance: number = DEFAULT_TOLERANCES.offsetMinTolerance,
 ): NoteMatchResult {
   validateTranscriptionInputs(
     reference_intervals,
     reference_pitches,
     estimated_intervals,
-    estimated_pitches
+    estimated_pitches,
   );
 
   const pitchTolSemitones = pitch_tolerance / 100; // cents -> semitones
@@ -608,13 +573,13 @@ export function match_notes_with_offset(
     onset_tolerance,
     pitchTolSemitones,
     offset_ratio_tolerance,
-    offset_min_tolerance
+    offset_min_tolerance,
   );
 
   const { pairU, pairV } = hopcroftKarp(
     adj,
     reference_intervals.length,
-    estimated_intervals.length
+    estimated_intervals.length,
   );
 
   const matches: NoteMatchResult["matches"] = [];
@@ -655,13 +620,13 @@ export function match_notes_chroma(
   onset_tolerance: number = DEFAULT_TOLERANCES.onsetTolerance,
   pitch_tolerance: number = 50.0,
   offset_ratio_tolerance: number = DEFAULT_TOLERANCES.offsetRatioTolerance,
-  offset_min_tolerance: number = DEFAULT_TOLERANCES.offsetMinTolerance
+  offset_min_tolerance: number = DEFAULT_TOLERANCES.offsetMinTolerance,
 ): NoteMatchResult {
   validateTranscriptionInputs(
     reference_intervals,
     reference_pitches,
     estimated_intervals,
-    estimated_pitches
+    estimated_pitches,
   );
 
   const pitchTolSemitones = pitch_tolerance / 100; // cents -> semitones
@@ -674,13 +639,13 @@ export function match_notes_chroma(
     onset_tolerance,
     pitchTolSemitones,
     offset_ratio_tolerance,
-    offset_min_tolerance
+    offset_min_tolerance,
   );
 
   const { pairU, pairV } = hopcroftKarp(
     adj,
     reference_intervals.length,
-    estimated_intervals.length
+    estimated_intervals.length,
   );
 
   const matches: NoteMatchResult["matches"] = [];
@@ -720,13 +685,13 @@ export function match_notes_chroma_onset(
   estimated_intervals: [number, number][],
   estimated_pitches: number[],
   onset_tolerance: number = DEFAULT_TOLERANCES.onsetTolerance,
-  pitch_tolerance: number = 50.0
+  pitch_tolerance: number = 50.0,
 ): NoteMatchResult {
   validateTranscriptionInputs(
     reference_intervals,
     reference_pitches,
     estimated_intervals,
-    estimated_pitches
+    estimated_pitches,
   );
 
   const pitchTolSemitones = pitch_tolerance / 100; // cents -> semitones
@@ -737,13 +702,13 @@ export function match_notes_chroma_onset(
     estimated_intervals,
     estimated_pitches,
     onset_tolerance,
-    pitchTolSemitones
+    pitchTolSemitones,
   );
 
   const { pairU, pairV } = hopcroftKarp(
     adj,
     reference_intervals.length,
-    estimated_intervals.length
+    estimated_intervals.length,
   );
 
   const matches: NoteMatchResult["matches"] = [];

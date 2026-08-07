@@ -1,13 +1,13 @@
 /**
  * Enhanced transcription evaluation metrics with mir_eval compatibility.
- * 
+ *
  * This module provides improved velocity-aware metrics that match
  * mir_eval.transcription_velocity's behavior more closely, including:
  * - Proper velocity normalization and scaling
  * - Support for 1:N matching (configurable)
  * - Better handling of missing velocities
  * - Additional diagnostic metrics
- * 
+ *
  * Reference: https://github.com/mir-evaluation/mir_eval
  */
 
@@ -34,37 +34,37 @@ export interface EnhancedNoteMetrics {
   recall: number;
   f1: number;
   f_measure: number;
-  
+
   // Overlap metrics
   avgOverlapRatio: number;
-  
+
   // Count statistics
   numCorrect: number;
   numRef: number;
   numEst: number;
-  
+
   // Velocity metrics (if available)
   velocity?: {
     // Configuration
     mode: VelocityToleranceOptions["mode"];
     toleranceNormalized: number;
     toleranceMidi: number;
-    
+
     // Basic metrics
     numVelocityCorrect: number;
     velocityPrecision: number; // Among estimated notes
     velocityRecall: number; // Among reference notes
     velocityF1: number;
-    
+
     // Advanced metrics
     avgVelocityError: number; // Mean absolute error
     rmseVelocity: number; // Root mean square error
     correlationCoeff: number; // Pearson correlation
-    
+
     // Scaled metrics (after normalization)
     avgScaledError: number;
     rmseScaled: number;
-    
+
     // Distribution metrics
     velocityErrorPercentiles: {
       p25: number;
@@ -74,12 +74,12 @@ export interface EnhancedNoteMetrics {
       p95: number;
     };
   };
-  
+
   // Detailed match information
   matches: EnhancedNoteMatchResult["matches"];
   falseNegatives: number[];
   falsePositives: number[];
-  
+
   // 1:N matching statistics (if applicable)
   matchingStats?: {
     avgMatchesPerRef: number;
@@ -87,7 +87,7 @@ export interface EnhancedNoteMetrics {
     refsWithMultipleMatches: number;
     totalSecondaryMatches: number;
   };
-  
+
   // Velocity scaling parameters (if applied)
   velocityScaling?: EnhancedNoteMatchResult["velocityScaling"];
 }
@@ -95,14 +95,11 @@ export interface EnhancedNoteMetrics {
 /**
  * Calculate percentiles from an array of numbers
  */
-function calculatePercentiles(
-  values: number[],
-  percentiles: number[]
-): number[] {
+function calculatePercentiles(values: number[], percentiles: number[]): number[] {
   if (values.length === 0) return percentiles.map(() => 0);
-  
+
   const sorted = [...values].sort((a, b) => a - b);
-  return percentiles.map(p => {
+  return percentiles.map((p) => {
     const index = (p / 100) * (sorted.length - 1);
     const lower = Math.floor(index);
     const upper = Math.ceil(index);
@@ -116,17 +113,17 @@ function calculatePercentiles(
  */
 function pearsonCorrelation(x: number[], y: number[]): number {
   if (x.length !== y.length || x.length === 0) return 0;
-  
+
   const n = x.length;
   const sumX = x.reduce((a, b) => a + b, 0);
   const sumY = y.reduce((a, b) => a + b, 0);
   const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
   const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
   const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
-  
+
   const num = n * sumXY - sumX * sumY;
   const den = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-  
+
   return den === 0 ? 0 : num / den;
 }
 
@@ -138,45 +135,38 @@ export function computeEnhancedNoteMetrics(
   estimated: ParsedMidi,
   tolerances: Partial<TranscriptionToleranceOptions> = {},
   velocityOpts: Partial<VelocityToleranceOptions> = {},
-  matchingOpts: EnhancedMatchingOptions = {}
+  matchingOpts: EnhancedMatchingOptions = {},
 ): EnhancedNoteMetrics {
   const tol = { ...DEFAULT_TOLERANCES, ...tolerances };
   const vel = { ...DEFAULT_VELOCITY_OPTIONS, ...velocityOpts };
-  
+
   // Perform enhanced matching
-  const matchResult = matchNotesEnhanced(
-    reference,
-    estimated,
-    tol,
-    vel,
-    matchingOpts
-  );
-  
+  const matchResult = matchNotesEnhanced(reference, estimated, tol, vel, matchingOpts);
+
   // Convert to standard format for compatibility
   const standardResult = enhancedToStandardResult(matchResult);
-  
+
   // Basic PRF metrics
   const numCorrect = matchResult.matches.length;
   const numRef = reference.notes.length;
   const numEst = estimated.notes.length;
-  
+
   const precision = numEst > 0 ? numCorrect / numEst : 0;
   const recall = numRef > 0 ? numCorrect / numRef : 0;
-  const f1 = precision + recall > 0
-    ? (2 * precision * recall) / (precision + recall)
-    : 0;
-  
+  const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
+
   // Calculate average overlap ratio
   let avgOverlapRatio = 0;
   if (standardResult.matches.length > 0) {
     const overlapRatios = standardResult.matches
-      .map(m => m.overlapRatio || 0)
-      .filter(r => r >= 0);
-    avgOverlapRatio = overlapRatios.length > 0
-      ? overlapRatios.reduce((a, b) => a + b, 0) / overlapRatios.length
-      : 0;
+      .map((m) => m.overlapRatio || 0)
+      .filter((r) => r >= 0);
+    avgOverlapRatio =
+      overlapRatios.length > 0
+        ? overlapRatios.reduce((a, b) => a + b, 0) / overlapRatios.length
+        : 0;
   }
-  
+
   // Base metrics object
   const metrics: EnhancedNoteMetrics = {
     precision,
@@ -192,11 +182,12 @@ export function computeEnhancedNoteMetrics(
     falsePositives: matchResult.falsePositives,
     velocityScaling: matchResult.velocityScaling,
   };
-  
+
   // Calculate velocity metrics if velocities are available
-  const hasVelocities = reference.notes.some(n => n.velocity !== undefined) &&
-                       estimated.notes.some(n => n.velocity !== undefined);
-  
+  const hasVelocities =
+    reference.notes.some((n) => n.velocity !== undefined) &&
+    estimated.notes.some((n) => n.velocity !== undefined);
+
   if (hasVelocities) {
     // Extract matched velocities
     const matchedRefVels: number[] = [];
@@ -204,19 +195,21 @@ export function computeEnhancedNoteMetrics(
     const matchedEstVelsScaled: number[] = [];
     const velocityErrors: number[] = [];
     const scaledErrors: number[] = [];
-    
+
     for (const match of matchResult.matches) {
       if (match.refVelocity !== undefined) {
         matchedRefVels.push(match.refVelocity);
-        
+
         // Handle both single and multiple estimated notes
         if (Array.isArray(match.estVelocity)) {
           // For 1:N matching, take the best match (first one)
           const estVel = match.estVelocity[0];
-          const estVelScaled = (Array.isArray(match.estVelocityScaled)
-            ? match.estVelocityScaled[0]
-            : (match.estVelocityScaled ?? estVel)) as number;
-          
+          const estVelScaled = (
+            Array.isArray(match.estVelocityScaled)
+              ? match.estVelocityScaled[0]
+              : (match.estVelocityScaled ?? estVel)
+          ) as number;
+
           matchedEstVels.push(estVel);
           matchedEstVelsScaled.push(estVelScaled);
           velocityErrors.push(Math.abs(estVel - match.refVelocity));
@@ -224,7 +217,7 @@ export function computeEnhancedNoteMetrics(
         } else if (match.estVelocity !== undefined) {
           const estVel = match.estVelocity;
           const estVelScaled = (match.estVelocityScaled ?? estVel) as number;
-          
+
           matchedEstVels.push(estVel);
           matchedEstVelsScaled.push(estVelScaled);
           velocityErrors.push(Math.abs(estVel - match.refVelocity));
@@ -232,20 +225,17 @@ export function computeEnhancedNoteMetrics(
         }
       }
     }
-    
+
     if (matchedRefVels.length > 0) {
       // Velocity tolerance in normalized space
-      const tolNorm = vel.unit === 'midi' 
-        ? vel.velocityTolerance / 127 
-        : vel.velocityTolerance;
-      const tolMidi = vel.unit === 'midi' 
-        ? vel.velocityTolerance 
-        : Math.round(vel.velocityTolerance * 127);
-      
+      const tolNorm = vel.unit === "midi" ? vel.velocityTolerance / 127 : vel.velocityTolerance;
+      const tolMidi =
+        vel.unit === "midi" ? vel.velocityTolerance : Math.round(vel.velocityTolerance * 127);
+
       // Count velocity-correct matches
       let numVelocityCorrect = 0;
       for (let i = 0; i < scaledErrors.length; i++) {
-        if (vel.mode === 'threshold') {
+        if (vel.mode === "threshold") {
           if (scaledErrors[i] <= tolNorm) {
             numVelocityCorrect++;
           }
@@ -257,34 +247,32 @@ export function computeEnhancedNoteMetrics(
           }
         }
       }
-      
+
       // Velocity PRF (among matched notes only)
-      const velocityPrecision = matchedRefVels.length > 0 
-        ? numVelocityCorrect / matchedRefVels.length 
-        : 0;
-      const velocityRecall = numRef > 0 
-        ? numVelocityCorrect / numRef 
-        : 0;
-      const velocityF1 = velocityPrecision + velocityRecall > 0
-        ? (2 * velocityPrecision * velocityRecall) / (velocityPrecision + velocityRecall)
-        : 0;
-      
+      const velocityPrecision =
+        matchedRefVels.length > 0 ? numVelocityCorrect / matchedRefVels.length : 0;
+      const velocityRecall = numRef > 0 ? numVelocityCorrect / numRef : 0;
+      const velocityF1 =
+        velocityPrecision + velocityRecall > 0
+          ? (2 * velocityPrecision * velocityRecall) / (velocityPrecision + velocityRecall)
+          : 0;
+
       // Error statistics
       const avgVelocityError = velocityErrors.reduce((a, b) => a + b, 0) / velocityErrors.length;
       const avgScaledError = scaledErrors.reduce((a, b) => a + b, 0) / scaledErrors.length;
-      
+
       const rmseVelocity = Math.sqrt(
-        velocityErrors.reduce((sum, e) => sum + e * e, 0) / velocityErrors.length
+        velocityErrors.reduce((sum, e) => sum + e * e, 0) / velocityErrors.length,
       );
       const rmseScaled = Math.sqrt(
-        scaledErrors.reduce((sum, e) => sum + e * e, 0) / scaledErrors.length
+        scaledErrors.reduce((sum, e) => sum + e * e, 0) / scaledErrors.length,
       );
-      
+
       const correlationCoeff = pearsonCorrelation(matchedRefVels, matchedEstVelsScaled);
-      
+
       // Error percentiles
       const percentileValues = calculatePercentiles(scaledErrors, [25, 50, 75, 90, 95]);
-      
+
       metrics.velocity = {
         mode: vel.mode,
         toleranceNormalized: tolNorm,
@@ -308,30 +296,29 @@ export function computeEnhancedNoteMetrics(
       };
     }
   }
-  
+
   // Calculate 1:N matching statistics if applicable
   if (matchingOpts.maxMatchesPerRef && matchingOpts.maxMatchesPerRef > 1) {
     let totalMatches = 0;
     let maxMatches = 0;
     let refsWithMultiple = 0;
-    
+
     for (const match of matchResult.matches) {
       const numMatches = Array.isArray(match.est) ? match.est.length : 1;
       totalMatches += numMatches;
       maxMatches = Math.max(maxMatches, numMatches);
       if (numMatches > 1) refsWithMultiple++;
     }
-    
+
     metrics.matchingStats = {
-      avgMatchesPerRef: matchResult.matches.length > 0 
-        ? totalMatches / matchResult.matches.length 
-        : 0,
+      avgMatchesPerRef:
+        matchResult.matches.length > 0 ? totalMatches / matchResult.matches.length : 0,
       maxMatchesPerRef: maxMatches,
       refsWithMultipleMatches: refsWithMultiple,
       totalSecondaryMatches: totalMatches - matchResult.matches.length,
     };
   }
-  
+
   return metrics;
 }
 
@@ -346,7 +333,7 @@ export function evaluateTranscriptionEnhanced(
     tolerances?: Partial<TranscriptionToleranceOptions>;
     velocity?: Partial<VelocityToleranceOptions>;
     matching?: EnhancedMatchingOptions;
-  } = {}
+  } = {},
 ): EnhancedNoteMetrics {
   const defaultMatching: EnhancedMatchingOptions = {
     maxMatchesPerRef: 1, // Default to 1:1 matching
@@ -354,13 +341,13 @@ export function evaluateTranscriptionEnhanced(
     useWeightedMatching: false,
     applyVelocityScaling: true, // mir_eval style scaling by default
   };
-  
+
   return computeEnhancedNoteMetrics(
     reference,
     estimated,
     options.tolerances || {},
     options.velocity || {},
-    { ...defaultMatching, ...options.matching }
+    { ...defaultMatching, ...options.matching },
   );
 }
 
@@ -369,7 +356,7 @@ export function evaluateTranscriptionEnhanced(
  */
 export function evaluateTranscriptionSimple(
   reference: ParsedMidi,
-  estimated: ParsedMidi
+  estimated: ParsedMidi,
 ): {
   precision: number;
   recall: number;

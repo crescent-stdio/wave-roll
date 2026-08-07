@@ -2,7 +2,7 @@
  * Rendering optimization utilities for viewport culling and performance
  */
 
-import type { Rectangle } from './drawing-primitives';
+import type { Rectangle } from "./drawing-primitives";
 
 /**
  * Render optimization helper class
@@ -14,20 +14,20 @@ export class RenderOptimizer {
   static shouldRenderElement(
     elementBounds: Rectangle,
     viewportBounds: Rectangle,
-    margin: number = 10
+    margin: number = 10,
   ): boolean {
     // Check if element is outside viewport (with margin)
     const leftEdge = viewportBounds.x - margin;
     const rightEdge = viewportBounds.x + viewportBounds.width + margin;
     const topEdge = viewportBounds.y - margin;
     const bottomEdge = viewportBounds.y + viewportBounds.height + margin;
-    
+
     // Element is culled if completely outside viewport
     if (elementBounds.x + elementBounds.width < leftEdge) return false;
     if (elementBounds.x > rightEdge) return false;
     if (elementBounds.y + elementBounds.height < topEdge) return false;
     if (elementBounds.y > bottomEdge) return false;
-    
+
     return true;
   }
 
@@ -38,12 +38,14 @@ export class RenderOptimizer {
     x: number,
     y: number,
     viewportBounds: Rectangle,
-    margin: number = 0
+    margin: number = 0,
   ): boolean {
-    return x >= viewportBounds.x - margin &&
-           x <= viewportBounds.x + viewportBounds.width + margin &&
-           y >= viewportBounds.y - margin &&
-           y <= viewportBounds.y + viewportBounds.height + margin;
+    return (
+      x >= viewportBounds.x - margin &&
+      x <= viewportBounds.x + viewportBounds.width + margin &&
+      y >= viewportBounds.y - margin &&
+      y <= viewportBounds.y + viewportBounds.height + margin
+    );
   }
 
   /**
@@ -54,7 +56,7 @@ export class RenderOptimizer {
     viewportBounds: Rectangle,
     getBounds: (item: T) => Rectangle,
     callback: (item: T, index: number) => void,
-    margin: number = 10
+    margin: number = 10,
   ): void {
     items.forEach((item, index) => {
       const bounds = getBounds(item);
@@ -71,9 +73,9 @@ export class RenderOptimizer {
     items: T[],
     viewportBounds: Rectangle,
     getBounds: (item: T) => Rectangle,
-    margin: number = 10
+    margin: number = 10,
   ): T[] {
-    return items.filter(item => {
+    return items.filter((item) => {
       const bounds = getBounds(item);
       return this.shouldRenderElement(bounds, viewportBounds, margin);
     });
@@ -86,7 +88,7 @@ export class RenderOptimizer {
     items: T[],
     viewportBounds: Rectangle,
     getBounds: (item: T) => Rectangle,
-    margin: number = 10
+    margin: number = 10,
   ): number[] {
     const indices: number[] = [];
     items.forEach((item, index) => {
@@ -105,16 +107,16 @@ export class RenderOptimizer {
     items: T[],
     viewportStart: number,
     getPosition: (item: T) => number,
-    margin: number = 10
+    margin: number = 10,
   ): number {
     let left = 0;
     let right = items.length - 1;
     let result = items.length;
-    
+
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const position = getPosition(items[mid]);
-      
+
       if (position >= viewportStart - margin) {
         result = mid;
         right = mid - 1;
@@ -122,7 +124,7 @@ export class RenderOptimizer {
         left = mid + 1;
       }
     }
-    
+
     return result;
   }
 
@@ -133,16 +135,16 @@ export class RenderOptimizer {
     items: T[],
     viewportEnd: number,
     getPosition: (item: T) => number,
-    margin: number = 10
+    margin: number = 10,
   ): number {
     let left = 0;
     let right = items.length - 1;
     let result = -1;
-    
+
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const position = getPosition(items[mid]);
-      
+
       if (position <= viewportEnd + margin) {
         result = mid;
         left = mid + 1;
@@ -150,7 +152,7 @@ export class RenderOptimizer {
         right = mid - 1;
       }
     }
-    
+
     return result;
   }
 
@@ -162,30 +164,27 @@ export class RenderOptimizer {
     viewportStart: number,
     viewportEnd: number,
     getPosition: (item: T) => number,
-    margin: number = 10
+    margin: number = 10,
   ): { start: number; end: number } {
     const start = this.findFirstVisible(items, viewportStart, getPosition, margin);
     const end = this.findLastVisible(items, viewportEnd, getPosition, margin);
-    
+
     return { start, end };
   }
 
   /**
    * Check if rendering should be skipped based on zoom level
    */
-  static shouldSkipDetailAtZoom(
-    zoomLevel: number,
-    minZoomForDetail: number = 0.5
-  ): boolean {
+  static shouldSkipDetailAtZoom(zoomLevel: number, minZoomForDetail: number = 0.5): boolean {
     return zoomLevel < minZoomForDetail;
   }
 
   /**
    * Calculate level of detail based on zoom
    */
-  static getLevelOfDetail(zoomLevel: number): 'low' | 'medium' | 'high' {
-    if (zoomLevel < 0.5) return 'low';
-    if (zoomLevel < 1.5) return 'medium';
-    return 'high';
+  static getLevelOfDetail(zoomLevel: number): "low" | "medium" | "high" {
+    if (zoomLevel < 0.5) return "low";
+    if (zoomLevel < 1.5) return "medium";
+    return "high";
   }
 }

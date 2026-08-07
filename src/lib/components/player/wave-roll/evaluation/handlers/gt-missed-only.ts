@@ -1,6 +1,12 @@
 import { mixColorsOklch, blendColorsAverage } from "@/lib/core/utils/color/blend";
 import { COLOR_PRIMARY } from "@/lib/core/constants";
-import { toNumberColor, aaGrayFor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO } from "../colors";
+import {
+  toNumberColor,
+  aaGrayFor,
+  HIGHLIGHT_ANCHOR_REF,
+  HIGHLIGHT_ANCHOR_EST,
+  HIGHLIGHT_BLEND_RATIO,
+} from "../colors";
 import { mergeRanges } from "../ranges";
 
 export interface GtMissedOnlyParams {
@@ -34,10 +40,7 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
     result,
   } = params;
 
-  if (
-    highlightMode !== "eval-gt-missed-only-own" &&
-    highlightMode !== "eval-gt-missed-only-gray"
-  ) {
+  if (highlightMode !== "eval-gt-missed-only-own" && highlightMode !== "eval-gt-missed-only-gray") {
     return false;
   }
 
@@ -48,7 +51,9 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
   const exclusiveColorRef = useGrayForIntersection ? refBaseColor : grayRef;
 
   if (isRef) {
-    const unionRanges = (unionRangesByRef.get(sourceIdx) || []).slice().sort((a,b)=>a.start-b.start);
+    const unionRanges = (unionRangesByRef.get(sourceIdx) || [])
+      .slice()
+      .sort((a, b) => a.start - b.start);
     const noteStart = note.time;
     const noteEnd = note.time + note.duration;
 
@@ -69,7 +74,13 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
       if (s < noteEnd && e > noteStart && s < e) {
         if (cursor < s) {
           result.push({
-            note: { ...note, time: cursor, duration: s - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+            note: {
+              ...note,
+              time: cursor,
+              duration: s - cursor,
+              isEvalHighlightSegment: true,
+              evalSegmentKind: "exclusive",
+            },
             color: exclusiveColorRef,
             fileId: coloredNote.fileId,
             isMuted: coloredNote.isMuted,
@@ -91,7 +102,8 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
               for (let j = 0; j < notes.length; j++) {
                 const en = notes[j];
                 if (en?.midi !== note.midi) continue;
-                const on = en.time, off = en.time + en.duration;
+                const on = en.time,
+                  off = en.time + en.duration;
                 if (on < segEnd && off > segStart) {
                   estBase = toNumberColor(ef.color ?? COLOR_PRIMARY);
                   break outer;
@@ -100,16 +112,26 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
             }
           }
           if (estBase != null) {
-            const refOwn = mixColorsOklch(refBaseColor, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
+            const refOwn = mixColorsOklch(
+              refBaseColor,
+              HIGHLIGHT_ANCHOR_REF,
+              HIGHLIGHT_BLEND_RATIO,
+            );
             const estOwn = mixColorsOklch(estBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
             const blended = blendColorsAverage([refOwn, estOwn]);
-            interColor = mixColorsOklch(blended, 0xffffff, 0.20);
+            interColor = mixColorsOklch(blended, 0xffffff, 0.2);
           } else {
             interColor = mixColorsOklch(refBaseColor, 0xffffff, 0.15);
           }
         }
         result.push({
-          note: { ...note, time: segStart, duration: segEnd - segStart, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+          note: {
+            ...note,
+            time: segStart,
+            duration: segEnd - segStart,
+            isEvalHighlightSegment: true,
+            evalSegmentKind: "intersection",
+          },
           color: interColor,
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -119,7 +141,13 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
     }
     if (cursor < noteEnd) {
       result.push({
-        note: { ...note, time: cursor, duration: noteEnd - cursor, isEvalHighlightSegment: true, evalSegmentKind: "exclusive" },
+        note: {
+          ...note,
+          time: cursor,
+          duration: noteEnd - cursor,
+          isEvalHighlightSegment: true,
+          evalSegmentKind: "exclusive",
+        },
         color: exclusiveColorRef,
         fileId: coloredNote.fileId,
         isMuted: coloredNote.isMuted,
@@ -173,10 +201,16 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
           const refOwn = mixColorsOklch(refBase, HIGHLIGHT_ANCHOR_REF, HIGHLIGHT_BLEND_RATIO);
           const estOwn = mixColorsOklch(compBase, HIGHLIGHT_ANCHOR_EST, HIGHLIGHT_BLEND_RATIO);
           const blended = blendColorsAverage([refOwn, estOwn]);
-          interColor = mixColorsOklch(blended, 0xffffff, 0.20);
+          interColor = mixColorsOklch(blended, 0xffffff, 0.2);
         }
         result.push({
-          note: { ...note, time: s, duration: e - s, isEvalHighlightSegment: true, evalSegmentKind: "intersection" },
+          note: {
+            ...note,
+            time: s,
+            duration: e - s,
+            isEvalHighlightSegment: true,
+            evalSegmentKind: "intersection",
+          },
           color: interColor,
           fileId: coloredNote.fileId,
           isMuted: coloredNote.isMuted,
@@ -196,5 +230,3 @@ export function handleGtMissedOnly(params: GtMissedOnlyParams): boolean {
 
   return true;
 }
-
-

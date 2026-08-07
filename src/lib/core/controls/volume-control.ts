@@ -204,7 +204,7 @@ export function createVolumeControl({
       updateVolume(newVal);
       iconBtn.innerHTML = isMuted ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
     },
-    { passive: false }
+    { passive: false },
   );
 
   // Global keyboard shortcuts - ArrowUp/Down, Shift+Arrow, M
@@ -212,10 +212,7 @@ export function createVolumeControl({
   if (!Reflect.get(window, KEY)) {
     Reflect.set(window, KEY, true);
     window.addEventListener("keydown", (e) => {
-      if (
-        ["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName) &&
-        e.target !== input
-      ) {
+      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName) && e.target !== input) {
         return;
       }
       if (e.key.toLowerCase() === "m") {

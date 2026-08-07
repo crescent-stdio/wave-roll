@@ -12,9 +12,7 @@ const MAX_TEMPO = 300;
  * @param dependencies - The UI component dependencies.
  * @returns The playback tempo control element.
  */
-export function createTempoControlUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createTempoControlUI(dependencies: UIComponentDependencies): HTMLElement {
   // Main container
   const container = document.createElement("div");
   container.style.cssText = `
@@ -60,10 +58,7 @@ export function createTempoControlUI(
     min-width: 70px;
   `;
   badge.classList.add("wr-focusable");
-  badge.setAttribute(
-    "aria-label",
-    `Playback tempo: ${Math.round(initialTempo)} BPM`
-  );
+  badge.setAttribute("aria-label", `Playback tempo: ${Math.round(initialTempo)} BPM`);
 
   // Hover effect for badge (consistent with volume button)
   badge.addEventListener("mouseenter", () => {
@@ -224,10 +219,7 @@ export function createTempoControlUI(
 
   // Helper to apply tempo safely
   const applyTempo = (bpm: number) => {
-    const clampedBpm = Math.max(
-      MIN_TEMPO,
-      Math.min(MAX_TEMPO, Math.round(bpm))
-    );
+    const clampedBpm = Math.max(MIN_TEMPO, Math.min(MAX_TEMPO, Math.round(bpm)));
     currentTempo = clampedBpm;
     input.value = String(clampedBpm);
     badge.textContent = `${clampedBpm} BPM`;
@@ -333,10 +325,7 @@ export function createTempoControlUI(
     const { currentTempo: newTempo } = getTempoState();
     currentTempo = newTempo;
     badge.textContent = `${Math.round(newTempo)} BPM`;
-    badge.setAttribute(
-      "aria-label",
-      `Playback tempo: ${Math.round(newTempo)} BPM`
-    );
+    badge.setAttribute("aria-label", `Playback tempo: ${Math.round(newTempo)} BPM`);
     // Only update input if it's not focused
     if (document.activeElement !== input) {
       input.value = String(Math.round(newTempo));
@@ -351,10 +340,7 @@ export function createTempoControlUI(
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.removedNodes) {
-        if (
-          node === container ||
-          (node instanceof Element && node.contains(container))
-        ) {
+        if (node === container || (node instanceof Element && node.contains(container))) {
           document.removeEventListener("wr-force-ui-refresh", handleRefresh);
           observer.disconnect();
           return;

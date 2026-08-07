@@ -2,8 +2,8 @@
  * Volume and mute state management utilities
  */
 
-import { PlaybackValueUtils } from './value-utils';
-import { createStateChangeHandler } from './state-change-handler';
+import { PlaybackValueUtils } from "./value-utils";
+import { createStateChangeHandler } from "./state-change-handler";
 
 export interface VolumeState {
   volume: number;
@@ -18,10 +18,8 @@ export class VolumeStateManager<T extends string = string> {
   private mutes = new Map<T, boolean>();
   private masterVolume: number = 1.0;
   private masterMuted: boolean = false;
-  
-  constructor(
-    private onStateChange?: (wasSilent: boolean, isSilent: boolean) => void
-  ) {}
+
+  constructor(private onStateChange?: (wasSilent: boolean, isSilent: boolean) => void) {}
 
   /**
    * Set volume for a specific source
@@ -33,7 +31,7 @@ export class VolumeStateManager<T extends string = string> {
         if (this.onStateChange && wasSilent !== isSilent) {
           this.onStateChange(wasSilent, isSilent);
         }
-      }
+      },
     );
 
     handler(() => {
@@ -59,7 +57,7 @@ export class VolumeStateManager<T extends string = string> {
         if (this.onStateChange && wasSilent !== isSilent) {
           this.onStateChange(wasSilent, isSilent);
         }
-      }
+      },
     );
 
     handler(() => {
@@ -84,7 +82,7 @@ export class VolumeStateManager<T extends string = string> {
         if (this.onStateChange && wasSilent !== isSilent) {
           this.onStateChange(wasSilent, isSilent);
         }
-      }
+      },
     );
 
     handler(() => {
@@ -109,7 +107,7 @@ export class VolumeStateManager<T extends string = string> {
         if (this.onStateChange && wasSilent !== isSilent) {
           this.onStateChange(wasSilent, isSilent);
         }
-      }
+      },
     );
 
     handler(() => {
@@ -131,7 +129,7 @@ export class VolumeStateManager<T extends string = string> {
     if (this.masterMuted || this.isMuted(id)) {
       return 0;
     }
-    
+
     const sourceVolume = this.getVolume(id);
     return sourceVolume * this.masterVolume;
   }
@@ -172,7 +170,7 @@ export class VolumeStateManager<T extends string = string> {
    */
   getAudibleSources(): T[] {
     const audible: T[] = [];
-    
+
     if (this.masterMuted || PlaybackValueUtils.isSilent(this.masterVolume)) {
       return audible;
     }
@@ -202,11 +200,11 @@ export class VolumeStateManager<T extends string = string> {
     master: VolumeState;
   } {
     const sources = new Map<T, VolumeState>();
-    
+
     for (const [id, volume] of this.volumes) {
       sources.set(id, {
         volume,
-        muted: this.mutes.get(id) ?? false
+        muted: this.mutes.get(id) ?? false,
       });
     }
 
@@ -214,8 +212,8 @@ export class VolumeStateManager<T extends string = string> {
       sources,
       master: {
         volume: this.masterVolume,
-        muted: this.masterMuted
-      }
+        muted: this.masterMuted,
+      },
     };
   }
 }

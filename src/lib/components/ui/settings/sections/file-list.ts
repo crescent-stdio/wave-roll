@@ -1,21 +1,15 @@
 import { UIComponentDependencies } from "../../types";
 import { renderOnsetSVG } from "@/assets/onset-icons";
 import { openOnsetPicker } from "../components/onset-picker";
+import { openInstrumentPicker } from "@/lib/components/ui/file/components/instrument-picker";
 import { PLAYER_ICONS } from "@/assets/player-icons";
-import {
-  getInstrumentIcon,
-  CHEVRON_DOWN,
-  CHEVRON_RIGHT,
-} from "@/assets/instrument-icons";
+import { getInstrumentIcon, CHEVRON_DOWN, CHEVRON_RIGHT } from "@/assets/instrument-icons";
 import { toHexColor } from "@/lib/core/utils/color";
 import { parseMidi } from "@/lib/core/parsers/midi-parser";
 import { MidiFileEntry } from "@/core/midi";
 import { TrackInfo } from "@/lib/midi/types";
 import { DEFAULT_PALETTES } from "@/lib/core/midi/palette";
-import {
-  computeNoteMetrics,
-  DEFAULT_TOLERANCES,
-} from "@/lib/evaluation/transcription";
+import { computeNoteMetrics, DEFAULT_TOLERANCES } from "@/lib/evaluation/transcription";
 
 /** Supported MIDI file extensions */
 const MIDI_EXTENSIONS = [".mid", ".midi"];
@@ -33,9 +27,7 @@ const accordionExpandedState = new Map<string, boolean>();
  * @param dependencies - The UI component dependencies.
  * @returns The root <div> for the file list section.
  */
-export function createFileList(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createFileList(dependencies: UIComponentDependencies): HTMLElement {
   // Section wrapper
   const filesSection = document.createElement("div");
 
@@ -106,10 +98,7 @@ export function createFileList(
         return;
       }
       e.preventDefault();
-      const sourceIndex = parseInt(
-        (e.dataTransfer as DataTransfer).getData("text/plain"),
-        10
-      );
+      const sourceIndex = parseInt((e.dataTransfer as DataTransfer).getData("text/plain"), 10);
       if (Number.isNaN(sourceIndex)) return;
 
       // If dropped on empty space, move item to the end
@@ -155,8 +144,7 @@ export function createFileList(
 
       // Color picker container
       const colorPickerContainer = document.createElement("div");
-      colorPickerContainer.style.cssText =
-        "position:relative;display:flex;align-items:center;";
+      colorPickerContainer.style.cssText = "position:relative;display:flex;align-items:center;";
 
       // Visible swatch button (uses onset-like shape)
       const swatchBtn = document.createElement("button");
@@ -166,13 +154,9 @@ export function createFileList(
       const shapeHost = document.createElement("div");
       shapeHost.style.cssText = `width:18px;height:18px;display:flex;align-items:center;justify-content:center;`;
       // Unified onset marker SVG renderer for both swatch and marker picker
-      const renderOnsetSvg = (
-        style: import("@/types").OnsetMarkerStyle,
-        color: string
-      ) => renderOnsetSVG(style, color, 16);
-      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(
-        file.id
-      );
+      const renderOnsetSvg = (style: import("@/types").OnsetMarkerStyle, color: string) =>
+        renderOnsetSVG(style, color, 16);
+      const ensuredStyle = dependencies.stateManager.ensureOnsetMarkerForFile(file.id);
       shapeHost.innerHTML = renderOnsetSvg(ensuredStyle, initialHex);
       swatchBtn.appendChild(shapeHost);
 
@@ -180,8 +164,7 @@ export function createFileList(
       const colorInput = document.createElement("input");
       colorInput.type = "color";
       colorInput.value = initialHex;
-      colorInput.style.cssText =
-        "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
+      colorInput.style.cssText = "position:absolute;opacity:0;width:0;height:0;border:0;padding:0;";
 
       // Unified picker trigger (clicking the swatch opens the combined picker)
       swatchBtn.onclick = (e) => {
@@ -195,15 +178,10 @@ export function createFileList(
         const hex = (e.target as HTMLInputElement).value;
 
         // Update application state
-        dependencies.midiManager.updateColor(
-          file.id,
-          parseInt(hex.substring(1), 16)
-        );
+        dependencies.midiManager.updateColor(file.id, parseInt(hex.substring(1), 16));
 
         // Update swatch shape color
-        const styleNow =
-          dependencies.stateManager.getOnsetMarkerForFile(file.id) ||
-          ensuredStyle;
+        const styleNow = dependencies.stateManager.getOnsetMarkerForFile(file.id) || ensuredStyle;
         shapeHost.innerHTML = renderOnsetSvg(styleNow, hex);
       };
 
@@ -219,10 +197,7 @@ export function createFileList(
       nameInput.type = "text";
       nameInput.value = file.name;
       nameInput.onchange = (e) => {
-        dependencies.midiManager.updateName(
-          file.id,
-          (e.target as HTMLInputElement).value
-        );
+        dependencies.midiManager.updateName(file.id, (e.target as HTMLInputElement).value);
       };
       nameInput.style.cssText =
         "flex:1;padding:4px 6px;border:1px solid var(--ui-border);border-radius:4px;background:var(--surface);color:var(--text-primary);";
@@ -259,7 +234,7 @@ export function createFileList(
         (e.dataTransfer as DataTransfer).effectAllowed = "move";
         (e.dataTransfer as DataTransfer).setData(
           "text/plain",
-          (row.dataset.index || "0").toString()
+          (row.dataset.index || "0").toString(),
         );
         // Provide visual feedback while dragging
         row.style.opacity = "0.6";
@@ -317,10 +292,7 @@ export function createFileList(
         }
         e.preventDefault();
         e.stopPropagation();
-        const sourceIndex = parseInt(
-          (e.dataTransfer as DataTransfer).getData("text/plain"),
-          10
-        );
+        const sourceIndex = parseInt((e.dataTransfer as DataTransfer).getData("text/plain"), 10);
         if (!Number.isNaN(sourceIndex) && sourceIndex !== targetIndex) {
           dependencies.midiManager.reorderFiles(sourceIndex, targetIndex);
           refreshFileList();
@@ -342,8 +314,7 @@ export function createFileList(
       let isExpanded = accordionExpandedState.get(file.id) ?? false;
 
       const chevronSpan = document.createElement("span");
-      chevronSpan.style.cssText =
-        "display:flex;align-items:center;width:16px;min-width:16px;";
+      chevronSpan.style.cssText = "display:flex;align-items:center;width:16px;min-width:16px;";
 
       if (hasMultipleTracks) {
         chevronSpan.innerHTML = isExpanded ? CHEVRON_DOWN : CHEVRON_RIGHT;
@@ -366,7 +337,7 @@ export function createFileList(
       if (hasMultipleTracks) {
         // Track list container - aligned with file row (handle + chevron + colorPicker width)
         trackListEl = document.createElement("div");
-        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:60px;margin-top:2px;`;
+        trackListEl.style.cssText = `display:${isExpanded ? "flex" : "none"};flex-direction:column;gap:1px;padding:4px 8px;background:var(--surface);border-radius:4px;margin-left:54px;margin-top:-12px;`;
 
         // Sort tracks: drums at the bottom, others by MIDI program number (ascending)
         const sortedTracks = [...tracks].sort((a, b) => {
@@ -380,15 +351,38 @@ export function createFileList(
         // Populate track items
         sortedTracks.forEach((track: TrackInfo) => {
           const trackRow = document.createElement("div");
-          trackRow.style.cssText =
-            "display:flex;align-items:center;gap:16px;padding:2px 0;";
+          trackRow.style.cssText = "display:flex;align-items:center;gap:16px;padding:2px 0;";
 
-          // Instrument icon (first)
-          const iconSpan = document.createElement("span");
-          iconSpan.innerHTML = getInstrumentIcon(track.instrumentFamily);
-          iconSpan.style.cssText =
-            "display:flex;align-items:center;justify-content:center;width:18px;height:18px;color:var(--text-muted);";
-          iconSpan.title = track.instrumentFamily;
+          // Instrument icon button (first) - clickable to open instrument picker
+          // Reflects override if set
+          // Safe: getInstrumentIcon returns pre-defined SVG constants from instrument-icons.ts, not user input
+          const overrideFamily =
+            dependencies.midiManager.getTrackOverrideInstrumentFamily?.(file.id, track.id) ?? null;
+          const displayFamily = overrideFamily ?? track.instrumentFamily;
+          const iconBtn = document.createElement("button");
+          iconBtn.type = "button";
+          iconBtn.innerHTML = getInstrumentIcon(displayFamily);
+          iconBtn.style.cssText = `
+            display:flex;align-items:center;justify-content:center;width:18px;height:18px;
+            color:${overrideFamily ? "var(--accent-primary, #3b82f6)" : "var(--text-muted)"};
+            border:none;background:transparent;cursor:pointer;padding:0;
+            transition:color 0.15s ease;
+          `;
+          iconBtn.title = overrideFamily
+            ? `Using ${overrideFamily} sound (click to change)`
+            : `Using original ${track.instrumentFamily} sound (click to change)`;
+          iconBtn.onmouseenter = () => {
+            iconBtn.style.color = "var(--accent-primary, #3b82f6)";
+          };
+          iconBtn.onmouseleave = () => {
+            iconBtn.style.color = overrideFamily
+              ? "var(--accent-primary, #3b82f6)"
+              : "var(--text-muted)";
+          };
+          iconBtn.onclick = (e: MouseEvent) => {
+            e.stopPropagation();
+            openInstrumentPicker(dependencies.midiManager, file.id, track.id, iconBtn);
+          };
 
           // Track name (second)
           const trackName = document.createElement("span");
@@ -402,8 +396,8 @@ export function createFileList(
           noteCount.style.cssText =
             "font-size:10px;color:var(--text-muted);padding:2px 6px;background:var(--surface-alt);border-radius:10px;text-align:right;";
 
-          // Append in new order: InstrumentIcon | TrackName | NoteCount
-          trackRow.appendChild(iconSpan);
+          // Append in order: InstrumentIcon | TrackName | NoteCount
+          trackRow.appendChild(iconBtn);
           trackRow.appendChild(trackName);
           trackRow.appendChild(noteCount);
           trackListEl!.appendChild(trackRow);
@@ -454,13 +448,11 @@ export function createFileList(
     dropZoneHint.textContent = allowFileDrop
       ? "Click or drag & drop MIDI files"
       : "Click to choose MIDI files";
-    dropZoneHint.style.cssText =
-      "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
+    dropZoneHint.style.cssText = "font-size:12px;color:var(--text-muted);margin-bottom:2px;";
 
     const dropZoneFormats = document.createElement("div");
     dropZoneFormats.textContent = ".mid, .midi";
-    dropZoneFormats.style.cssText =
-      "font-size:10px;color:var(--text-muted);opacity:0.7;";
+    dropZoneFormats.style.cssText = "font-size:10px;color:var(--text-muted);opacity:0.7;";
 
     dropZoneContent.appendChild(dropZoneTitle);
     dropZoneContent.appendChild(dropZoneHint);
@@ -493,12 +485,7 @@ export function createFileList(
               applyPedalElongate: pedalElongate,
               pedalThreshold: pedalThreshold,
             });
-            dependencies.midiManager.addMidiFile(
-              file.name,
-              parsed,
-              undefined,
-              file
-            );
+            dependencies.midiManager.addMidiFile(file.name, parsed, undefined, file);
           } catch (err) {
             console.error("Failed to parse MIDI:", err);
           }
@@ -510,15 +497,12 @@ export function createFileList(
 
       // Update main screen file toggle section if available
       const fileToggleContainer = document.querySelector(
-        '[data-role="file-toggle"]'
+        '[data-role="file-toggle"]',
       ) as HTMLElement | null;
       if (fileToggleContainer) {
         const FileToggleManager = (window as any).FileToggleManager;
         if (FileToggleManager) {
-          FileToggleManager.updateFileToggleSection(
-            fileToggleContainer,
-            dependencies
-          );
+          FileToggleManager.updateFileToggleSection(fileToggleContainer, dependencies);
         }
       }
     };

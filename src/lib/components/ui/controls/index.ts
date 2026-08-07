@@ -8,6 +8,9 @@ import { createZoomControlsUI } from "./zoom";
 import { createTimeDisplayUI } from "./time-display";
 import { createSettingsControlUI } from "./settings";
 import { createHighlightModeGroup } from "../settings/controls/highlight-mode-group";
+import { createGridModeControl } from "./grid-mode";
+import { createTempoSyncControl } from "./tempo-sync";
+import { createSnapToGridControl } from "./snap-to-grid";
 
 /**
  * Assemble all UI sub-controls and inject them into the given containers.
@@ -19,7 +22,7 @@ import { createHighlightModeGroup } from "../settings/controls/highlight-mode-gr
 export function setupUI(
   controlsContainer: HTMLElement,
   playerContainer: HTMLElement,
-  deps: UIComponentDependencies
+  deps: UIComponentDependencies,
 ): void {
   // Reset container
   controlsContainer.innerHTML = "";
@@ -54,8 +57,11 @@ export function setupUI(
   row.appendChild(createLoopControlsUI(deps));
   row.appendChild(createTempoControlUI(deps));
   row.appendChild(createZoomControlsUI(deps));
-  // Hide highlight mode (Show notes) dropdown in solo mode
+  row.appendChild(createGridModeControl(deps));
+  // Hide tempo sync, snap to grid, and highlight mode in solo mode
   if (!deps.soloMode) {
+    row.appendChild(createTempoSyncControl(deps));
+    row.appendChild(createSnapToGridControl(deps));
     row.appendChild(createHighlightModeGroup(deps, { withWrapper: true }));
   }
   row.appendChild(createSettingsControlUI(deps));

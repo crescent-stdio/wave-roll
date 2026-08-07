@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { INSTRUMENT_ICONS, getInstrumentIcon } from "@/assets/instrument-icons";
+import { ICON_SIZE } from "@/assets/icon-utils";
 import { InstrumentFamily } from "@/lib/midi/types";
 
 const svgMarkupPattern = /^<svg[\s\S]*<\/svg>$/;
@@ -13,8 +14,9 @@ describe("instrument icon registry", () => {
     families.forEach((family) => {
       const svg = getInstrumentIcon(family);
       expect(svgMarkupPattern.test(svg)).toBe(true);
-      expect(svg.includes('width="24"')).toBe(true);
-      expect(svg.includes('height="24"')).toBe(true);
+      // Assert the normalized size contract, not the raw asset's authored size
+      expect(svg.includes(`width="${ICON_SIZE}"`)).toBe(true);
+      expect(svg.includes(`height="${ICON_SIZE}"`)).toBe(true);
     });
   });
 
@@ -24,4 +26,3 @@ describe("instrument icon registry", () => {
     expect(getInstrumentIcon("unknown" as InstrumentFamily)).toBe(fallback);
   });
 });
-

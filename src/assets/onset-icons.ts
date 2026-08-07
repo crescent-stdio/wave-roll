@@ -12,7 +12,7 @@ import type { OnsetMarkerStyle, OnsetMarkerShape } from "@/types";
 export function renderOnsetSVG(
   style: OnsetMarkerStyle,
   colorHex: string,
-  size: number = 16
+  size: number = 16,
 ): string {
   const stroke = colorHex;
   const fill = style.variant === "filled" ? colorHex : "transparent";
@@ -125,6 +125,6 @@ export function renderOnsetSVG(
   };
 
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" style="pointer-events: none;">${pathFor(
-    style.shape
+    style.shape,
   )}</svg>`;
 }

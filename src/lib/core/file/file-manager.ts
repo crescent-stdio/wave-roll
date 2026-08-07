@@ -23,33 +23,25 @@ export class FileManager {
   }
 
   /** Load a single MIDI file (local File object or URL). */
-  async loadFile(
-    input: MidiInput,
-    options: FileLoadOptions = {}
-  ): Promise<string | null> {
+  async loadFile(input: MidiInput, options: FileLoadOptions = {}): Promise<string | null> {
     return Loader.loadFile(this, input, options);
   }
 
   /** Load multiple local files at once. */
-  async loadMultipleFiles(
-    files: File[],
-    options: FileLoadOptions = {}
-  ): Promise<string[]> {
+  async loadMultipleFiles(files: File[], options: FileLoadOptions = {}): Promise<string[]> {
     return Loader.loadMultipleFiles(this, files, options);
   }
 
   /** Load a single audio file (wav/mp3) */
   async loadAudioFile(
     input: string | File,
-    options: FileLoadOptions & { color?: number } = {}
+    options: FileLoadOptions & { color?: number } = {},
   ): Promise<string | null> {
     return Loader.loadAudioFile(this, input, options);
   }
 
   /** Load sample audio files */
-  async loadSampleAudioFiles(
-    files: SampleAudioFileConfig[] = []
-  ): Promise<void> {
+  async loadSampleAudioFiles(files: SampleAudioFileConfig[] = []): Promise<void> {
     return Loader.loadSampleAudioFiles(this, files);
   }
 
@@ -119,9 +111,7 @@ export class FileManager {
    * @param isVisible - Whether the file should be visible
    */
   setFileVisibility(fileId: string, isVisible: boolean): void {
-    const file = this.midiManager
-      .getState()
-      .files.find((f: MidiFileEntry) => f.id === fileId);
+    const file = this.midiManager.getState().files.find((f: MidiFileEntry) => f.id === fileId);
     if (file && file.isPianoRollVisible !== isVisible) {
       this.midiManager.toggleVisibility(fileId);
     }

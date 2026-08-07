@@ -35,9 +35,7 @@ export interface UIComponentDependencies {
    * Callback used by visualisation engine to update the seek bar.
    * Accepts an optional override payload when the caller has its own time values.
    */
-  updateSeekBar:
-    | ((state?: { currentTime: number; duration: number }) => void)
-    | null;
+  updateSeekBar: ((state?: { currentTime: number; duration: number }) => void) | null;
 
   /** Callback that toggles play ↔ pause icon. */
   updatePlayButton: (() => void) | null;
@@ -110,10 +108,7 @@ export interface UIComponentDependencies {
    * Optional function to add a file from raw data (ArrayBuffer or Base64).
    * Used for VS Code integration where files are passed via postMessage.
    */
-  addFileFromData?: (
-    data: ArrayBuffer | string,
-    filename: string
-  ) => Promise<void>;
+  addFileFromData?: (data: ArrayBuffer | string, filename: string) => Promise<void>;
 }
 
 export interface UIElements {

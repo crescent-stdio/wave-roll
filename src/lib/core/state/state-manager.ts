@@ -11,7 +11,7 @@ import {
   createStateUpdater,
   normalizeLoopPoints,
   percentageToAbsolute,
-  shallowMerge
+  shallowMerge,
 } from "./utils";
 
 export class StateManager {
@@ -24,7 +24,7 @@ export class StateManager {
   constructor(config: Partial<StateManagerConfig> = {}) {
     this.config = shallowMerge(DEFAULT_STATE_CONFIG, config);
     this.state = this.createInitialState();
-    
+
     // Initialize managers
     this.fileVisibilityManager = new SetManager(
       this.state.fileVisibility.visibleFileIds || new Set(),
@@ -32,14 +32,14 @@ export class StateManager {
         this.state.fileVisibility.visibleFileIds = set;
         this.state.fileVisibility.totalFiles = set.size;
         this.notify();
-      }
+      },
     );
-    
+
     this.panHandlersManager = new RecordManager(
       this.state.panVolume.filePanStateHandlers,
       (record) => {
         this.state.panVolume.filePanStateHandlers = record;
-      }
+      },
     );
   }
 
@@ -63,13 +63,10 @@ export class StateManager {
   public getFilePanValuesRef(): Record<string, number> {
     return this.state.panVolume.filePanValues;
   }
-  public getFilePanStateHandlersRef(): Record<
-    string,
-    (pan: number | null) => void
-  > {
+  public getFilePanStateHandlersRef(): Record<string, (pan: number | null) => void> {
     return this.state.panVolume.filePanStateHandlers;
   }
-  
+
   public getFileMuteStatesRef(): Record<string, boolean> {
     return this.state.panVolume.fileMuteStates;
   }
@@ -94,9 +91,7 @@ export class StateManager {
   /**
    * Update file visibility state
    */
-  public updateFileVisibilityState(
-    updates: Partial<AppState["fileVisibility"]>
-  ): void {
+  public updateFileVisibilityState(updates: Partial<AppState["fileVisibility"]>): void {
     this.state.fileVisibility = shallowMerge(this.state.fileVisibility, updates);
     this.notify();
   }
@@ -150,22 +145,46 @@ export class StateManager {
     const existing = this.state.visual.fileOnsetMarkers[fileId];
     if (existing) return existing;
     const used = new Set(
-      Object.values(this.state.visual.fileOnsetMarkers).map((s) => `${s.shape}:${s.variant}`)
+      Object.values(this.state.visual.fileOnsetMarkers).map((s) => `${s.shape}:${s.variant}`),
     );
     let picked: OnsetMarkerStyle | null = null;
     for (const shape of ONSET_MARKER_SHAPES) {
       const key = `${shape}:filled`;
-      if (!used.has(key)) { picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "filled", size: 12, strokeWidth: 2 }; break; }
+      if (!used.has(key)) {
+        picked = {
+          shape: shape as OnsetMarkerStyle["shape"],
+          variant: "filled",
+          size: 12,
+          strokeWidth: 2,
+        };
+        break;
+      }
     }
     if (!picked) {
       for (const shape of ONSET_MARKER_SHAPES) {
         const key = `${shape}:outlined`;
-        if (!used.has(key)) { picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "outlined", size: 12, strokeWidth: 2 }; break; }
+        if (!used.has(key)) {
+          picked = {
+            shape: shape as OnsetMarkerStyle["shape"],
+            variant: "outlined",
+            size: 12,
+            strokeWidth: 2,
+          };
+          break;
+        }
       }
     }
     if (!picked) {
-      const shape = ONSET_MARKER_SHAPES[Object.keys(this.state.visual.fileOnsetMarkers).length % ONSET_MARKER_SHAPES.length];
-      picked = { shape: shape as OnsetMarkerStyle["shape"], variant: "outlined", size: 12, strokeWidth: 2 };
+      const shape =
+        ONSET_MARKER_SHAPES[
+          Object.keys(this.state.visual.fileOnsetMarkers).length % ONSET_MARKER_SHAPES.length
+        ];
+      picked = {
+        shape: shape as OnsetMarkerStyle["shape"],
+        variant: "outlined",
+        size: 12,
+        strokeWidth: 2,
+      };
     }
     this.state.visual.fileOnsetMarkers[fileId] = picked;
     this.notify();
@@ -180,14 +199,24 @@ export class StateManager {
     const current = this.state.visual.fileOnsetMarkers[fileId];
     // Build ordered ring of all combinations: filled first, then outlined
     const ring: Array<OnsetMarkerStyle> = [
-      ...ONSET_MARKER_SHAPES.map((shape) => ({ shape: shape as OnsetMarkerStyle['shape'], variant: 'filled' as const, size: 12, strokeWidth: 2 })),
-      ...ONSET_MARKER_SHAPES.map((shape) => ({ shape: shape as OnsetMarkerStyle['shape'], variant: 'outlined' as const, size: 12, strokeWidth: 2 })),
+      ...ONSET_MARKER_SHAPES.map((shape) => ({
+        shape: shape as OnsetMarkerStyle["shape"],
+        variant: "filled" as const,
+        size: 12,
+        strokeWidth: 2,
+      })),
+      ...ONSET_MARKER_SHAPES.map((shape) => ({
+        shape: shape as OnsetMarkerStyle["shape"],
+        variant: "outlined" as const,
+        size: 12,
+        strokeWidth: 2,
+      })),
     ];
     // Exclude combinations used by other files to keep uniqueness
     const usedKeys = new Set(
       Object.entries(this.state.visual.fileOnsetMarkers)
         .filter(([id]) => id !== fileId)
-        .map(([, s]) => `${s.shape}:${s.variant}`)
+        .map(([, s]) => `${s.shape}:${s.variant}`),
     );
     const allowed = ring.filter((s) => !usedKeys.has(`${s.shape}:${s.variant}`));
 
@@ -197,7 +226,9 @@ export class StateManager {
     }
 
     // Find current in allowed (if not present, start from index -1 so we pick 0)
-    const curIdx = current ? allowed.findIndex((s) => s.shape === current.shape && s.variant === current.variant) : -1;
+    const curIdx = current
+      ? allowed.findIndex((s) => s.shape === current.shape && s.variant === current.variant)
+      : -1;
     const next = allowed[(curIdx + 1) % allowed.length];
     const picked: OnsetMarkerStyle = { ...next };
 
@@ -255,10 +286,7 @@ export class StateManager {
   /**
    * Register pan state handler for a file
    */
-  public registerFilePanHandler(
-    fileId: string,
-    handler: (pan: number | null) => void
-  ): void {
+  public registerFilePanHandler(fileId: string, handler: (pan: number | null) => void): void {
     this.panHandlersManager.set(fileId, handler);
   }
   /**
@@ -275,7 +303,7 @@ export class StateManager {
       handler(panValue);
     });
   }
-  
+
   /**
    * Set mute state for a file
    */
@@ -283,7 +311,7 @@ export class StateManager {
     this.state.panVolume.fileMuteStates[fileId] = muted;
     this.notify();
   }
-  
+
   /**
    * Get mute state for a file
    */
@@ -310,16 +338,13 @@ export class StateManager {
   /**
    * Set loop points from percentages
    */
-  public setLoopPointsFromPercentages(
-    aPercent: number | null,
-    bPercent: number | null
-  ): void {
+  public setLoopPointsFromPercentages(aPercent: number | null, bPercent: number | null): void {
     const { duration } = this.state.playback;
     if (duration === 0) return;
 
     this.setLoopPoints(
       percentageToAbsolute(aPercent, duration),
-      percentageToAbsolute(bPercent, duration)
+      percentageToAbsolute(bPercent, duration),
     );
   }
 
@@ -370,8 +395,6 @@ export class StateManager {
 /**
  * Create a new state manager instance
  */
-export function createStateManager(
-  config?: Partial<StateManagerConfig>
-): StateManager {
+export function createStateManager(config?: Partial<StateManagerConfig>): StateManager {
   return new StateManager(config);
 }

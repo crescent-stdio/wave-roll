@@ -4,9 +4,7 @@ import { UIComponentDependencies } from "../../types";
  * Create a checkbox control for enabling/disabling sustain pedal elongation.
  * This affects how MIDI notes are processed when parsing files.
  */
-export function createPedalElongateGroup(
-  deps: UIComponentDependencies
-): HTMLElement {
+export function createPedalElongateGroup(deps: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
     padding: 12px 0;
@@ -32,8 +30,7 @@ export function createPedalElongateGroup(
   `;
 
   // Get initial state
-  const initialState =
-    deps.stateManager?.getState().visual.pedalElongate ?? false;
+  const initialState = deps.stateManager?.getState().visual.pedalElongate ?? false;
   checkbox.checked = initialState;
 
   // Label text
@@ -84,8 +81,7 @@ export function createPedalElongateGroup(
     try {
       // Reparse all MIDI files with the new setting
       if (deps.midiManager) {
-        const threshold =
-          deps.stateManager?.getState().visual.pedalThreshold ?? 64;
+        const threshold = deps.stateManager?.getState().visual.pedalThreshold ?? 64;
         await deps.midiManager.reparseAllFiles(
           {
             applyPedalElongate: isChecked,
@@ -93,7 +89,7 @@ export function createPedalElongateGroup(
           },
           (current, total) => {
             loadingIndicator.textContent = `Reprocessing files... (${current}/${total})`;
-          }
+          },
         );
       }
 

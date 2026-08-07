@@ -1,0 +1,6 @@
+dist/
+node_modules/
+*.midi
+*.mid
+*.mp3
+pnpm-lock.yaml

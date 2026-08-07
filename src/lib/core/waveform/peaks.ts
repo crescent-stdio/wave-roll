@@ -4,7 +4,7 @@
  */
 export function getPeaksFromAudioBuffer(
   audioBuffer: AudioBuffer,
-  numPeaks: number = 2000
+  numPeaks: number = 2000,
 ): { min: number[]; max: number[] } {
   const channelCount = audioBuffer.numberOfChannels;
   const length = audioBuffer.length;
@@ -13,8 +13,8 @@ export function getPeaksFromAudioBuffer(
   const max: number[] = new Array(numPeaks).fill(0);
 
   for (let i = 0; i < numPeaks; i++) {
-    let start = i * blockSize;
-    let end = i === numPeaks - 1 ? length : start + blockSize;
+    const start = i * blockSize;
+    const end = i === numPeaks - 1 ? length : start + blockSize;
     let minVal = Infinity;
     let maxVal = -Infinity;
 
@@ -37,5 +37,3 @@ export function getPeaksFromAudioBuffer(
 
   return { min, max };
 }
-
-

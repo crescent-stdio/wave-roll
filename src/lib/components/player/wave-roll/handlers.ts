@@ -7,7 +7,7 @@ import { UIComponentDependencies } from "@/lib/components/ui";
  */
 export function registerSpaceShortcut(
   engine: VisualizationEngine,
-  depsGetter: () => UIComponentDependencies
+  depsGetter: () => UIComponentDependencies,
 ): () => void {
   const handler = (event: KeyboardEvent): void => {
     if (event.repeat) return;

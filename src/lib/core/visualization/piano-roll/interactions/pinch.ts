@@ -55,5 +55,3 @@ export function pinchEnd(ev: TouchEvent, _pr: PianoRoll, state: PinchState): voi
     state.isPinching = false;
   }
 }
-
-

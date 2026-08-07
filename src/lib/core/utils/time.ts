@@ -17,7 +17,7 @@ export function formatTime(seconds: number): string {
   if (!isFinite(seconds) || isNaN(seconds) || seconds == null) {
     return "00:00:00";
   }
-  
+
   // Clamp negative values to 0 to avoid displaying "-00:00:00" in edge cases
   const safeSeconds = Math.max(0, seconds);
 
@@ -25,9 +25,7 @@ export function formatTime(seconds: number): string {
   const wholeSeconds = Math.floor(safeSeconds % 60);
 
   // Display 2-digit centiseconds (hundredths of a second) so 0.3s → "30"
-  const centiseconds = Math.floor(
-    (safeSeconds - Math.floor(safeSeconds)) * 100
-  );
+  const centiseconds = Math.floor((safeSeconds - Math.floor(safeSeconds)) * 100);
 
   return `${minutes.toString().padStart(2, "0")}:${wholeSeconds
     .toString()

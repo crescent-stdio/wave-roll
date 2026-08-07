@@ -4,10 +4,7 @@ import type { AudioPlayerContainer } from "@/lib/core/audio/audio-player";
 import type { AudioController } from "@/core/playback";
 import type { VisualizationEngine } from "@/core/visualization/visualization-engine";
 
-export type AnyAudioPlayer =
-  | AudioPlayerContainer
-  | AudioController
-  | VisualizationEngine;
+export type AnyAudioPlayer = AudioPlayerContainer | AudioController | VisualizationEngine;
 
 export interface SetupPlayButtonOptions {
   playBtn: HTMLElement;
@@ -75,29 +72,25 @@ export function setupPlayButton(opts: SetupPlayButtonOptions): () => void {
       playBtn.style.opacity = buffersReady ? "1" : "0.6";
       playBtn.style.cursor = buffersReady ? "pointer" : "not-allowed";
       (playBtn as HTMLButtonElement).disabled = !buffersReady;
-      
+
       if (buffersReady) {
         playBtn.onclick = async () => {
           try {
             await prePlay?.();
           } catch (e) {
-            /* eslint-disable no-console */
             console.warn("[setupPlayButton] prePlay() failed", e);
-            /* eslint-enable no-console */
           }
           try {
             await audioPlayer?.play();
             postPlay?.();
             updatePlayButton();
           } catch (error) {
-            /* eslint-disable no-console */
             console.error("Failed to play:", error);
             alert(
               `Failed to start playback: ${
                 error instanceof Error ? error.message : "Unknown error"
-              }`
+              }`,
             );
-            /* eslint-enable no-console */
           }
         };
       } else {

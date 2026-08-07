@@ -8,16 +8,27 @@ import {
   onPointerUp,
 } from "@/lib/core/visualization/piano-roll/interactions/pointer";
 import { onWheel } from "@/lib/core/visualization/piano-roll/interactions/wheel";
-import { pinchStart, pinchMove, pinchEnd } from "@/lib/core/visualization/piano-roll/interactions/pinch";
+import {
+  pinchStart,
+  pinchMove,
+  pinchEnd,
+} from "@/lib/core/visualization/piano-roll/interactions/pinch";
 import { renderPlayhead } from "@/lib/core/visualization/piano-roll/renderers/playhead";
 import { renderGrid } from "@/lib/core/visualization/piano-roll/renderers/grid";
 import { renderNotes } from "@/lib/core/visualization/piano-roll/renderers/notes";
 import { renderSustains } from "@/lib/core/visualization/piano-roll/renderers/sustains";
-import { initializeTooltipOverlay, initializeHelpOverlay } from "@/lib/core/visualization/piano-roll/ui/overlays";
 import {
-  clampPanX,
-  clampPanY,
-} from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
+  initializeTooltipOverlay,
+  initializeHelpOverlay,
+} from "@/lib/core/visualization/piano-roll/ui/overlays";
+import { clampPanX, clampPanY } from "@/lib/core/visualization/piano-roll/utils/clamp-pan";
+import {
+  buildBeatMap,
+  musicalTimingEqual,
+  DEFAULT_BEAT_GRID_CONFIG,
+  type GridMarker,
+  type MusicalTimingData,
+} from "@/lib/core/visualization/piano-roll/utils/beat-map";
 import { ScaleLinear } from "d3-scale";
 import { clamp } from "@/lib/core/utils";
 import { drawOverlapRegions } from "@/core/visualization/piano-roll/renderers/overlaps";
@@ -94,7 +105,7 @@ export class PianoRoll {
   private lastRenderTime = 0;
   private renderThrottleMs = 16; // ~60fps
   private rafId: number | null = null;
-  
+
   // Performance metrics
   private performanceMetrics = {
     renderCount: 0,
@@ -127,14 +138,19 @@ export class PianoRoll {
   public onlyOriginalOnsets?: boolean;
   public fileInfoMap?: FileInfoMap;
 
+  /** Musical timing data from the loaded MIDI file (tempo + time signature) */
+  public musicalTiming: MusicalTimingData | null = null;
+  /** Pre-computed beat/measure grid markers (only populated in 'beats' mode) */
+  public beatGridMarkers: ReadonlyArray<Readonly<GridMarker>> = [];
+
   private constructor(
     canvas: HTMLCanvasElement,
     domContainer: HTMLElement,
-    options: PianoRollConfig = {}
+    options: PianoRollConfig = {},
   ) {
     // Store DOM container reference
     this.domContainer = domContainer;
-    
+
     // Set default options
     this.options = {
       width: 800,
@@ -148,6 +164,8 @@ export class PianoRoll {
       minorTimeStep: 0.1,
       noteRenderer: undefined,
       showWaveformBand: true,
+      gridMode: "seconds" as const,
+      beatGridConfig: undefined,
       ...options,
     } as Required<PianoRollConfig>;
 
@@ -174,10 +192,7 @@ export class PianoRoll {
     let reservedBottomPx = 0;
     if (this.options.showWaveformBand !== false) {
       const bandPadding = 6;
-      const bandHeight = Math.max(
-        24,
-        Math.min(96, Math.floor(this.options.height * 0.22))
-      );
+      const bandHeight = Math.max(24, Math.min(96, Math.floor(this.options.height * 0.22)));
       reservedBottomPx = bandPadding + bandHeight;
     }
 
@@ -191,12 +206,25 @@ export class PianoRoll {
       },
       this.pxPerSecond,
       8,
-      reservedBottomPx
+      reservedBottomPx,
     );
 
     this.timeScale = timeScale;
     this.pitchScale = pitchScale;
     this.pxPerSecond = pxPerSecond;
+
+    this.recalculateBeatMap();
+  }
+
+  /** Recompute beat grid markers when timing data or grid mode changes */
+  private recalculateBeatMap(): void {
+    if (this.musicalTiming && this.options.gridMode === "beats") {
+      const maxTime = this.timeScale.domain()[1];
+      const config = this.options.beatGridConfig ?? DEFAULT_BEAT_GRID_CONFIG;
+      this.beatGridMarkers = buildBeatMap(this.musicalTiming, maxTime, config);
+    } else {
+      this.beatGridMarkers = [];
+    }
   }
 
   /**
@@ -205,24 +233,24 @@ export class PianoRoll {
   public static async create(
     canvas: HTMLCanvasElement,
     domContainer: HTMLElement,
-    options: PianoRollConfig = {}
+    options: PianoRollConfig = {},
   ): Promise<PianoRoll> {
     const instance = new PianoRoll(canvas, domContainer, options);
     await instance.initializeApp(canvas);
     instance.initializeContainers();
-    
+
     instance.initializeScales();
     // Add tooltip overlay after containers are ready
     instance.initializeTooltip(canvas);
     instance.initializeHelpButton(canvas);
     instance.initializePitchHover();
     instance.setupInteraction();
-    
+
     instance.render(); // Full render including playhead
-    
+
     // Force a manual render to ensure content is displayed
     instance.app.renderer.render(instance.app.stage);
-    
+
     return instance;
   }
 
@@ -312,10 +340,7 @@ export class PianoRoll {
   /**
    * Show tooltip populated with the given note information.
    */
-  public showNoteTooltip(
-    note: NoteData,
-    event: PIXI.FederatedPointerEvent
-  ): void {
+  public showNoteTooltip(note: NoteData, event: PIXI.FederatedPointerEvent): void {
     if (!this.tooltipDiv) return;
 
     // Calculate the time and pitch from the mouse position
@@ -327,11 +352,32 @@ export class PianoRoll {
     const notesAtPosition = this.findNotesAtPosition(time, note.midi);
 
     const fileInfoMap = this.fileInfoMap as
-      | Record<string, { name: string; fileName: string; kind: string; color: number; tracks?: Array<{ id: number; name: string }> }>
+      | Record<
+          string,
+          {
+            name: string;
+            fileName: string;
+            kind: string;
+            color: number;
+            tracks?: Array<{ id: number; name: string }>;
+          }
+        >
       | undefined;
 
     // Group notes by unique file IDs
-    const fileInfos: Map<string, { info: { name: string; fileName: string; kind: string; color: number; tracks?: Array<{ id: number; name: string }> }; notes: NoteData[] }> = new Map();
+    const fileInfos: Map<
+      string,
+      {
+        info: {
+          name: string;
+          fileName: string;
+          kind: string;
+          color: number;
+          tracks?: Array<{ id: number; name: string }>;
+        };
+        notes: NoteData[];
+      }
+    > = new Map();
 
     for (const n of notesAtPosition) {
       if (n.fileId && fileInfoMap) {
@@ -368,27 +414,22 @@ export class PianoRoll {
             .toString(16)
             .padStart(
               6,
-              "0"
+              "0",
             )};border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(255,255,255,0.3);"></span>`;
-          
+
           // Collect unique track IDs from notes at this position
           const uniqueTrackIds = [
-            ...new Set(
-              notes
-                .map((n) => n.trackId)
-                .filter((id): id is number => id !== undefined)
-            ),
+            ...new Set(notes.map((n) => n.trackId).filter((id): id is number => id !== undefined)),
           ];
-          
+
           // Get track names from file info
           const trackNames = uniqueTrackIds
             .map((tid) => info.tracks?.find((t) => t.id === tid)?.name)
             .filter((name): name is string => name !== undefined);
-          
+
           // Build track suffix with · separator
-          const trackSuffix =
-            trackNames.length > 0 ? ` · ${trackNames.join(", ")}` : "";
-          
+          const trackSuffix = trackNames.length > 0 ? ` · ${trackNames.join(", ")}` : "";
+
           return `<div style="margin-top:4px;display:flex;align-items:center;">${swatch}<span style="font-weight:500;">${info.kind}: ${info.name}${trackSuffix}</span></div>`;
         })
         .join("");
@@ -432,9 +473,9 @@ export class PianoRoll {
     this.tooltipDiv.innerHTML = `
       <div><strong>${header}</strong></div>
       ${fileLines}
-      <div style=\"margin-top:4px;color:rgba(255,255,255,0.9);\">Time: ${minStartTime.toFixed(2)}s - ${maxEndTime.toFixed(2)}s</div>
-      <div style=\"color:rgba(255,255,255,0.9);\">Velocity: ${note.velocity.toFixed(2)}</div>
-      ${evalLine ? `<div style=\"margin-top:4px;color:rgba(255,255,255,0.95);font-weight:600;\">${evalLine}</div>` : ""}
+      <div style="margin-top:4px;color:rgba(255,255,255,0.9);">Time: ${minStartTime.toFixed(2)}s - ${maxEndTime.toFixed(2)}s</div>
+      <div style="color:rgba(255,255,255,0.9);">Velocity: ${note.velocity.toFixed(2)}</div>
+      ${evalLine ? `<div style="margin-top:4px;color:rgba(255,255,255,0.95);font-weight:600;">${evalLine}</div>` : ""}
     `;
     this.tooltipDiv.style.display = "block";
     this.moveTooltip(event);
@@ -481,10 +522,7 @@ export class PianoRoll {
     let reservedBottomPx = 0;
     if (this.options.showWaveformBand !== false) {
       const bandPadding = 6;
-      const bandHeight = Math.max(
-        24,
-        Math.min(96, Math.floor(this.options.height * 0.22))
-      );
+      const bandHeight = Math.max(24, Math.min(96, Math.floor(this.options.height * 0.22)));
       reservedBottomPx = bandPadding + bandHeight;
     }
 
@@ -505,11 +543,7 @@ export class PianoRoll {
     const pitch = Math.round(this.pitchScale.invert(yBase));
 
     // Clamp pitch to valid MIDI range
-    const clampedPitch = clamp(
-      pitch,
-      this.options.noteRange.min,
-      this.options.noteRange.max
-    );
+    const clampedPitch = clamp(pitch, this.options.noteRange.min, this.options.noteRange.max);
 
     // Get pitch name
     let pitchName: string;
@@ -525,8 +559,7 @@ export class PianoRoll {
     const yPitchBase = this.pitchScale(clampedPitch);
     const yNextBase = this.pitchScale(clampedPitch + 1);
     const rowHeight = Math.abs(
-      (yPitchBase - canvasMid) * this.state.zoomY - 
-      (yNextBase - canvasMid) * this.state.zoomY
+      (yPitchBase - canvasMid) * this.state.zoomY - (yNextBase - canvasMid) * this.state.zoomY,
     );
     // centerY is where the note is centered (pitchScale returns center, not edge)
     const centerY = (yPitchBase - canvasMid) * this.state.zoomY + canvasMid;
@@ -548,7 +581,7 @@ export class PianoRoll {
     // NOTE: panY is NOT applied here - it will be applied via container.y in render()
     const pitchCenterBase = this.pitchScale(clampedPitch);
     const rowMidY = (pitchCenterBase - canvasMid) * this.state.zoomY + canvasMid;
-    
+
     const dashLength = 4;
     const gapLength = 4;
     const lineColor = 0x1e40af;
@@ -594,7 +627,7 @@ export class PianoRoll {
       "mousedown",
       // this.onPointerDown.bind(this),
       (event) => onPointerDown(event, this),
-      nonPassive
+      nonPassive,
     );
     canvas.addEventListener(
       "mousemove",
@@ -603,7 +636,7 @@ export class PianoRoll {
         // Update pitch hover indicator (also during panning for real-time feedback)
         this.updatePitchHover(event.clientY);
       },
-      nonPassive
+      nonPassive,
     );
     canvas.addEventListener("mouseup", (event) => onPointerUp(event, this));
     canvas.addEventListener("mouseleave", (event) => {
@@ -621,7 +654,7 @@ export class PianoRoll {
           onPointerDown(event, this);
         }
       },
-      nonPassive
+      nonPassive,
     );
     canvas.addEventListener(
       "touchmove",
@@ -632,18 +665,15 @@ export class PianoRoll {
           onPointerMove(event, this);
         }
       },
-      nonPassive
+      nonPassive,
     );
-    canvas.addEventListener(
-      "touchend",
-      (event) => {
-        if (pinchState.isPinching) {
-          pinchEnd(event, this, pinchState);
-        } else {
-          onPointerUp(event, this);
-        }
+    canvas.addEventListener("touchend", (event) => {
+      if (pinchState.isPinching) {
+        pinchEnd(event, this, pinchState);
+      } else {
+        onPointerUp(event, this);
       }
-    );
+    });
 
     // Wheel event for zooming - preventDefault() is used, so keep it non-passive.
     canvas.addEventListener(
@@ -653,7 +683,7 @@ export class PianoRoll {
         // Update pitch hover indicator after zoom changes
         this.updatePitchHover(event.clientY);
       },
-      nonPassive
+      nonPassive,
     );
 
     // Prevent default touch behaviors via CSS property.
@@ -669,10 +699,10 @@ export class PianoRoll {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
-    
+
     const now = performance.now();
     const timeSinceLastRender = now - this.lastRenderTime;
-    
+
     if (timeSinceLastRender >= this.renderThrottleMs) {
       // Enough time has passed, render immediately
       this.lastRenderTime = now;
@@ -695,7 +725,7 @@ export class PianoRoll {
   public render(): void {
     // Performance monitoring start
     const renderStart = performance.now();
-    
+
     // Update playhead first so that its computed X position is available
     // to background and note layers (e.g., pianoKeys shading uses playheadX).
 
@@ -705,10 +735,7 @@ export class PianoRoll {
       let reservedBottomPx = 0;
       if (this.options.showWaveformBand !== false) {
         const bandPadding = 6;
-        const bandHeight = Math.max(
-          24,
-          Math.min(96, Math.floor(this.options.height * 0.22))
-        );
+        const bandHeight = Math.max(24, Math.min(96, Math.floor(this.options.height * 0.22)));
         reservedBottomPx = bandPadding + bandHeight;
       }
       const usableHeight = Math.max(0, this.options.height - reservedBottomPx);
@@ -756,19 +783,20 @@ export class PianoRoll {
 
     // Ensure proper rendering order
     this.container.sortChildren();
-    
+
     // Performance monitoring end
     const renderEnd = performance.now();
     const renderTime = renderEnd - renderStart;
     this.performanceMetrics.renderCount++;
     this.performanceMetrics.totalRenderTime += renderTime;
     this.performanceMetrics.lastRenderTime = renderTime;
-    
-    if (renderTime > 16) { // More than one frame
+
+    if (renderTime > 16) {
+      // More than one frame
       this.performanceMetrics.slowRenders++;
       console.warn(`[PianoRoll] Slow render: ${renderTime.toFixed(2)}ms`);
     }
-    
+
     // Log every 100 renders
     if (this.performanceMetrics.renderCount % 100 === 0) {
       const avgTime = this.performanceMetrics.totalRenderTime / this.performanceMetrics.renderCount;
@@ -784,7 +812,7 @@ export class PianoRoll {
     this.initializeScales(); // Recalculate scales based on new data
     this.needsNotesRedraw = true; // geometry must be rebuilt
     this.render();
-    
+
     // Force manual render
     this.app.renderer.render(this.app.stage);
   }
@@ -826,7 +854,7 @@ export class PianoRoll {
 
     // Compute the timeline time located at anchor before zoom change
     const timeAtAnchor = this.timeScale.invert(
-      (anchorPx - pianoKeysOffset - this.state.panX) / oldZoom
+      (anchorPx - pianoKeysOffset - this.state.panX) / oldZoom,
     );
 
     // Update zoom level
@@ -844,9 +872,9 @@ export class PianoRoll {
     if (anchorX !== undefined && this.state.panX !== oldPanX) {
       // Recalculate what time is now under the cursor after clamping
       const actualTimeAtCursor = this.timeScale.invert(
-        (anchorPx - pianoKeysOffset - this.state.panX) / newZoom
+        (anchorPx - pianoKeysOffset - this.state.panX) / newZoom,
       );
-      
+
       // The cursor drift is acceptable as long as we stay within valid bounds
       // This ensures stable zoom behavior without unexpected viewport jumps
     }
@@ -1046,5 +1074,28 @@ export class PianoRoll {
     // Mark for full note-layer redraw so sustain overlay refreshes
     this.needsNotesRedraw = true;
     this.render();
+  }
+
+  /** Set musical timing data and recalculate beat grid if in beats mode */
+  public setMusicalTiming(timing: MusicalTimingData | null): void {
+    if (musicalTimingEqual(this.musicalTiming, timing)) return;
+    this.musicalTiming = timing;
+    this.recalculateBeatMap();
+    if (this.options.gridMode === "beats") {
+      this.requestRender();
+    }
+  }
+
+  /** Switch grid display mode and trigger re-render */
+  public setGridMode(mode: "seconds" | "beats"): void {
+    if (this.options.gridMode === mode) return;
+    this.options.gridMode = mode;
+    this.recalculateBeatMap();
+    this.requestRender();
+  }
+
+  /** Get current grid display mode */
+  public getGridMode(): "seconds" | "beats" {
+    return this.options.gridMode;
   }
 }

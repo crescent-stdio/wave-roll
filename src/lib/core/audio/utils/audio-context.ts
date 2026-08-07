@@ -43,7 +43,7 @@ export function getOptimalBufferSize(): number {
   // Larger buffer = more stable but higher latency
   // Smaller buffer = lower latency but more prone to glitches
   const sampleRate = context.sampleRate;
-  
+
   // Use larger buffers for higher sample rates
   if (sampleRate >= 48000) {
     return 1024;
@@ -63,14 +63,16 @@ export async function ensureAudioContextReady(): Promise<void> {
     if (!anyTone.getContext) {
       // Minimal fallback for test environments with partial Tone mocks
       if (anyTone.start) {
-        try { await anyTone.start(); } catch {}
+        try {
+          await anyTone.start();
+        } catch {}
       }
       return;
     }
 
     const context = anyTone.getContext!();
     // Resume if suspended
-    if (context?.state === "suspended" && typeof context.resume === 'function') {
+    if (context?.state === "suspended" && typeof context.resume === "function") {
       await context.resume();
     }
     // Start if not running
@@ -78,7 +80,9 @@ export async function ensureAudioContextReady(): Promise<void> {
       await anyTone.start();
     }
     // Apply optimal configuration (best-effort)
-    try { await configureAudioContext(); } catch {}
+    try {
+      await configureAudioContext();
+    } catch {}
   } catch {
     // Ignore configuration errors in non-browser/test environments
   }

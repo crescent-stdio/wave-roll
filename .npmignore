@@ -6,8 +6,7 @@ docs/
 # Build and tooling configs
 .vscode/
 .github/
-pnpm-lock.yaml
-pnpm-workspace.yaml
+bun.lock
 vite.config.ts
 tsconfig.json
 tsconfig.*.json
@@ -25,7 +24,6 @@ wave-roll*.png
 coverage/
 tmp/
 temp/
-.pnpm-store/
 
 # Ensure published artifacts and docs stay included
 !dist/

@@ -67,7 +67,7 @@ export function createTempoControl({
               duration: state.duration,
             },
             bubbles: true,
-          })
+          }),
         );
       });
     } else {
@@ -79,16 +79,14 @@ export function createTempoControl({
               duration: state.duration,
             },
             bubbles: true,
-          })
+          }),
         );
       }, 0);
     }
   };
 
   // Events
-  input.addEventListener("input", () =>
-    updatePlaybackRate(parseFloat(input.value) || currentRate)
-  );
+  input.addEventListener("input", () => updatePlaybackRate(parseFloat(input.value) || currentRate));
   input.addEventListener("focus", () => {
     input.style.background = "rgba(0, 123, 255, 0.15)";
     input.style.boxShadow = "0 0 0 3px rgba(0, 123, 255, 0.1)";

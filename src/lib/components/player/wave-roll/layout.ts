@@ -13,7 +13,7 @@ export function setupLayout(
   container: HTMLElement,
   uiElements: UIElements,
   uiDeps: UIComponentDependencies,
-  pianoRollContainer: HTMLElement
+  pianoRollContainer: HTMLElement,
 ): void {
   UILayoutManager.setupLayout(container, uiElements, uiDeps);
 
@@ -68,7 +68,7 @@ export function createDefaultConfig(): WaveRollPlayerOptions {
 
 export function setupFileToggleSection(
   playerContainer: HTMLElement,
-  deps: UIComponentDependencies
+  deps: UIComponentDependencies,
 ): HTMLElement {
   return FileToggleManager.setupFileToggleSection(playerContainer, deps);
 }

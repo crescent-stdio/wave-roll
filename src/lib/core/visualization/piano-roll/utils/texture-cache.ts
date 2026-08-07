@@ -2,7 +2,7 @@
  * Texture caching system for piano roll rendering
  */
 
-import * as PIXI from 'pixi.js';
+import * as PIXI from "pixi.js";
 
 /**
  * Centralized texture cache manager
@@ -13,25 +13,21 @@ export class TextureCache {
   /**
    * Get or create a texture from cache
    */
-  static getTexture(
-    category: string,
-    key: string,
-    generator: () => PIXI.Texture
-  ): PIXI.Texture {
+  static getTexture(category: string, key: string, generator: () => PIXI.Texture): PIXI.Texture {
     // Get or create category cache
     if (!this.caches.has(category)) {
       this.caches.set(category, new Map());
     }
-    
+
     const categoryCache = this.caches.get(category)!;
-    
+
     // Get or generate texture
     if (!categoryCache.has(key)) {
       const texture = generator();
       categoryCache.set(key, texture);
       return texture;
     }
-    
+
     return categoryCache.get(key)!;
   }
 
@@ -63,7 +59,7 @@ export class TextureCache {
   static clearCategory(category: string): void {
     const categoryCache = this.caches.get(category);
     if (categoryCache) {
-      categoryCache.forEach(texture => texture.destroy(true));
+      categoryCache.forEach((texture) => texture.destroy(true));
       categoryCache.clear();
       this.caches.delete(category);
     }
@@ -74,7 +70,7 @@ export class TextureCache {
    */
   static clearAll(): void {
     this.caches.forEach((categoryCache, category) => {
-      categoryCache.forEach(texture => texture.destroy(true));
+      categoryCache.forEach((texture) => texture.destroy(true));
       categoryCache.clear();
     });
     this.caches.clear();
@@ -92,13 +88,13 @@ export class TextureCache {
    */
   static getStats(): { categories: number; totalTextures: number } {
     let totalTextures = 0;
-    this.caches.forEach(categoryCache => {
+    this.caches.forEach((categoryCache) => {
       totalTextures += categoryCache.size;
     });
-    
+
     return {
       categories: this.caches.size,
-      totalTextures
+      totalTextures,
     };
   }
 }
@@ -110,17 +106,13 @@ export function createTextureCacheHelper(category: string) {
   return {
     get: (key: string, generator: () => PIXI.Texture) =>
       TextureCache.getTexture(category, key, generator),
-    
-    has: (key: string) =>
-      TextureCache.hasTexture(category, key),
-    
-    remove: (key: string) =>
-      TextureCache.removeTexture(category, key),
-    
-    clear: () =>
-      TextureCache.clearCategory(category),
-    
-    getAll: () =>
-      TextureCache.getCategoryTextures(category)
+
+    has: (key: string) => TextureCache.hasTexture(category, key),
+
+    remove: (key: string) => TextureCache.removeTexture(category, key),
+
+    clear: () => TextureCache.clearCategory(category),
+
+    getAll: () => TextureCache.getCategoryTextures(category),
   };
 }

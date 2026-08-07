@@ -27,8 +27,7 @@ export function renderPlayhead(pianoRoll: PianoRoll): void {
   pianoRoll.playheadX = playheadX;
 
   const coreColor =
-    pianoRoll.options.playheadColor ??
-    parseInt(COLOR_PLAYHEAD.replace("#", ""), 16);
+    pianoRoll.options.playheadColor ?? parseInt(COLOR_PLAYHEAD.replace("#", ""), 16);
   const haloColor = parseInt(COLOR_PLAYHEAD_OUTLINE.replace("#", ""), 16);
 
   // Thicker dual-stroke vertical line (better visibility)

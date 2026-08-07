@@ -5,7 +5,7 @@ import { DEFAULT_SAMPLE_FILES, DEFAULT_SAMPLE_AUDIO_FILES } from "@/core/file/co
 export class FileLoader {
   constructor(
     private stateManager: StateManager,
-    private fileManager: FileManager
+    private fileManager: FileManager,
   ) {}
 
   /**
@@ -20,7 +20,7 @@ export class FileLoader {
     callbacks?: {
       onComplete?: () => void;
       onError?: (error: any) => void;
-    }
+    },
   ): Promise<void> {
     this.stateManager.updateUIState({ isBatchLoading: true });
 
@@ -39,7 +39,7 @@ export class FileLoader {
         // console.log('[FileLoader] Loading MIDI files...');
         await this.fileManager.loadSampleFiles(midiFiles);
         // console.log('[FileLoader] MIDI files loaded successfully');
-        
+
         // Debug: Check MIDI data after loading
         const midiState = this.fileManager.midiManager.getState();
         // console.log('[FileLoader] MIDI Manager state after loading:', {
@@ -59,9 +59,10 @@ export class FileLoader {
         // console.log('[FileLoader] Loading audio files...');
         await this.fileManager.loadSampleAudioFiles(audioFiles);
         // console.log('[FileLoader] Audio files loaded successfully');
-        
+
         // Check registry after loading
-        const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => any[] } })._waveRollAudio;
+        const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => any[] } })
+          ._waveRollAudio;
         if (api?.getFiles) {
           const registeredFiles = api.getFiles();
           // console.log('[FileLoader] WAV registry after loading:', registeredFiles.length, 'files:', registeredFiles.map(f => f.displayName || f.id));

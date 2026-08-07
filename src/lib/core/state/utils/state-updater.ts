@@ -10,7 +10,7 @@ import { AppState } from "../types";
 export function createStateUpdater<K extends keyof AppState>(
   stateKey: K,
   state: AppState,
-  notify: () => void
+  notify: () => void,
 ) {
   return (updates: Partial<AppState[K]>): void => {
     state[stateKey] = { ...state[stateKey], ...updates };
@@ -21,11 +21,7 @@ export function createStateUpdater<K extends keyof AppState>(
 /**
  * Batch state update wrapper that preserves batch loading state
  */
-export function batchStateUpdate<T>(
-  state: AppState,
-  notify: () => void,
-  operation: () => T
-): T {
+export function batchStateUpdate<T>(state: AppState, notify: () => void, operation: () => T): T {
   const prevBatchLoading = state.ui.isBatchLoading;
   state.ui.isBatchLoading = true;
 
@@ -42,25 +38,25 @@ export function batchStateUpdate<T>(
  */
 export function deepClone<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
-  
+
   // Handle primitive types
-  if (typeof obj !== 'object') return obj;
-  
+  if (typeof obj !== "object") return obj;
+
   // Handle Set
   if (obj instanceof Set) {
     return new Set(obj) as T;
   }
-  
+
   // Handle Map
   if (obj instanceof Map) {
     return new Map(obj) as T;
   }
-  
+
   // Handle Array
   if (Array.isArray(obj)) {
-    return obj.map(item => deepClone(item)) as T;
+    return obj.map((item) => deepClone(item)) as T;
   }
-  
+
   // Handle plain objects
   const cloned = {} as T;
   for (const key in obj) {
@@ -74,9 +70,6 @@ export function deepClone<T>(obj: T): T {
 /**
  * Create a state property getter
  */
-export function createStateGetter<K extends keyof AppState>(
-  stateKey: K,
-  state: AppState
-) {
+export function createStateGetter<K extends keyof AppState>(stateKey: K, state: AppState) {
   return (): AppState[K] => state[stateKey];
 }

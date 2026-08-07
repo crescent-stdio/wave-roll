@@ -18,12 +18,12 @@ export function onWheel(event: WheelEvent, pianoRoll: PianoRoll): void {
   // keys column still feel anchored to the playhead edge.
   const rect = pianoRoll.app.canvas.getBoundingClientRect();
   const pianoKeysOffset = pianoRoll.options.showPianoKeys ? 60 : 0;
-  
+
   // Detect trackpad pinch gesture: ctrlKey without other modifiers and no significant horizontal delta
   const isPinchGesture = event.ctrlKey && !event.altKey && !event.shiftKey && Math.abs(deltaX) < 2;
-  
+
   let anchorX: number;
-  if (isPinchGesture && typeof (event as any).offsetX === 'number' && (event as any).offsetX > 0) {
+  if (isPinchGesture && typeof (event as any).offsetX === "number" && (event as any).offsetX > 0) {
     // For trackpad pinch, use offsetX when available (some browsers provide pinch center)
     anchorX = Math.max(pianoKeysOffset, Math.min(pianoRoll.options.width, (event as any).offsetX));
   } else {
@@ -33,8 +33,8 @@ export function onWheel(event: WheelEvent, pianoRoll: PianoRoll): void {
       pianoKeysOffset,
       Math.min(
         pianoRoll.options.width,
-        Number.isFinite(rawAnchor) ? (rawAnchor as number) : pianoKeysOffset
-      )
+        Number.isFinite(rawAnchor) ? (rawAnchor as number) : pianoKeysOffset,
+      ),
     );
   }
 
@@ -49,7 +49,10 @@ export function onWheel(event: WheelEvent, pianoRoll: PianoRoll): void {
   }
 
   // Decide between pan and zoom with hysteresis to reduce mode flicker.
-  const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  const now =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
   const latched = wheelModeLatch.get(pianoRoll);
 
   // Modifier keys:

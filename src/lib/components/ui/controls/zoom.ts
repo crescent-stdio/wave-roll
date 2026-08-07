@@ -2,6 +2,7 @@ import { PLAYER_ICONS } from "@/assets/player-icons";
 import { UIComponentDependencies } from "../types";
 import { clamp } from "@/lib/core/utils/clamp";
 import { createIconButton } from "../utils/icon-button";
+import { attachTooltip } from "../utils/tooltip";
 
 /**
  * Create a zoom control element.
@@ -9,9 +10,7 @@ import { createIconButton } from "../utils/icon-button";
  * @param dependencies - The UI component dependencies.
  * @returns The zoom control element.
  */
-export function createZoomControlsUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createZoomControlsUI(dependencies: UIComponentDependencies): HTMLElement {
   const container = document.createElement("div");
   container.style.cssText = `
       display: flex;
@@ -75,7 +74,7 @@ export function createZoomControlsUI(
       zoomInput.value = (num + delta).toFixed(1);
       applyZoom();
     },
-    { passive: false }
+    { passive: false },
   );
 
   const suffix = document.createElement("span");
@@ -87,11 +86,16 @@ export function createZoomControlsUI(
     `;
 
   // Reset button
-  const resetBtn = createIconButton(PLAYER_ICONS.zoom_reset, () => {
-    dependencies.pianoRoll?.resetView?.();
-    zoomInput.value = "1.0";
-  });
-  resetBtn.title = "Reset Zoom";
+  const resetBtn = createIconButton(
+    PLAYER_ICONS.zoom_reset,
+    () => {
+      dependencies.pianoRoll?.resetView?.();
+      zoomInput.value = "1.0";
+    },
+    "",
+  ); // No native title - using DOM tooltip
+  resetBtn.setAttribute("aria-label", "Reset Zoom");
+  attachTooltip(resetBtn, "Reset Zoom");
   // Styling and click behavior handled by createIconButton
 
   container.appendChild(zoomInput);
@@ -100,7 +104,8 @@ export function createZoomControlsUI(
 
   // Expose zoomInput so outer update loop can sync value
   // Store reference for coordinated UI updates
-  (dependencies as UIComponentDependencies & { zoomInput?: HTMLInputElement }).zoomInput = zoomInput;
+  (dependencies as UIComponentDependencies & { zoomInput?: HTMLInputElement }).zoomInput =
+    zoomInput;
 
   return container;
 }

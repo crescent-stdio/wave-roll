@@ -11,14 +11,14 @@ export class LoopManager {
   private _loopEndVisual: number | null = null;
   private _loopCounter = 0;
   private originalTempo: number;
-  
+
   // Add loopStartTransport property
   get loopStartTransport(): number | null {
     if (this._loopStartVisual === null) return null;
     const currentTempo = Tone.getTransport().bpm.value;
     return (this._loopStartVisual * this.originalTempo) / currentTempo;
   }
-  
+
   constructor(originalTempo: number) {
     this.originalTempo = originalTempo;
   }
@@ -53,7 +53,7 @@ export class LoopManager {
     start: number | null,
     end: number | null,
     duration: number,
-    state: AudioPlayerState
+    state: AudioPlayerState,
   ): {
     changed: boolean;
     transportStart: number;
@@ -133,8 +133,7 @@ export class LoopManager {
     const transportStart = (start * this.originalTempo) / state.tempo;
     const transportEnd = (end * this.originalTempo) / state.tempo;
     const currentPosition = state.currentTime;
-    const shouldPreservePosition =
-      currentPosition >= start && currentPosition <= end;
+    const shouldPreservePosition = currentPosition >= start && currentPosition <= end;
 
     return {
       changed: true,
@@ -147,27 +146,20 @@ export class LoopManager {
   /**
    * Configure transport for looping
    */
-  configureTransportLoop(
-    enabled: boolean,
-    state: AudioPlayerState,
-    duration: number
-  ): void {
+  configureTransportLoop(enabled: boolean, state: AudioPlayerState, duration: number): void {
     const transport = Tone.getTransport();
 
     if (enabled) {
       transport.loop = true;
       // Use existing loop points if set, otherwise use full duration
       if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
-        const transportStart =
-          (this._loopStartVisual * this.originalTempo) / state.tempo;
-        const transportEnd =
-          (this._loopEndVisual * this.originalTempo) / state.tempo;
+        const transportStart = (this._loopStartVisual * this.originalTempo) / state.tempo;
+        const transportEnd = (this._loopEndVisual * this.originalTempo) / state.tempo;
         transport.loopStart = transportStart;
         transport.loopEnd = transportEnd;
       } else {
         transport.loopStart = 0;
-        transport.loopEnd =
-          (duration * this.originalTempo) / state.tempo;
+        transport.loopEnd = (duration * this.originalTempo) / state.tempo;
       }
     } else {
       transport.loop = false;
@@ -179,7 +171,7 @@ export class LoopManager {
    */
   handleLoopEvent(): number {
     this._loopCounter++;
-    
+
     // Extract Transport loop bounds
     const loopStart = Tone.getTransport().loopStart as number;
     const loopEnd = Tone.getTransport().loopEnd as number;
@@ -202,10 +194,7 @@ export class LoopManager {
    * Get offset for Part start based on current position and loop
    * Note: This is only used for A-B loops. Without loops, use visual time directly.
    */
-  getPartOffset(
-    currentTime: number,
-    pausedTime: number
-  ): number {
+  getPartOffset(currentTime: number, pausedTime: number): number {
     if (this._loopStartVisual !== null && this._loopEndVisual !== null) {
       // Offset is the visual distance from loop start (visual seconds)
       return Math.max(0, currentTime - this._loopStartVisual);
@@ -217,9 +206,7 @@ export class LoopManager {
   /**
    * Filter notes for loop window
    */
-  filterNotesForLoop<T extends { time: number; duration: number }>(
-    notes: T[]
-  ): T[] {
+  filterNotesForLoop<T extends { time: number; duration: number }>(notes: T[]): T[] {
     if (
       this._loopStartVisual === undefined ||
       this._loopEndVisual === undefined ||
@@ -235,9 +222,7 @@ export class LoopManager {
     // is earlier than the loop window but whose tail sustains into it.
     return notes.filter((note) => {
       const noteEnd = note.time + note.duration;
-      return (
-        noteEnd > this._loopStartVisual! && note.time < this._loopEndVisual!
-      );
+      return noteEnd > this._loopStartVisual! && note.time < this._loopEndVisual!;
     });
   }
 

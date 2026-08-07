@@ -18,7 +18,7 @@ export class FileToggleManager {
    */
   static setupFileToggleSection(
     playerContainer: HTMLElement,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): HTMLElement {
     const fileToggleContainer = document.createElement("div");
     fileToggleContainer.setAttribute("data-role", "file-toggle");
@@ -39,16 +39,16 @@ export class FileToggleManager {
     fileToggleContainer.appendChild(this.createMidiSection());
 
     playerContainer.appendChild(fileToggleContainer);
-    
+
     // Make manager globally available for AudioToggleItem
     (window as any).FileToggleManager = FileToggleManager;
-    
+
     // Listen for WAV file changes (like MIDI subscribe)
     const handleAudioChange = () => {
       this.updateFileToggleSection(fileToggleContainer, dependencies);
     };
-    window.addEventListener('wr-audio-files-changed', handleAudioChange);
-    
+    window.addEventListener("wr-audio-files-changed", handleAudioChange);
+
     return fileToggleContainer;
   }
 
@@ -228,7 +228,7 @@ export class FileToggleManager {
    */
   static updateFileToggleSection(
     fileToggleContainer: HTMLElement,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): void {
     // Ensure evaluation defaults
     EvaluationControls.ensureDefaults(dependencies);
@@ -248,7 +248,7 @@ export class FileToggleManager {
    */
   private static updateSectionVisibility(
     container: HTMLElement,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): void {
     const audioHeader = container.querySelector("#audio-header") as HTMLElement | null;
     const midiHeader = container.querySelector("#midi-header") as HTMLElement | null;
@@ -277,7 +277,7 @@ export class FileToggleManager {
    */
   private static updateMidiFiles(
     container: HTMLElement,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): void {
     const fileControls = container.querySelector("#file-controls");
     if (!fileControls) return;
@@ -296,16 +296,16 @@ export class FileToggleManager {
    */
   private static updateWavFiles(
     container: HTMLElement,
-    dependencies: UIComponentDependencies
+    dependencies: UIComponentDependencies,
   ): void {
     const audioControls = container.querySelector("#audio-controls");
     if (!audioControls) return;
 
     audioControls.innerHTML = "";
-    
+
     const audioApi = (globalThis as any)._waveRollAudio;
     const audioList = audioApi?.getFiles?.() ?? [];
-    
+
     const files = audioList as AudioFileInfo[];
     for (const audio of files) {
       const audioControl = AudioToggleItem.create(audio, dependencies);

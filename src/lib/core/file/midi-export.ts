@@ -93,9 +93,7 @@ async function saveWithFilePicker(blob: Blob, suggestedName: string): Promise<vo
  * @returns Generated filename
  */
 export function generateExportFilename(originalName: string | undefined, newTempo: number): string {
-  const baseName = originalName
-    ? originalName.replace(/\.midi?$/i, "")
-    : "exported";
+  const baseName = originalName ? originalName.replace(/\.midi?$/i, "") : "exported";
   return `${baseName}_${Math.round(newTempo)}bpm.mid`;
 }
 
@@ -139,7 +137,7 @@ export function getOriginalFilename(input: MidiInput): string | undefined {
 export async function exportMidiWithTempo(
   originalInput: MidiInput,
   newTempo: number,
-  filename?: string
+  filename?: string,
 ): Promise<void> {
   const blob = await exportMidiWithTempoAsBlob(originalInput, newTempo);
   const originalName = getOriginalFilename(originalInput);
@@ -177,7 +175,7 @@ export async function performMidiExport(
   originalInput: MidiInput,
   newTempo: number,
   options: MidiExportOptions = {},
-  filename?: string
+  filename?: string,
 ): Promise<void> {
   const { mode = "download", onExport } = options;
 
@@ -214,7 +212,7 @@ export async function performMidiExport(
  */
 export async function exportMidiWithTempoAsBlob(
   originalInput: MidiInput,
-  newTempo: number
+  newTempo: number,
 ): Promise<Blob> {
   if (!Number.isFinite(newTempo) || newTempo <= 0) {
     throw new Error(`Invalid tempo: ${newTempo}. Tempo must be a positive number.`);
@@ -234,4 +232,3 @@ export async function exportMidiWithTempoAsBlob(
   const outputArray = midi.toArray();
   return new Blob([new Uint8Array(outputArray)], { type: "audio/midi" });
 }
-

@@ -67,8 +67,7 @@ export function renderSustains(pianoRoll: PianoRoll): void {
     const fileColors = (pianoRoll as PianoRoll & PianoRollAugments).fileColors;
     // Resolve colour: prefer injected per-file map, otherwise fall back to
     // dynamically resolving the colour from the notes belonging to `fid`.
-    const color =
-      fileColors?.[fid] ?? getColorForFile(pianoRoll, fid, colorCache);
+    const color = fileColors?.[fid] ?? getColorForFile(pianoRoll, fid, colorCache);
     const alpha = 0.2;
 
     g.rect(x, 0, width, pianoRoll.options.height);

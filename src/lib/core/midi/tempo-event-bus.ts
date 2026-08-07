@@ -68,10 +68,7 @@ class TempoEventBus {
       try {
         cb(this.lastTempo, this.lastFileId);
       } catch (error) {
-        console.error(
-          "[TempoEventBus] Error in late subscriber callback:",
-          error
-        );
+        console.error("[TempoEventBus] Error in late subscriber callback:", error);
       }
     }
 
@@ -111,10 +108,7 @@ class TempoEventBus {
       try {
         cb(tempo, fileId);
       } catch (error) {
-        console.error(
-          "[TempoEventBus] Error in baseline listener callback:",
-          error
-        );
+        console.error("[TempoEventBus] Error in baseline listener callback:", error);
       }
     });
 
@@ -144,10 +138,7 @@ class TempoEventBus {
       try {
         cb(this.baselineTempo, this.baselineFileId);
       } catch (error) {
-        console.error(
-          "[TempoEventBus] Error in late baseline subscriber callback:",
-          error
-        );
+        console.error("[TempoEventBus] Error in late baseline subscriber callback:", error);
       }
     }
 

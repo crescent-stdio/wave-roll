@@ -54,10 +54,7 @@ export class FileVolumeControl {
       transition: opacity 0.2s ease;
       color: ${this.currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)"};
     `;
-    this.volumeBtn.setAttribute(
-      "aria-label",
-      `Volume: ${Math.round(this.currentVolume * 100)}%`
-    );
+    this.volumeBtn.setAttribute("aria-label", `Volume: ${Math.round(this.currentVolume * 100)}%`);
     this.volumeBtn.setAttribute("role", "button");
     this.volumeBtn.setAttribute("tabindex", "0");
 
@@ -184,22 +181,28 @@ export class FileVolumeControl {
     // Listen master mirror events to update UI without triggering engine changes
     this.handleMasterMirrorBound = (e: Event) => {
       try {
-        const detail = (e as CustomEvent<{ mode: 'mirror-mute' | 'mirror-restore' | 'mirror-set'; volume?: number }>).detail;
+        const detail = (
+          e as CustomEvent<{
+            mode: "mirror-mute" | "mirror-restore" | "mirror-set";
+            volume?: number;
+          }>
+        ).detail;
         if (!detail || !detail.mode) return;
         this.suppressOnChange = true;
-        if (detail.mode === 'mirror-mute') {
+        if (detail.mode === "mirror-mute") {
           // No-op: master gating should not change per-file UI volume
-        } else if (detail.mode === 'mirror-restore') {
+        } else if (detail.mode === "mirror-restore") {
           // Do nothing here; central controller decides whether to restore volumes
-        } else if (detail.mode === 'mirror-set') {
-          const v = typeof detail.volume === 'number' ? Math.max(0, Math.min(1, detail.volume)) : undefined;
-          if (typeof v === 'number') this.setVolume(v);
+        } else if (detail.mode === "mirror-set") {
+          const v =
+            typeof detail.volume === "number" ? Math.max(0, Math.min(1, detail.volume)) : undefined;
+          if (typeof v === "number") this.setVolume(v);
         }
       } finally {
         this.suppressOnChange = false;
       }
     };
-    window.addEventListener('wr-master-mirror', this.handleMasterMirrorBound);
+    window.addEventListener("wr-master-mirror", this.handleMasterMirrorBound);
   }
 
   private setupEventHandlers(): void {
@@ -217,15 +220,9 @@ export class FileVolumeControl {
     // Show slider on hover/focus
     this.volumeBtn.addEventListener("mouseenter", () => this.showSlider());
     this.volumeBtn.addEventListener("focus", () => this.showSlider());
-    this.sliderContainer.addEventListener("mouseenter", () =>
-      this.clearHideTimeout()
-    );
-    this.sliderContainer.addEventListener("mouseleave", () =>
-      this.hideSliderDelayed()
-    );
-    this.container.addEventListener("mouseleave", () =>
-      this.hideSliderDelayed()
-    );
+    this.sliderContainer.addEventListener("mouseenter", () => this.clearHideTimeout());
+    this.sliderContainer.addEventListener("mouseleave", () => this.hideSliderDelayed());
+    this.container.addEventListener("mouseleave", () => this.hideSliderDelayed());
 
     // Slider input - direct mapping (bottom=0, top=100)
     this.slider.addEventListener("input", (e) => {
@@ -299,11 +296,9 @@ export class FileVolumeControl {
     // Direct mapping for vertical display (bottom=0, top=100)
     this.slider.value = String(this.currentVolume * 100);
     this.volumeDisplay.textContent = `${Math.round(this.currentVolume * 100)}%`;
-    this.volumeBtn.setAttribute(
-      "aria-label",
-      `Volume: ${Math.round(this.currentVolume * 100)}%`
-    );
-    this.volumeBtn.style.color = this.currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
+    this.volumeBtn.setAttribute("aria-label", `Volume: ${Math.round(this.currentVolume * 100)}%`);
+    this.volumeBtn.style.color =
+      this.currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
     this.updateSliderTrack();
 
     if (this.onVolumeChange && !this.suppressOnChange) {
@@ -326,7 +321,7 @@ export class FileVolumeControl {
   public destroy(): void {
     this.clearHideTimeout();
     if (this.handleMasterMirrorBound) {
-      window.removeEventListener('wr-master-mirror', this.handleMasterMirrorBound);
+      window.removeEventListener("wr-master-mirror", this.handleMasterMirrorBound);
       this.handleMasterMirrorBound = undefined;
     }
     this.container.remove();

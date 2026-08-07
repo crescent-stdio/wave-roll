@@ -6,18 +6,10 @@
 
 import * as Tone from "tone";
 import { NoteData, InstrumentFamily } from "@/lib/midi/types";
-import {
-  DEFAULT_SAMPLE_MAP,
-  AUDIO_CONSTANTS,
-  AudioPlayerState,
-} from "../player-types";
+import { DEFAULT_SAMPLE_MAP, AUDIO_CONSTANTS, AudioPlayerState } from "../player-types";
 import { clamp } from "../../utils";
 import { toDb, fromDb, clamp01, isSilentDb, mixLinear } from "../utils";
-import {
-  getGMInstrumentUrl,
-  SOUNDFONT_BASE_URL,
-  GM_SAMPLE_MAP,
-} from "../gm-instruments";
+import { getGMInstrumentUrl, SOUNDFONT_BASE_URL, GM_SAMPLE_MAP } from "../gm-instruments";
 
 /**
  * Loading state for an instrument family sampler.
@@ -119,10 +111,7 @@ export class SamplerManager {
           resolve(sampler);
         },
         onerror: (error: Error) => {
-          console.error(
-            `Failed to load sampler for program ${program}:`,
-            error
-          );
+          console.error(`Failed to load sampler for program ${program}:`, error);
           this.programSamplerLoading.delete(program);
           reject(error);
         },
@@ -154,7 +143,7 @@ export class SamplerManager {
       this.getOrCreateProgramSampler(program).catch((err) => {
         console.warn(`Failed to preload sampler for program ${program}:`, err);
         return null;
-      })
+      }),
     );
     await Promise.allSettled(loadPromises);
   }
@@ -163,7 +152,7 @@ export class SamplerManager {
   private filterNotesByLoopWindow(
     notes: NoteData[],
     loopStartVisual?: number | null,
-    loopEndVisual?: number | null
+    loopEndVisual?: number | null,
   ): NoteData[] {
     if (
       loopStartVisual === undefined ||
@@ -180,10 +169,7 @@ export class SamplerManager {
   }
 
   /** Compute visual->transport scale factor. */
-  private computeScaleToTransport(
-    originalTempo?: number,
-    tempo?: number
-  ): number {
+  private computeScaleToTransport(originalTempo?: number, tempo?: number): number {
     return originalTempo && tempo ? originalTempo / tempo : 1;
   }
 
@@ -191,7 +177,7 @@ export class SamplerManager {
   private notesToEvents(
     notes: NoteData[],
     loopStartVisual: number | null | undefined,
-    scaleToTransport: number
+    scaleToTransport: number,
   ): Array<{ time: number; note: string; duration: number; velocity: number }> {
     return notes.map((note) => {
       const onset = note.time;
@@ -217,7 +203,7 @@ export class SamplerManager {
   private notesToEventsWithFileId(
     notes: NoteData[],
     loopStartVisual: number | null | undefined,
-    scaleToTransport: number
+    scaleToTransport: number,
   ): Array<{
     time: number;
     note: string;
@@ -259,7 +245,7 @@ export class SamplerManager {
           originalTempo?: number;
         }
       | undefined,
-    callback: (time: number, event: T) => void
+    callback: (time: number, event: T) => void,
   ): void {
     // Dispose of existing part to prevent memory leak and double triggering
     if (this.part) {
@@ -293,10 +279,7 @@ export class SamplerManager {
   /**
    * Initialize samplers - either multi-track or legacy single sampler
    */
-  async initialize(options: {
-    soundFont?: string;
-    volume?: number;
-  }): Promise<void> {
+  async initialize(options: { soundFont?: string; volume?: number }): Promise<void> {
     // Try multi-file setup first
     if (!this.setupTrackSamplers(options)) {
       // Fallback to legacy single sampler
@@ -305,16 +288,14 @@ export class SamplerManager {
 
     // Wait for all samplers to be fully loaded
     if (this.trackSamplers.size > 0) {
-      const loadPromises = Array.from(this.trackSamplers.values()).map(
-        async (track) => {
-          try {
-            await track.sampler.loaded;
-            // Loaded
-          } catch (err) {
-            console.warn("Sampler load warning:", err);
-          }
+      const loadPromises = Array.from(this.trackSamplers.values()).map(async (track) => {
+        try {
+          await track.sampler.loaded;
+          // Loaded
+        } catch (err) {
+          console.warn("Sampler load warning:", err);
         }
-      );
+      });
       await Promise.allSettled(loadPromises);
     } else if (this.sampler) {
       await this.sampler.loaded;
@@ -325,10 +306,7 @@ export class SamplerManager {
    * Set up per-track samplers for multi-file playback
    * @returns true if multi-file setup succeeded, false for fallback
    */
-  private setupTrackSamplers(options: {
-    soundFont?: string;
-    volume?: number;
-  }): boolean {
+  private setupTrackSamplers(options: { soundFont?: string; volume?: number }): boolean {
     // Group notes by fileId
     const fileNotes = new Map<string, NoteData[]>();
     this.notes.forEach((note) => {
@@ -345,10 +323,7 @@ export class SamplerManager {
         const panner = new Tone.Panner(0).toDestination();
         const gate = new Tone.Gain(1).connect(panner);
         // Optional alignment delay node between sampler and gate
-        const delay =
-          this.alignmentDelaySec > 0
-            ? new Tone.Delay(this.alignmentDelaySec)
-            : null;
+        const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
         const sampler = new Tone.Sampler({
           urls: DEFAULT_SAMPLE_MAP,
           baseUrl: options.soundFont || SOUNDFONT_BASE_URL,
@@ -403,10 +378,7 @@ export class SamplerManager {
   }): Promise<void> {
     this.panner = new Tone.Panner(0).toDestination();
     this.gate = new Tone.Gain(1).connect(this.panner);
-    const delay =
-      this.alignmentDelaySec > 0
-        ? new Tone.Delay(this.alignmentDelaySec)
-        : null;
+    const delay = this.alignmentDelaySec > 0 ? new Tone.Delay(this.alignmentDelaySec) : null;
     this.sampler = new Tone.Sampler({
       urls: DEFAULT_SAMPLE_MAP,
       baseUrl: options.soundFont || SOUNDFONT_BASE_URL,
@@ -432,7 +404,7 @@ export class SamplerManager {
       duration?: number;
       tempo?: number;
       originalTempo?: number;
-    }
+    },
   ): void {
     // Multi-file setup always takes precedence
     if (this.trackSamplers.size > 0) {
@@ -453,17 +425,10 @@ export class SamplerManager {
       duration?: number;
       tempo?: number;
       originalTempo?: number;
-    }
+    },
   ): void {
-    const scaleToTransport = this.computeScaleToTransport(
-      options?.originalTempo,
-      options?.tempo
-    );
-    const filtered = this.filterNotesByLoopWindow(
-      this.notes,
-      loopStartVisual,
-      loopEndVisual
-    );
+    const scaleToTransport = this.computeScaleToTransport(options?.originalTempo, options?.tempo);
+    const filtered = this.filterNotesByLoopWindow(this.notes, loopStartVisual, loopEndVisual);
     type ScheduledNoteEvent = {
       time: number;
       note: string;
@@ -475,7 +440,7 @@ export class SamplerManager {
     const events: ScheduledNoteEvent[] = this.notesToEventsWithFileId(
       filtered,
       loopStartVisual,
-      scaleToTransport
+      scaleToTransport,
     );
 
     // Track if we've warned about each unloaded sampler
@@ -493,20 +458,14 @@ export class SamplerManager {
             _waveRollMidiManager?: {
               isTrackMuted?: (fileId: string, trackId: number) => boolean;
               getTrackVolume?: (fileId: string, trackId: number) => number;
-              isTrackAutoInstrument?: (
-                fileId: string,
-                trackId: number
-              ) => boolean;
+              isTrackAutoInstrument?: (fileId: string, trackId: number) => boolean;
               getTrackProgram?: (fileId: string, trackId: number) => number;
             };
           }
         )._waveRollMidiManager;
 
         // Skip if track is muted
-        if (
-          event.trackId !== undefined &&
-          midiMgr?.isTrackMuted?.(fid, event.trackId)
-        ) {
+        if (event.trackId !== undefined && midiMgr?.isTrackMuted?.(fid, event.trackId)) {
           return;
         }
 
@@ -520,8 +479,7 @@ export class SamplerManager {
         // Determine which sampler to use: program-specific or default piano
         let targetSampler: Tone.Sampler | null = null;
         const useAutoInstrument =
-          event.trackId !== undefined &&
-          midiMgr?.isTrackAutoInstrument?.(fid, event.trackId);
+          event.trackId !== undefined && midiMgr?.isTrackAutoInstrument?.(fid, event.trackId);
 
         if (useAutoInstrument && midiMgr?.getTrackProgram) {
           const program = midiMgr.getTrackProgram(fid, event.trackId!);
@@ -542,15 +500,10 @@ export class SamplerManager {
         if (targetSampler) {
           // Schedule note with slight lookahead for smoother playback
           const scheduledTime = Math.max(time, Tone.now());
-          targetSampler.triggerAttackRelease(
-            event.note,
-            event.duration,
-            scheduledTime,
-            velocity
-          );
+          targetSampler.triggerAttackRelease(event.note, event.duration, scheduledTime, velocity);
         } else if (!warnedSamplers.has(fid)) {
           console.warn(
-            `Sampler not yet loaded for file ${fid}, notes will be skipped until loaded`
+            `Sampler not yet loaded for file ${fid}, notes will be skipped until loaded`,
           );
           warnedSamplers.add(fid);
         }
@@ -564,7 +517,7 @@ export class SamplerManager {
         tempo: options?.tempo,
         originalTempo: options?.originalTempo,
       },
-      callback
+      callback,
     );
   }
 
@@ -576,26 +529,15 @@ export class SamplerManager {
       duration?: number;
       tempo?: number;
       originalTempo?: number;
-    }
+    },
   ): void {
-    const scaleToTransport = this.computeScaleToTransport(
-      options?.originalTempo,
-      options?.tempo
-    );
-    const filtered = this.filterNotesByLoopWindow(
-      this.notes,
-      loopStartVisual,
-      loopEndVisual
-    );
-    const events = this.notesToEvents(
-      filtered,
-      loopStartVisual,
-      scaleToTransport
-    );
+    const scaleToTransport = this.computeScaleToTransport(options?.originalTempo, options?.tempo);
+    const filtered = this.filterNotesByLoopWindow(this.notes, loopStartVisual, loopEndVisual);
+    const events = this.notesToEvents(filtered, loopStartVisual, scaleToTransport);
 
     const callback = (
       time: number,
-      event: { time: number; note: string; duration: number; velocity: number }
+      event: { time: number; note: string; duration: number; velocity: number },
     ) => {
       if (this.sampler && this.sampler.loaded) {
         // Schedule note with slight lookahead for smoother playback
@@ -604,7 +546,7 @@ export class SamplerManager {
           event.note,
           event.duration,
           scheduledTime,
-          event.velocity
+          event.velocity,
         );
       }
     };
@@ -616,7 +558,7 @@ export class SamplerManager {
         tempo: options?.tempo,
         originalTempo: options?.originalTempo,
       },
-      callback
+      callback,
     );
   }
 
@@ -642,10 +584,7 @@ export class SamplerManager {
     this.part.cancel(0);
 
     // Start part with a safe non-negative offset (avoid tiny negative epsilons)
-    const off =
-      typeof offset === "number" && Number.isFinite(offset)
-        ? Math.max(0, offset)
-        : 0;
+    const off = typeof offset === "number" && Number.isFinite(offset) ? Math.max(0, offset) : 0;
 
     try {
       (this.part as Tone.Part).start(time, off);
@@ -814,12 +753,7 @@ export class SamplerManager {
         if (remaining > 0 && !track.muted) {
           try {
             if (track.sampler && track.sampler.loaded) {
-              track.sampler.triggerAttackRelease(
-                note.name,
-                remaining,
-                now,
-                note.velocity
-              );
+              track.sampler.triggerAttackRelease(note.name, remaining, now, note.velocity);
               retriggered++;
             }
           } catch {
@@ -836,7 +770,7 @@ export class SamplerManager {
    * Useful after seeking to ensure long notes are audible at the new position
    */
   retriggerAllUnmutedHeldNotes(currentTime: number): void {
-    let totalRetriggered = 0;
+    const totalRetriggered = 0;
 
     // Retrigger for all unmuted tracks
     this.trackSamplers.forEach((track, fileId) => {
@@ -901,7 +835,7 @@ export class SamplerManager {
       return this.sampler ? this.sampler.volume.value <= SILENT_DB : true;
     }
     return !Array.from(this.trackSamplers.values()).some(
-      (track) => !track.muted && track.sampler.volume.value > SILENT_DB
+      (track) => !track.muted && track.sampler.volume.value > SILENT_DB,
     );
   }
 
@@ -914,7 +848,7 @@ export class SamplerManager {
     // Check multi-track samplers
     if (this.trackSamplers.size > 0) {
       return !Array.from(this.trackSamplers.values()).some(
-        (t) => !t.muted && t.sampler.volume.value > SILENT_DB
+        (t) => !t.muted && t.sampler.volume.value > SILENT_DB,
       );
     }
 

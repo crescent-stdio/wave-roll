@@ -40,9 +40,7 @@ function createSection(title: string, children: HTMLElement[]): HTMLElement {
  * Uses shared skeleton and header components for consistent UI.
  */
 export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
-  const { overlay, modal } = createSettingsModalSkeleton(
-    "zoom-settings-overlay"
-  );
+  const { overlay, modal } = createSettingsModalSkeleton("zoom-settings-overlay");
 
   // If the modal is already populated, bring it to front and exit.
   if (modal.childElementCount > 0) {
@@ -61,8 +59,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   onsetRow.style.cssText = "display:flex;align-items:center;gap:8px;";
   const onsetCheckbox = document.createElement("input");
   onsetCheckbox.type = "checkbox";
-  onsetCheckbox.checked =
-    deps.stateManager.getState().visual.showOnsetMarkers ?? true;
+  onsetCheckbox.checked = deps.stateManager.getState().visual.showOnsetMarkers ?? true;
   onsetCheckbox.addEventListener("change", () => {
     deps.stateManager.updateVisualState({
       showOnsetMarkers: onsetCheckbox.checked,
@@ -70,8 +67,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   });
   const onsetLabel = document.createElement("label");
   onsetLabel.textContent = "Show onset markers";
-  onsetLabel.style.cssText =
-    "font-size:14px;font-weight:500;color:var(--text-primary);";
+  onsetLabel.style.cssText = "font-size:14px;font-weight:500;color:var(--text-primary);";
   onsetRow.append(onsetCheckbox, onsetLabel);
   modal.appendChild(onsetRow);
 
@@ -99,8 +95,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   sustainVisCheckbox.type = "checkbox";
   // Get initial sustain visibility state from first file or default to true
   const files = deps.midiManager.getState().files;
-  const initialSustainVisible =
-    files.length > 0 ? (files[0].isSustainVisible ?? true) : true;
+  const initialSustainVisible = files.length > 0 ? (files[0].isSustainVisible ?? true) : true;
   sustainVisCheckbox.checked = initialSustainVisible;
   sustainVisCheckbox.addEventListener("change", () => {
     // Toggle sustain visibility for all files
@@ -110,8 +105,7 @@ export function openZoomGridSettingsModal(deps: UIComponentDependencies): void {
   });
   const sustainVisLabel = document.createElement("label");
   sustainVisLabel.textContent = "Show Sustain Pedal Regions";
-  sustainVisLabel.style.cssText =
-    "font-size:14px;font-weight:500;color:var(--text-primary);";
+  sustainVisLabel.style.cssText = "font-size:14px;font-weight:500;color:var(--text-primary);";
   sustainVisRow.append(sustainVisCheckbox, sustainVisLabel);
 
   const pedalThresholdGroup = createPedalThresholdGroup(deps);

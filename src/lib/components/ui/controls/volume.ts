@@ -1,5 +1,6 @@
 import { PLAYER_ICONS } from "@/assets/player-icons";
 import { UIComponentDependencies } from "../types";
+import { attachTooltip } from "../utils/tooltip";
 
 /**
  * Create a volume control element with vertical popup slider.
@@ -7,9 +8,7 @@ import { UIComponentDependencies } from "../types";
  * @param dependencies - The UI component dependencies.
  * @returns The volume control element.
  */
-export function createVolumeControlUI(
-  dependencies: UIComponentDependencies
-): HTMLElement {
+export function createVolumeControlUI(dependencies: UIComponentDependencies): HTMLElement {
   // Main container
   const container = document.createElement("div");
   container.style.cssText = `
@@ -43,7 +42,8 @@ export function createVolumeControlUI(
   `;
   iconBtn.classList.add("wr-focusable");
   iconBtn.setAttribute("aria-label", "Master volume: 100%");
-  iconBtn.title = "Master Volume";
+  // DOM tooltip instead of native title for Shadow DOM compatibility
+  attachTooltip(iconBtn, "Volume");
 
   // Hover effect for button (consistent with other icon buttons)
   iconBtn.addEventListener("mouseenter", () => {
@@ -186,12 +186,10 @@ export function createVolumeControlUI(
   // Emit a single event for all per-file controls to mirror UI without engine writes
   function emitMasterMirror(
     mode: "mirror-mute" | "mirror-restore" | "mirror-set",
-    volume?: number
+    volume?: number,
   ): void {
     try {
-      window.dispatchEvent(
-        new CustomEvent("wr-master-mirror", { detail: { mode, volume } })
-      );
+      window.dispatchEvent(new CustomEvent("wr-master-mirror", { detail: { mode, volume } }));
     } catch {}
   }
 
@@ -218,14 +216,9 @@ export function createVolumeControlUI(
     // Update UI
     slider.value = String(currentVolume * 100);
     volumeDisplay.textContent = `${Math.round(currentVolume * 100)}%`;
-    iconBtn.innerHTML =
-      currentVolume === 0 ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
-    iconBtn.style.color =
-      currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
-    iconBtn.setAttribute(
-      "aria-label",
-      `Master volume: ${Math.round(currentVolume * 100)}%`
-    );
+    iconBtn.innerHTML = currentVolume === 0 ? PLAYER_ICONS.mute : PLAYER_ICONS.volume;
+    iconBtn.style.color = currentVolume > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)";
+    iconBtn.setAttribute("aria-label", `Master volume: ${Math.round(currentVolume * 100)}%`);
     updateSliderTrack();
 
     // Remember last audible volume
@@ -320,10 +313,8 @@ export function createVolumeControlUI(
         )._waveRollAudio;
         const wavs = api?.getFiles?.() || [];
         const midiAllMuted =
-          midiFiles.length > 0 &&
-          midiFiles.every((f: any) => f?.isMuted === true);
-        const wavAllMuted =
-          wavs.length > 0 && wavs.every((w: any) => w?.isMuted === true);
+          midiFiles.length > 0 && midiFiles.every((f: any) => f?.isMuted === true);
+        const wavAllMuted = wavs.length > 0 && wavs.every((w: any) => w?.isMuted === true);
         return midiAllMuted && wavAllMuted;
       } catch {
         return false;
@@ -374,7 +365,7 @@ export function createVolumeControlUI(
     if (detail.mode === "mirror-mute") {
       const snapMidi: Record<string, { volume: number }> = {};
       const midiNodes = Array.from(
-        document.querySelectorAll('[data-role="file-volume"][data-file-id]')
+        document.querySelectorAll('[data-role="file-volume"][data-file-id]'),
       ) as any[];
       for (const node of midiNodes) {
         const id = node?.getAttribute?.("data-file-id");
@@ -386,7 +377,7 @@ export function createVolumeControlUI(
       }
       const snapWav: Record<string, { volume: number }> = {};
       const wavNodes = Array.from(
-        document.querySelectorAll('[data-role="wav-volume"][data-file-id]')
+        document.querySelectorAll('[data-role="wav-volume"][data-file-id]'),
       ) as any[];
       for (const node of wavNodes) {
         const id = node?.getAttribute?.("data-file-id");
@@ -400,7 +391,7 @@ export function createVolumeControlUI(
     } else if (detail.mode === "mirror-restore") {
       if (!masterSnapshot) return;
       const midiNodes = Array.from(
-        document.querySelectorAll('[data-role="file-volume"][data-file-id]')
+        document.querySelectorAll('[data-role="file-volume"][data-file-id]'),
       ) as any[];
       for (const node of midiNodes) {
         const id = node?.getAttribute?.("data-file-id");
@@ -409,7 +400,7 @@ export function createVolumeControlUI(
         if (inst?.setVolume && typeof v === "number") inst.setVolume(v);
       }
       const wavNodes = Array.from(
-        document.querySelectorAll('[data-role="wav-volume"][data-file-id]')
+        document.querySelectorAll('[data-role="wav-volume"][data-file-id]'),
       ) as any[];
       for (const node of wavNodes) {
         const id = node?.getAttribute?.("data-file-id");

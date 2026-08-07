@@ -1,7 +1,7 @@
 export function attachHoverBackground(
   btn: HTMLElement,
   hoverColor = "var(--hover-surface)",
-  inactiveBackground = "transparent"
+  inactiveBackground = "transparent",
 ): void {
   btn.addEventListener("mouseenter", () => {
     if (!btn.dataset.active) {

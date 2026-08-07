@@ -1,4 +1,7 @@
-export interface Range { start: number; end: number }
+export interface Range {
+  start: number;
+  end: number;
+}
 
 export function mergeRanges(ranges: Range[]): Range[] {
   if (ranges.length === 0) return ranges;
@@ -17,5 +20,3 @@ export function mergeRanges(ranges: Range[]): Range[] {
   out.push(cur);
   return out;
 }
-
-

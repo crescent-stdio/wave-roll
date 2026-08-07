@@ -62,7 +62,7 @@ export class SetManager<T> {
  */
 export function createSyncedSetManager<T>(
   getSet: () => Set<T>,
-  updateState: (updates: { visibleFileIds?: Set<T>; totalFiles?: number }) => void
+  updateState: (updates: { visibleFileIds?: Set<T>; totalFiles?: number }) => void,
 ): SetManager<T> {
   return new SetManager(getSet(), (set) => {
     updateState({

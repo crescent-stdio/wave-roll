@@ -79,13 +79,10 @@ export class VisualizationEngine {
     });
 
     // Create piano roll manager
-    this.pianoRollManager = createPianoRollManager(
-      this.config.defaultPianoRollConfig,
-      {
-        enableOverlapDetection: this.config.enableOverlapDetection,
-        overlapColor: this.config.overlapColor,
-      }
-    );
+    this.pianoRollManager = createPianoRollManager(this.config.defaultPianoRollConfig, {
+      enableOverlapDetection: this.config.enableOverlapDetection,
+      overlapColor: this.config.overlapColor,
+    });
 
     // Set up visual update forwarding
     this.coreEngine.onVisualUpdate((params) => {
@@ -121,7 +118,7 @@ export class VisualizationEngine {
   public async initializePianoRoll(
     container: HTMLElement,
     notes: NoteData[],
-    pianoRollConfig: Partial<import("@/core/playback").PianoRollConfig> = {}
+    pianoRollConfig: Partial<import("@/core/playback").PianoRollConfig> = {},
   ): Promise<void> {
     const config = {
       ...this.config.defaultPianoRollConfig,
@@ -156,7 +153,7 @@ export class VisualizationEngine {
    */
   public async updateVisualization(
     visibleNotes: ColoredNote[],
-    audioNotesOverride?: NoteData[]
+    audioNotesOverride?: NoteData[],
   ): Promise<void> {
     // console.log('[VisualizationEngine] updateVisualization called with', visibleNotes.length, 'visible notes, audioNotesOverride:', audioNotesOverride ? audioNotesOverride.length : 'none');
     // ------------------------------------------------------------
@@ -181,15 +178,13 @@ export class VisualizationEngine {
         Object.values(trackMap).map((intervals) => ({
           id: "overlap",
           intervals,
-        }))
+        })),
       );
 
       recolored = visibleNotes.map((cn) => {
         const noteStart = cn.note.time;
         const noteEnd = noteStart + cn.note.duration;
-        const intersects = overlaps.some(
-          (iv) => iv.start < noteEnd && iv.end > noteStart
-        );
+        const intersects = overlaps.some((iv) => iv.start < noteEnd && iv.end > noteStart);
         return intersects ? { ...cn, color: this.config.overlapColor } : cn;
       });
     }
@@ -199,8 +194,7 @@ export class VisualizationEngine {
 
     // Update audio with appropriate notes
     const audioNotes =
-      audioNotesOverride ??
-      recolored.filter((cn) => !cn.isMuted).map((cn) => cn.note);
+      audioNotesOverride ?? recolored.filter((cn) => !cn.isMuted).map((cn) => cn.note);
 
     // console.log('[VisualizationEngine] Calling coreEngine.updateAudio with', audioNotes.length, 'audio notes');
     await this.coreEngine.updateAudio(audioNotes);
@@ -422,7 +416,7 @@ export class VisualizationEngine {
   public setLoopPoints(
     start: number | null,
     end: number | null,
-    preservePosition: boolean = false
+    preservePosition: boolean = false,
   ): void {
     this.coreEngine.setLoopPoints(start, end, preservePosition);
   }
@@ -447,7 +441,7 @@ export class VisualizationEngine {
  * Create a new visualization engine instance
  */
 export function createVisualizationEngine(
-  config?: Partial<VisualizationEngineConfig>
+  config?: Partial<VisualizationEngineConfig>,
 ): VisualizationEngine {
   return new VisualizationEngine(config);
 }

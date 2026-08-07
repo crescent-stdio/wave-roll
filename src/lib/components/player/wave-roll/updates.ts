@@ -10,10 +10,7 @@ export interface UpdateLoopHandle {
  * NOTE: This helper is intentionally generic so other components (e.g. sidebar
  * refresh) can reuse it without depending on the player implementation.
  */
-export function startUpdateLoop(
-  step: () => void,
-  interval = 50
-): UpdateLoopHandle {
+export function startUpdateLoop(step: () => void, interval = 50): UpdateLoopHandle {
   const id = window.setInterval(step, interval);
   return {
     stop: () => window.clearInterval(id),

@@ -17,7 +17,7 @@ import { PianoRoll } from "../piano-roll";
 export function getColorForFile(
   pianoRoll: PianoRoll,
   fid: string,
-  cache: Record<string, number>
+  cache: Record<string, number>,
 ): number {
   // Return cached value when available.
   if (cache[fid] !== undefined) return cache[fid];

@@ -32,17 +32,17 @@ export interface VelocityToleranceOptions {
   /** Absolute velocity difference tolerance (normalized or MIDI units). */
   velocityTolerance: number;
   /** Select unit for the tolerance value. */
-  unit: 'normalized' | 'midi';
+  unit: "normalized" | "midi";
   /**
    * Matching mode for velocity:
    * - 'threshold': a pair is velocity-correct when |dv| <= tol
    * - 'weighted': compute a per-pair score = max(0, 1 - |dv|/tol), aggregated as average
    */
-  mode: 'threshold' | 'weighted';
+  mode: "threshold" | "weighted";
   /** Whether to include velocity gating when building the matching graph. */
   includeInMatching: boolean;
   /** Strategy when a note has missing velocity (should not happen with Tone.js). */
-  missingVelocity: 'ignore' | 'zero';
+  missingVelocity: "ignore" | "zero";
 }
 
 /**
@@ -57,8 +57,8 @@ export interface VelocityToleranceOptions {
  */
 export const DEFAULT_VELOCITY_OPTIONS: VelocityToleranceOptions = {
   velocityTolerance: 0.1, // normalized units (≈ 13/127)
-  unit: 'normalized',
-  mode: 'threshold',
+  unit: "normalized",
+  mode: "threshold",
   includeInMatching: false,
-  missingVelocity: 'ignore',
+  missingVelocity: "ignore",
 };

@@ -19,7 +19,7 @@ export class TransportSyncManager {
     totalUpdateTime: 0,
     slowUpdates: 0,
     lastUpdateTime: 0,
-    
+
     // WAV/MIDI synchronization drift metrics
     driftMeasurements: [] as number[], // Last 10 drift measurements in ms
     maxDriftMs: 0, // Maximum observed drift
@@ -43,18 +43,18 @@ export class TransportSyncManager {
     pianoRoll: PianoRollSync,
     state: AudioPlayerState,
     operationState: OperationState,
-    originalTempo: number
+    originalTempo: number,
   ) {
     this.pianoRoll = pianoRoll;
     this.state = state;
     this.operationState = operationState;
     this.options = {
       syncInterval: AUDIO_CONSTANTS.DEFAULT_SYNC_INTERVAL,
-      originalTempo
+      originalTempo,
     };
-    
+
     // Enable sync inspector for debugging (dev builds only)
-    if (typeof window !== 'undefined' && (window as any).location?.hostname === 'localhost') {
+    if (typeof window !== "undefined" && (window as any).location?.hostname === "localhost") {
       this.enableSyncInspector();
     }
   }
@@ -66,14 +66,31 @@ export class TransportSyncManager {
   private getEffectiveDuration(): number {
     let duration = this.state.duration || 0;
     try {
-      const api = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ isVisible?: boolean; isMuted?: boolean; volume?: number; audioBuffer?: { duration?: number } }> } })._waveRollAudio;
+      const api = (
+        globalThis as unknown as {
+          _waveRollAudio?: {
+            getFiles?: () => Array<{
+              isVisible?: boolean;
+              isMuted?: boolean;
+              volume?: number;
+              audioBuffer?: { duration?: number };
+            }>;
+          };
+        }
+      )._waveRollAudio;
       const items = api?.getFiles?.();
       if (items && Array.isArray(items)) {
         const audioDurations = items
           // Only consider WAV sources that are actually audible: visible, unmuted, volume > 0 (if provided)
-          .filter((i) => i && (i.isVisible !== false) && (i.isMuted !== true) && (i.volume === undefined || i.volume > 0))
-          .map((i) => (i?.audioBuffer?.duration ?? 0))
-          .filter((d) => typeof d === 'number' && d > 0);
+          .filter(
+            (i) =>
+              i &&
+              i.isVisible !== false &&
+              i.isMuted !== true &&
+              (i.volume === undefined || i.volume > 0),
+          )
+          .map((i) => i?.audioBuffer?.duration ?? 0)
+          .filter((d) => typeof d === "number" && d > 0);
         if (audioDurations.length > 0) {
           duration = Math.max(duration, ...audioDurations);
         }
@@ -98,45 +115,49 @@ export class TransportSyncManager {
   private measureDrift(): number {
     const transport = Tone.getTransport();
     if (transport.state !== "started") return 0;
-    
+
     const now = Tone.now();
     const transportTime = transport.seconds;
     const visualTime = this.transportToVisualTime(transportTime);
-    
+
     // Estimate WAV head position (this is approximate since we don't have direct access)
     // In a real implementation, you'd need to get actual WAV player positions
     const estimatedWavTime = visualTime;
     const midiTime = visualTime; // MIDI follows transport exactly
-    
+
     // Calculate drift in milliseconds
     const driftSeconds = estimatedWavTime - midiTime;
     const driftMs = driftSeconds * 1000;
-    
+
     // Update metrics
     this.performanceMetrics.lastDriftMs = driftMs;
     this.performanceMetrics.lastWavTime = estimatedWavTime;
     this.performanceMetrics.lastMidiTime = midiTime;
-    
+
     // Keep sliding window of last 10 measurements
     this.performanceMetrics.driftMeasurements.push(driftMs);
     if (this.performanceMetrics.driftMeasurements.length > 10) {
       this.performanceMetrics.driftMeasurements.shift();
     }
-    
+
     // Update statistics
     const measurements = this.performanceMetrics.driftMeasurements;
-    this.performanceMetrics.avgDriftMs = measurements.reduce((sum, d) => sum + Math.abs(d), 0) / measurements.length;
-    this.performanceMetrics.maxDriftMs = Math.max(this.performanceMetrics.maxDriftMs, Math.abs(driftMs));
-    
+    this.performanceMetrics.avgDriftMs =
+      measurements.reduce((sum, d) => sum + Math.abs(d), 0) / measurements.length;
+    this.performanceMetrics.maxDriftMs = Math.max(
+      this.performanceMetrics.maxDriftMs,
+      Math.abs(driftMs),
+    );
+
     // Count violations (drift > 10ms)
     if (Math.abs(driftMs) > 10) {
       this.performanceMetrics.driftViolations++;
-      
+
       if (TransportSyncManager.DEBUG) {
         console.warn(`[TransportSync] Drift violation: ${driftMs.toFixed(2)}ms (limit: 10ms)`);
       }
     }
-    
+
     return driftMs;
   }
 
@@ -147,28 +168,29 @@ export class TransportSyncManager {
   private correctDrift(driftMs: number): void {
     const DRIFT_THRESHOLD_MS = 10;
     const CORRECTION_FACTOR = 0.5; // Only correct 50% of drift to avoid overcorrection
-    
+
     if (Math.abs(driftMs) <= DRIFT_THRESHOLD_MS) return;
-    
+
     if (TransportSyncManager.DEBUG) {
       // console.log(`[TransportSync] Applying drift correction: ${driftMs.toFixed(2)}ms`);
     }
-    
+
     const transport = Tone.getTransport();
     if (transport.state !== "started") return;
-    
+
     // Calculate correction amount
     const correctionSeconds = (driftMs * CORRECTION_FACTOR) / 1000;
-    
+
     // Apply small transport adjustment
     try {
       const currentSeconds = transport.seconds;
       const correctedSeconds = currentSeconds - correctionSeconds;
-      
+
       // Only apply small corrections to avoid audible glitches
-      if (Math.abs(correctionSeconds) < 0.05) { // Max 50ms correction
+      if (Math.abs(correctionSeconds) < 0.05) {
+        // Max 50ms correction
         transport.seconds = Math.max(0, correctedSeconds);
-        
+
         if (TransportSyncManager.DEBUG) {
           // console.log(`[TransportSync] Applied drift correction: ${correctionSeconds.toFixed(4)}s`);
         }
@@ -209,7 +231,7 @@ export class TransportSyncManager {
     generation: number;
   } {
     const transport = Tone.getTransport();
-    
+
     return {
       transport: {
         state: transport.state,
@@ -230,7 +252,9 @@ export class TransportSyncManager {
       drift: this.getDriftStats(),
       performance: {
         updateCount: this.performanceMetrics.updateCount,
-        avgUpdateTime: this.performanceMetrics.totalUpdateTime / Math.max(1, this.performanceMetrics.updateCount),
+        avgUpdateTime:
+          this.performanceMetrics.totalUpdateTime /
+          Math.max(1, this.performanceMetrics.updateCount),
         slowUpdates: this.performanceMetrics.slowUpdates,
         lastUpdateTime: this.performanceMetrics.lastUpdateTime,
       },
@@ -242,7 +266,7 @@ export class TransportSyncManager {
    * Enable sync inspector - adds global debug access
    */
   enableSyncInspector(): void {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       (window as any)._debugSync = {
         getInspectorData: () => this.getInspectorData(),
         getDriftStats: () => this.getDriftStats(),
@@ -261,7 +285,7 @@ export class TransportSyncManager {
             "Transport Time": `${data.transport.seconds.toFixed(3)}s`,
             "Visual Time": `${data.state.currentTime.toFixed(3)}s`,
             "Now Time": `${data.state.nowTime.toFixed(3)}s`,
-            "Generation": data.generation,
+            Generation: data.generation,
             "Current Drift": `${data.drift.currentDriftMs.toFixed(2)}ms`,
             "Avg Drift": `${data.drift.avgDriftMs.toFixed(2)}ms`,
             "Max Drift": `${data.drift.maxDriftMs.toFixed(2)}ms`,
@@ -284,20 +308,20 @@ export class TransportSyncManager {
             (window as any)._debugSyncInterval = null;
             // console.log("[SyncInspector] Monitoring stopped");
           }
-        }
+        },
       };
-      
+
       // console.log(`
-// [SyncInspector] Debug tools enabled! Use these commands:
-//
-// window._debugSync.logCurrentState()     - Log current sync state
-// window._debugSync.startMonitoring()     - Start live monitoring  
-// window._debugSync.stopMonitoring()      - Stop live monitoring
-// window._debugSync.enableDebug()         - Enable debug logging
-// window._debugSync.disableDebug()        - Disable debug logging
-// window._debugSync.getInspectorData()    - Get full state object
-// window._debugSync.getDriftStats()       - Get drift statistics
-//       `);
+      // [SyncInspector] Debug tools enabled! Use these commands:
+      //
+      // window._debugSync.logCurrentState()     - Log current sync state
+      // window._debugSync.startMonitoring()     - Start live monitoring
+      // window._debugSync.stopMonitoring()      - Stop live monitoring
+      // window._debugSync.enableDebug()         - Enable debug logging
+      // window._debugSync.disableDebug()        - Disable debug logging
+      // window._debugSync.getInspectorData()    - Get full state object
+      // window._debugSync.getDriftStats()       - Get drift statistics
+      //       `);
     }
   }
 
@@ -305,7 +329,7 @@ export class TransportSyncManager {
    * Disable sync inspector - removes global debug access
    */
   disableSyncInspector(): void {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       if ((window as any)._debugSyncInterval) {
         clearInterval((window as any)._debugSyncInterval);
       }
@@ -319,24 +343,24 @@ export class TransportSyncManager {
    * ========================================================================
    * WAV/MIDI SYNCHRONIZATION TESTING GUIDE
    * ========================================================================
-   * 
+   *
    * This guide describes how to test all synchronization scenarios to ensure
    * WAV and MIDI remain perfectly synchronized under all conditions.
-   * 
+   *
    * SETUP:
    * 1. Load multi-track WAV and MIDI files
    * 2. Enable sync inspector: window._debugSync.enableDebug()
    * 3. Start monitoring: window._debugSync.startMonitoring(500)
-   * 
+   *
    * TEST SCENARIOS:
-   * 
+   *
    * ## 1. BASIC SYNCHRONIZATION
    * Expected: WAV and MIDI play as one unified sound
    * - Play audio and verify no doubling or echo
-   * - Check drift: window._debugSync.getDriftStats() 
+   * - Check drift: window._debugSync.getDriftStats()
    * - Drift should be <= 10ms consistently
-   * 
-   * ## 2. MUTE/UNMUTE SYNCHRONIZATION  
+   *
+   * ## 2. MUTE/UNMUTE SYNCHRONIZATION
    * Expected: Unmuted tracks remain perfectly in sync, no restart artifacts
    * Test steps:
    * - Start playback, let run for 5+ seconds
@@ -345,7 +369,7 @@ export class TransportSyncManager {
    * - Unmute one WAV track
    * - Verify: No audio doubling, WAV immediately in phase with MIDI
    * - Check drift after unmute - should remain <= 10ms
-   * 
+   *
    * ## 3. SEEK SYNCHRONIZATION
    * Expected: After seek, no ghost audio, all media synchronized at new position
    * Test steps:
@@ -355,7 +379,7 @@ export class TransportSyncManager {
    * - Pause immediately after seek
    * - Verify: Complete silence, no residual audio
    * - Check generation token incremented: window._debugSync.getInspectorData().generation
-   * 
+   *
    * ## 4. TEMPO CHANGE SYNCHRONIZATION
    * Expected: Only one unified sound at new tempo, no overlapping audio
    * Test steps:
@@ -365,7 +389,7 @@ export class TransportSyncManager {
    * - Check that totalTime updated: window._debugSync.getInspectorData().state
    * - Verify A/B markers scaled appropriately
    * - Check generation token incremented
-   * 
+   *
    * ## 5. A/B LOOP SYNCHRONIZATION
    * Expected: Loop transitions are seamless with no drift accumulation
    * Test steps:
@@ -374,7 +398,7 @@ export class TransportSyncManager {
    * - Start playback and let loop 10+ times
    * - Check drift doesn't accumulate: window._debugSync.getDriftStats()
    * - Verify smooth loop transitions with no gaps or overlaps
-   * 
+   *
    * ## 6. RAPID OPERATION STRESS TEST
    * Expected: No ghost audio or system instability
    * Test steps:
@@ -384,22 +408,22 @@ export class TransportSyncManager {
    * - Verify: Only latest operation produces audio
    * - Check generation tokens increase appropriately
    * - No accumulated scheduled events: check console for Transport clear messages
-   * 
+   *
    * ## 7. MIXED OPERATION SEQUENCE
    * Expected: Complex sequences work correctly
    * Test sequence:
    * - Play → Seek to 30% → Change tempo to 150 BPM → Enable A/B loop → Mute WAV → Unmute WAV
    * - Verify each step: proper sync, no ghost audio, drift <= 10ms
    * - Final verification: Single unified sound with all media in sync
-   * 
+   *
    * ## 8. RESOURCE CLEANUP VERIFICATION
    * Expected: No memory leaks or accumulated timers
    * Test steps:
    * - Perform multiple play/seek/tempo cycles
-   * - Check browser dev tools → Performance → Memory for leaks  
+   * - Check browser dev tools → Performance → Memory for leaks
    * - Console should show "Transport events cleared" messages after each stop
    * - No accumulated setTimeout timers in system
-   * 
+   *
    * ACCEPTANCE CRITERIA:
    *  Drift <= 10ms maintained in all scenarios
    *  No ghost audio (doubling, echo, overlap) in any scenario
@@ -409,13 +433,13 @@ export class TransportSyncManager {
    *  A/B looping works without drift accumulation
    *  Rapid operations handled gracefully with generation token system
    *  No memory leaks or resource accumulation
-   * 
+   *
    * DEBUGGING COMMANDS:
    * - window._debugSync.logCurrentState() - Current sync status
-   * - window._debugSync.getDriftStats() - Detailed drift metrics  
+   * - window._debugSync.getDriftStats() - Detailed drift metrics
    * - window._debugSync.getInspectorData() - Full system state
    * - Check console for generation token messages during operations
-   * 
+   *
    * ========================================================================
    */
 
@@ -455,8 +479,7 @@ export class TransportSyncManager {
       const transport = Tone.getTransport();
       const transportTime = transport.seconds;
       // Visual time calculation using state.tempo which now reflects playback rate
-      const visualTime =
-        (transportTime * this.state.tempo) / this.options.originalTempo;
+      const visualTime = (transportTime * this.state.tempo) / this.options.originalTempo;
 
       // Prevent the playhead from jumping backwards when a new sync-scheduler starts
       const TOLERANCE_SEC = 1;
@@ -471,7 +494,7 @@ export class TransportSyncManager {
     const performUpdate = () => {
       // Performance monitoring start
       const updateStart = performance.now();
-      
+
       // Ignore callbacks from an outdated scheduler
       if (token !== this._schedulerToken) {
         return;
@@ -479,7 +502,7 @@ export class TransportSyncManager {
       if (!this.state.isPlaying) {
         return;
       }
-      
+
       // Allow UI updates to continue during seeking operations for immediate feedback
       // Only skip transport time calculations during the initial seeking phase
       if (this.operationState.isSeeking && this.operationState.isRestarting) {
@@ -497,24 +520,23 @@ export class TransportSyncManager {
       const transportTime = transport.seconds;
 
       // Visual time calculation using state.tempo which now reflects playback rate
-      let visualTime =
-        (transportTime * this.state.tempo) / this.options.originalTempo;
+      let visualTime = (transportTime * this.state.tempo) / this.options.originalTempo;
       const effectiveDuration = this.getEffectiveDuration();
-      
+
       // Auto-pause when playback ends and repeat is off
       if (!this.state.isRepeating && visualTime >= effectiveDuration) {
         // Clamp to duration before updating
         visualTime = effectiveDuration;
-        
+
         // Update state and visual one last time at exact duration
         this.state.currentTime = visualTime;
         this.state.nowTime = visualTime; // Update unified time reference
         this.pianoRoll.setTime(visualTime);
-        
+
         // Mark as not playing and stop the scheduler immediately to prevent further updates
         this.state.isPlaying = false;
         this.stopSyncScheduler();
-        
+
         // Stop at the end instead of continuing beyond duration
         if (TransportSyncManager.DEBUG) {
           // console.log("[TransportSync] End reached", {
@@ -522,27 +544,27 @@ export class TransportSyncManager {
           //   duration: effectiveDuration.toFixed(3),
           // });
         }
-        
+
         // Call the end callback to handle pause
         if (this.onEndCallback) {
           this.onEndCallback();
         }
         return;
       }
-      
+
       // Clamp visual time to duration even when repeating
       if (visualTime > effectiveDuration) {
         visualTime = effectiveDuration;
       }
-      
+
       // === WAV/MIDI DRIFT MEASUREMENT AND CORRECTION ===
       // Measure drift between WAV and MIDI playback every 10 updates
       if (this.performanceMetrics.updateCount % 10 === 0) {
         const driftMs = this.measureDrift();
-        
+
         // Apply correction if drift exceeds threshold
         this.correctDrift(driftMs);
-        
+
         // Log drift statistics periodically
         if (TransportSyncManager.DEBUG && this.performanceMetrics.updateCount % 100 === 0) {
           const stats = this.getDriftStats();
@@ -554,40 +576,46 @@ export class TransportSyncManager {
           // });
         }
       }
-      
+
       // Sync internal state and visual playhead with unified time
       this.state.currentTime = visualTime;
       this.state.nowTime = visualTime; // Update unified time reference
       this.pianoRoll.setTime(visualTime);
-      
+
       // Performance monitoring end
       const updateEnd = performance.now();
       const updateTime = updateEnd - updateStart;
       this.performanceMetrics.updateCount++;
       this.performanceMetrics.totalUpdateTime += updateTime;
       this.performanceMetrics.lastUpdateTime = updateTime;
-      
-      if (updateTime > 16) { // More than one frame (60fps)
+
+      if (updateTime > 16) {
+        // More than one frame (60fps)
         this.performanceMetrics.slowUpdates++;
         if (TransportSyncManager.DEBUG) {
           console.warn(`[TransportSync] Slow update: ${updateTime.toFixed(2)}ms`);
         }
       }
-      
+
       // Log every 100 updates (disabled by default)
       if (TransportSyncManager.DEBUG && this.performanceMetrics.updateCount % 100 === 0) {
-        const avgTime = this.performanceMetrics.totalUpdateTime / this.performanceMetrics.updateCount;
+        const avgTime =
+          this.performanceMetrics.totalUpdateTime / this.performanceMetrics.updateCount;
         // console.log(`[TransportSync] Performance - Avg: ${avgTime.toFixed(2)}ms, Slow: ${this.performanceMetrics.slowUpdates}/${this.performanceMetrics.updateCount}`);
       }
     };
 
     // Prefer requestAnimationFrame for smoother updates; fallback to setTimeout
-    const useRaf = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function' && typeof window.cancelAnimationFrame === 'function';
+    const useRaf =
+      typeof window !== "undefined" &&
+      typeof window.requestAnimationFrame === "function" &&
+      typeof window.cancelAnimationFrame === "function";
     if (useRaf) {
       const rafTick = () => {
         performUpdate();
         const effectiveDuration = this.getEffectiveDuration();
-        const hasReachedEnd = !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
+        const hasReachedEnd =
+          !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
         if (this.state.isPlaying && token === this._schedulerToken && !hasReachedEnd) {
           this.syncRafId = window.requestAnimationFrame(rafTick) as unknown as number;
         }
@@ -598,17 +626,18 @@ export class TransportSyncManager {
       const scheduleUpdate = () => {
         performUpdate();
         const effectiveDuration = this.getEffectiveDuration();
-        const hasReachedEnd = !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
+        const hasReachedEnd =
+          !this.state.isRepeating && this.state.currentTime >= effectiveDuration;
         if (this.state.isPlaying && token === this._schedulerToken && !hasReachedEnd) {
           this.syncScheduler = (setTimeout as unknown as (h: any, t: number) => number)(
             scheduleUpdate,
-            this.options.syncInterval
+            this.options.syncInterval,
           ) as unknown as number;
         }
       };
       this.syncScheduler = (setTimeout as unknown as (h: any, t: number) => number)(
         scheduleUpdate,
-        this.options.syncInterval
+        this.options.syncInterval,
       ) as unknown as number;
     }
   }
@@ -621,7 +650,7 @@ export class TransportSyncManager {
       clearTimeout(this.syncScheduler);
       this.syncScheduler = null;
     }
-    if (this.syncRafId !== null && typeof window !== 'undefined' && window.cancelAnimationFrame) {
+    if (this.syncRafId !== null && typeof window !== "undefined" && window.cancelAnimationFrame) {
       window.cancelAnimationFrame(this.syncRafId);
       this.syncRafId = null;
     }
@@ -645,7 +674,7 @@ export class TransportSyncManager {
 
     const transportSec = Tone.getTransport().seconds;
     const visualSec = (transportSec * this.state.tempo) / this.options.originalTempo;
-    
+
     // Check for stale event
     if (Math.abs(visualSec - this.state.currentTime) > 1) {
       return false;
@@ -667,7 +696,7 @@ export class TransportSyncManager {
 
     // Update UI immediately to reflect stopped state
     this.pianoRoll.setTime(this.state.currentTime);
-    
+
     return true;
   }
 
@@ -684,8 +713,7 @@ export class TransportSyncManager {
     this.stopSyncScheduler();
 
     // Update visual position
-    const visualTime =
-      (pausedTime * this.state.tempo) / this.options.originalTempo;
+    const visualTime = (pausedTime * this.state.tempo) / this.options.originalTempo;
     this.state.currentTime = visualTime;
     this.pianoRoll.setTime(visualTime);
   }
@@ -703,8 +731,7 @@ export class TransportSyncManager {
     // Debug log suppressed to avoid main-thread jank during loop boundaries
 
     // Use immediate timing to ensure clean transition
-    const visualStart =
-      loopStartVisual !== null ? loopStartVisual : 0;
+    const visualStart = loopStartVisual !== null ? loopStartVisual : 0;
     this.scheduleVisualUpdate(() => this.pianoRoll.setTime(visualStart));
 
     // Keep internal state aligned

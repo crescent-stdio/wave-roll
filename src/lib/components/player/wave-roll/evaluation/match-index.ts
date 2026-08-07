@@ -12,11 +12,7 @@ export function buildMatchIndex(refFile: any, estFiles: any[], tolerances: any):
 
   for (const estFile of estFiles) {
     const estId: string = estFile.id;
-    const matchResult = matchNotes(
-      refFile.parsedData,
-      estFile.parsedData,
-      tolerances
-    );
+    const matchResult = matchNotes(refFile.parsedData, estFile.parsedData, tolerances);
     if (!byEst.has(estId)) byEst.set(estId, new Map<number, number>());
     const estMap = byEst.get(estId)!;
     matchResult.matches.forEach((m) => {
@@ -32,7 +28,7 @@ export function buildMatchIndex(refFile: any, estFiles: any[], tolerances: any):
 export function buildUnionRangesByRef(
   byRef: MatchIndexes["byRef"],
   refFile: any,
-  estFiles: any[]
+  estFiles: any[],
 ): Map<number, Range[]> {
   const unionRangesByRef = new Map<number, Range[]>();
   const refNotes = refFile?.parsedData?.notes || [];
@@ -80,5 +76,3 @@ export function buildUnionRangesByRef(
   }
   return unionRangesByRef;
 }
-
-

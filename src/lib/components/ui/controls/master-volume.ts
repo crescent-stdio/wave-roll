@@ -15,7 +15,7 @@ export class MasterVolumeControl extends FileVolumeControl {
       ...options,
       size: 28,
     });
-    
+
     // Override styles for master volume
     const container = this.getElement();
     const button = container.querySelector("button");
@@ -32,9 +32,9 @@ export class MasterVolumeControl extends FileVolumeControl {
         height: 36px;
         border-radius: 6px;
         transition: all 0.2s ease;
-        color: ${this.getVolume() > 0 ? 'var(--text-muted)' : 'rgba(71,85,105,0.5)'};
+        color: ${this.getVolume() > 0 ? "var(--text-muted)" : "rgba(71,85,105,0.5)"};
       `;
-      
+
       // Add hover effect
       button.addEventListener("mouseenter", () => {
         button.style.background = "var(--hover-surface)";
@@ -42,18 +42,18 @@ export class MasterVolumeControl extends FileVolumeControl {
       button.addEventListener("mouseleave", () => {
         button.style.background = "var(--surface)";
       });
-      
+
       button.setAttribute("aria-label", `Master volume: ${Math.round(this.getVolume() * 100)}%`);
       button.title = "Master Volume";
     }
-    
+
     // Enhance slider container for master volume
     const sliderContainer = container.querySelector("div[style*='absolute']") as HTMLElement;
     if (sliderContainer) {
       // Slightly larger for master volume
       sliderContainer.style.width = "50px";
       sliderContainer.style.height = "160px";
-      
+
       // Add "Master" label
       const label = document.createElement("div");
       label.textContent = "Master";
@@ -67,10 +67,10 @@ export class MasterVolumeControl extends FileVolumeControl {
       sliderContainer.insertBefore(label, sliderContainer.firstChild);
     }
   }
-  
+
   public setVolume(volume: number): void {
     super.setVolume(volume);
-    
+
     const button = this.getElement().querySelector("button");
     if (button) {
       button.setAttribute("aria-label", `Master volume: ${Math.round(this.getVolume() * 100)}%`);

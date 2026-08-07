@@ -13,20 +13,9 @@
 import { NoteData, ControlChangeEvent } from "@/lib/midi/types";
 import { MultiMidiManager } from "@/lib/core/midi/multi-midi-manager";
 import { MidiFileItemList } from "@/lib/core/file/types";
-import {
-  WaveRollPlayerOptions,
-  CreateWaveRollPlayerOptions,
-  MidiExportOptions,
-} from "./types";
-import {
-  createDefaultConfig,
-  setupLayout,
-  setupFileToggleSection,
-} from "./layout";
-import {
-  VisualizationEngine,
-  DEFAULT_PIANO_ROLL_CONFIG,
-} from "@/core/visualization";
+import { WaveRollPlayerOptions, CreateWaveRollPlayerOptions, MidiExportOptions } from "./types";
+import { createDefaultConfig, setupLayout, setupFileToggleSection } from "./layout";
+import { VisualizationEngine, DEFAULT_PIANO_ROLL_CONFIG } from "@/core/visualization";
 import { StateManager } from "@/core/state";
 import { FileManager } from "@/core/file";
 import { UIComponentDependencies, UIElements } from "@/lib/components/ui";
@@ -43,10 +32,7 @@ import {
   PianoRollConfig,
   PianoRollManager,
 } from "@/core/playback";
-import {
-  computeNoteMetrics,
-  DEFAULT_TOLERANCES,
-} from "@/lib/evaluation/transcription";
+import { computeNoteMetrics, DEFAULT_TOLERANCES } from "@/lib/evaluation/transcription";
 import { DEFAULT_SAMPLE_FILES } from "@/core/file/constants";
 
 // Import new handler modules
@@ -176,9 +162,7 @@ export class WaveRollPlayer {
           }
         )._waveRollAudio;
         const files = api?.getFiles?.() || [];
-        const durations = files
-          .map((f) => f.audioBuffer?.duration || 0)
-          .filter((d) => d > 0);
+        const durations = files.map((f) => f.audioBuffer?.duration || 0).filter((d) => d > 0);
         wavMax = durations.length > 0 ? Math.max(...durations) : 0;
       } catch {}
       const rawMax = Math.max(midiDur, wavMax);
@@ -195,16 +179,15 @@ export class WaveRollPlayer {
       displayName?: string;
       type?: "midi" | "audio";
     }> = [],
-    options?: CreateWaveRollPlayerOptions
+    options?: CreateWaveRollPlayerOptions,
   ) {
     this.container = container;
     this.midiManager = new MultiMidiManager();
     this.initialFileItemList = initialFileItemList;
 
     // Expose midiManager globally for audio player track mute/volume checks
-    (
-      globalThis as unknown as { _waveRollMidiManager?: MultiMidiManager }
-    )._waveRollMidiManager = this.midiManager;
+    (globalThis as unknown as { _waveRollMidiManager?: MultiMidiManager })._waveRollMidiManager =
+      this.midiManager;
 
     // Apply options
     if (options?.soloMode) {
@@ -289,46 +272,34 @@ export class WaveRollPlayer {
     });
 
     // Keep seek bar and time display tightly synced with the engine's visual updates.
-    this.visualizationEngine.onVisualUpdate(
-      ({ currentTime, duration, isPlaying }) => {
-        // Always get fresh dependencies to ensure updateSeekBar is available
-        const deps = this.getUIDependencies();
-        // Use max(MIDI, WAV) with tempo/playback-rate awareness
-        const effectiveDuration = this.getEffectiveDuration();
-        deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
-        this.updateTimeDisplay(currentTime);
-        // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
-        // the piano-roll playhead on its own update loop.
-        // Hook audio player's visual update callback only once per new instance
-        try {
-          const anyEngine = this.visualizationEngine as unknown as {
-            coreEngine?: any;
-          };
-          const ap = anyEngine.coreEngine?.audioPlayer;
-          if (
-            ap &&
-            ap !== this.lastHookedAudioPlayer &&
-            typeof ap.setOnVisualUpdate === "function"
-          ) {
-            ap.setOnVisualUpdate(
-              ({
-                currentTime,
-              }: {
-                currentTime: number;
-                duration: number;
-                isPlaying: boolean;
-              }) => {
-                const deps2 = this.getUIDependencies();
-                const effDur2 = this.getEffectiveDuration();
-                deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
-                this.updateTimeDisplay(currentTime);
-              }
-            );
-            this.lastHookedAudioPlayer = ap;
-          }
-        } catch {}
-      }
-    );
+    this.visualizationEngine.onVisualUpdate(({ currentTime, duration, isPlaying }) => {
+      // Always get fresh dependencies to ensure updateSeekBar is available
+      const deps = this.getUIDependencies();
+      // Use max(MIDI, WAV) with tempo/playback-rate awareness
+      const effectiveDuration = this.getEffectiveDuration();
+      deps.updateSeekBar?.({ currentTime, duration: effectiveDuration });
+      this.updateTimeDisplay(currentTime);
+      // Avoid duplicate setTime calls here; CorePlaybackEngine already syncs
+      // the piano-roll playhead on its own update loop.
+      // Hook audio player's visual update callback only once per new instance
+      try {
+        const anyEngine = this.visualizationEngine as unknown as {
+          coreEngine?: any;
+        };
+        const ap = anyEngine.coreEngine?.audioPlayer;
+        if (ap && ap !== this.lastHookedAudioPlayer && typeof ap.setOnVisualUpdate === "function") {
+          ap.setOnVisualUpdate(
+            ({ currentTime }: { currentTime: number; duration: number; isPlaying: boolean }) => {
+              const deps2 = this.getUIDependencies();
+              const effDur2 = this.getEffectiveDuration();
+              deps2.updateSeekBar?.({ currentTime, duration: effDur2 });
+              this.updateTimeDisplay(currentTime);
+            },
+          );
+          this.lastHookedAudioPlayer = ap;
+        }
+      } catch {}
+    });
 
     this.pianoRollManager = createPianoRollManager();
     this.pianoRollManager.initialize(this.pianoRollContainer, []);
@@ -366,22 +337,19 @@ export class WaveRollPlayer {
     this.visualizationHandler = new VisualizationHandler(
       this.midiManager,
       this.stateManager,
-      this.visualizationEngine
+      this.visualizationEngine,
     );
 
-    this.uiUpdater = new UIUpdater(
-      this.stateManager,
-      this.visualizationEngine,
-      this.midiManager,
-      { updateInterval: this.config.ui.updateInterval }
-    );
+    this.uiUpdater = new UIUpdater(this.stateManager, this.visualizationEngine, this.midiManager, {
+      updateInterval: this.config.ui.updateInterval,
+    });
     this.keyboardHandler = new KeyboardHandler();
     this.fileLoader = new FileLoader(this.stateManager, this.fileManager);
 
     // Setup keyboard listener
     this.keyboardHandler.setupKeyboardListener(
       () => this.getUIDependencies(),
-      () => this.startUpdateLoop()
+      () => this.startUpdateLoop(),
     );
 
     // Track previous mute states to detect changes
@@ -434,8 +402,7 @@ export class WaveRollPlayer {
 
     // Use direct references so that UI mutations persist across re-renders
     const filePanValuesRef = this.stateManager.getFilePanValuesRef();
-    const filePanStateHandlersRef =
-      this.stateManager.getFilePanStateHandlersRef();
+    const filePanStateHandlersRef = this.stateManager.getFilePanStateHandlersRef();
 
     // Reuse existing object so that mutations done by UIComponents persist
     if (!this.uiDeps) {
@@ -459,8 +426,7 @@ export class WaveRollPlayer {
         seeking: uiState.seeking,
         updateSeekBar: () => this.updateSeekBar(),
         updatePlayButton: () => this.updatePlayButton(),
-        updateMuteState: (shouldMute: boolean) =>
-          this.updateMuteState(shouldMute),
+        updateMuteState: (shouldMute: boolean) => this.updateMuteState(shouldMute),
         openSettingsModal: () => this.openSettingsModal(),
         openEvaluationResultsModal: () => this.openEvaluationResultsModal(),
         formatTime: (seconds: number) => formatTime(seconds),
@@ -481,19 +447,10 @@ export class WaveRollPlayer {
 
       // After creation, convert seconds -> % once we know (tempo/WAV-aware) duration.
       const effectiveDuration = this.getEffectiveDuration();
-      if (
-        effectiveDuration > 0 &&
-        (loopPoints.a !== null || loopPoints.b !== null)
-      ) {
+      if (effectiveDuration > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps!.loopPoints = {
-          a:
-            loopPoints.a !== null
-              ? (loopPoints.a / effectiveDuration) * 100
-              : null,
-          b:
-            loopPoints.b !== null
-              ? (loopPoints.b / effectiveDuration) * 100
-              : null,
+          a: loopPoints.a !== null ? (loopPoints.a / effectiveDuration) * 100 : null,
+          b: loopPoints.b !== null ? (loopPoints.b / effectiveDuration) * 100 : null,
         };
       }
     } else {
@@ -510,19 +467,10 @@ export class WaveRollPlayer {
 
       // Convert loopPoints (seconds) -> % for seek-bar visualisation (tempo/WAV-aware)
       const effectiveDuration2 = this.getEffectiveDuration();
-      if (
-        effectiveDuration2 > 0 &&
-        (loopPoints.a !== null || loopPoints.b !== null)
-      ) {
+      if (effectiveDuration2 > 0 && (loopPoints.a !== null || loopPoints.b !== null)) {
         this.uiDeps.loopPoints = {
-          a:
-            loopPoints.a !== null
-              ? (loopPoints.a / effectiveDuration2) * 100
-              : null,
-          b:
-            loopPoints.b !== null
-              ? (loopPoints.b / effectiveDuration2) * 100
-              : null,
+          a: loopPoints.a !== null ? (loopPoints.a / effectiveDuration2) * 100 : null,
+          b: loopPoints.b !== null ? (loopPoints.b / effectiveDuration2) * 100 : null,
         };
       }
       this.uiDeps.seeking = uiState.seeking;
@@ -564,12 +512,7 @@ export class WaveRollPlayer {
   public async initialize(): Promise<void> {
     // 1) Build structural layout (sidebar, player area, placeholders).
     const uiElements = this.getUIElements();
-    setupLayout(
-      this.container,
-      uiElements,
-      this.getUIDependencies(),
-      this.pianoRollContainer
-    );
+    setupLayout(this.container, uiElements, this.getUIDependencies(), this.pianoRollContainer);
 
     // 2) Now that the piano-roll container is in the DOM, initialise the
     //    visualization engine so that `getPianoRollInstance()` returns a
@@ -577,87 +520,73 @@ export class WaveRollPlayer {
     await this.visualizationEngine.initializePianoRoll(
       this.pianoRollContainer,
       [],
-      this.config.pianoRoll
+      this.config.pianoRoll,
     );
 
     // 3) Build playback/transport controls **after** piano-roll + audio
     //    player are ready so that dependencies like `pianoRoll` exist.
     const depsReady = this.getUIDependencies();
-    setupUI(
-      uiElements.controlsContainer,
-      uiElements.playerContainer,
-      depsReady
-    );
+    setupUI(uiElements.controlsContainer, uiElements.playerContainer, depsReady);
 
     /* ------------------------------------------------------------
      *  Listen for A-B loop changes coming from the loop controls
      *  and propagate them to the seek-bar overlay in real-time.
      * ---------------------------------------------------------- */
-    uiElements.controlsContainer.addEventListener(
-      "wr-loop-update",
-      (e: Event) => {
-        const { loopWindow } = (
-          e as CustomEvent<{
-            loopWindow: { prev: number | null; next: number | null } | null;
-          }>
-        ).detail;
+    uiElements.controlsContainer.addEventListener("wr-loop-update", (e: Event) => {
+      const { loopWindow } = (
+        e as CustomEvent<{
+          loopWindow: { prev: number | null; next: number | null } | null;
+        }>
+      ).detail;
 
-        // Map to LoopPoints format expected by UI deps (percent-based)
-        const lp = loopWindow
-          ? { a: loopWindow.prev, b: loopWindow.next }
-          : null;
+      // Map to LoopPoints format expected by UI deps (percent-based)
+      const lp = loopWindow ? { a: loopWindow.prev, b: loopWindow.next } : null;
 
-        // Persist on the shared dependencies object so the seek-bar update
-        // function can access the latest values.
-        const deps = this.getUIDependencies();
-        (
-          deps as UIComponentDependencies & {
-            loopPoints?: { a: number | null; b: number | null } | null;
-          }
-        ).loopPoints = lp;
+      // Persist on the shared dependencies object so the seek-bar update
+      // function can access the latest values.
+      const deps = this.getUIDependencies();
+      (
+        deps as UIComponentDependencies & {
+          loopPoints?: { a: number | null; b: number | null } | null;
+        }
+      ).loopPoints = lp;
 
-        // Also persist A/B markers into the StateManager (in seconds) so that
-        // markers survive UI refreshes and re-renders even before enabling loop.
-        try {
-          const effDur = this.getEffectiveDuration();
-          if (!lp) {
-            this.stateManager.setLoopPoints(null, null);
-          } else {
-            const aSec =
-              lp.a !== null && effDur > 0 ? (lp.a / 100) * effDur : null;
-            const bSec =
-              lp.b !== null && effDur > 0 ? (lp.b / 100) * effDur : null;
-            this.stateManager.setLoopPoints(aSec, bSec);
-            // console.log("setLoopPoints", aSec, bSec);
-          }
-        } catch {}
+      // Also persist A/B markers into the StateManager (in seconds) so that
+      // markers survive UI refreshes and re-renders even before enabling loop.
+      try {
+        const effDur = this.getEffectiveDuration();
+        if (!lp) {
+          this.stateManager.setLoopPoints(null, null);
+        } else {
+          const aSec = lp.a !== null && effDur > 0 ? (lp.a / 100) * effDur : null;
+          const bSec = lp.b !== null && effDur > 0 ? (lp.b / 100) * effDur : null;
+          this.stateManager.setLoopPoints(aSec, bSec);
+          // console.log("setLoopPoints", aSec, bSec);
+        }
+      } catch {}
 
-        // Force a seek-bar refresh immediately for snappy feedback.
-        // Use absolute (full-length) policy and reflect tempo/rate changes
-        // by computing effective duration.
-        const effectiveDuration = this.getEffectiveDuration();
+      // Force a seek-bar refresh immediately for snappy feedback.
+      // Use absolute (full-length) policy and reflect tempo/rate changes
+      // by computing effective duration.
+      const effectiveDuration = this.getEffectiveDuration();
 
-        // If loop A exists, snap seekbar preview to A for an instant visual anchor.
-        const startPct = lp?.a;
-        const startSec =
-          startPct !== null && startPct !== undefined && effectiveDuration > 0
-            ? (startPct / 100) * effectiveDuration
-            : this.visualizationEngine.getState().currentTime;
+      // If loop A exists, snap seekbar preview to A for an instant visual anchor.
+      const startPct = lp?.a;
+      const startSec =
+        startPct !== null && startPct !== undefined && effectiveDuration > 0
+          ? (startPct / 100) * effectiveDuration
+          : this.visualizationEngine.getState().currentTime;
 
-        deps.updateSeekBar?.({
-          currentTime: startSec,
-          duration: effectiveDuration,
-        });
-      }
-    );
+      deps.updateSeekBar?.({
+        currentTime: startSec,
+        duration: effectiveDuration,
+      });
+    });
 
     // 4) File-visibility toggle section (below controls)
     // Skip in solo mode
     if (!this.soloMode) {
-      this.fileToggleContainer = setupFileToggleSection(
-        uiElements.playerContainer,
-        depsReady
-      );
+      this.fileToggleContainer = setupFileToggleSection(uiElements.playerContainer, depsReady);
       uiElements.fileToggleContainer = this.fileToggleContainer;
     }
 
@@ -700,10 +629,7 @@ export class WaveRollPlayer {
    * Set up the sidebar
    */
   private setupSidebar(): void {
-    UILayoutManager.setupSidebar(
-      this.sidebarContainer,
-      this.getUIDependencies()
-    );
+    UILayoutManager.setupSidebar(this.sidebarContainer, this.getUIDependencies());
   }
 
   /**
@@ -721,7 +647,7 @@ export class WaveRollPlayer {
       path: string;
       name?: string;
       type?: "midi" | "audio";
-    }> = []
+    }> = [],
   ): Promise<void> {
     await this.fileLoader.loadSampleFiles(files, {
       onComplete: () => {
@@ -742,18 +668,9 @@ export class WaveRollPlayer {
             coreEngine?: any;
           };
           const audioPlayer = anyEngine.coreEngine?.audioPlayer;
-          if (
-            audioPlayer &&
-            typeof audioPlayer.setOnVisualUpdate === "function"
-          ) {
+          if (audioPlayer && typeof audioPlayer.setOnVisualUpdate === "function") {
             audioPlayer.setOnVisualUpdate(
-              ({
-                currentTime,
-              }: {
-                currentTime: number;
-                duration: number;
-                isPlaying: boolean;
-              }) => {
+              ({ currentTime }: { currentTime: number; duration: number; isPlaying: boolean }) => {
                 const effectiveDuration = this.getEffectiveDuration();
                 const deps = this.getUIDependencies();
                 deps.updateSeekBar?.({
@@ -761,7 +678,7 @@ export class WaveRollPlayer {
                   duration: effectiveDuration,
                 });
                 this.updateTimeDisplay(currentTime);
-              }
+              },
             );
           }
         } catch {}
@@ -796,7 +713,7 @@ export class WaveRollPlayer {
   private setupFileToggleSection(): void {
     this.fileToggleContainer = FileToggleManager.setupFileToggleSection(
       this.playerContainer,
-      this.getUIDependencies()
+      this.getUIDependencies(),
     );
   }
 
@@ -804,10 +721,7 @@ export class WaveRollPlayer {
    * Update file toggle section
    */
   private updateFileToggleSection(): void {
-    this.uiUpdater.updateFileToggleSection(
-      this.fileToggleContainer,
-      this.getUIDependencies()
-    );
+    this.uiUpdater.updateFileToggleSection(this.fileToggleContainer, this.getUIDependencies());
   }
 
   /**
@@ -865,9 +779,7 @@ export class WaveRollPlayer {
   private async openEvaluationResultsModal(): Promise<void> {
     const deps = this.getUIDependencies();
     if (deps) {
-      const mod = await import(
-        "@/lib/components/ui/settings/modal/evaluation-results"
-      );
+      const mod = await import("@/lib/components/ui/settings/modal/evaluation-results");
       mod.openEvaluationResultsModal(deps);
     }
   }
@@ -922,7 +834,7 @@ export class WaveRollPlayer {
    * Update UI permissions at runtime (e.g., readonly mode)
    */
   public setPermissions(
-    permissions: Partial<{ canAddFiles: boolean; canRemoveFiles: boolean }>
+    permissions: Partial<{ canAddFiles: boolean; canRemoveFiles: boolean }>,
   ): void {
     this.permissions = { ...this.permissions, ...permissions };
     // Ensure UI deps reflect latest permissions
@@ -1059,9 +971,7 @@ export class WaveRollPlayer {
    * Subscribe to appearance changes.
    * Returns an unsubscribe function.
    */
-  public onAppearanceChange(
-    callback: (settings: AppearanceSettings) => void
-  ): () => void {
+  public onAppearanceChange(callback: (settings: AppearanceSettings) => void): () => void {
     // Subscribe to midiManager state changes for palette/color changes
     const unsubMidi = this.midiManager.subscribe(() => {
       callback(this.getAppearanceSettings());
@@ -1139,10 +1049,7 @@ export class WaveRollPlayer {
    * @param data - File data as ArrayBuffer or Base64 string
    * @param filename - Original filename (used to determine file type)
    */
-  public async addFileFromData(
-    data: ArrayBuffer | string,
-    filename: string
-  ): Promise<void> {
+  public async addFileFromData(data: ArrayBuffer | string, filename: string): Promise<void> {
     const MIDI_EXTENSIONS = [".mid", ".midi"];
     const AUDIO_EXTENSIONS = [".wav", ".mp3", ".m4a", ".ogg"];
 
@@ -1179,15 +1086,15 @@ export class WaveRollPlayer {
         });
 
         const isVsCodeWebview =
-          typeof (globalThis as unknown as { acquireVsCodeApi?: unknown })
-            .acquireVsCodeApi === "function";
+          typeof (globalThis as unknown as { acquireVsCodeApi?: unknown }).acquireVsCodeApi ===
+          "function";
 
         const entryId = this.midiManager.addMidiFile(
           filename,
           parsed,
           // Keep file extension visible for VS Code integration
           filename,
-          file
+          file,
         );
 
         // Ensure VS Code shows the full filename (with extension)
@@ -1203,9 +1110,7 @@ export class WaveRollPlayer {
       try {
         const blob = new Blob([arrayBuffer], { type: `audio/${ext.slice(1)}` });
         const url = URL.createObjectURL(blob);
-        const { addAudioFileFromUrl } = await import(
-          "@/lib/core/waveform/register"
-        );
+        const { addAudioFileFromUrl } = await import("@/lib/core/waveform/register");
         await addAudioFileFromUrl(null, url, filename);
       } catch (err) {
         console.error("Failed to load audio file:", err);
@@ -1228,7 +1133,7 @@ export class WaveRollPlayer {
 export async function createWaveRollPlayer(
   container: HTMLElement,
   files: Array<{ path: string; name?: string }> = [],
-  options?: CreateWaveRollPlayerOptions
+  options?: CreateWaveRollPlayerOptions,
 ): Promise<WaveRollPlayer> {
   const demo = new WaveRollPlayer(container, files, options);
   await demo.initialize();

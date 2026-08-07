@@ -3,8 +3,8 @@
  * and triggers auto-pause functionality
  */
 
-import { VolumeStateManager } from './utils';
-import * as Tone from 'tone';
+import { VolumeStateManager } from "./utils";
+import * as Tone from "tone";
 
 export interface SilenceDetectorOptions {
   onSilenceDetected?: () => void;
@@ -12,7 +12,7 @@ export interface SilenceDetectorOptions {
   autoResumeOnUnmute?: boolean;
 }
 
-type SourceType = 'file' | 'wav';
+type SourceType = "file" | "wav";
 
 export class SilenceDetector {
   private fileVolumeManager: VolumeStateManager<string>;
@@ -26,7 +26,7 @@ export class SilenceDetector {
 
   constructor(options: SilenceDetectorOptions = {}) {
     this.options = options;
-    
+
     // Initialize volume managers without automatic handlers
     // We'll manually check for silence changes to have better control
     this.fileVolumeManager = new VolumeStateManager();
@@ -109,7 +109,7 @@ export class SilenceDetector {
    */
   public checkSilence(midiManager?: any): void {
     const wasAllSilent = this.isAllSilent();
-    
+
     // Sync with MIDI manager if available
     if (midiManager) {
       this.syncFromMidiManager(midiManager);
@@ -118,7 +118,11 @@ export class SilenceDetector {
     }
 
     // Check WAV files from global audio object
-    const audioAPI = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean }> } })._waveRollAudio;
+    const audioAPI = (
+      globalThis as unknown as {
+        _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean }> };
+      }
+    )._waveRollAudio;
     if (audioAPI?.getFiles) {
       const wavFiles = audioAPI.getFiles() || [];
       wavFiles.forEach((wav) => {
@@ -130,7 +134,7 @@ export class SilenceDetector {
         }
       });
     }
-    
+
     const isAllSilent = this.isAllSilent();
     this.handleSilenceChange(wasAllSilent, isAllSilent);
   }
@@ -177,7 +181,7 @@ export class SilenceDetector {
     const fileState = this.fileVolumeManager.getState();
     const wavState = this.wavVolumeManager.getState();
     const hasAnySources = fileState.sources.size > 0 || wavState.sources.size > 0;
-    
+
     if (!hasAnySources) {
       return false; // No sources means not silent (nothing to pause)
     }
@@ -185,11 +189,11 @@ export class SilenceDetector {
     // Both managers must report all their sources as silent
     const filesAreSilent = this.fileVolumeManager.isAllSilent();
     const wavsAreSilent = this.wavVolumeManager.isAllSilent();
-    
+
     // But if one has no sources, that's OK - only check the one with sources
     const fileHasSources = fileState.sources.size > 0;
     const wavHasSources = wavState.sources.size > 0;
-    
+
     if (fileHasSources && wavHasSources) {
       return filesAreSilent && wavsAreSilent;
     } else if (fileHasSources) {
@@ -197,7 +201,7 @@ export class SilenceDetector {
     } else if (wavHasSources) {
       return wavsAreSilent;
     }
-    
+
     return false;
   }
 
@@ -207,8 +211,8 @@ export class SilenceDetector {
   private handleSilenceChange(wasAllSilent: boolean, isAllSilent: boolean): void {
     // Broadcast event for UI components that want to reflect all-silent state (e.g. master mute icon)
     try {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('wr-silence-changed', { detail: { isAllSilent } }));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("wr-silence-changed", { detail: { isAllSilent } }));
       }
     } catch {}
     if (!wasAllSilent && isAllSilent) {
@@ -230,7 +234,7 @@ export class SilenceDetector {
         }
         // Do not auto-pause while transport is running (user-intended mute of all sources)
         try {
-          if (Tone.getTransport().state === 'started') {
+          if (Tone.getTransport().state === "started") {
             return;
           }
         } catch {}
@@ -277,7 +281,13 @@ export class SilenceDetector {
       }
 
       // Check WAV registry
-      const audioAPI = (globalThis as unknown as { _waveRollAudio?: { getFiles?: () => Array<{ id: string; isMuted: boolean; isVisible: boolean }> } })._waveRollAudio;
+      const audioAPI = (
+        globalThis as unknown as {
+          _waveRollAudio?: {
+            getFiles?: () => Array<{ id: string; isMuted: boolean; isVisible: boolean }>;
+          };
+        }
+      )._waveRollAudio;
       if (audioAPI?.getFiles) {
         const wavFiles = audioAPI.getFiles() || [];
         const anyAudibleWav = wavFiles.some((w) => w && w.isVisible && w.isMuted === false);

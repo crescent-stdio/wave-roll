@@ -24,14 +24,17 @@ function ensureAPI(): WaveRollAudioAPI {
         }
         return out;
       },
-      sampleAtTime(time: number): Omit<PeakDatum, 'time'> | null {
+      sampleAtTime(time: number): Omit<PeakDatum, "time"> | null {
         // Return the max of all visible audio tracks at this time
-        let result: Omit<PeakDatum, 'time'> | null = null;
+        let result: Omit<PeakDatum, "time"> | null = null;
         for (const a of store.items) {
           if (!a.isVisible || !a.peaks || !a.audioBuffer) continue;
           const duration = a.audioBuffer.duration;
           if (duration <= 0) continue;
-          const idx = Math.max(0, Math.min(a.peaks.max.length - 1, Math.floor((time / duration) * a.peaks.max.length)));
+          const idx = Math.max(
+            0,
+            Math.min(a.peaks.max.length - 1, Math.floor((time / duration) * a.peaks.max.length)),
+          );
           const v = {
             min: a.peaks.min[idx],
             max: a.peaks.max[idx],
@@ -77,7 +80,7 @@ function ensureAPI(): WaveRollAudioAPI {
           store.items.splice(idx, 1);
           // Notify UI components of change
           try {
-            window.dispatchEvent(new CustomEvent('wr-audio-files-changed'));
+            window.dispatchEvent(new CustomEvent("wr-audio-files-changed"));
           } catch {}
         }
       },
@@ -93,16 +96,16 @@ export async function addAudioFileFromUrl(
   _fileManager: any,
   url: string,
   displayName?: string,
-  color?: number
+  color?: number,
 ): Promise<string> {
   const api = ensureAPI();
-  
+
   // Limit to single audio file - remove existing files
   const existingFiles = api.getFiles();
   for (const file of existingFiles) {
     api.remove?.(file.id);
   }
-  
+
   const id = generateAudioFileId();
   const entry: RegisteredAudio = {
     id,
@@ -118,7 +121,7 @@ export async function addAudioFileFromUrl(
 
   // Notify UI components of change
   try {
-    window.dispatchEvent(new CustomEvent('wr-audio-files-changed'));
+    window.dispatchEvent(new CustomEvent("wr-audio-files-changed"));
   } catch {}
 
   // Decode audio and compute peaks lazily

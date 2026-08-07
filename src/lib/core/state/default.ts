@@ -1,12 +1,14 @@
-import { AppState, StateManagerConfig } from "./types";
-import { UIState } from "./types";
-import { PlaybackState } from "./types";
-import { FileVisibilityState } from "./types";
-import { LoopPointsState } from "./types";
-import { PanVolumeState } from "./types";
-import { VisualState } from "./types";
-import type { OnsetMarkerStyle } from "@/types";
-import { EvaluationState } from "./types";
+import {
+  AppState,
+  StateManagerConfig,
+  UIState,
+  PlaybackState,
+  FileVisibilityState,
+  LoopPointsState,
+  PanVolumeState,
+  VisualState,
+  EvaluationState,
+} from "./types";
 
 export const DEFAULT_STATE_CONFIG: StateManagerConfig = {
   defaultVolume: 1.0,
@@ -64,6 +66,9 @@ export const DEFAULT_VISUAL_STATE: VisualState = {
   showOnsetMarkers: true,
   fileOnsetMarkers: {},
   uniformTrackColor: false,
+  tempoSyncEnabled: false,
+  snapToGridEnabled: false,
+  snapResolution: "8th",
 };
 
 export const DEFAULT_EVALUATION_STATE: EvaluationState = {
